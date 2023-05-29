@@ -1,8 +1,8 @@
 // Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
 // ============ НАЛАШТУЙ МЕНЕ ============
 //Налаштування WiFi
-char* ssid = "rabbits"; //Назва твоєї мережі WiFi
-char* password = "zayatcs25521243"; //Пароль від твого WiFi
+char* ssid = ""; //Назва твоєї мережі WiFi
+char* password = ""; //Пароль від твого WiFi
 //Налштування за замовчуванням
 bool enabled = true; //Ввімкнена/вимкнена карта
 int brightness = 100; //Яскравість %
@@ -19,7 +19,7 @@ const int night = 23; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 50; //Нічна яскравість %
 //Для погоди
-const char* apiKey = "c42681760f292b7bd667e4010a1e5ea8"; //API погоди
+const char* apiKey = ""; //API погоди
 float minTemp = -10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 //Налаштуванння режимів
