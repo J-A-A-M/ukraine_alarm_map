@@ -1,27 +1,32 @@
 // Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
 // ============ НАЛАШТУЙ МЕНЕ ============
 //Налаштування WiFi
-char* ssid = ""; //Назва твоєї мережі WiFi
-char* password = ""; //Пароль від твого WiFi
+char* ssid = "rabbits"; //Назва твоєї мережі WiFi
+char* password = "zayatcs25521243"; //Пароль від твого WiFi
+
 //Налштування за замовчуванням
 bool enabled = true; //Ввімкнена/вимкнена карта
 int brightness = 100; //Яскравість %
 bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
-int mode = 1; //Режим 
+int mode = 1; //Режим
 bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області, після заверешення тривоги в вибраній області режим не повертається на своє місце
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
-//Налаштування телеграм бота 
+
+//Налаштування телеграм бота
 #define BOTtoken ""
 #define CHAT_ID ""
+
 //Налаштування авто-яскравості
 const int day = 8; //Початок дня
 const int night = 23; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 50; //Нічна яскравість %
+
 //Для погоди
-const char* apiKey = ""; //API погоди
+const char* apiKey = "c42681760f292b7bd667e4010a1e5ea8"; //API погоди
 float minTemp = -10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+
 //Налаштуванння режимів
 int statesIdsCheck[] = { //Вибери області при тривозі в яких буде пермикатися режим на тривоги (1 - область активована; 0 - не активована)
 0, //Закарпатська область
@@ -52,6 +57,67 @@ int statesIdsCheck[] = { //Вибери області при тривозі в 
 0, //Хмельницька область
 0  //Чернівецька область
 };
+
+static String states[] = {
+  "Закарпатська область",
+  "Івано-Франківська область",
+  "Тернопільська область",
+  "Львівська область",
+  "Волинська область",
+  "Рівненська область",
+  "Житомирська область",
+  "м. Київ",
+  "Київська область",
+  "Чернігівська область",
+  "Сумська область",
+  "Харківська область",
+  "Луганська область",
+  "Донецька область",
+  "Запорізька область",
+  "Херсонська область",
+  "АР Крим",
+  "Одеська область",
+  "Одеська область",
+  "Миколаївська область",
+  "Дніпропетровська область",
+  "Полтавська область",
+  "Черкаська область",
+  "Кіровоградська область",
+  "Вінницька область",
+  "Хмельницька область",
+  "Чернівецька область"
+};
+
+int statesIds[] = {
+  690548,
+  707471,
+  691650,
+  702550,
+  702569,
+  695594,
+  686967,
+  703447,
+  703448,
+  710735,
+  692194,
+  706483,
+  702658,
+  709717,
+  687700,
+  706448,
+  703883,
+  698740,
+  698740,
+  700569,
+  709930,
+  696643,
+  710719,
+  705811,
+  689558,
+  706369,
+  710719
+};
+
 // =======================================
 
 #include <ArduinoJson.h> //json для аналізу інформації
@@ -76,8 +142,6 @@ WebServer server(80);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 DynamicJsonDocument doc(30000);
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
-static String states[] = {"Закарпатська область", "Івано-Франківська область", "Тернопільська область", "Львівська область", "Волинська область", "Рівненська область", "Житомирська область", "м. Київ", "Київська область", "Чернігівська область", "Сумська область", "Харківська область", "Луганська область", "Донецька область", "Запорізька область", "Херсонська область", "АР Крим", "Одеська область", "Одеська область", "Миколаївська область", "Дніпропетровська область", "Полтавська область", "Черкаська область", "Кіровоградська область", "Вінницька область", "Хмельницька область", "Чернівецька область" };
-int statesIds[] = { 690548, 707471, 691650, 702550, 702569, 695594, 686967, 703447, 703448, 710735, 692194, 706483, 702658, 709717, 687700, 706448, 703883, 698740, 698740, 700569, 709930, 696643, 710719, 705811, 689558, 706369, 710719 };
 WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
@@ -100,12 +164,12 @@ static bool wifiConnected;
 static bool firstUpdate = true;
 
 
-void setup_routing() {	 	 ;	 	 
+void setup_routing() {	 	 ;
   server.on("/params", HTTP_POST, handlePost);
-  server.on("/params", HTTP_GET, getEnv);	 	 
-  	 	 
-  // start server	 	 
-  server.begin();	 	 
+  server.on("/params", HTTP_GET, getEnv);
+
+  // start server
+  server.begin();
 }
 
 void handlePost() {
@@ -114,7 +178,7 @@ void handlePost() {
   }
   String body = server.arg("plain");
   deserializeJson(jsonDocument, body);
-  
+
   // Get brightness
   int brightness = jsonDocument["brightness"];
   int auto_brightness_on = jsonDocument["auto_brightness_on"];
@@ -162,7 +226,7 @@ void handlePost() {
 
 void getEnv() {
   Serial.println("Get temperature");
-  jsonDocument.clear();  
+  jsonDocument.clear();
   jsonDocument["brightness"] = brightness;
   jsonDocument["autobrightness"] = autoBrightness;
   jsonDocument["mode"] = mode;
@@ -254,6 +318,7 @@ void setup() {
 	initTime();
   setup_routing();
 }
+
 void loop() {
 	wifiConnected = WiFi.status() == WL_CONNECTED;
 	if (wifiConnected) {
@@ -323,21 +388,47 @@ void loop() {
 
 					if (autoSwitch && enable && statesIdsCheck[i]==1&& mode != 1) {
 							mode = 1;
-					}					
+					}
 				}
 				if (mode == 1) {
-					//тривоги    
+					//тривоги
 					for (int i = 0; i < arrSize; i++)
 					{
 						switch (ledColor[i]) {
-						case 1: strip.setPixelColor(i, strip.Color(255,0,0)); break;
-						case 2: strip.setPixelColor(i, strip.Color(255,140,0)); break;
+						case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
+						case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
 						case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-						case 3: strip.setPixelColor(i, strip.Color(0,255,0)); break;
+						case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
 						}
 					}
 					strip.show();
+          //RED BLYNK
+          int blinkCounter = 0;
+          bool blinkState = false;
 
+          //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
+          //  strip.setBrightness(255); // Встановити максимальну яскравість
+            for (int i = 0; i < 200; i++) { // За 200 циклів
+              blinkCounter++;
+              if (blinkCounter >= 10) {
+                blinkCounter = 0;
+                blinkState = !blinkState;
+              }
+              if (blinkState) {
+                switch (ledColor[7]) {
+                case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
+                case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
+                case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
+                case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
+                }
+              } else {
+                strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
+              }
+              strip.show(); // Оновити світлодіодну стрічку
+              delay(100); // Затримка 100 мілісекунд
+            }
+          //}
+          // RED BLYNK
 				}
 				if (mode == 2) {
 					// Loop through the city IDs and get the current weather for each city
