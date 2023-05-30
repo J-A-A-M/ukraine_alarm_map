@@ -253,75 +253,75 @@ void getEnv() {
 
 
 void initWiFi() {
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
-	if (WiFi.status() != WL_CONNECTED) {
-		bool res;
-		res = wm.autoConnect("AlarmMap", ""); //точка достпу для налаштування WiFi, другі лапки - пароль
-		if (!res) {
-			Serial.println("Помилка підключення");
-			ESP.restart();
-		}
-		else {
-			Serial.println("Підключено :)");
-		}
-	}
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  if (WiFi.status() != WL_CONNECTED) {
+    bool res;
+    res = wm.autoConnect("AlarmMap", ""); //точка достпу для налаштування WiFi, другі лапки - пароль
+    if (!res) {
+      Serial.println("Помилка підключення");
+      ESP.restart();
+    }
+    else {
+      Serial.println("Підключено :)");
+    }
+  }
 }
 void colorWipe(int wait) {
-	int count = sizeof(ledColorYellow) / sizeof(int);
-	for (int i = 0; i < count; i++) { // For each pixel in strip...
-		strip.setPixelColor(ledColorBlue[i], strip.Color(0,191,255));
-		strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,51));//  Set pixel's color (in RAM)
-		strip.show();                          //  Update strip to match
-		delay(wait);                           //  Pause for a moment
-	}
+  int count = sizeof(ledColorYellow) / sizeof(int);
+  for (int i = 0; i < count; i++) { // For each pixel in strip...
+    strip.setPixelColor(ledColorBlue[i], strip.Color(0,191,255));
+    strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,51));//  Set pixel's color (in RAM)
+    strip.show();                          //  Update strip to match
+    delay(wait);                           //  Pause for a moment
+  }
 }
 void initStrip() {
-	strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-	strip.show();            // Turn OFF all pixels ASAP
-	strip.setBrightness(brightness * 2.55);
-	colorWipe(120);
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(brightness * 2.55);
+  colorWipe(120);
 }
 void initTime() {
-	// Встановлюємо початкове значення літнього часу на false
-	bool isDaylightSaving = false;
+  // Встановлюємо початкове значення літнього часу на false
+  bool isDaylightSaving = false;
 
-	// Отримуємо поточну дату та час з сервера NTP
-	timeClient.begin();
-	timeClient.update();
-	String formattedTime = timeClient.getFormattedTime();
+  // Отримуємо поточну дату та час з сервера NTP
+  timeClient.begin();
+  timeClient.update();
+  String formattedTime = timeClient.getFormattedTime();
 
-	// Розбиваємо рядок з форматованим часом на складові
-	int day, month, year, hour, minute, second;
-	sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
+  // Розбиваємо рядок з форматованим часом на складові
+  int day, month, year, hour, minute, second;
+  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
 
-	// Перевіряємо, чи поточний місяць знаходиться в інтервалі березень-жовтень
-	if (month >= 3 && month <= 10) {
-		// Якщо так, встановлюємо літній час на true
-		isDaylightSaving = true;
-	}
+  // Перевіряємо, чи поточний місяць знаходиться в інтервалі березень-жовтень
+  if (month >= 3 && month <= 10) {
+    // Якщо так, встановлюємо літній час на true
+    isDaylightSaving = true;
+  }
 
-	// Встановлюємо зміщення часового поясу для врахування літнього часу
-	if (isDaylightSaving) {
-		timeClient.setTimeOffset(14400); // UTC+3 для України
-	}
-	else {
-		timeClient.setTimeOffset(10800); // UTC+2 для України
-	}
+  // Встановлюємо зміщення часового поясу для врахування літнього часу
+  if (isDaylightSaving) {
+    timeClient.setTimeOffset(14400); // UTC+3 для України
+  }
+  else {
+    timeClient.setTimeOffset(10800); // UTC+2 для України
+  }
 }
 
 uint32_t celsiusToRGB(float temp) {
 
   float red = 255 / (maxTemp - minTemp) * (temp - minTemp);
   float blue = 255 / (maxTemp - minTemp) * (maxTemp - temp);
-	uint8_t green = 0;  // значення зеленого кольору
-	return ((uint8_t)red << 16) | ((uint8_t)green << 8) | (uint8_t)blue;  // повертає RGB колір
+  uint8_t green = 0;  // значення зеленого кольору
+  return ((uint8_t)red << 16) | ((uint8_t)green << 8) | (uint8_t)blue;  // повертає RGB колір
 }
 void setup() {
-	initStrip();
-	initWiFi();
-	Serial.begin(115200);
-	initTime();
+  initStrip();
+  initWiFi();
+  Serial.begin(115200);
+  initTime();
   setup_routing();
 }
 
@@ -334,163 +334,162 @@ void loop() {
     ESP.restart();
   }
 
-	if (wifiConnected) {
+  if (wifiConnected) {
     server.handleClient();
-		if (enabled) {
-			if (millis() - lastTime > period || firstUpdate) {
-				if (autoBrightness) {
-					//авто яскравість
-					timeClient.update();
-					int currentHour = timeClient.getHours();
-					bool isDay = currentHour >= day && currentHour < night;
-					brightness = isDay ? dayBrightness : nightBrightness;
-					for (int i = 0; i < LED_COUNT; i++) {
-						strip.setBrightness(brightness * 2.55);
-					}
-					strip.show();
-				}
-				firstUpdate = false;
-				String response;
-				HTTPClient http;
-				http.begin(baseURL.c_str());
-				// Send HTTP GET request
-				int httpResponseCode = http.GET();
+    if (enabled) {
+      if (millis() - lastTime > period || firstUpdate) {
+        if (autoBrightness) {
+          //авто яскравість
+          timeClient.update();
+          int currentHour = timeClient.getHours();
+          bool isDay = currentHour >= day && currentHour < night;
+          brightness = isDay ? dayBrightness : nightBrightness;
+          for (int i = 0; i < LED_COUNT; i++) {
+            strip.setBrightness(brightness * 2.55);
+          }
+          strip.show();
+        }
+        firstUpdate = false;
+        String response;
+        HTTPClient http;
+        http.begin(baseURL.c_str());
+        // Send HTTP GET request
+        int httpResponseCode = http.GET();
 
-				if (httpResponseCode == 200) {
-					response = http.getString();
-				}
-				else {
-					return;
-				}
-				// Free resources
-				http.end();
-				DeserializationError error = deserializeJson(doc, response);
-				if (error) {
-					return;
+        if (httpResponseCode == 200) {
+          response = http.getString();
+        }
+        else {
+          return;
+        }
+        // Free resources
+        http.end();
+        DeserializationError error = deserializeJson(doc, response);
+        if (error) {
+          return;
+        }
+        unsigned long  t = millis();
+        unsigned long hv = 180000;
+        lastTime = t;
+        alarmsNowCount = 0;
+        for (int i = 0; i < arrSize; i++) {
+          enable = doc["states"][states[i]]["enabled"].as<bool>();
+          if (enable && times[i] == 0) {
+            times[i] = t;
+            ledColor[i] = 2;
+          }
+          else if (enable && times[i] + hv > t && ledColor[i] != 1) {
+            ledColor[i] = 2;
 
-				}
-				unsigned long  t = millis();
-				unsigned long hv = 180000;
-				lastTime = t;
-				alarmsNowCount = 0;
-				for (int i = 0; i < arrSize; i++) {
-					enable = doc["states"][states[i]]["enabled"].as<bool>();
-					if (enable && times[i] == 0) {
-						times[i] = t;
-						ledColor[i] = 2;
-					}
-					else if (enable && times[i] + hv > t && ledColor[i] != 1) {
-						ledColor[i] = 2;
+          }
+          else if (enable) {
+            ledColor[i] = 1;
+            times[i] = t;
+          }
 
-					}
-					else if (enable) {
-						ledColor[i] = 1;
-						times[i] = t;
-					}
+          if (!enable && times[i] + hv > t && times[i] != 0) {
+            ledColor[i] = 3;
+          }
+          else if (!enable) {
+            ledColor[i] = 0;
+            times[i] = 0;
+          }
 
-					if (!enable && times[i] + hv > t && times[i] != 0) {
-						ledColor[i] = 3;
-					}
-					else if (!enable) {
-						ledColor[i] = 0;
-						times[i] = 0;
-					}
-
-					if (autoSwitch && enable && statesIdsCheck[i]==1&& mode != 1) {
-							mode = 1;
-					}
-				}
-				if (mode == 1) {
-					//тривоги
-					for (int i = 0; i < arrSize; i++)
-					{
-						switch (ledColor[i]) {
-						case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-						case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
-						case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-						case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
-						}
-					}
-					strip.show();
-                      if (blink) {
-                        //RED BLYNK
-                        int blinkCounter = 0;
-                        bool blinkState = false;
+          if (autoSwitch && enable && statesIdsCheck[i]==1&& mode != 1) {
+              mode = 1;
+          }
+        }
+        if (mode == 1) {
+          //тривоги
+          for (int i = 0; i < arrSize; i++)
+          {
+            switch (ledColor[i]) {
+            case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
+            case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
+            case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
+            case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
+            }
+          }
+          strip.show();
+          if (blink) {
+            //RED BLYNK
+            int blinkCounter = 0;
+            bool blinkState = false;
 
 
-                        //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
-                          for (int i = 0; i < 200; i++) { // За 200 циклів
-                            blinkCounter++;
-                            if (blinkCounter >= 10) {
-                              blinkCounter = 0;
-                              blinkState = !blinkState;
-                            }
-                            if (blinkState) {
-                              switch (ledColor[7]) {
-                              case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
-                              case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
-                              case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
-                              case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
-                              }
-                            } else {
-                              strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
-                            }
-                            strip.show(); // Оновити світлодіодну стрічку
-                            delay(100); // Затримка 100 мілісекунд
-                          }
-                        //}
-                        // RED BLYNK
-                      }
-				}
-				if (mode == 2) {
-					// Loop through the city IDs and get the current weather for each city
-					for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
-						// Construct the URL for the API call
-						String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
-						// Make the HTTP request
-						HTTPClient http;
-						http.begin(apiUrl);
-						int httpResponseCode = http.GET();
-						Serial.println(httpResponseCode);
-						// If the request was successful, parse the JSON response
-						if (httpResponseCode == 200) {
-							String payload = http.getString();
-							StaticJsonDocument<512> doc;
-							deserializeJson(doc, payload);
+            //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
+              for (int i = 0; i < 200; i++) { // За 200 циклів
+                blinkCounter++;
+                if (blinkCounter >= 10) {
+                  blinkCounter = 0;
+                  blinkState = !blinkState;
+                }
+                if (blinkState) {
+                  switch (ledColor[7]) {
+                  case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
+                  case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
+                  case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
+                  case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
+                  }
+                } else {
+                  strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
+                }
+                strip.show(); // Оновити світлодіодну стрічку
+                delay(100); // Затримка 100 мілісекунд
+              }
+            //}
+            // RED BLYNK
+          }
+        }
+        if (mode == 2) {
+          // Loop through the city IDs and get the current weather for each city
+          for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
+            // Construct the URL for the API call
+            String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
+            // Make the HTTP request
+            HTTPClient http;
+            http.begin(apiUrl);
+            int httpResponseCode = http.GET();
+            Serial.println(httpResponseCode);
+            // If the request was successful, parse the JSON response
+            if (httpResponseCode == 200) {
+              String payload = http.getString();
+              StaticJsonDocument<512> doc;
+              deserializeJson(doc, payload);
 
-							// Extract the temperature from the JSON response
-							double temp = doc["main"]["temp"];
-							uint32_t color = celsiusToRGB(temp);
+              // Extract the temperature from the JSON response
+              double temp = doc["main"]["temp"];
+              uint32_t color = celsiusToRGB(temp);
 
-							// Update the corresponding pixels on the NeoPixel strip
-							int startPixel = i * (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
-							Serial.println(startPixel);
-							int endPixel = startPixel + (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
-							Serial.println(endPixel);
-							for (int j = startPixel; j < endPixel; j++) {
-								strip.setPixelColor(j, color);
-								Serial.println(color);
-							}
-						}
-						else {
-							Serial.print("Error getting weather data for city ID ");
-							Serial.println(statesIds[i]);
-						}
-						// Clean up the HTTP connection
-						http.end();
-						strip.show();
-					}
-					lastTime = millis();
-				}
-				if (mode == 3) {
-					colorWipe(10);
+              // Update the corresponding pixels on the NeoPixel strip
+              int startPixel = i * (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
+              Serial.println(startPixel);
+              int endPixel = startPixel + (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
+              Serial.println(endPixel);
+              for (int j = startPixel; j < endPixel; j++) {
+                strip.setPixelColor(j, color);
+                Serial.println(color);
+              }
+            }
+            else {
+              Serial.print("Error getting weather data for city ID ");
+              Serial.println(statesIds[i]);
+            }
+            // Clean up the HTTP connection
+            http.end();
+            strip.show();
+          }
+          lastTime = millis();
+        }
+        if (mode == 3) {
+          colorWipe(10);
                     delay(10000);
-				}
-			}
-		}
-		else {
-			strip.clear();
-			strip.show();
-		}
-	}
+        }
+      }
+    }
+    else {
+      strip.clear();
+      strip.show();
+    }
+  }
 }
