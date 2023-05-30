@@ -12,6 +12,9 @@ int mode = 1; //Режим
 bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області, після заверешення тривоги в вибраній області режим не повертається на своє місце
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 bool blink = true;
+int blinkDistricts[] = {
+  7
+};
 
 //Налаштування телеграм бота
 #define BOTtoken ""
@@ -46,7 +49,7 @@ int statesIdsCheck[] = { //Вибери області при тривозі в 
 0, //Донецька область
 0, //Запорізька область
 0, //Херсонська область
-0, //АР Крим
+0, //Автономна Республіка Крим
 0, //Одеська область
 0, //Одеська область
 0, //Миколаївська область
@@ -76,7 +79,7 @@ static String states[] = {
   "Донецька область",
   "Запорізька область",
   "Херсонська область",
-  "АР Крим",
+  "Автономна Республіка Крим",
   "Одеська область",
   "Одеська область",
   "Миколаївська область",
@@ -142,7 +145,8 @@ WebServer server(80);
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 DynamicJsonDocument doc(30000);
-String baseURL = "https://vadimklimenko.com/map/statuses.json";
+//String baseURL = "https://vadimklimenko.com/map/statuses.json";
+String baseURL = "http://10.2.0.40:8185/alarm_map";
 WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
@@ -155,6 +159,7 @@ static int ledColorBlue[] = { 4,5,6,7,8,9,10,11,12,21,22, };
 static int ledColorYellow[] = { 0,1,2,3,12,13,14,15,16,17,18,19,20,23,24,25,26 };
 int arrAlarms = sizeof(ledColor) / sizeof(int);
 int arrSize = sizeof(states) / sizeof(String);
+int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
 bool enable = false;
 int period = 10000;
 int alarmsNowCount = 0;
@@ -347,7 +352,6 @@ void loop() {
     server.handleClient();
     if (enabled) {
       if (autoBrightness) {
-        //авто яскравість
         timeClient.update();
         int currentHour = timeClient.getHours();
         bool isDay = currentHour >= day && currentHour < night;
@@ -425,22 +429,22 @@ void loop() {
           bool blinkState = false;
 
           //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
-            for (int i = 0; i < 10; i++) { // За 200 циклів
+            for (int i = 0; i < 10; i++) {
               blinkCounter++;
-
               blinkState = !blinkState;
-
-              if (blinkState) {
-                switch (ledColor[7]) {
-                case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
-                case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
-                case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
-                case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
+              for (int i = 0; i < arrDistrictsSize; i++) {
+                if (blinkState) {
+                  switch (ledColor[blinkDistricts[i]]) {
+                  case 1: strip.setPixelColor(blinkDistricts[i], strip.Color(255, 0, 0)); break;
+                  case 2: strip.setPixelColor(blinkDistricts[i], strip.Color(255, 55, 0)); break;
+                  case 0: if (greenStates) {} else {strip.setPixelColor(blinkDistricts[i], strip.Color(0, 0, 0)); break;}
+                  case 3: strip.setPixelColor(blinkDistricts[i], strip.Color(0, 255, 0)); break;
+                  }
+                } else {
+                  strip.setPixelColor(blinkDistricts[i], strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
                 }
-              } else {
-                strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
-              }
-              strip.show(); // Оновити світлодіодну стрічку
+                strip.show();
+              } // Оновити світлодіодну стрічку
               delay(1000); // Затримка 100 мілісекунд
             }
           //}
