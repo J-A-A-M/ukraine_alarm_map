@@ -11,6 +11,7 @@ bool autoBrightness = true; //Ввімкнена/вимкнена авто яс�
 int mode = 1; //Режим
 bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області, після заверешення тривоги в вибраній області режим не повертається на своє місце
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
+bool blink = true;
 
 //Налаштування телеграм бота
 #define BOTtoken ""
@@ -154,12 +155,11 @@ static int ledColorBlue[] = { 4,5,6,7,8,9,10,11,12,21,22, };
 static int ledColorYellow[] = { 0,1,2,3,12,13,14,15,16,17,18,19,20,23,24,25,26 };
 int arrAlarms = sizeof(ledColor) / sizeof(int);
 int arrSize = sizeof(states) / sizeof(String);
-bool startMessage = false;
 bool enable = false;
-int period = 15000;
+int period = 10000;
 unsigned long lastTime;
-static int alarmsNowCount = 0;
-static int prevAlarms = 0;
+int alarmsNowCount = 0;
+int prevAlarms = 0;
 static bool wifiConnected;
 static bool firstUpdate = true;
 
@@ -187,6 +187,8 @@ void handlePost() {
   int map_enable = jsonDocument["map_enable"];
   int map_disable = jsonDocument["map_disable"];
   int set_mode = jsonDocument["mode"];
+  int blink_enable = jsonDocument["blink_enable"];
+  int blink_disable = jsonDocument["blink_disable"];
   Serial.print("brightness: ");
   Serial.print(brightness);
 
@@ -220,6 +222,14 @@ void handlePost() {
     enabled = false;
   }
 
+  if(blink_enable) {
+    blink = true;
+  }
+
+  if(blink_disable) {
+    blink = false;
+  }
+
   // Respond to the client
   server.send(200, "application/json", "{}");
 }
@@ -235,6 +245,8 @@ void getEnv() {
   jsonDocument["greenStates"] = greenStates;
   jsonDocument["alarmsNowCount"] = alarmsNowCount;
   jsonDocument["greenStates"] = greenStates;
+  jsonDocument["blink"] = blink;
+  jsonDocument["period"] = period;
   serializeJson(jsonDocument, buffer);
   server.send(200, "application/json", buffer);
 }
@@ -268,7 +280,7 @@ void initStrip() {
 	strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
 	strip.show();            // Turn OFF all pixels ASAP
 	strip.setBrightness(brightness * 2.55);
-	colorWipe(60);
+	colorWipe(120);
 }
 void initTime() {
 	// Встановлюємо початкове значення літнього часу на false
@@ -298,16 +310,10 @@ void initTime() {
 	}
 }
 
-uint32_t celsiusToRGB(float temperature) {
-	float normTemp = 0.0;   // нормалізована температура
-	if (temperature < 0) {
-		normTemp = (temperature - minTemp) / (0.0 - minTemp);
-	}
-	else {
-		normTemp = (temperature - 0.0) / (maxTemp - 0.0);
-	}
-	float red = 255 * normTemp;  // значення червоного кольору
-	float blue = 255 * (1 - normTemp);  // значення синього кольору
+uint32_t celsiusToRGB(float temp) {
+
+  float red = 255 / (maxTemp - minTemp) * (temp - minTemp);
+  float blue = 255 / (maxTemp - minTemp) * (maxTemp - temp);
 	uint8_t green = 0;  // значення зеленого кольору
 	return ((uint8_t)red << 16) | ((uint8_t)green << 8) | (uint8_t)blue;  // повертає RGB колір
 }
@@ -321,11 +327,15 @@ void setup() {
 
 void loop() {
 	wifiConnected = WiFi.status() == WL_CONNECTED;
+
+  if (!wifiConnected) {
+    colorWipe(10);
+    delay(10000);
+    ESP.restart();
+  }
+
 	if (wifiConnected) {
     server.handleClient();
-		if (!startMessage && WiFi.status() == WL_CONNECTED) {
-			startMessage = true;
-		}
 		if (enabled) {
 			if (millis() - lastTime > period || firstUpdate) {
 				if (autoBrightness) {
@@ -402,33 +412,35 @@ void loop() {
 						}
 					}
 					strip.show();
-          //RED BLYNK
-          int blinkCounter = 0;
-          bool blinkState = false;
+                      if (blink) {
+                        //RED BLYNK
+                        int blinkCounter = 0;
+                        bool blinkState = false;
 
-          //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
-          //  strip.setBrightness(255); // Встановити максимальну яскравість
-            for (int i = 0; i < 200; i++) { // За 200 циклів
-              blinkCounter++;
-              if (blinkCounter >= 10) {
-                blinkCounter = 0;
-                blinkState = !blinkState;
-              }
-              if (blinkState) {
-                switch (ledColor[7]) {
-                case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
-                case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
-                case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
-                case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
-                }
-              } else {
-                strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
-              }
-              strip.show(); // Оновити світлодіодну стрічку
-              delay(100); // Затримка 100 мілісекунд
-            }
-          //}
-          // RED BLYNK
+
+                        //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
+                          for (int i = 0; i < 200; i++) { // За 200 циклів
+                            blinkCounter++;
+                            if (blinkCounter >= 10) {
+                              blinkCounter = 0;
+                              blinkState = !blinkState;
+                            }
+                            if (blinkState) {
+                              switch (ledColor[7]) {
+                              case 1: strip.setPixelColor(77, strip.Color(255, 0, 0)); break;
+                              case 2: strip.setPixelColor(7, strip.Color(255, 55, 0)); break;
+                              case 0: if (greenStates) {} else {strip.setPixelColor(7, strip.Color(0, 0, 0)); break;}
+                              case 3: strip.setPixelColor(7, strip.Color(0, 255, 0)); break;
+                              }
+                            } else {
+                              strip.setPixelColor(7, strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
+                            }
+                            strip.show(); // Оновити світлодіодну стрічку
+                            delay(100); // Затримка 100 мілісекунд
+                          }
+                        //}
+                        // RED BLYNK
+                      }
 				}
 				if (mode == 2) {
 					// Loop through the city IDs and get the current weather for each city
@@ -471,25 +483,14 @@ void loop() {
 					lastTime = millis();
 				}
 				if (mode == 3) {
-					int count = sizeof(ledColorYellow) / sizeof(int);
-					for (int i = 0; i < count; i++) { // For each pixel in strip...
-						strip.setPixelColor(ledColorBlue[i], strip.Color(0,191,255));
-		        strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,51));//  Set pixel's color (in RAM)
-						strip.show();
-					}
+					colorWipe(10);
+                    delay(10000);
 				}
 			}
 		}
 		else {
 			strip.clear();
 			strip.show();
-			// success_message();
 		}
-	}
-	else {
-		strip.clear();
-		strip.show();
-		delay(10000);
-		ESP.restart();
 	}
 }
