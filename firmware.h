@@ -1,8 +1,8 @@
 // Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
 // ============ НАЛАШТУЙ МЕНЕ ============
 //Налаштування WiFi
-char* ssid = ""; //Назва твоєї мережі WiFi
-char* password = ""; //Пароль від твого WiFi
+char* ssid = "rabbits"; //Назва твоєї мережі WiFi
+char* password = "zayatcs25521243"; //Пароль від твого WiFi
 
 //Налштування за замовчуванням
 bool enabled = true; //Ввімкнена/вимкнена карта
@@ -24,7 +24,7 @@ const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 50; //Нічна яскравість %
 
 //Для погоди
-const char* apiKey = ""; //API погоди
+const char* apiKey = "c42681760f292b7bd667e4010a1e5ea8"; //API погоди
 float minTemp = -10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
@@ -312,9 +312,20 @@ void initTime() {
 
 uint32_t celsiusToRGB(float temp) {
 
-  float red = 255 / (maxTemp - minTemp) * (temp - minTemp);
-  float blue = 255 / (maxTemp - minTemp) * (maxTemp - temp);
-  uint8_t green = 0;  // значення зеленого кольору
+  float normalizedTemp = (temp - minTemp) / (maxTemp - minTemp);
+
+  float red, green, blue;
+
+  if (normalizedTemp <= 0.5) {
+    red = 255;
+    green = 255 * (normalizedTemp * 2);
+    blue = 0;
+  } else {
+    red = 255 * ((1 - normalizedTemp) * 2);
+    green = 255;
+    blue = 255 * ((normalizedTemp - 0.5) * 2);
+  }
+
   return ((uint8_t)red << 16) | ((uint8_t)green << 8) | (uint8_t)blue;  // повертає RGB колір
 }
 void setup() {
@@ -338,6 +349,7 @@ void loop() {
     server.handleClient();
     if (enabled) {
       if (millis() - lastTime > period || firstUpdate) {
+        delay(1000);
         if (autoBrightness) {
           //авто яскравість
           timeClient.update();
@@ -483,7 +495,7 @@ void loop() {
         }
         if (mode == 3) {
           colorWipe(10);
-                    delay(10000);
+          delay(10000);
         }
       }
     }
