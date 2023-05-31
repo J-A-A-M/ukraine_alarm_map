@@ -24,11 +24,11 @@ int blinkDistricts[] = {
 const int day = 8; //Початок дня
 const int night = 23; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
-const int nightBrightness = 50; //Нічна яскравість %
+const int nightBrightness = 20; //Нічна яскравість %
 
 //Для погоди
 const char* apiKey = ""; //API погоди
-float minTemp = -10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
@@ -145,8 +145,7 @@ WebServer server(80);
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 DynamicJsonDocument doc(30000);
-//String baseURL = "https://vadimklimenko.com/map/statuses.json";
-String baseURL = "http://10.2.0.40:8185/alarm_map";
+String baseURL = "https://vadimklimenko.com/map/statuses.json";
 WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
@@ -162,8 +161,10 @@ int arrSize = sizeof(states) / sizeof(String);
 int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
 bool enable = false;
 int period = 10000;
+int weather_period = 300000;
+unsigned long lastWeatherTime;
+static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
-int prevAlarms = 0;
 static bool wifiConnected;
 static bool firstUpdate = true;
 
@@ -314,23 +315,6 @@ void initTime() {
   }
 }
 
-uint32_t celsiusToRGB(float temp) {
-
-  float normalizedTemp = (temp - minTemp) / (maxTemp - minTemp);
-  float red, green, blue;
-
-  if (normalizedTemp <= 0.5) {
-    red = 255;
-    green = 255 * (normalizedTemp * 2);
-    blue = 0;
-  } else {
-    red = 255 * ((1 - normalizedTemp) * 2);
-    green = 255;
-    blue = 255 * ((normalizedTemp - 0.5) * 2);
-  }
-  return ((uint8_t)red << 16) | ((uint8_t)green << 8) | (uint8_t)blue;  // повертає RGB колір
-}
-
 void setup() {
   initStrip();
   initWiFi();
@@ -388,9 +372,11 @@ void loop() {
         if (enable && times[i] == 0) {
           times[i] = t;
           ledColor[i] = 2;
+          alarmsNowCount++;
         }
         else if (enable && times[i] + hv > t && ledColor[i] != 1) {
           ledColor[i] = 2;
+          alarmsNowCount++;
 
         }
         else if (enable) {
@@ -429,7 +415,7 @@ void loop() {
           bool blinkState = false;
 
           //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 20; i++) {
               blinkCounter++;
               blinkState = !blinkState;
               for (int i = 0; i < arrDistrictsSize; i++) {
@@ -445,7 +431,7 @@ void loop() {
                 }
                 strip.show();
               } // Оновити світлодіодну стрічку
-              delay(1000); // Затримка 100 мілісекунд
+              delay(1000); // Затримка 1 секунда
             }
           //}
           //BLYNK
@@ -454,44 +440,62 @@ void loop() {
         }
       }
       if (mode == 2) {
-        // Loop through the city IDs and get the current weather for each city
-        for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
-          // Construct the URL for the API call
-          String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
-          // Make the HTTP request
-          HTTPClient http;
-          http.begin(apiUrl);
-          int httpResponseCode = http.GET();
-          Serial.println(httpResponseCode);
-          // If the request was successful, parse the JSON response
-          if (httpResponseCode == 200) {
-            String payload = http.getString();
-            StaticJsonDocument<512> doc;
-            deserializeJson(doc, payload);
+        if (millis() - lastWeatherTime > weather_period || firstWeatherUpdate) {
+          // Loop through the city IDs and get the current weather for each city
+          firstWeatherUpdate = false;
+          for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
+            // Construct the URL for the API call
+            String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
+            // Make the HTTP request
+            HTTPClient http;
+            http.begin(apiUrl);
+            int httpResponseCode = http.GET();
+            Serial.println(httpResponseCode);
+            // If the request was successful, parse the JSON response
+            JsonObject obj = doc.to<JsonObject>();
+            if (httpResponseCode == 200) {
+              String payload = http.getString();
+              StaticJsonDocument<512> doc;
+              deserializeJson(doc, payload);
 
-            // Extract the temperature from the JSON response
-            double temp = doc["main"]["temp"];
-            uint32_t color = celsiusToRGB(temp);
+              // Extract the temperature from the JSON response
 
-            // Update the corresponding pixels on the NeoPixel strip
-            int startPixel = i * (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
-            Serial.println(startPixel);
-            int endPixel = startPixel + (LED_COUNT / (sizeof(statesIds) / sizeof(int)));
-            Serial.println(endPixel);
-            for (int j = startPixel; j < endPixel; j++) {
-              strip.setPixelColor(j, color);
-              Serial.println(color);
+              double temp = doc["main"]["temp"];
+              double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
+              float red, green, blue, t;
+
+              if (normalizedTemp > 0.99){
+                normalizedTemp = 0.99;
+              }
+              if (normalizedTemp < 0.01){
+                normalizedTemp = 0.01;
+              }
+              if (normalizedTemp <= 0.33) {
+                red = 0;
+                green = 255;
+                blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
+              } else if (normalizedTemp <= 0.66) {
+                red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
+                green = 255;
+                blue = 0;
+              } else {
+                red = 255;
+                green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
+                blue = 0;
+              }
+              strip.setPixelColor(i, strip.Color(red, green, blue));
             }
+            else {
+              Serial.print("Error getting weather data for city ID ");
+              Serial.println(statesIds[i]);
+            }
+            // Clean up the HTTP connection
+            http.end();
+            strip.show();
           }
-          else {
-            Serial.print("Error getting weather data for city ID ");
-            Serial.println(statesIds[i]);
-          }
-          // Clean up the HTTP connection
-          http.end();
-          strip.show();
+          lastWeatherTime = millis();
+          delay(period);
         }
-        delay(period);
       }
       if (mode == 3) {
         colorWipe(10);
