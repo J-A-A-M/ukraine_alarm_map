@@ -11,7 +11,6 @@
   <body class="p-3 m-0 border-0 bd-example bd-example-cssgrid">
   <main>
   <div class="py-5 text-center">
-
     <h2>Мапа тривог</h2>
     <p class="lead">тестовий варіант для перевірки дизайну</p>
   </div>
@@ -32,18 +31,14 @@ int brightness = <span id="brightness">100</span>; //Яскравість %
 bool autoBrightness = <span id="autobrightness">true</span>; //Ввімкнена/вимкнена авто яскравість
 static bool greenStates = <span id="green-states">true</span>; //true - області без тривоги будуть зелені; false - не будуть світитися
 bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
-String mode = "<span id="mode">alarms</span>"; //Режим
-#define BOTtoken "<span id="bot-token"></span>"
-#define CHAT_ID "<span id="chat-id"></span>"
+int mode = <span id="mode">1</span>; //Режим
 const int day = <span id="day-start">8</span>; //Початок дня
 const int night = <span id="night-start">22</span>; //Початок ночі
 const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
 const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
 const char* apiKey = "<span id="api-key"></span>"; //API погоди
 int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
-int displayMode = <span id="display-mode">1</span>;
-String myCity = "<span id="my-city"></span>";
-int myCityId = <span id="my-city-id">123456</span>;
+bool blink = <span id="blink">false</span>;
 // =======================================
         </pre>
       </div>
@@ -69,69 +64,16 @@ int myCityId = <span id="my-city-id">123456</span>;
           <div class="col-sm-6 mb-1">
             <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value=""  oninput="updateText()">
           </div>
-          <hr class="my-1">
-          <h5 class="mb-1">Telegram bot</h5>
-          <h6 class="mb-1">Підключення до боту для керування мапою</h6>
-          <div class="col-sm-6 mb-3">
-            <input type="text" class="form-control" id="bot-token-input" placeholder="Токен бота" value=""  oninput="updateText()">
-          </div>
-          <div class="col-sm-6 mb-1">
-            <input type="text" class="form-control" id="chat-id-input" placeholder="ID чату, групи" value=""  oninput="updateText()">
-          </div>
 
           <hr class="my-1">
           <h5 class="mb-1">Зовнішній вигляд мапи</h5>
 
-
-          <div class="col-md-4 mt-4">
-            <label class="form-label">Режим дісплея</label>
-            <select class="form-select" id="display-mode-input" oninput="updateText()">
-              <option selected value="1">Час</option>
-              <option value="2">Дата</option>
-              <option value="3">Погода</option>
-              <option value="4">Час тривоги</option>
-            </select>
-          </div>
-          <div class="col-md-8 mt-4">
-            <label id="my-city-form" style="display:none" class="form-label">Місто/область для даних по тривозі</label>
-            <select class="form-select " style="display:none"  id="my-city-input" oninput="updateText()">
-              <option selected value="м. Київ">м. Київ</option>
-              <option value="АР Крим">АР Крим</option>
-              <option value="Вінницька область">Вінницька область</option>
-              <option value="Волиньська область">Волиньська область</option>
-              <option value="Дніпропетровська область">Дніпропетровська область</option>
-              <option value="Донецька область">Донецька область</option>
-              <option value="Житомирська область">Житомирська область</option>
-              <option value="Закарпатська область">Закарпатська область</option>
-              <option value="Запорізька область">Запорізька область</option>
-              <option value="Івано-Франківська область">Івано-Франківська область</option>
-              <option value="Київська область">Київська область</option>
-              <option value="Кіровоградська область">Кіровоградська область</option>
-              <option value="Луганська область">Луганська область</option>
-              <option value="Львівська область">Львівська область</option>
-              <option value="Миколаївська область">Миколаївська область</option>
-              <option value="Одеська область">Одеська область</option>
-              <option value="Полтавська область">Полтавська область</option>
-              <option value="Рівненська область">Рівненська область</option>
-              <option value="Сумська область">Сумська область</option>
-              <option value="Тернопільська область">Тернопільська область</option>
-              <option value="Харківська область">Харківська область</option>
-              <option value="Херсонська область">Херсонська область</option>
-              <option value="Хмельницька область">Хмельницька область</option>
-              <option value="Черкаська область">Черкаська область</option>
-              <option value="Чернівецька область">Чернівецька область</option>
-              <option value="Чернігівська область">Чернігівська область</option>
-            </select>
-          </div>
-
-
-
           <div class="col-md-4">
             <label class="form-label">Режим мапи</label>
             <select class="form-select" id="mode-input" oninput="updateText()">
-              <option selected value="alarms">Тривоги</option>
-              <option value="weather">Погода</option>
-              <option value="flag">Прапор</option>
+              <option selected value="1">Тривоги</option>
+              <option value="2">Погода</option>
+              <option value="3">Прапор</option>
             </select>
           </div>
           <div class="col-md-8">
@@ -139,11 +81,8 @@ int myCityId = <span id="my-city-id">123456</span>;
             <h6 id="alarms-text" class="mb-1 mt-5">Мапа показуе тривоги</h6>
             <h6 id="flag-text" style="display:none" class="mb-1 mt-5">Мапа показуе прапор України</h6>
           </div>
-          <div id="weather3" style="display:none" class="col-sm-6 mt-3">
+          <div id="weather3" style="display:none" class="col-sm-12 mt-3">
             <input type="text" class="form-control" id="api-key-input" placeholder="Ключ OpenWeatherMap API" value=""  oninput="updateText()">
-          </div>
-          <div id="weather4" style="display:none" class="col-sm-6 mt-3">
-            <input type="text" class="form-control" id="my-city-id-input" placeholder="ID населеного пункту" value=""  oninput="updateText()">
           </div>
           <div id="alarm-back-form" style="display:none" class="form-check m-1 mt-4">
             <input type="checkbox" class="form-check-input" id="autoswitch-input" oninput="updateText()">
@@ -258,11 +197,119 @@ int myCityId = <span id="my-city-id">123456</span>;
 
           <div class="form-check m-1">
             <input type="checkbox" class="form-check-input" id="green-states-input" oninput="updateText()" checked>
-            <label class="form-check-label" for="autobrightness-input">Підсвічувани зеленим області без тривоги</label>
+            <label class="form-check-label">Підсвічувати зеленим області без тривоги</label>
           </div>
           <div class="form-check m-1">
+            <input type="checkbox" class="form-check-input" id="blink-input" oninput="updateText()" checked>
+            <label class="form-check-label">Періодичне вмикання/вимикання діода на певних областях</label>
+          </div>
+
+          <div id='blink-districts' style="display:none"  class="col-md-12">
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-crimea-input" oninput="updateText()">
+              <label class="form-check-label">АР Крим</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-vinnytsia-input" oninput="updateText()">
+              <label class="form-check-label">Вінницька область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-volyn-input" oninput="updateText()">
+              <label class="form-check-label">Волиньська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-dnipropetrovsk-input" oninput="updateText()">
+              <label class="form-check-label">Дніпропетровська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-donetsk-input" oninput="updateText()">
+              <label class="form-check-label">Донецька область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-districts-zhytomyr-input" oninput="updateText()">
+              <label class="form-check-label">Житомирська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-zakarpattia-input" oninput="updateText()">
+              <label class="form-check-label">Закарпатська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-zaporizhzhia-input" oninput="updateText()">
+              <label class="form-check-label">Запорізька область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-ivano-frankivsk-input" oninput="updateText()">
+              <label class="form-check-label">Івано-Франківська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-kiyv-input" oninput="updateText()">
+              <label class="form-check-label">Київська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-kirovohrad-input" oninput="updateText()">
+              <label class="form-check-label">Кіровоградська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-luhansk-input" oninput="updateText()">
+              <label class="form-check-label">Луганська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-lviv-input" oninput="updateText()">
+              <label class="form-check-label">Львівська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-mykolaiv-input" oninput="updateText()">
+              <label class="form-check-label">Миколаївська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-odesa-input" oninput="updateText()">
+              <label class="form-check-label">Одеська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-poltava-input" oninput="updateText()">
+              <label class="form-check-label">Полтавська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-rivne-input" oninput="updateText()">
+              <label class="form-check-label">Рівненська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-sumy-input" oninput="updateText()">
+              <label class="form-check-label">Сумська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-ternopil-input" oninput="updateText()">
+              <label class="form-check-label">Тернопільська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-kharkiv-input" oninput="updateText()">
+              <label class="form-check-label">Харківська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-kherson-input" oninput="updateText()">
+              <label class="form-check-label">Херсонська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-khmelnytskyi-input" oninput="updateText()">
+              <label class="form-check-label">Хмельницька область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-cherkasy-input" oninput="updateText()">
+              <label class="form-check-label">Черкаська область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-chernivtsi-input" oninput="updateText()">
+              <label class="form-check-label">Чернівецька область</label>
+            </div>
+            <div class="form-check m-1">
+              <input type="checkbox" class="form-check-input" id="districts-chernihiv-input" oninput="updateText()">
+              <label class="form-check-label">Чернігівська область</label>
+            </div>
+          </div>
+
+          <div class="form-check m-1">
             <input type="checkbox" class="form-check-input" id="autobrightness-input" oninput="updateText()" checked>
-            <label class="form-check-label" for="autobrightness-input">Автоматичне керування яскравістю</label>
+            <label class="form-check-label">Автоматичне керування яскравістю</label>
           </div>
 
           <h6 style="display:none" class="mb-1" id='brightness-form-name'>Яскравість</h6>
@@ -346,10 +393,6 @@ int myCityId = <span id="my-city-id">123456</span>;
         document.getElementById("ap-ssid").textContent = apSsid;
         const apPassword = document.getElementById("ap-password-input").value;
         document.getElementById("ap-password").textContent = apPassword;
-        const botToken = document.getElementById("bot-token-input").value;
-        document.getElementById("bot-token").textContent = botToken;
-        const chatId = document.getElementById("chat-id-input").value;
-        document.getElementById("chat-id").textContent = chatId;
         //Default settings
         const brightness = document.getElementById("brightness-input").value;
         document.getElementById("brightness").textContent = brightness;
@@ -394,7 +437,7 @@ int myCityId = <span id="my-city-id">123456</span>;
         } else {
           document.getElementById("autoswitch").textContent = "false";
         }
-        if (document.getElementById("autoswitch-input").checked && document.getElementById("mode-input").value != 'alarms') {
+        if (document.getElementById("autoswitch-input").checked && document.getElementById("mode-input").value != 1) {
           document.getElementById("districts").style.display = 'block';
         }else{
           document.getElementById("districts").style.display = 'none';
@@ -402,40 +445,28 @@ int myCityId = <span id="my-city-id">123456</span>;
 
         const mode = document.getElementById("mode-input").value;
         document.getElementById("mode").textContent = mode;
-        if (document.getElementById("mode-input").value == 'weather') {
+        if (document.getElementById("mode-input").value == 2) {
           document.getElementById('weather-text').style.display = 'block';
           document.getElementById('alarms-text').style.display = 'none';
           document.getElementById('flag-text').style.display = 'none';
           document.getElementById('weather3').style.display = 'block';
-          document.getElementById('weather4').style.display = 'block';
           document.getElementById('alarm-back-form').style.display = 'block';
         }
-        if (document.getElementById("mode-input").value == 'alarms') {
+        if (document.getElementById("mode-input").value == 1) {
           document.getElementById('weather-text').style.display = 'none';
           document.getElementById('alarms-text').style.display = 'block';
           document.getElementById('flag-text').style.display = 'none';
           document.getElementById('weather3').style.display = 'none';
-          document.getElementById('weather4').style.display = 'none';
           document.getElementById('alarm-back-form').style.display = 'none';
         }
-        if (document.getElementById("mode-input").value == 'flag') {
+        if (document.getElementById("mode-input").value == 3) {
           document.getElementById('weather-text').style.display = 'none';
           document.getElementById('alarms-text').style.display = 'none';
           document.getElementById('flag-text').style.display = 'block';
           document.getElementById('weather3').style.display = 'none';
-          document.getElementById('weather4').style.display = 'none';
           document.getElementById('alarm-back-form').style.display = 'block';
         }
 
-        const displayMode = document.getElementById("display-mode-input").value;
-        document.getElementById("display-mode").textContent = displayMode;
-        if (document.getElementById("display-mode-input").value == 4) {
-          document.getElementById('my-city-form').style.display = 'block';
-          document.getElementById('my-city-input').style.display = 'block';
-        }else{
-          document.getElementById('my-city-form').style.display = 'none';
-          document.getElementById('my-city-input').style.display = 'none';
-        }
         //General settings
         const apiKey = document.getElementById("api-key-input").value;
         document.getElementById("api-key").textContent = apiKey;
@@ -444,10 +475,6 @@ int myCityId = <span id="my-city-id">123456</span>;
         } else {
           document.getElementById("green-states").textContent = "false";
         }
-        const myCity = document.getElementById("my-city-input").value;
-        document.getElementById("my-city").textContent = myCity;
-        const myCityId = document.getElementById("my-city-id-input").value;
-        document.getElementById("my-city-id").textContent = myCityId;
         //Autobrightness settings
         const dayStart = document.getElementById("day-start-input").value;
         document.getElementById("day-start").textContent = dayStart;
@@ -470,6 +497,13 @@ int myCityId = <span id="my-city-id">123456</span>;
           const output = document.getElementById(region);
           output.textContent = input.checked ? "1" : "0";
         });
+        if (document.getElementById("blink-input").checked) {
+          document.getElementById("blink").textContent = "true";
+          document.getElementById('blink-districts').style.display = 'block';
+        } else {
+          document.getElementById("blink").textContent = "false";
+          document.getElementById('blink-districts').style.display = 'none';
+        }
       }
     </script>
   </body>
