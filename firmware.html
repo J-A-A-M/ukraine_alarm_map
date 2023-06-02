@@ -23,22 +23,55 @@
       <div>
         <pre>
 // ============ НАЛАШТУВАННЯ ============
+//Налаштування WiFi
 char* ssid = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
 char* password = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
 char* APSsid = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
 char* APPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+
+//Налштування за замовчуванням
+bool enabled = <span id="enabled">true</span>; //Ввімкнена/вимкнена карта
 int brightness = <span id="brightness">100</span>; //Яскравість %
+int alarm_brightness[] = {
+  0,
+  100,
+  20,
+  50
+};
 bool autoBrightness = <span id="autobrightness">true</span>; //Ввімкнена/вимкнена авто яскравість
-static bool greenStates = <span id="green-states">true</span>; //true - області без тривоги будуть зелені; false - не будуть світитися
 bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
-int mode = <span id="mode">1</span>; //Режим
+static bool greenStates = <span id="green-states">true</span>; //true - області без тривоги будуть зелені; false - не будуть світитися
+
+int mapModeInit = <span id="mode">1</span>;
+int mapMode = 1; //Режим
+
+bool blink = <span id="blink">false</span>;
+int blinkCount = 2;
+int blinkDistricts[] = {
+  7,
+  8
+};
+
+int modulationMode = <span id="modulation_mode">1</span>;
+int modulationStep = 10;
+int modulationTime = 100;
+int modulationCount = 2;
+
+int hv = 60000;
+
+//Налаштування авто-яскравості
 const int day = <span id="day-start">8</span>; //Початок дня
 const int night = <span id="night-start">22</span>; //Початок ночі
 const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
 const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
+
+//Для погоди
 const char* apiKey = "<span id="api-key"></span>"; //API погоди
+float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+
+//Налаштуванння режимів
 int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
-bool blink = <span id="blink">false</span>;
 // =======================================
         </pre>
       </div>
@@ -68,7 +101,7 @@ bool blink = <span id="blink">false</span>;
           <hr class="my-1">
           <h5 class="mb-1">Зовнішній вигляд мапи</h5>
 
-          <div class="col-md-4">
+          <div class="col-md-5">
             <label class="form-label">Режим мапи</label>
             <select class="form-select" id="mode-input" oninput="updateText()">
               <option selected value="1">Тривоги</option>
@@ -76,7 +109,7 @@ bool blink = <span id="blink">false</span>;
               <option value="3">Прапор</option>
             </select>
           </div>
-          <div class="col-md-8">
+          <div class="col-md-7">
             <h6 id="weather-text" style="display:none" class="mb-1 mt-5">Мапа показуе температуру по країні</h6>
             <h6 id="alarms-text" class="mb-1 mt-5">Мапа показуе тривоги</h6>
             <h6 id="flag-text" style="display:none" class="mb-1 mt-5">Мапа показуе прапор України</h6>
@@ -88,6 +121,7 @@ bool blink = <span id="blink">false</span>;
             <input type="checkbox" class="form-check-input" id="autoswitch-input" oninput="updateText()">
             <label class="form-check-label">Перемикати мапу в режим тривоги у випадку тривоги у вибраних областях</label>
           </div>
+
 
 
           <div id='districts' style="display:none"  class="col-md-12">
@@ -193,6 +227,25 @@ bool blink = <span id="blink">false</span>;
             </div>
           </div>
 
+          <div class="col-md-5 mb-4">
+            <label class="form-label">Режим модуляції</label>
+            <select class="form-select" id="modulation-mode-input" oninput="updateText()">
+              <option selected value="1">Вимкнено</option>
+              <option value="2">Нові тривоги</option>
+            </select>
+          </div>
+          <div class="col-md-7">
+            <h6 id="modulation-mode-1" style="display:block" class="mb-1 mt-5">Модуляція вимкнена</h6>
+            <h6 id="modulation-mode-2" style="display:none" class="mb-1 mt-5">Модуляція нових тривог</h6>
+          </div>
+          <div id="weather3" style="display:none" class="col-sm-12 mt-3">
+            <input type="text" class="form-control" id="api-key-input" placeholder="Ключ OpenWeatherMap API" value=""  oninput="updateText()">
+          </div>
+          <div id="alarm-back-form" style="display:none" class="form-check m-1 mt-4">
+            <input type="checkbox" class="form-check-input" id="autoswitch-input" oninput="updateText()">
+            <label class="form-check-label">Перемикати мапу в режим тривоги у випадку тривоги у вибраних областях</label>
+          </div>
+
 
 
           <div class="form-check m-1">
@@ -200,7 +253,7 @@ bool blink = <span id="blink">false</span>;
             <label class="form-check-label">Підсвічувати зеленим області без тривоги</label>
           </div>
           <div class="form-check m-1">
-            <input type="checkbox" class="form-check-input" id="blink-input" oninput="updateText()" checked>
+            <input type="checkbox" class="form-check-input" id="blink-input" oninput="updateText()">
             <label class="form-check-label">Періодичне вмикання/вимикання діода на певних областях</label>
           </div>
 
@@ -465,6 +518,17 @@ bool blink = <span id="blink">false</span>;
           document.getElementById('flag-text').style.display = 'block';
           document.getElementById('weather3').style.display = 'none';
           document.getElementById('alarm-back-form').style.display = 'block';
+        }
+
+        const modulation_mode = document.getElementById("modulation-mode-input").value;
+        document.getElementById("modulation_mode").textContent = modulation_mode;
+        if (document.getElementById("modulation-mode-input").value == 1) {
+          document.getElementById('modulation-mode-1').style.display = 'block';
+          document.getElementById('modulation-mode-2').style.display = 'none';
+        }
+        if (document.getElementById("modulation-mode-input").value == 2) {
+          document.getElementById('modulation-mode-1').style.display = 'none';
+          document.getElementById('modulation-mode-2').style.display = 'block';
         }
 
         //General settings
