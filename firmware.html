@@ -26,14 +26,15 @@
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
 //Налаштування WiFi
-char* ssid = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
-char* password = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
-char* APSsid = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
-char* APPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+char* wifiSsid = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
+char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
+char* apSsid = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
+char* apPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+int wifiStatusBlink = <span id="wifi-status-blink">false</span>;
 
 //Налштування за замовчуванням
 int brightness = <span id="brightness">100</span>; //Яскравість %
-int alarm_brightness[] = {
+int alarmBrightness[] = {
   0,
   100,
   20,
@@ -59,7 +60,7 @@ int modulationStep = <span id="modulation-step">10</span>;
 int modulationTime = <span id="modulation-time">100</span>;
 int modulationCount = <span id="modulation-count">2</span>;
 
-int hv = 60000;
+int newAlarmPeriod = <span id="new-alarm-period">60000</span>;
 
 //Налаштування авто-яскравості
 const int day = <span id="day-start">8</span>; //Початок дня
@@ -73,7 +74,7 @@ float minTemp = 10.0; // мінімальна температура у град
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
-int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyvm">1</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
+int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyvm">1</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
 // =======================================
           </code>
           </pre>
@@ -108,6 +109,15 @@ int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankiv
             <div class="col-sm-6 mb-3">
               <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value=""  oninput="updateText()">
             </div>
+            <div class="mb-1">
+              <input type="checkbox" class="form-check-input" id="wifi-status-blink-input">
+              <label class="form-check-label">Кольорові попередження при проблемах з wi-fi <span class="badge bg-success">оновлення</span></label>
+            </div>
+            <div class="" id="wifi-status-blink-alert"  style="display:none">
+              <div class="alert alert-primary" role="alert">
+                Мапа буде блимати і світитись <span class="badge bg-danger">червоним</span> кольором у випадку втрачання wifi. В режимі точки достуру мапа буде <span class="badge bg-warning">жовтою</span>. Коли мапа успішно під'єднається до мережі - то буде <span class="badge bg-success">зеленою</span> до момента активації вибраного режиму
+              </div>
+            </div>
           </div>
 
           <div class="col-md-12 mb-1"></div>
@@ -140,7 +150,7 @@ int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankiv
 
             <div class="" id="alarmback-alert"  style="display:none">
               <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">New</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
+                <span class="badge bg-success">оновлення</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
               </div>
             </div>
 
@@ -192,6 +202,22 @@ int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankiv
               </div>
             </div>
 
+          </div>
+
+          <div class="col-md-12 mb-1"></div>
+
+          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <div class="" id='new-alarm-period-form'>
+              <label class="form-label">Період окремої підсвітки нових тривог (хвилини)</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="new-alarm-period-form-value">1</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="1" max="60" value="1" class="bg-white border rounded border-secondary form-range col-12" id="new-alarm-period-input">
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="col-md-12 mb-1"></div>
@@ -319,7 +345,19 @@ int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankiv
   </main>
     <script>
       // Get the element by its ID
-      const enabled = document.getElementById('enabled');
+      const wifistatusblink = document.getElementById('wifi-status-blink');
+      const wifistatusblinkinput = document.getElementById('wifi-status-blink-input');
+      const wifistatusblinkalert = document.getElementById('wifi-status-blink-alert');
+
+      wifistatusblinkinput.addEventListener('click', function() {
+        if (wifistatusblinkinput.checked) {
+          wifistatusblink.textContent = 'true';
+          wifistatusblinkalert.style.display = 'block';
+        } else {
+          wifistatusblink.textContent = 'false';
+          wifistatusblinkalert.style.display = 'none';
+        }
+      });
 
       const mode = document.getElementById('mode');
 
@@ -594,6 +632,18 @@ int statesIdsCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankiv
         let value = parseInt(modulationcountinput.value);
         modulationcountformvalue.textContent = value;
         modulationcount.textContent = value;
+      });
+
+      const newalarmperiod = document.getElementById('new-alarm-period');
+      const newalarmperiodform = document.getElementById('new-alarm-period-form');
+      const newalarmperiodformvalue = document.getElementById('new-alarm-period-form-value');
+      const newalarmperiodinput = document.getElementById('new-alarm-period-input');
+
+      newalarmperiodinput.addEventListener('input', function() {
+        let value = parseInt(newalarmperiodinput.value);
+
+        newalarmperiod.textContent = value*60000;
+        newalarmperiodformvalue.textContent = value;
       });
 
 

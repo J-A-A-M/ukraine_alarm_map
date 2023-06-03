@@ -1,14 +1,15 @@
 // Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
 // ============ НАЛАШТУВАННЯ ============
 //Налаштування WiFi
-char* ssid = ""; //Назва твоєї мережі WiFi
-char* password = ""; //Пароль від твого WiFi
-char* APSsid = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
-char* APPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+char* wifiSSID = ""; //Назва твоєї мережі WiFi
+char* wifiPassword = ""; //Пароль від твого WiFi
+char* apSSID = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
+char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+int wifiStatusBlink = true;
 
 //Налштування за замовчуванням
 int brightness = 100; //Яскравість %
-int alarm_brightness[] = {
+int alarmBrightness[] = {
   0,
   100,
   20,
@@ -18,7 +19,7 @@ bool autoBrightness = true; //Ввімкнена/вимкнена авто яс�
 bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 
-int mapModeInit = 1;
+int mapModeInit = 3;
 int mapMode = 1; //Режим
 
 bool blink = true;
@@ -34,7 +35,7 @@ int modulationStep = 10;
 int modulationTime = 100;
 int modulationCount = 5;
 
-int hv = 60000;
+int newAlarmPeriod = 60000;
 
 //Налаштування авто-яскравості
 const int day = 8; //Початок дня
@@ -48,7 +49,7 @@ float minTemp = 10.0; // мінімальна температура у град
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
-int statesIdsCheck[] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int statesIdsAlarmCheck[] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // =======================================
 
 static String states[] = {
@@ -81,7 +82,7 @@ static String states[] = {
   "Чернівецька область"
 };
 
-int statesIds[] = {
+int statesIdsWeather[] = {
   690548,
   707471,
   691650,
@@ -149,9 +150,10 @@ static int ledColorYellow[] = { 0,1,2,3,12,13,14,15,16,17,18,19,20,23,24,25,26 }
 int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
 int arrAlarms = sizeof(ledColor) / sizeof(int);
 int arrSize = sizeof(states) / sizeof(String);
+int arrWeather = sizeof(statesIdsWeather) / sizeof(int);
 bool enable = false;
-int alarms_period = 15000;
-int weather_period = 600000;
+int alarmsPeriod = 10000;
+int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
 unsigned long lastWeatherTime;
 static bool firstAlarmsUpdate = true;
@@ -160,7 +162,7 @@ int alarmsNowCount = 0;
 static bool wifiConnected;
 
 
-void setup_routing() {	 	 ;
+void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
   server.on("/params", HTTP_GET, getEnv);
 
@@ -187,7 +189,8 @@ void handlePost() {
   int blink_enable = jsonDocument["blink_enable"];
   int blink_disable = jsonDocument["blink_disable"];
   int modulation_mode = jsonDocument["modulation_mode"];
-  int set_hv = jsonDocument["hv"];
+  int set_new_alarm_period = jsonDocument["new_alarm_period"];
+  int blink_red  = jsonDocument["blink_red"];
 
   if(set_brightness) {
     autoBrightness = false;
@@ -212,7 +215,6 @@ void handlePost() {
     mapModeInit = map_mode;
   }
 
-
   if(blink_enable) {
     blink = true;
   }
@@ -221,12 +223,16 @@ void handlePost() {
     blink = false;
   }
 
+  if(blink_red) {
+    BlinkColor(255,0,0,5);
+  }
+
   if(modulation_mode) {
     modulationMode = modulation_mode;
   }
 
-  if (set_hv) {
-    hv = set_hv*1000;
+  if (set_new_alarm_period) {
+    newAlarmPeriod = set_new_alarm_period*1000;
   }
 
   // Respond to the client
@@ -246,6 +252,8 @@ void getEnv() {
   jsonDocument["greenStates"] = greenStates;
   jsonDocument["blink"] = blink;
   jsonDocument["modulationMode"] = modulationMode;
+  jsonDocument["newAlarmPeriod"] = newAlarmPeriod;
+  jsonDocument["weatherKey"] = apiKey;
   serializeJson(jsonDocument, buffer);
   server.send(200, "application/json", buffer);
 }
@@ -253,31 +261,60 @@ void getEnv() {
 
 void initWiFi() {
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  if (WiFi.status() != WL_CONNECTED) {
-    bool res;
-    res = wm.autoConnect("AlarmMap", ""); //точка достпу для налаштування WiFi, другі лапки - пароль
-    if (!res) {
-      Serial.println("Помилка підключення");
-      ESP.restart();
+  WiFi.begin(wifiSSID, wifiPassword);
+  while (WiFi.status() != WL_CONNECTED) {
+    if(wifiStatusBlink) {
+      BlinkColor(255,0,0,5);
     }
-    else {
-      Serial.println("Підключено :)");
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+    if (WiFi.status() == WL_CONNECT_FAILED) {
+      Serial.println("Connection failed. Starting AP mode.");
+      startAPMode();
+      break;
     }
   }
+  if (WiFi.status() == WL_CONNECTED) {
+    if(wifiStatusBlink) {
+      BlinkColor(0,255,0,5);
+    }
+    Serial.println("Connected to WiFi");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  }
+
 }
+
+void startAPMode() {
+  if(wifiStatusBlink) {
+    BlinkColor(255,200,0,5);
+  }
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(apSSID, apPassword);
+
+  Serial.println("AP mode started");
+  Serial.print("AP SSID: ");
+  Serial.println(apSSID);
+  Serial.print("AP Password: ");
+  Serial.println(apPassword);
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.softAPIP());
+}
+
 void Modulation(int count) {
   int pixel_brightness_start;
   int pixel_brightness_end;
   int pixel_color_full;
   int pixel_color_penta;
-  if (alarm_brightness[1] >= alarm_brightness[2]) {
-    pixel_brightness_start = static_cast<int>(alarm_brightness[2]*brightness/100);
-    pixel_brightness_end = static_cast<int>(alarm_brightness[1]*brightness/100);
+
+  if (alarmBrightness[1] >= alarmBrightness[2]) {
+    pixel_brightness_start = static_cast<int>(alarmBrightness[2]*brightness/100);
+    pixel_brightness_end = static_cast<int>(alarmBrightness[1]*brightness/100);
   } else {
-    pixel_brightness_start = static_cast<int>(alarm_brightness[1]*brightness/100);
-    pixel_brightness_end = static_cast<int>(alarm_brightness[2]*brightness/100);
+    pixel_brightness_start = static_cast<int>(alarmBrightness[1]*brightness/100);
+    pixel_brightness_end = static_cast<int>(alarmBrightness[2]*brightness/100);
   }
+
   for (int i = 0; i < count; i++) {
     for (int i = pixel_brightness_end; i >= pixel_brightness_start; i -= modulationStep) {
       pixel_color_full= static_cast<int>(255*i/100);
@@ -337,27 +374,47 @@ void Blink(int count) {
   //}
   //BLYNK
 }
+
+void BlinkColor(int red, int green, int blue, int count) {
+  int blinkCounter = count * 2 + 1;
+  bool blinkState = false;
+
+  for (int i = 0; i < blinkCounter; i++) {
+    blinkState = !blinkState;
+    for (int j = 0; j < 28; j++) {
+      if (blinkState) {
+        strip.setPixelColor(j, strip.Color(red, green, blue));
+      } else {
+        strip.setPixelColor(j, strip.Color(0, 0, 0));
+      }
+    }
+    strip.show();
+    delay(50);
+  }
+}
+
 void Flag(int wait) {
   //strip.setPixelColor(ledColorBlue[i], strip.Color(0,191,255));
   //strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,51));
-  int count = sizeof(ledColorYellow) / sizeof(int);
   for (int i = 0; i < 11; i++) { // For each pixel in strip...
     strip.setPixelColor(ledColorBlue[i], strip.Color(0,255,255));
-    strip.show();                          //  Update strip to match
-    delay(wait);                           //  Pause for a moment
+    strip.show();
+    delay(wait);
   }
   for (int i = 0; i < 17; i++) { // For each pixel in strip...
     strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,0));
-    strip.show();                          //  Update strip to match
-    delay(wait);                           //  Pause for a moment
+    strip.show();
+    delay(wait);
   }
 }
+
 void initStrip() {
-  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels ASAP
+  strip.begin();
+  strip.show();
   strip.setBrightness(brightness * 2.55);
-  Flag(120);
+  Flag(20);
 }
+
 void initTime() {
   // Встановлюємо початкове значення літнього часу на false
   bool isDaylightSaving = false;
@@ -391,7 +448,7 @@ void setup() {
   initWiFi();
   Serial.begin(115200);
   initTime();
-  setup_routing();
+  setupRouting();
 }
 
 void loop() {
@@ -403,167 +460,152 @@ void loop() {
     ESP.restart();
   }
 
-  if (wifiConnected) {
-    server.handleClient();
-    if (autoBrightness) {
-      timeClient.update();
-      int currentHour = timeClient.getHours();
-      int current_brightness = 0;
-      bool isDay = currentHour >= day && currentHour < night;
-      current_brightness = isDay ? dayBrightness : nightBrightness;
-      if (current_brightness != brightness) {
-        brightness = current_brightness;
-        //for (int i = 0; i < LED_COUNT; i++) {
-        strip.setBrightness(brightness * 2.55);
-        //}
-        strip.show();
-      }
-    }
-
-    //тривоги
-    if (millis() - lastAlarmsTime > alarms_period || firstAlarmsUpdate) {
-      firstAlarmsUpdate = false;
-      String response;
-      HTTPClient http;
-      http.begin(baseURL.c_str());
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
-
-      if (httpResponseCode == 200) {
-        response = http.getString();
-      }
-      else {
-        return;
-      }
-      // Free resources
-      http.end();
-      DeserializationError error = deserializeJson(doc, response);
-      if (error) {
-        return;
-      }
-
-      unsigned long  t = millis();
-      alarmsNowCount = 0;
-      bool return_to_init_mode = true;
-      for (int i = 0; i < arrSize; i++) {
-        enable = doc["states"][states[i]]["enabled"].as<bool>();
-        if (enable && times[i] == 0) {
-          times[i] = t;
-          ledColor[i] = 2;
-          alarmsNowCount++;
-        }
-        else if (enable && times[i] + hv > t && ledColor[i] != 1) {
-          ledColor[i] = 2;
-          alarmsNowCount++;
-
-        }
-        else if (enable) {
-          ledColor[i] = 1;
-          times[i] = t;
-          alarmsNowCount++;
-        }
-
-        if (!enable && times[i] + hv > t && times[i] != 0) {
-          ledColor[i] = 3;
-        }
-        else if (!enable) {
-          ledColor[i] = 0;
-          times[i] = 0;
-        }
-
-        if (autoSwitch && enable && statesIdsCheck[i]==1) {
-            mapMode = 2;
-            return_to_init_mode = false;
-        }
-
-        if (return_to_init_mode) {
-          mapMode = mapModeInit;
-        }
-      }
-    }
-
-    if (mapMode == 1) {
-      strip.clear();
+  server.handleClient();
+  if (autoBrightness) {
+    timeClient.update();
+    int currentHour = timeClient.getHours();
+    int currentBrightness = 0;
+    bool isDay = currentHour >= day && currentHour < night;
+    currentBrightness = isDay ? dayBrightness : nightBrightness;
+    if (currentBrightness != brightness) {
+      brightness = currentBrightness;
+      //for (int i = 0; i < LED_COUNT; i++) {
+      strip.setBrightness(brightness * 2.55);
+      //}
       strip.show();
     }
-    if (mapMode == 2) {
-      for (int i = 0; i < arrSize; i++)
-      {
-        switch (ledColor[i]) {
-        case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-        case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
-        case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-        case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
-        }
-      }
-      strip.show();
-      if (modulationMode > 1) {
-        Modulation(modulationCount);
-      }
-      if (blink) {
-        Blink(blinkCount);
-      }
-    }
-    if (mapMode == 3) {
-      if (millis() - lastWeatherTime > weather_period || firstWeatherUpdate) {
-        // Loop through the city IDs and get the current weather for each city
-        firstWeatherUpdate = false;
-        for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
-          // Construct the URL for the API call
-          String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
-          // Make the HTTP request
-          HTTPClient http;
-          http.begin(apiUrl);
-          int httpResponseCode = http.GET();
-          Serial.println(httpResponseCode);
-          // If the request was successful, parse the JSON response
-          JsonObject obj = doc.to<JsonObject>();
-          if (httpResponseCode == 200) {
-            String payload = http.getString();
-            StaticJsonDocument<512> doc;
-            deserializeJson(doc, payload);
-
-            // Extract the temperature from the JSON response
-
-            double temp = doc["main"]["temp"];
-            double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
-            float red, green, blue, t;
-
-            if (normalizedTemp > 0.99){
-              normalizedTemp = 0.99;
-            }
-            if (normalizedTemp < 0.01){
-              normalizedTemp = 0.01;
-            }
-            if (normalizedTemp <= 0.33) {
-              red = 0;
-              green = 255;
-              blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
-            } else if (normalizedTemp <= 0.66) {
-              red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
-              green = 255;
-              blue = 0;
-            } else {
-              red = 255;
-              green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
-              blue = 0;
-            }
-            strip.setPixelColor(i, strip.Color(red, green, blue));
-          }
-          else {
-            Serial.print("Error getting weather data for city ID ");
-            Serial.println(statesIds[i]);
-          }
-          // Clean up the HTTP connection
-          http.end();
-          strip.show();
-        }
-        lastWeatherTime = millis();
-      }
-    }
-    if (mapMode == 4) {
-      Flag(10);
-    }
-    delay(1000);
   }
+
+  if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
+    firstAlarmsUpdate = false;
+    String response;
+    HTTPClient http;
+    http.begin(baseURL.c_str());
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode == 200) {
+      response = http.getString();
+    }
+    else {
+      return;
+    }
+    http.end();
+    DeserializationError error = deserializeJson(doc, response);
+    if (error) {
+      return;
+    }
+
+    unsigned long  t = millis();
+    alarmsNowCount = 0;
+    bool return_to_init_mode = true;
+    for (int i = 0; i < arrSize; i++) {
+      enable = doc["states"][states[i]]["enabled"].as<bool>();
+      if (enable && times[i] == 0) {
+        times[i] = t;
+        ledColor[i] = 2;
+        alarmsNowCount++;
+      }
+      else if (enable && times[i] + newAlarmPeriod > t && ledColor[i] != 1) {
+        ledColor[i] = 2;
+        alarmsNowCount++;
+
+      }
+      else if (enable) {
+        ledColor[i] = 1;
+        times[i] = t;
+        alarmsNowCount++;
+      }
+
+      if (!enable && times[i] + newAlarmPeriod > t && times[i] != 0) {
+        ledColor[i] = 3;
+      }
+      else if (!enable) {
+        ledColor[i] = 0;
+        times[i] = 0;
+      }
+
+      if (autoSwitch && enable && statesIdsAlarmCheck[i]==1) {
+          mapMode = 2;
+          return_to_init_mode = false;
+      }
+    }
+    if (return_to_init_mode) {
+      mapMode = mapModeInit;
+    }
+  }
+
+  if (mapMode == 1) {
+    strip.clear();
+    strip.show();
+  }
+  if (mapMode == 2) {
+    for (int i = 0; i < arrSize; i++)
+    {
+      switch (ledColor[i]) {
+      case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
+      case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
+      case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
+      case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
+      }
+    }
+    strip.show();
+    if (modulationMode > 1) {
+      Modulation(modulationCount);
+    }
+    if (blink) {
+      Blink(blinkCount);
+    }
+  }
+  if (mapMode == 3) {
+    if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
+      firstWeatherUpdate = false;
+      for (int i = 0; i < arrWeather; i++) {
+        String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
+        HTTPClient http;
+        http.begin(apiUrl);
+        int httpResponseCode = http.GET();
+        Serial.println(httpResponseCode);
+        JsonObject obj = doc.to<JsonObject>();
+        if (httpResponseCode == 200) {
+          String payload = http.getString();
+          StaticJsonDocument<512> doc;
+          deserializeJson(doc, payload);
+          double temp = doc["main"]["temp"];
+          double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
+          float red, green, blue;
+          if (normalizedTemp > 0.99){
+            normalizedTemp = 0.99;
+          }
+          if (normalizedTemp < 0.01){
+            normalizedTemp = 0.01;
+          }
+          if (normalizedTemp <= 0.33) {
+            red = 0;
+            green = 255;
+            blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
+          } else if (normalizedTemp <= 0.66) {
+            red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
+            green = 255;
+            blue = 0;
+          } else {
+            red = 255;
+            green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
+            blue = 0;
+          }
+          strip.setPixelColor(i, strip.Color(red, green, blue));
+        }
+        else {
+          Serial.print("Error getting weather data for city ID ");
+          Serial.println(statesIdsWeather[i]);
+        }
+        http.end();
+      }
+      strip.show();
+      lastWeatherTime = millis();
+    }
+  }
+  if (mapMode == 4) {
+    Flag(10);
+  }
+  delay(1000);
 }
