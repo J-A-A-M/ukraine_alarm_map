@@ -1,5 +1,5 @@
 // Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
-// ============ НАЛАШТУЙ МЕНЕ ============
+// ============ НАЛАШТУВАННЯ ============
 //Налаштування WiFi
 char* ssid = ""; //Назва твоєї мережі WiFi
 char* password = ""; //Пароль від твого WiFi
@@ -15,30 +15,31 @@ int alarm_brightness[] = {
   20,
   50
 };
-bool autoBrightness = false; //Ввімкнена/вимкнена авто яскравість
-bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області, після заверешення тривоги в вибраній області режим не повертається на своє місце
+bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
+bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 
 int mapModeInit = 1;
 int mapMode = 1; //Режим
 
 bool blink = true;
-int blinkCount = 2;
+int blinkCount = 5;
+int blinkTime = 500;
 int blinkDistricts[] = {
   7,
   8
 };
 
-int modulationMode = 1;
+int modulationMode = 2;
 int modulationStep = 10;
 int modulationTime = 100;
-int modulationCount = 2;
+int modulationCount = 5;
 
 int hv = 60000;
 
 //Налаштування авто-яскравості
 const int day = 8; //Початок дня
-const int night = 23; //Початок ночі
+const int night = 22; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
@@ -48,35 +49,8 @@ float minTemp = 10.0; // мінімальна температура у град
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
-int statesIdsCheck[] = { //Вибери області при тривозі в яких буде пермикатися режим на тривоги (1 - область активована; 0 - не активована)
-0, //Закарпатська область
-0, //Івано-Франківська область
-0, //Тернопільська область
-0, //Львівська область
-0, //Волинська область
-0, //Рівненська область
-0, //Житомирська область
-1, //Київ
-0, //Київська область
-0, //Чернігівська область
-0, //Сумська область
-0, //Харківська область
-0, //Луганська область
-0, //Донецька область
-0, //Запорізька область
-0, //Херсонська область
-0, //Автономна Республіка Крим
-0, //Одеська область
-0, //Одеська область
-0, //Миколаївська область
-0, //Дніпропетровська область
-0, //Полтавська область
-0, //Черкаська область
-0, //Кіровоградська область
-0, //Вінницька область
-0, //Хмельницька область
-0  //Чернівецька область
-};
+int statesIdsCheck[] = {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// =======================================
 
 static String states[] = {
   "Закарпатська область",
@@ -167,6 +141,8 @@ WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
+//UniversalTelegramBot bot(BOTtoken, client);
+unsigned long lastTimeBotRan;
 static unsigned long times[27];
 static int ledColor[27];
 static int ledColorBlue[] = { 4,5,6,7,8,9,10,11,12,21,22 };
@@ -212,7 +188,6 @@ void handlePost() {
   int blink_enable = jsonDocument["blink_enable"];
   int blink_disable = jsonDocument["blink_disable"];
   int modulation_mode = jsonDocument["modulation_mode"];
-  int set_hv = jsonDocument["hv"];
 
   if(brightness) {
     autoBrightness = false;
@@ -256,10 +231,6 @@ void handlePost() {
     modulationMode = modulation_mode;
   }
 
-  if (set_hv) {
-    hv = set_hv*1000;
-  }
-
   // Respond to the client
   server.send(200, "application/json", "{}");
 }
@@ -278,7 +249,6 @@ void getEnv() {
   jsonDocument["greenStates"] = greenStates;
   jsonDocument["blink"] = blink;
   jsonDocument["modulationMode"] = modulationMode;
-  jsonDocument["hv"] = hv;
   serializeJson(jsonDocument, buffer);
   server.send(200, "application/json", buffer);
 }
@@ -365,7 +335,7 @@ void Blink(int count) {
         }
         strip.show();
       } // Оновити світлодіодну стрічку
-      delay(1000); // Затримка 1 секунда
+      delay(blinkTime); // Затримка
     }
   //}
   //BLYNK
@@ -473,6 +443,7 @@ void loop() {
         }
 
         unsigned long  t = millis();
+        unsigned long hv = 60000;
         alarmsNowCount = 0;
         bool return_to_init_mode = true;
         for (int i = 0; i < arrSize; i++) {
