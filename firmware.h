@@ -7,7 +7,6 @@ char* APSsid = "AlarmMap"; //Назва точки доступу щоб пер�
 char* APPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
 
 //Налштування за замовчуванням
-bool enabled = true; //Ввімкнена/вимкнена карта
 int brightness = 100; //Яскравість %
 int alarm_brightness[] = {
   0,
@@ -23,8 +22,8 @@ int mapModeInit = 1;
 int mapMode = 1; //Режим
 
 bool blink = true;
-int blinkCount = 5;
-int blinkTime = 500;
+int blinkCount = 10;
+int blinkTime = 100;
 int blinkDistricts[] = {
   7,
   8
@@ -177,7 +176,7 @@ void handlePost() {
   deserializeJson(jsonDocument, body);
 
   // Get brightness
-  int brightness = jsonDocument["brightness"];
+  int set_brightness = jsonDocument["brightness"];
   int auto_brightness = jsonDocument["auto_brightness"];
   int map_mode = jsonDocument["map_mode"];
   int green_states_on = jsonDocument["green_states_on"];
@@ -188,10 +187,12 @@ void handlePost() {
   int blink_enable = jsonDocument["blink_enable"];
   int blink_disable = jsonDocument["blink_disable"];
   int modulation_mode = jsonDocument["modulation_mode"];
+  int set_hv = jsonDocument["hv"];
 
-  if(brightness) {
+  if(set_brightness) {
     autoBrightness = false;
-    strip.setBrightness(brightness * 2.55);
+    brightness = set_brightness;
+    strip.setBrightness(set_brightness * 2.55);
     strip.show();
   }
 
@@ -211,13 +212,6 @@ void handlePost() {
     mapModeInit = map_mode;
   }
 
-  if(map_enable) {
-    enabled = true;
-  }
-
-  if(map_disable) {
-    enabled = false;
-  }
 
   if(blink_enable) {
     blink = true;
@@ -229,6 +223,10 @@ void handlePost() {
 
   if(modulation_mode) {
     modulationMode = modulation_mode;
+  }
+
+  if (set_hv) {
+    hv = set_hv*1000;
   }
 
   // Respond to the client
@@ -243,7 +241,6 @@ void getEnv() {
   jsonDocument["mapMode"] = mapMode;
   jsonDocument["mapModeInit"] = mapModeInit;
   jsonDocument["autoSwitch"] = autoSwitch;
-  jsonDocument["enabled"] = enabled;
   jsonDocument["greenStates"] = greenStates;
   jsonDocument["alarmsNowCount"] = alarmsNowCount;
   jsonDocument["greenStates"] = greenStates;
@@ -408,163 +405,164 @@ void loop() {
 
   if (wifiConnected) {
     server.handleClient();
-    if (enabled) {
-      if (autoBrightness) {
-        timeClient.update();
-        int currentHour = timeClient.getHours();
-        bool isDay = currentHour >= day && currentHour < night;
-        brightness = isDay ? dayBrightness : nightBrightness;
-        for (int i = 0; i < LED_COUNT; i++) {
-          strip.setBrightness(brightness * 2.55);
-        }
+    if (autoBrightness) {
+      timeClient.update();
+      int currentHour = timeClient.getHours();
+      int current_brightness = 0;
+      bool isDay = currentHour >= day && currentHour < night;
+      current_brightness = isDay ? dayBrightness : nightBrightness;
+      if (current_brightness != brightness) {
+        brightness = current_brightness;
+        //for (int i = 0; i < LED_COUNT; i++) {
+        strip.setBrightness(brightness * 2.55);
+        //}
         strip.show();
-      }
-
-      //тривоги
-      if (millis() - lastAlarmsTime > alarms_period || firstAlarmsUpdate) {
-        firstAlarmsUpdate = false;
-        String response;
-        HTTPClient http;
-        http.begin(baseURL.c_str());
-        // Send HTTP GET request
-        int httpResponseCode = http.GET();
-
-        if (httpResponseCode == 200) {
-          response = http.getString();
-        }
-        else {
-          return;
-        }
-        // Free resources
-        http.end();
-        DeserializationError error = deserializeJson(doc, response);
-        if (error) {
-          return;
-        }
-
-        unsigned long  t = millis();
-        unsigned long hv = 60000;
-        alarmsNowCount = 0;
-        bool return_to_init_mode = true;
-        for (int i = 0; i < arrSize; i++) {
-          enable = doc["states"][states[i]]["enabled"].as<bool>();
-          if (enable && times[i] == 0) {
-            times[i] = t;
-            ledColor[i] = 2;
-            alarmsNowCount++;
-          }
-          else if (enable && times[i] + hv > t && ledColor[i] != 1) {
-            ledColor[i] = 2;
-            alarmsNowCount++;
-
-          }
-          else if (enable) {
-            ledColor[i] = 1;
-            times[i] = t;
-            alarmsNowCount++;
-          }
-
-          if (!enable && times[i] + hv > t && times[i] != 0) {
-            ledColor[i] = 3;
-          }
-          else if (!enable) {
-            ledColor[i] = 0;
-            times[i] = 0;
-          }
-
-          if (autoSwitch && enable && statesIdsCheck[i]==1) {
-              mapMode = 1;
-              return_to_init_mode = false;
-          }
-
-          if (return_to_init_mode) {
-            mapMode = mapModeInit;
-          }
-        }
-      }
-
-      if (mapMode == 1) {
-        for (int i = 0; i < arrSize; i++)
-        {
-          switch (ledColor[i]) {
-          case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-          case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
-          case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-          case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
-          }
-        }
-        strip.show();
-        if (modulationMode > 1) {
-          Modulation(modulationCount);
-        }
-        if (blink) {
-          Blink(blinkCount);
-        }
-      }
-      if (mapMode == 2) {
-        if (millis() - lastWeatherTime > weather_period || firstWeatherUpdate) {
-          // Loop through the city IDs and get the current weather for each city
-          firstWeatherUpdate = false;
-          for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
-            // Construct the URL for the API call
-            String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
-            // Make the HTTP request
-            HTTPClient http;
-            http.begin(apiUrl);
-            int httpResponseCode = http.GET();
-            Serial.println(httpResponseCode);
-            // If the request was successful, parse the JSON response
-            JsonObject obj = doc.to<JsonObject>();
-            if (httpResponseCode == 200) {
-              String payload = http.getString();
-              StaticJsonDocument<512> doc;
-              deserializeJson(doc, payload);
-
-              // Extract the temperature from the JSON response
-
-              double temp = doc["main"]["temp"];
-              double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
-              float red, green, blue, t;
-
-              if (normalizedTemp > 0.99){
-                normalizedTemp = 0.99;
-              }
-              if (normalizedTemp < 0.01){
-                normalizedTemp = 0.01;
-              }
-              if (normalizedTemp <= 0.33) {
-                red = 0;
-                green = 255;
-                blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
-              } else if (normalizedTemp <= 0.66) {
-                red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
-                green = 255;
-                blue = 0;
-              } else {
-                red = 255;
-                green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
-                blue = 0;
-              }
-              strip.setPixelColor(i, strip.Color(red, green, blue));
-            }
-            else {
-              Serial.print("Error getting weather data for city ID ");
-              Serial.println(statesIds[i]);
-            }
-            // Clean up the HTTP connection
-            http.end();
-            strip.show();
-          }
-          lastWeatherTime = millis();
-        }
-      }
-      if (mapMode == 3) {
-        Flag(10);
       }
     }
-    else {
+
+    //тривоги
+    if (millis() - lastAlarmsTime > alarms_period || firstAlarmsUpdate) {
+      firstAlarmsUpdate = false;
+      String response;
+      HTTPClient http;
+      http.begin(baseURL.c_str());
+      // Send HTTP GET request
+      int httpResponseCode = http.GET();
+
+      if (httpResponseCode == 200) {
+        response = http.getString();
+      }
+      else {
+        return;
+      }
+      // Free resources
+      http.end();
+      DeserializationError error = deserializeJson(doc, response);
+      if (error) {
+        return;
+      }
+
+      unsigned long  t = millis();
+      alarmsNowCount = 0;
+      bool return_to_init_mode = true;
+      for (int i = 0; i < arrSize; i++) {
+        enable = doc["states"][states[i]]["enabled"].as<bool>();
+        if (enable && times[i] == 0) {
+          times[i] = t;
+          ledColor[i] = 2;
+          alarmsNowCount++;
+        }
+        else if (enable && times[i] + hv > t && ledColor[i] != 1) {
+          ledColor[i] = 2;
+          alarmsNowCount++;
+
+        }
+        else if (enable) {
+          ledColor[i] = 1;
+          times[i] = t;
+          alarmsNowCount++;
+        }
+
+        if (!enable && times[i] + hv > t && times[i] != 0) {
+          ledColor[i] = 3;
+        }
+        else if (!enable) {
+          ledColor[i] = 0;
+          times[i] = 0;
+        }
+
+        if (autoSwitch && enable && statesIdsCheck[i]==1) {
+            mapMode = 2;
+            return_to_init_mode = false;
+        }
+
+        if (return_to_init_mode) {
+          mapMode = mapModeInit;
+        }
+      }
+    }
+
+    if (mapMode == 1) {
       strip.clear();
       strip.show();
+    }
+    if (mapMode == 2) {
+      for (int i = 0; i < arrSize; i++)
+      {
+        switch (ledColor[i]) {
+        case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
+        case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
+        case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
+        case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
+        }
+      }
+      strip.show();
+      if (modulationMode > 1) {
+        Modulation(modulationCount);
+      }
+      if (blink) {
+        Blink(blinkCount);
+      }
+    }
+    if (mapMode == 3) {
+      if (millis() - lastWeatherTime > weather_period || firstWeatherUpdate) {
+        // Loop through the city IDs and get the current weather for each city
+        firstWeatherUpdate = false;
+        for (int i = 0; i < sizeof(statesIds) / sizeof(int); i++) {
+          // Construct the URL for the API call
+          String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIds[i]) + "&units=metric&appid=" + String(apiKey);
+          // Make the HTTP request
+          HTTPClient http;
+          http.begin(apiUrl);
+          int httpResponseCode = http.GET();
+          Serial.println(httpResponseCode);
+          // If the request was successful, parse the JSON response
+          JsonObject obj = doc.to<JsonObject>();
+          if (httpResponseCode == 200) {
+            String payload = http.getString();
+            StaticJsonDocument<512> doc;
+            deserializeJson(doc, payload);
+
+            // Extract the temperature from the JSON response
+
+            double temp = doc["main"]["temp"];
+            double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
+            float red, green, blue, t;
+
+            if (normalizedTemp > 0.99){
+              normalizedTemp = 0.99;
+            }
+            if (normalizedTemp < 0.01){
+              normalizedTemp = 0.01;
+            }
+            if (normalizedTemp <= 0.33) {
+              red = 0;
+              green = 255;
+              blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
+            } else if (normalizedTemp <= 0.66) {
+              red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
+              green = 255;
+              blue = 0;
+            } else {
+              red = 255;
+              green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
+              blue = 0;
+            }
+            strip.setPixelColor(i, strip.Color(red, green, blue));
+          }
+          else {
+            Serial.print("Error getting weather data for city ID ");
+            Serial.println(statesIds[i]);
+          }
+          // Clean up the HTTP connection
+          http.end();
+          strip.show();
+        }
+        lastWeatherTime = millis();
+      }
+    }
+    if (mapMode == 4) {
+      Flag(10);
     }
     delay(1000);
   }
