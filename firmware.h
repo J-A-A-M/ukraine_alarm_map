@@ -36,10 +36,10 @@ int modulationMode = 2;
 int modulationLevel = 50;
 int modulationStep = 5;
 int modulationTime = 200;
-int modulationCount = 5;
+int modulationCount = 3;
 bool modulationGreen = false;
 bool modulationOrange = true;
-bool modulationRed = false;
+bool modulationRed = true;
 bool modulationSelected = false;
 
 int newAlarmPeriod = 180000;

@@ -35,8 +35,8 @@ bool wifiStatusBlink = <span id="wifi-status">true</span>;
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
 
-float brightnessGreen = <span id="brightness-green">100</span>; //Яскравість %
-float brightnessOrange = <span id="brightness-orange">100</span>; //Яскравість %
+float brightnessGreen = <span id="brightness-green">50</span>; //Яскравість %
+float brightnessOrange = <span id="brightness-orange">75</span>; //Яскравість %
 float brightnessRed = <span id="brightness-red">100</span>; //Яскравість %
 
 //Налаштування авто-яскравості
@@ -57,17 +57,17 @@ int blinkDistricts[] = {
   8
 };
 
-int modulationMode = <span id="modulation-mode">1</span>;
+int modulationMode = <span id="modulation-mode">2</span>;
 int modulationLevel = <span id="modulation-level">50</span>;
-int modulationStep = <span id="modulation-step">10</span>;
-int modulationTime = <span id="modulation-time">100</span>;
-int modulationCount = <span id="modulation-count">2</span>;
-bool modulationGreen = <span id="modulation-green">true</span>;
+int modulationStep = <span id="modulation-step">5</span>;
+int modulationTime = <span id="modulation-time">200</span>;
+int modulationCount = <span id="modulation-count">3</span>;
+bool modulationGreen = <span id="modulation-green">false</span>;
 bool modulationOrange = <span id="modulation-orange">true</span>;
 bool modulationRed = <span id="modulation-red">true</span>;
 bool modulationSelected = <span id="modulation-selected">false</span>;
 
-int newAlarmPeriod = <span id="new-alarm-period">60000</span>;
+int newAlarmPeriod = <span id="new-alarm-period">180000</span>;
 
 //Для погоди
 const char* apiKey = "<span id="api-key"></span>"; //API погоди
@@ -160,12 +160,12 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               <label class="form-label">Режим модуляції <span class="badge bg-success">оновлення</span></label>
             </div>
             <div class="col-md-12 btn-group mb-3" role="group">
-              <button type="button" class="btn btn-danger" id="modulation-mode-input-1">Вимкнено</button>
-              <button type="button" class="btn btn-secondary" id="modulation-mode-input-2">Модуляція</button>
+              <button type="button" class="btn btn-secondary" id="modulation-mode-input-1">Вимкнено</button>
+              <button type="button" class="btn btn-success" id="modulation-mode-input-2">Модуляція</button>
               <button type="button" class="btn btn-secondary" id="modulation-mode-input-3">Пульсація</button>
             </div>
 
-            <div class="" id='modulation-form' style="display:none">
+            <div class="" id='modulation-form'>
               <div class="row">
 
                 <div class="" id='modulation-level-form' >
@@ -184,10 +184,10 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
                   <label class="form-label">Крок модуляції</label>
                   <div class="row">
                     <div  class="col-2">
-                        <h4><span class="badge bg-dark" id="modulation-step-form-value">10</span></h4>
+                        <h4><span class="badge bg-dark" id="modulation-step-form-value">5</span></h4>
                     </div>
                     <div class="col-10 mb-1 mt-1">
-                        <input type="range" min="1" max="100" value="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-step-input">
+                        <input type="range" min="1" max="100" value="5" class="bg-white border rounded border-secondary form-range col-12" id="modulation-step-input">
                     </div>
                   </div>
                 </div>
@@ -208,17 +208,17 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
                   <label class="form-label">Кількість модуляцій в циклі</label>
                   <div class="row">
                     <div  class="col-2">
-                        <h4><span class="badge bg-dark" id="modulation-count-form-value">2</span></h4>
+                        <h4><span class="badge bg-dark" id="modulation-count-form-value">3</span></h4>
                     </div>
                     <div class="col-10 mb-1 mt-1">
-                        <input type="range" min="1" max="10" value="2" class="bg-white border rounded border-secondary form-range col-12" id="modulation-count-input">
+                        <input type="range" min="1" max="10" value="3" class="bg-white border rounded border-secondary form-range col-12" id="modulation-count-input">
                     </div>
                   </div>
                 </div>
 
 
                 <div id="modulation-green-1" class=" col-1 mb-1">
-                  <input type="checkbox" class="form-check-input" id="modulation-green-input" checked>
+                  <input type="checkbox" class="form-check-input" id="modulation-green-input">
                 </div>
                 <div id="modulation-green-2" class=" col-11 mb-1">
                   <label class="form-check-label">зелений</label>
@@ -256,10 +256,10 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               <label class="form-label">Період окремої підсвітки нових тривог (хвилини)</label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="new-alarm-period-form-value">1</span></h4>
+                    <h4><span class="badge bg-dark" id="new-alarm-period-form-value">3</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="60" value="1" class="bg-white border rounded border-secondary form-range col-12" id="new-alarm-period-input">
+                    <input type="range" min="1" max="60" value="3" class="bg-white border rounded border-secondary form-range col-12" id="new-alarm-period-input">
                 </div>
               </div>
             </div>
@@ -338,17 +338,13 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               <label class="form-label">Нічна яскравість</label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="night-brightness-form-value">30</span></h4>
+                    <h4><span class="badge bg-dark" id="night-brightness-form-value">20</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="100" value="30" class="bg-white border rounded border-secondary form-range col-12" id="night-brightness-input">
+                    <input type="range" min="1" max="100" value="20" class="bg-white border rounded border-secondary form-range col-12" id="night-brightness-input">
                 </div>
               </div>
             </div>
-
-
-
-
           </div>
 
           <div class="col-md-12 mb-1"></div>
@@ -359,10 +355,10 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               <label class="form-label">Зони <span class="badge bg-success" style="font-size: 0.9rem;">без тривог</span></label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="brightness-green-form-value">100</span></h4>
+                    <h4><span class="badge bg-dark" id="brightness-green-form-value">50</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="0" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-green-input">
+                    <input type="range" min="0" max="100" value="50" class="bg-white border rounded border-secondary form-range col-12" id="brightness-green-input">
                 </div>
               </div>
             </div>
@@ -371,10 +367,10 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               <label class="form-label">Зони <span class="badge bg-warning" style="font-size: 0.9rem;">початку тривог</span></label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="brightness-orange-form-value">100</span></h4>
+                    <h4><span class="badge bg-dark" id="brightness-orange-form-value">75</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="0" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-orange-input">
+                    <input type="range" min="0" max="100" value="75" class="bg-white border rounded border-secondary form-range col-12" id="brightness-orange-input">
                 </div>
               </div>
             </div>
