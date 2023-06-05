@@ -28,6 +28,9 @@ int mapModeInit = 2;
 int mapMode = 1;
 
 int blinkDistricts[] = {
+  0,
+  1,
+  2,
   7,
   8
 };
@@ -295,31 +298,33 @@ void startAPMode() {
 
 void Modulation() {
   Serial.println("Modulation: start");
-  int leds_array;
-  int pixel;
   int localModulationTime = modulationTime / 2 / ((100-modulationLevel) / modulationStep);
+  int selectedStates[NUM_LEDS];
+  for (int i = 0; i < NUM_LEDS; i++) {
+    selectedStates[i] = 0;
+  }
+  for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
+    int position = blinkDistricts[i];
+    selectedStates[position] = 1;
+  }
+  Serial.println("selectedStates: ");
+  for (int i = 0; i < NUM_LEDS; i++) {
+    Serial.print(selectedStates[i]);
+    Serial.print(" ");
+  }
+  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
     bool fadeCycleEnded = false;
     bool rizeCycleEnded = false;
     int stepBrightness = 100;
     //Serial.println("Cycle: start");
     while (!fadeCycleEnded || !rizeCycleEnded) {
-      if (modulationSelected) {
-        leds_array = arrDistrictsSize;
-      } else {
-        leds_array = arrSize;
-      }
-      for (int k = 0; k < leds_array; k++) {
-        if (modulationSelected) {
-          pixel = blinkDistricts[k];
-        } else {
-          pixel = k;
-        }
-        switch (ledColor[k]) {
-          case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
-          case 2: if (modulationOrange|| modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
-          case 0: if (greenStates) {} else {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;}
-          case 3: if (modulationGreen|| modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+      for (int i = 0; i < NUM_LEDS; i++) {
+        switch (ledColor[i]) {
+          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
+          case 2: if (modulationOrange|| selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, .55 * stepBrightness * brightnessGreen / 100); break;} else { break;}}
+          case 3: if (modulationGreen|| selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
@@ -369,48 +374,47 @@ void colorFill(int color, int fillBrightness) {
 }
 
 void Blink() {
-
-  int leds_array;
-  int state_id;
-  int pixel;
+  Serial.println("Start blink");
   int localModulationTime = modulationTime / 2;
-  if (modulationSelected) {
-    leds_array = arrDistrictsSize;
-  } else {
-    leds_array = NUM_LEDS;
+  int selectedStates[NUM_LEDS];
+  for (int i = 0; i < NUM_LEDS; i++) {
+    selectedStates[i] = 0;
   }
+  Serial.print("selectedStates: ");
+  for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
+    int position = blinkDistricts[i];
+    selectedStates[position] = 1;
+  }
+  Serial.println(" ");
+  Serial.println("selectedStates: ");
+  for (int i = 0; i < NUM_LEDS; i++) {
+    Serial.print(selectedStates[i]);
+    Serial.print(" ");
+  }
+  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
-    for (int i = 0; i < leds_array; i++) {
-        if (modulationSelected) {
-          pixel = blinkDistricts[i];
-        } else {
-          pixel = i;
-        }
-        switch (ledColor[pixel]) {
-        case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 0); break;} else { break;}
-        case 2: if (modulationOrange || modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-        case 0: if (greenStates) {} else {if (modulationGreen || modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 0); break;} else { break;}}
-        case 3: if (modulationGreen || modulationSelected) {leds[pixel] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+    for (int i = 0; i < NUM_LEDS; i++) {
+        switch (ledColor[i]) {
+        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
+        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
+        case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 0); break;} else { break;}}
+        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
         }
     }
     FastLED.show();
     delay(localModulationTime);
-    for (int i = 0; i < leds_array; i++) {
-        if (modulationSelected) {
-          pixel = blinkDistricts[i];
-        } else {
-          pixel = i;
-        }
-        switch (ledColor[pixel]) {
-        case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
-        case 2: if (modulationOrange || modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-        case 0: if (greenStates) {} else {if (modulationGreen || modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}}
-        case 3: if (modulationGreen || modulationSelected) {leds[pixel] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+    for (int i = 0; i < NUM_LEDS; i++) {
+        switch (ledColor[i]) {
+        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
+        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
+        case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}}
+        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
     FastLED.show();
     delay(localModulationTime);
   }
+  Serial.println("End blink");
 }
 
 void Flag(int wait) {
@@ -647,5 +651,5 @@ void loop() {
       Flag(50);
     }
   }
-  delay(5000);
+  delay(1000);
 }

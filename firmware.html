@@ -208,6 +208,9 @@ int mapModeInit = <span id="mode">2</span>;
 int mapMode = 1;
 
 int blinkDistricts[] = {
+  0
+  1,
+  2,
   7,
   8
 };
@@ -395,12 +398,12 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
                   <label class="form-check-label"><span class="badge bg-danger"  style="font-size: 0.9rem;">Області тривог</span></label>
                 </div>
 
-                <!--<div id="modulation-selected-1" class=" col-1 mb-1">
+                <div id="modulation-selected-1" class=" col-1 mb-1">
                   <input type="checkbox" class="form-check-input" id="modulation-selected-input">
                 </div>
                 <div id="modulation-selected-2" class=" col-11 mb-1">
-                  <label class="form-check-label">Лише вибрані області</label>
-                </div>-->
+                  <label class="form-check-label">Вибрати області для постійної модуляції</label>
+                </div>
               </div>
             </div>
 
@@ -896,16 +899,16 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         }
       });
 
-      // const modulationselected = document.getElementById('modulation-selected');
-      // const modulationselectedinput = document.getElementById('modulation-selected-input');
+      const modulationselected = document.getElementById('modulation-selected');
+      const modulationselectedinput = document.getElementById('modulation-selected-input');
 
-      // modulationselectedinput.addEventListener('click', function() {
-      //   if (modulationselectedinput.checked) {
-      //     modulationselected.textContent = 'true';
-      //   } else {
-      //     modulationselected.textContent = 'false';
-      //   }
-      // });
+      modulationselectedinput.addEventListener('click', function() {
+        if (modulationselectedinput.checked) {
+          modulationselected.textContent = 'true';
+        } else {
+          modulationselected.textContent = 'false';
+        }
+      });
 
 
       const newalarmperiod = document.getElementById('new-alarm-period');
