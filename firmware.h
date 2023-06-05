@@ -156,7 +156,7 @@ int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
 int arrAlarms = sizeof(ledColor) / sizeof(int);
 int arrSize = sizeof(states) / sizeof(String);
 int arrWeather = sizeof(statesIdsWeather) / sizeof(int);
-int alarmsPeriod = 10000;
+int alarmsPeriod = 30000;
 int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
 unsigned long lastWeatherTime;
@@ -164,6 +164,11 @@ static bool firstAlarmsUpdate = true;
 static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
 static bool wifiConnected;
+
+static  bool mapModeFirstUpdate1= true;
+static  bool mapModeFirstUpdate2= true;
+static  bool mapModeFirstUpdate3= true;
+static  bool mapModeFirstUpdate4= true;
 
 void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
@@ -244,8 +249,9 @@ void initWiFi() {
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     if(wifiStatusBlink) {
-      movingBlink(HUE_RED,1);
+      //movingBlink(HUE_RED,1);
       colorFill(HUE_RED, 50);
+      FlashAll(10,1);
     }
     delay(1000);
     Serial.println("Connecting to WiFi...");
@@ -257,7 +263,9 @@ void initWiFi() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     if(wifiStatusBlink) {
-      movingBlink(HUE_GREEN,3);
+      //movingBlink(HUE_GREEN,3);
+      colorFill(HUE_GREEN, 50);
+      FlashAll(10,3);
     }
     Serial.println("Connected to WiFi");
     Serial.print("IP Address: ");
@@ -269,8 +277,9 @@ void initWiFi() {
 void startAPMode() {
   Serial.println("Start AP");
   if(wifiStatusBlink) {
-    movingBlink(HUE_YELLOW,3);
+    //movingBlink(HUE_YELLOW,3);
     colorFill(HUE_YELLOW, 50);
+    FlashAll(10,3);
   }
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID, apPassword);
@@ -284,12 +293,12 @@ void startAPMode() {
   Serial.println(WiFi.softAPIP());
 }
 
-void Modulation(int count) {
+void Modulation() {
   Serial.println("Modulation: start");
   int leds_array;
   int pixel;
   int localModulationTime = modulationTime / 2 / ((100-modulationLevel) / modulationStep);
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < modulationCount; i++) {
     bool fadeCycleEnded = false;
     bool rizeCycleEnded = false;
     int stepBrightness = 100;
@@ -359,7 +368,7 @@ void colorFill(int color, int fillBrightness) {
   FastLED.show();
 }
 
-void Blink(int count) {
+void Blink() {
 
   int leds_array;
   int state_id;
@@ -370,7 +379,7 @@ void Blink(int count) {
   } else {
     leds_array = NUM_LEDS;
   }
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < modulationCount; i++) {
     for (int i = 0; i < leds_array; i++) {
         if (modulationSelected) {
           pixel = blinkDistricts[i];
@@ -418,6 +427,19 @@ void Flag(int wait) {
       leds[dot] = CHSV(flagColor[dot], 255, 255);
       FastLED.show();
       delay(wait);
+    }
+  }
+}
+
+void FlashAll(int wait, int count) {
+  for(int i = 0; i < count; i++) {
+    for(int dot = 0; dot <= NUM_LEDS; dot++) {
+      CRGB pixel = leds[dot];
+      leds[dot] = CHSV(0, 00, 255);
+      FastLED.show();
+      delay(wait);
+      leds[dot] = pixel;
+      FastLED.show();
     }
   }
 }
@@ -480,10 +502,13 @@ void loop() {
   }
   if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
     Serial.println("Alarms fetch start");
+    lastAlarmsTime = millis();
     unsigned long  s1 = millis();
     firstAlarmsUpdate = false;
     String response;
     HTTPClient http;
+    Serial.print("Fetch alarm data: ");
+    Serial.println(baseURL);
     http.begin(baseURL.c_str());
     int httpResponseCode = http.GET();
 
@@ -547,12 +572,19 @@ void loop() {
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
+
   if (mapMode == 1) {
+    mapModeFirstUpdate2 = true;
+    mapModeFirstUpdate3 = true;
+    mapModeFirstUpdate4 = true;
     Serial.println("Map mode 1");
     FastLED.clear();
     FastLED.show();
   }
   if (mapMode == 2) {
+    mapModeFirstUpdate1 = true;
+    mapModeFirstUpdate3 = true;
+    mapModeFirstUpdate4 = true;
     Serial.println("Map mode 2");
     for (int i = 0; i < arrSize; i++)
     {
@@ -565,20 +597,23 @@ void loop() {
     }
     FastLED.show();
     if (modulationMode == 3) {
-      Blink(modulationCount);
+      Blink();
     }
     if (modulationMode == 2) {
-      Modulation(modulationCount);
+      Modulation();
     }
   }
   if (mapMode == 3) {
+    mapModeFirstUpdate1 = true;
+    mapModeFirstUpdate2 = true;
+    mapModeFirstUpdate4 = true;
     Serial.println("Map mode 3");
-    if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
+    if (millis() - lastWeatherTime > weatherPeriod || mapModeFirstUpdate3) {
       Serial.println("Weather fetch start");
-      firstWeatherUpdate = false;
+      lastWeatherTime = millis();
+      mapModeFirstUpdate3 = false;
       for (int i = 0; i < arrWeather; i++) {
         String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
-
         http.begin(apiUrl);
         int httpResponseCode = http.GET();
         Serial.println(httpResponseCode);
@@ -600,12 +635,17 @@ void loop() {
         http.end();
       }
       FastLED.show();
-      lastWeatherTime = millis();
     }
   }
   if (mapMode == 4) {
-    Serial.println("Map mode 4");
-    Flag(50);
+    mapModeFirstUpdate1 = true;
+    mapModeFirstUpdate2 = true;
+    mapModeFirstUpdate3 = true;
+    if (mapModeFirstUpdate4) {
+      mapModeFirstUpdate4 = false;
+      Serial.println("Map mode 4");
+      Flag(50);
+    }
   }
-  //movingBlink(42,1);
+  delay(5000);
 }
