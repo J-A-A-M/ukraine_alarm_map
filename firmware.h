@@ -7,41 +7,42 @@ char* apSSID = "AlarmMap"; //Назва точки доступу щоб пер�
 char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
 bool wifiStatusBlink = true;
 
-//Налштування за замовчуванням
+//Налштування яскравості
 int brightness = 100; //Яскравість %
-int alarmBrightness[] = {
-  0,
-  100,
-  20,
-  50
-};
+
+float brightnessGreen = 50; //Яскравість %
+float brightnessOrange = 75; //Яскравість %
+float brightnessRed = 100; //Яскравість %
+
+//Налаштування авто-яскравості
 bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
+const int day = 8; //Початок дня
+const int night = 22; //Початок ночі
+const int dayBrightness = 100; //Денна яскравість %
+const int nightBrightness = 20; //Нічна яскравість %
+
 bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 
-int mapModeInit = 3;
-int mapMode = 1; //Режим
+int mapModeInit = 2;
+int mapMode = 1;
 
-bool blink = true;
-int blinkCount = 10;
-int blinkTime = 100;
 int blinkDistricts[] = {
   7,
   8
 };
 
 int modulationMode = 2;
-int modulationStep = 10;
-int modulationTime = 100;
+int modulationLevel = 50;
+int modulationStep = 5;
+int modulationTime = 200;
 int modulationCount = 5;
+bool modulationGreen = false;
+bool modulationOrange = true;
+bool modulationRed = false;
+bool modulationSelected = false;
 
-int newAlarmPeriod = 60000;
-
-//Налаштування авто-яскравості
-const int day = 8; //Початок дня
-const int night = 22; //Початок ночі
-const int dayBrightness = 100; //Денна яскравість %
-const int nightBrightness = 20; //Нічна яскравість %
+int newAlarmPeriod = 180000;
 
 //Для погоди
 const char* apiKey = ""; //API погоди
@@ -114,44 +115,47 @@ int statesIdsWeather[] = {
 
 // =======================================
 
-#include <ArduinoJson.h> //json для аналізу інформації
-#include <Adafruit_NeoPixel.h> //neopixel для управління стрічкою
-#include <WiFi.h> //для зв'язку
+#include <ArduinoJson.h>
+#include <FastLED.h>
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <UniversalTelegramBot.h> //Telegram бот
-#include <WiFiManager.h> //Керування WiFi
-#include <NTPClient.h> //Час
-#include <HTTPUpdate.h> //Оновлення прошивки через тг бота
+#include <WiFiManager.h>
+#include <NTPClient.h>
+#include <HTTPUpdate.h>
 #include <WebServer.h>
-#define LED_PIN 25
-#define LED_COUNT 27
 
-// JSON data buffer
+#define LED_PIN     25
+#define NUM_LEDS    27
+#define LED_TYPE    WS2812
+#define COLOR_ORDER GRB
+
+CRGB leds[NUM_LEDS];
+
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
 
 WebServer server(80);
 
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 DynamicJsonDocument doc(30000);
 //String baseURL = "https://vadimklimenko.com/map/statuses.json";
 String baseURL = "https://map.vglskr.net.ua/alarm_map";
 WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
+HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
-//UniversalTelegramBot bot(BOTtoken, client);
 unsigned long lastTimeBotRan;
-static unsigned long times[27];
-static int ledColor[27];
-static int ledColorBlue[] = { 4,5,6,7,8,9,10,11,12,21,22 };
-static int ledColorYellow[] = { 0,1,2,3,12,13,14,15,16,17,18,19,20,23,24,25,26 };
+static unsigned long times[NUM_LEDS];
+static int ledColor[NUM_LEDS];
+static int flagColor[] {HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_AQUA,HUE_AQUA,
+HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,
+HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_AQUA,HUE_AQUA,
+HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW};
 int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
 int arrAlarms = sizeof(ledColor) / sizeof(int);
 int arrSize = sizeof(states) / sizeof(String);
 int arrWeather = sizeof(statesIdsWeather) / sizeof(int);
-bool enable = false;
 int alarmsPeriod = 10000;
 int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
@@ -161,23 +165,20 @@ static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
 static bool wifiConnected;
 
-
 void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
   server.on("/params", HTTP_GET, getEnv);
-
-  // start server
   server.begin();
 }
 
 void handlePost() {
   if (server.hasArg("plain") == false) {
-    //handle error here
+
   }
+
   String body = server.arg("plain");
   deserializeJson(jsonDocument, body);
 
-  // Get brightness
   int set_brightness = jsonDocument["brightness"];
   int auto_brightness = jsonDocument["auto_brightness"];
   int map_mode = jsonDocument["map_mode"];
@@ -185,57 +186,35 @@ void handlePost() {
   int green_states_off = jsonDocument["green_states_off"];
   int map_enable = jsonDocument["map_enable"];
   int map_disable = jsonDocument["map_disable"];
-
-  int blink_enable = jsonDocument["blink_enable"];
-  int blink_disable = jsonDocument["blink_disable"];
   int modulation_mode = jsonDocument["modulation_mode"];
   int set_new_alarm_period = jsonDocument["new_alarm_period"];
-  int blink_red  = jsonDocument["blink_red"];
 
   if(set_brightness) {
     autoBrightness = false;
     brightness = set_brightness;
-    strip.setBrightness(set_brightness * 2.55);
-    strip.show();
+    FastLED.setBrightness(2.54 * set_brightness);  // Set the overall brightness of the LEDs
+    FastLED.show();
+    Serial.print("Brightness: ");
+    Serial.println(brightness);
   }
-
   if(auto_brightness) {
     autoBrightness = true;
   }
-
   if(green_states_on) {
     greenStates = true;
   }
-
   if(green_states_off) {
     greenStates = false;
   }
-
   if(map_mode) {
     mapModeInit = map_mode;
   }
-
-  if(blink_enable) {
-    blink = true;
-  }
-
-  if(blink_disable) {
-    blink = false;
-  }
-
-  if(blink_red) {
-    BlinkColor(255,0,0,5);
-  }
-
   if(modulation_mode) {
     modulationMode = modulation_mode;
   }
-
   if (set_new_alarm_period) {
     newAlarmPeriod = set_new_alarm_period*1000;
   }
-
-  // Respond to the client
   server.send(200, "application/json", "{}");
 }
 
@@ -250,7 +229,6 @@ void getEnv() {
   jsonDocument["greenStates"] = greenStates;
   jsonDocument["alarmsNowCount"] = alarmsNowCount;
   jsonDocument["greenStates"] = greenStates;
-  jsonDocument["blink"] = blink;
   jsonDocument["modulationMode"] = modulationMode;
   jsonDocument["newAlarmPeriod"] = newAlarmPeriod;
   jsonDocument["weatherKey"] = apiKey;
@@ -260,11 +238,14 @@ void getEnv() {
 
 
 void initWiFi() {
+  Serial.println("WiFi init");
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifiSSID, wifiPassword);
+  int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     if(wifiStatusBlink) {
-      BlinkColor(255,0,0,5);
+      movingBlink(HUE_RED,1);
+      colorFill(HUE_RED, 50);
     }
     delay(1000);
     Serial.println("Connecting to WiFi...");
@@ -276,7 +257,7 @@ void initWiFi() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     if(wifiStatusBlink) {
-      BlinkColor(0,255,0,5);
+      movingBlink(HUE_GREEN,3);
     }
     Serial.println("Connected to WiFi");
     Serial.print("IP Address: ");
@@ -286,8 +267,10 @@ void initWiFi() {
 }
 
 void startAPMode() {
+  Serial.println("Start AP");
   if(wifiStatusBlink) {
-    BlinkColor(255,200,0,5);
+    movingBlink(HUE_YELLOW,3);
+    colorFill(HUE_YELLOW, 50);
   }
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID, apPassword);
@@ -302,158 +285,176 @@ void startAPMode() {
 }
 
 void Modulation(int count) {
-  int pixel_brightness_start;
-  int pixel_brightness_end;
-  int pixel_color_full;
-  int pixel_color_penta;
-
-  if (alarmBrightness[1] >= alarmBrightness[2]) {
-    pixel_brightness_start = static_cast<int>(alarmBrightness[2]*brightness/100);
-    pixel_brightness_end = static_cast<int>(alarmBrightness[1]*brightness/100);
-  } else {
-    pixel_brightness_start = static_cast<int>(alarmBrightness[1]*brightness/100);
-    pixel_brightness_end = static_cast<int>(alarmBrightness[2]*brightness/100);
-  }
-
+  Serial.println("Modulation: start");
+  int leds_array;
+  int pixel;
   for (int i = 0; i < count; i++) {
-    for (int i = pixel_brightness_end; i >= pixel_brightness_start; i -= modulationStep) {
-      pixel_color_full= static_cast<int>(255*i/100);
-      pixel_color_penta = static_cast<int>(55*i/100);
-      for (int i = 0; i < arrSize; i++)
-      {
-        switch (ledColor[i]) {
-          case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-          case 2: strip.setPixelColor(i, strip.Color(pixel_color_full, pixel_color_penta, 0)); break;
-          case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-          case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
+    bool fadeCycleEnded = false;
+    bool rizeCycleEnded = false;
+    int stepBrightness = 100;
+    //Serial.println("Cycle: start");
+    while (!fadeCycleEnded || !rizeCycleEnded) {
+      if (modulationSelected) {
+        leds_array = arrDistrictsSize;
+      } else {
+        leds_array = arrSize;
+      }
+      for (int k = 0; k < leds_array; k++) {
+        if (modulationSelected) {
+          pixel = blinkDistricts[k];
+        } else {
+          pixel = k;
+        }
+        switch (ledColor[k]) {
+          case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
+          case 2: if (modulationOrange|| modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 0: if (greenStates) {} else {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;}
+          case 3: if (modulationGreen|| modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
-      strip.show();
+      FastLED.show();
+      //Serial.print("stepBrightness: ");
+      //Serial.println(stepBrightness);
+      //Serial.print("pixelBrightness: ");
+      //Serial.println(pixelBrightness);
+      if (fadeCycleEnded){
+        //Serial.println("acs");
+        stepBrightness += modulationStep;
+      } else{
+        //Serial.println("desc");
+        stepBrightness -= modulationStep;
+      }
+      if (stepBrightness < modulationLevel) {
+        fadeCycleEnded = true;
+        //Serial.println("fadeCycleEnded");
+      }
+      if (stepBrightness > 100) {
+        //Serial.println("rizeCycleEnded");
+        rizeCycleEnded = true;
+      }
       delay(modulationTime);
     }
-    for (int i = pixel_brightness_start; i <= pixel_brightness_end; i += modulationStep) {
-      pixel_color_full= static_cast<int>(255*i/100);
-      pixel_color_penta = static_cast<int>(55*i/100);
-      for (int i = 0; i < arrSize; i++)
-      {
-        switch (ledColor[i]) {
-          case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-          case 2: strip.setPixelColor(i, strip.Color(pixel_color_full, pixel_color_penta, 0));; break;
-          case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-          case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
-        }
-      }
-      strip.show();
-      delay(modulationTime);
+    //Serial.println("Cycle: end");
+  }
+  Serial.println("Modulation: end");
+}
+
+void movingBlink(int color, int count) {
+  for(int i = 0; i < count; i++) {
+    for(int dot = 0; dot < NUM_LEDS; dot++) {
+      leds[dot] = CHSV(color, 255, 255);
+      FastLED.show();
+      delay(20);
+      leds[dot] = CHSV(color, 255, 0);
+      FastLED.show();
     }
   }
 }
-void Blink(int count) {
-  //BLYNK
-  int blinkCounter = count*2+1;
-  bool blinkState = false;
 
-  //if (ledColor[1] == 1 || ledColor[1] == 2) { // Якщо 1 лампочка світить червоним або жовтим кольором
-    for (int i = 0; i < blinkCounter; i++) {
-      blinkState = !blinkState;
-      for (int i = 0; i < arrDistrictsSize; i++) {
-        if (blinkState) {
-          switch (ledColor[blinkDistricts[i]]) {
-          case 1: strip.setPixelColor(blinkDistricts[i], strip.Color(255, 0, 0)); break;
-          case 2: strip.setPixelColor(blinkDistricts[i], strip.Color(255, 55, 0)); break;
-          case 0: if (greenStates) {} else {strip.setPixelColor(blinkDistricts[i], strip.Color(0, 0, 0)); break;}
-          case 3: strip.setPixelColor(blinkDistricts[i], strip.Color(0, 255, 0)); break;
-          }
-        } else {
-          strip.setPixelColor(blinkDistricts[i], strip.Color(0, 0, 0)); // Вимкнути 1 лампочку
-        }
-        strip.show();
-      } // Оновити світлодіодну стрічку
-      delay(blinkTime); // Затримка
-    }
-  //}
-  //BLYNK
+void colorFill(int color, int fillBrightness) {
+  for(int dot = 0; dot < NUM_LEDS; dot++) {
+    leds[dot] = CHSV(color, 255, fillBrightness);
+  }
+  FastLED.show();
 }
 
-void BlinkColor(int red, int green, int blue, int count) {
-  int blinkCounter = count * 2 + 1;
-  bool blinkState = false;
+void Blink(int count) {
 
-  for (int i = 0; i < blinkCounter; i++) {
-    blinkState = !blinkState;
-    for (int j = 0; j < 28; j++) {
-      if (blinkState) {
-        strip.setPixelColor(j, strip.Color(red, green, blue));
-      } else {
-        strip.setPixelColor(j, strip.Color(0, 0, 0));
-      }
+  int leds_array;
+  int state_id;
+  int pixel;
+  if (modulationSelected) {
+    leds_array = arrDistrictsSize;
+  } else {
+    leds_array = NUM_LEDS;
+  }
+  for (int i = 0; i < count; i++) {
+    for (int i = 0; i < leds_array; i++) {
+        if (modulationSelected) {
+          pixel = blinkDistricts[i];
+        } else {
+          pixel = i;
+        }
+        switch (ledColor[pixel]) {
+        case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 0); break;} else { break;}
+        case 2: if (modulationOrange || modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
+        case 0: if (greenStates) {} else {if (modulationGreen || modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 0); break;} else { break;}}
+        case 3: if (modulationGreen || modulationSelected) {leds[pixel] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+        }
     }
-    strip.show();
-    delay(50);
+    FastLED.show();
+    delay(modulationTime);
+    for (int i = 0; i < leds_array; i++) {
+        if (modulationSelected) {
+          pixel = blinkDistricts[i];
+        } else {
+          pixel = i;
+        }
+        switch (ledColor[pixel]) {
+        case 1: if (modulationRed || modulationSelected) {leds[pixel] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
+        case 2: if (modulationOrange || modulationSelected) {leds[pixel] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
+        case 0: if (greenStates) {} else {if (modulationGreen || modulationSelected) {leds[pixel] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}}
+        case 3: if (modulationGreen || modulationSelected) {leds[pixel] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+        }
+    }
+    FastLED.show();
+    delay(modulationTime);
   }
 }
 
 void Flag(int wait) {
-  //strip.setPixelColor(ledColorBlue[i], strip.Color(0,191,255));
-  //strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,51));
-  for (int i = 0; i < 11; i++) { // For each pixel in strip...
-    strip.setPixelColor(ledColorBlue[i], strip.Color(0,255,255));
-    strip.show();
-    delay(wait);
+  Serial.println("Flag start");
+  for (int dot = 0; dot <= NUM_LEDS; dot++) {
+    if (flagColor[dot] == HUE_AQUA) {
+      leds[dot] = CHSV(flagColor[dot], 255, 255);
+      FastLED.show();
+      delay(wait);
+    }
   }
-  for (int i = 0; i < 17; i++) { // For each pixel in strip...
-    strip.setPixelColor(ledColorYellow[i], strip.Color(255,255,0));
-    strip.show();
-    delay(wait);
+  for (int dot = NUM_LEDS; dot >= 0; dot--) {
+    if (flagColor[dot] == HUE_YELLOW) {
+      leds[dot] = CHSV(flagColor[dot], 255, 255);
+      FastLED.show();
+      delay(wait);
+    }
   }
 }
 
-void initStrip() {
-  strip.begin();
-  strip.show();
-  strip.setBrightness(brightness * 2.55);
-  Flag(20);
+void initFastLED() {
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(2.54 * brightness);
+  FastLED.clear();
+  FastLED.show();
 }
 
 void initTime() {
-  // Встановлюємо початкове значення літнього часу на false
   bool isDaylightSaving = false;
-
-  // Отримуємо поточну дату та час з сервера NTP
   timeClient.begin();
   timeClient.update();
   String formattedTime = timeClient.getFormattedTime();
-
-  // Розбиваємо рядок з форматованим часом на складові
   int day, month, year, hour, minute, second;
   sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
-
-  // Перевіряємо, чи поточний місяць знаходиться в інтервалі березень-жовтень
   if (month >= 3 && month <= 10) {
-    // Якщо так, встановлюємо літній час на true
     isDaylightSaving = true;
   }
-
-  // Встановлюємо зміщення часового поясу для врахування літнього часу
   if (isDaylightSaving) {
-    timeClient.setTimeOffset(14400); // UTC+3 для України
+    timeClient.setTimeOffset(14400);
   }
   else {
-    timeClient.setTimeOffset(10800); // UTC+2 для України
+    timeClient.setTimeOffset(10800);
   }
 }
 
 void setup() {
-  initStrip();
+  initFastLED();
+  Flag(50);
   initWiFi();
   Serial.begin(115200);
   initTime();
   setupRouting();
 }
-
 void loop() {
 	wifiConnected = WiFi.status() == WL_CONNECTED;
-
   if (!wifiConnected) {
     Flag(10);
     delay(10000);
@@ -461,7 +462,9 @@ void loop() {
   }
 
   server.handleClient();
+
   if (autoBrightness) {
+    Serial.println("Autobrightness start");
     timeClient.update();
     int currentHour = timeClient.getHours();
     int currentBrightness = 0;
@@ -469,14 +472,13 @@ void loop() {
     currentBrightness = isDay ? dayBrightness : nightBrightness;
     if (currentBrightness != brightness) {
       brightness = currentBrightness;
-      //for (int i = 0; i < LED_COUNT; i++) {
-      strip.setBrightness(brightness * 2.55);
-      //}
-      strip.show();
+      FastLED.setBrightness(2.54 * brightness);
+      FastLED.show();
     }
   }
-
   if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
+    Serial.println("Alarms fetch start");
+    unsigned long  s1 = millis();
     firstAlarmsUpdate = false;
     String response;
     HTTPClient http;
@@ -490,14 +492,16 @@ void loop() {
       return;
     }
     http.end();
+    unsigned long  s2 = millis();
     DeserializationError error = deserializeJson(doc, response);
     if (error) {
       return;
     }
-
     unsigned long  t = millis();
     alarmsNowCount = 0;
     bool return_to_init_mode = true;
+    unsigned long  s3 = millis();
+    bool enable;
     for (int i = 0; i < arrSize; i++) {
       enable = doc["states"][states[i]]["enabled"].as<bool>();
       if (enable && times[i] == 0) {
@@ -523,45 +527,56 @@ void loop() {
         ledColor[i] = 0;
         times[i] = 0;
       }
-
       if (autoSwitch && enable && statesIdsAlarmCheck[i]==1) {
           mapMode = 2;
           return_to_init_mode = false;
       }
     }
+    unsigned long  s4 = millis();
     if (return_to_init_mode) {
       mapMode = mapModeInit;
     }
+    Serial.print("get data: ");
+    Serial.println(s2-s1);
+    Serial.print("parse data: ");
+    Serial.println(s3-s2);
+    Serial.print("set data: ");
+    Serial.println(s4-s3);
+    Serial.print("Alarms fetch end: ");
+    Serial.println(s4-s1);
   }
-
   if (mapMode == 1) {
-    strip.clear();
-    strip.show();
+    Serial.println("Map mode 1");
+    FastLED.clear();
+    FastLED.show();
   }
   if (mapMode == 2) {
+    Serial.println("Map mode 2");
     for (int i = 0; i < arrSize; i++)
     {
       switch (ledColor[i]) {
-      case 1: strip.setPixelColor(i, strip.Color(255, 0, 0)); break;
-      case 2: strip.setPixelColor(i, strip.Color(255, 55, 0)); break;
-      case 0: if (greenStates) {} else {strip.setPixelColor(i, strip.Color(0, 0, 0)); break;}
-      case 3: strip.setPixelColor(i, strip.Color(0, 255, 0)); break;
+      case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
+      case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
+      case 0: if (greenStates) {} else {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen);}
+      case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen);
       }
     }
-    strip.show();
-    if (modulationMode > 1) {
-      Modulation(modulationCount);
+    FastLED.show();
+    if (modulationMode == 3) {
+      Blink(modulationCount);
     }
-    if (blink) {
-      Blink(blinkCount);
+    if (modulationMode == 2) {
+      Modulation(modulationCount);
     }
   }
   if (mapMode == 3) {
+    Serial.println("Map mode 3");
     if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
+      Serial.println("Weather fetch start");
       firstWeatherUpdate = false;
       for (int i = 0; i < arrWeather; i++) {
         String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
-        HTTPClient http;
+
         http.begin(apiUrl);
         int httpResponseCode = http.GET();
         Serial.println(httpResponseCode);
@@ -571,28 +586,10 @@ void loop() {
           StaticJsonDocument<512> doc;
           deserializeJson(doc, payload);
           double temp = doc["main"]["temp"];
-          double normalizedTemp = static_cast<double>(temp - minTemp) / (maxTemp - minTemp);
-          float red, green, blue;
-          if (normalizedTemp > 0.99){
-            normalizedTemp = 0.99;
-          }
-          if (normalizedTemp < 0.01){
-            normalizedTemp = 0.01;
-          }
-          if (normalizedTemp <= 0.33) {
-            red = 0;
-            green = 255;
-            blue = static_cast<int>(255 - (normalizedTemp/0.33*255));
-          } else if (normalizedTemp <= 0.66) {
-            red = static_cast<int>(((normalizedTemp -0.33)/0.33*255));
-            green = 255;
-            blue = 0;
-          } else {
-            red = 255;
-            green = static_cast<int>(255 - ((normalizedTemp-0.66)/0.33*255));
-            blue = 0;
-          }
-          strip.setPixelColor(i, strip.Color(red, green, blue));
+          float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
+          int hue = 170 + normalizedValue * (0 - 170);
+          hue = (int)hue % 256;
+          leds[i] = CHSV(hue, 255, 255);
         }
         else {
           Serial.print("Error getting weather data for city ID ");
@@ -600,12 +597,13 @@ void loop() {
         }
         http.end();
       }
-      strip.show();
+      FastLED.show();
       lastWeatherTime = millis();
     }
   }
   if (mapMode == 4) {
-    Flag(10);
+    Serial.println("Map mode 4");
+    Flag(50);
   }
-  delay(1000);
+  //movingBlink(42,1);
 }

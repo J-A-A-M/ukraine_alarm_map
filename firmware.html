@@ -26,47 +26,48 @@
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
 //Налаштування WiFi
-char* wifiSsid = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
+char* wifiSSID = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
 char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
-char* apSsid = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
+char* apSSID = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
-bool wifiStatusBlink = <span id="wifi-status-blink">false</span>;
+bool wifiStatusBlink = <span id="wifi-status">true</span>;
 
-//Налштування за замовчуванням
+//Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
-int alarmBrightness[] = {
-  0,
-  100,
-  20,
-  50
-};
+
+float brightnessGreen = <span id="brightness-green">100</span>; //Яскравість %
+float brightnessOrange = <span id="brightness-orange">100</span>; //Яскравість %
+float brightnessRed = <span id="brightness-red">100</span>; //Яскравість %
+
+//Налаштування авто-яскравості
 bool autoBrightness = <span id="autobrightness">true</span>; //Ввімкнена/вимкнена авто яскравість
+const int day = <span id="day-start">8</span>; //Початок дня
+const int night = <span id="night-start">22</span>; //Початок ночі
+const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
+const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
+
 bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 static bool greenStates = <span id="green-states">true</span>; //true - області без тривоги будуть зелені; false - не будуть світитися
 
 int mapModeInit = <span id="mode">2</span>;
-int mapMode = 2; //Режим
+int mapMode = 1;
 
-bool blink = <span id="blink">false</span>;
-int blinkCount = <span id="blink-count">2</span>;
-int blinkTime = <span id="blink-time">500</span>;
 int blinkDistricts[] = {
   7,
   8
 };
 
 int modulationMode = <span id="modulation-mode">1</span>;
+int modulationLevel = <span id="modulation-level">50</span>;
 int modulationStep = <span id="modulation-step">10</span>;
 int modulationTime = <span id="modulation-time">100</span>;
 int modulationCount = <span id="modulation-count">2</span>;
+bool modulationGreen = <span id="modulation-green">true</span>;
+bool modulationOrange = <span id="modulation-orange">true</span>;
+bool modulationRed = <span id="modulation-red">true</span>;
+bool modulationSelected = <span id="modulation-selected">false</span>;
 
 int newAlarmPeriod = <span id="new-alarm-period">60000</span>;
-
-//Налаштування авто-яскравості
-const int day = <span id="day-start">8</span>; //Початок дня
-const int night = <span id="night-start">22</span>; //Початок ночі
-const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
-const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
 
 //Для погоди
 const char* apiKey = "<span id="api-key"></span>"; //API погоди
@@ -109,14 +110,11 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
             <div class="col-sm-6 mb-3">
               <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value=""  oninput="updateText()">
             </div>
-            <div class="mb-1">
-              <input type="checkbox" class="form-check-input" id="wifi-status-blink-input">
-              <label class="form-check-label">Кольорові попередження при проблемах з wi-fi <span class="badge bg-success">оновлення</span></label>
+            <div class=" col-1 mb-1">
+              <input type="checkbox" class="form-check-input" id="wifi-status-input" checked>
             </div>
-            <div class="" id="wifi-status-blink-alert"  style="display:none">
-              <div class="alert alert-primary" role="alert">
-                Мапа буде блимати і світитись <span class="badge bg-danger">червоним</span> кольором у випадку втрачання wifi. В режимі точки достуру мапа буде <span class="badge bg-warning">жовтою</span>. Коли мапа успішно під'єднається до мережі - то буде <span class="badge bg-success">зеленою</span> до момента активації вибраного режиму
-              </div>
+            <div class=" col-11 mb-1">
+              <label class="form-check-label">Індикація статусу wifi на мапі при підключенні чи проблемах <span class="badge bg-success">оновлення</span></label>
             </div>
           </div>
 
@@ -150,7 +148,7 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
 
             <div class="" id="alarmback-alert"  style="display:none">
               <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">оновлення</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
+                <span class="badge bg-success">New</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
               </div>
             </div>
 
@@ -163,41 +161,88 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
             </div>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-danger" id="modulation-mode-input-1">Вимкнено</button>
-              <button type="button" class="btn btn-secondary" id="modulation-mode-input-2">Нові тривоги</button>
+              <button type="button" class="btn btn-secondary" id="modulation-mode-input-2">Модуляція</button>
+              <button type="button" class="btn btn-secondary" id="modulation-mode-input-3">Пульсація</button>
             </div>
 
-            <div class="" id='modulation-step-form' style="display:none">
-              <label class="form-label">Крок модуляції</label>
+            <div class="" id='modulation-form' style="display:none">
               <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="modulation-step-form-value">10</span></h4>
-                </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="100" value="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-step-input">
-                </div>
-              </div>
-            </div>
 
-            <div class="" id='modulation-time-form' style="display:none">
-              <label class="form-label">Тривалість модуляції</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="modulation-time-form-value">100</span></h4>
+                <div class="" id='modulation-level-form' >
+                  <label class="form-label">Рівень модуляції</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="modulation-level-form-value">50</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="1" max="100" value="50" class="bg-white border rounded border-secondary form-range col-12" id="modulation-level-input">
+                    </div>
+                  </div>
                 </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
-                </div>
-              </div>
-            </div>
 
-            <div class="" id='modulation-count-form' style="display:none">
-              <label class="form-label">Кількість модуляцій в циклі</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="modulation-count-form-value">2</span></h4>
+                <div class="" id='modulation-step-form' >
+                  <label class="form-label">Крок модуляції</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="modulation-step-form-value">10</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="1" max="100" value="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-step-input">
+                    </div>
+                  </div>
                 </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="10" value="2" class="bg-white border rounded border-secondary form-range col-12" id="modulation-count-input">
+
+                <div class="" id='modulation-time-form' >
+                  <label class="form-label">Тривалість модуляції</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="modulation-time-form-value">200</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="1" max="1000" value="200" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="" id='modulation-count-form' >
+                  <label class="form-label">Кількість модуляцій в циклі</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="modulation-count-form-value">2</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="1" max="10" value="2" class="bg-white border rounded border-secondary form-range col-12" id="modulation-count-input">
+                    </div>
+                  </div>
+                </div>
+
+
+                <div id="modulation-green-1" class=" col-1 mb-1">
+                  <input type="checkbox" class="form-check-input" id="modulation-green-input" checked>
+                </div>
+                <div id="modulation-green-2" class=" col-11 mb-1">
+                  <label class="form-check-label">зелений</label>
+                </div>
+
+                <div id="modulation-orange-1" class=" col-1 mb-1">
+                  <input type="checkbox" class="form-check-input" id="modulation-orange-input" checked>
+                </div>
+                <div id="modulation-orange-2" class=" col-11 mb-1">
+                  <label class="form-check-label">помаранчевий</label>
+                </div>
+
+                <div id="modulation-red-1" class=" col-1 mb-1">
+                  <input type="checkbox" class="form-check-input" id="modulation-red-input" checked>
+                </div>
+                <div id="modulation-red-2" class=" col-11 mb-1">
+                  <label class="form-check-label">червоний</label>
+                </div>
+
+                <div id="modulation-selected-1" class=" col-1 mb-1">
+                  <input type="checkbox" class="form-check-input" id="modulation-selected-input">
+                </div>
+                <div id="modulation-selected-2" class=" col-11 mb-1">
+                  <label class="form-check-label">лише вибрані області</label>
                 </div>
               </div>
             </div>
@@ -231,47 +276,11 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
             </div>
           </div>
 
-          <div class="col-md-12 mb-1"></div>
-
-          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <div class=" col-1 mb-1">
-              <input type="checkbox" class="form-check-input" id="blink-input">
-            </div>
-            <div class=" col-11 mb-1">
-              <label class="form-check-label"> Періодичне вмикання/вимикання діода на певних областях <span class="badge bg-success">оновлення</span></label>
-            </div>
-
-
-            <div class="" id='blink-count-form' style="display:none">
-              <label class="form-label">Кількість періодів в циклі</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="blink-count-form-value">2</span></h4>
-                </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="10" value="2" class="bg-white border rounded border-secondary form-range col-12" id="blink-count-input">
-                </div>
-              </div>
-            </div>
-            <div class="" id='blink-time-form' style="display:none">
-              <label class="form-label">Тривалість періода</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="blink-time-form-value">100</span></h4>
-                </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="100" max="2000" value="500" class="bg-white border rounded border-secondary form-range col-12" id="blink-time-input">
-                </div>
-              </div>
-            </div>
-          </div>
-
-
 
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <h5 class="mb-1 text-dark">Яскравість</h5>
+            <h5 class="mb-1 text-dark">Загальна яскравість</h5>
             <div class="mb-1">
               <input type="checkbox" class="form-check-input" id="autobrightness-input" checked>
               <label class="form-check-label">Автоматичне керування яскравістю</label>
@@ -337,6 +346,50 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
               </div>
             </div>
 
+
+
+
+          </div>
+
+          <div class="col-md-12 mb-1"></div>
+
+          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <h5 class="mb-1 text-dark">Яскравість тривог <span class="badge bg-success" style="font-size: 0.75rem;">оновлення</span></h5>
+            <div class="" id='brightness-green-form'>
+              <label class="form-label">Зони <span class="badge bg-success" style="font-size: 0.9rem;">без тривог</span></label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="brightness-green-form-value">100</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="0" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-green-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="" id='brightness-orange-form'>
+              <label class="form-label">Зони <span class="badge bg-warning" style="font-size: 0.9rem;">початку тривог</span></label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="brightness-orange-form-value">100</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="0" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-orange-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="" id='brightness-red-form'>
+              <label class="form-label">Зони <span class="badge bg-danger" style="font-size: 0.9rem;">з тривогами</span></label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="brightness-red-form-value">100</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="00" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-red-input">
+                </div>
+              </div>
+            </div>
           </div>
         </form>
       </div>
@@ -345,17 +398,14 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
   </main>
     <script>
       // Get the element by its ID
-      const wifistatusblink = document.getElementById('wifi-status-blink');
-      const wifistatusblinkinput = document.getElementById('wifi-status-blink-input');
-      const wifistatusblinkalert = document.getElementById('wifi-status-blink-alert');
+      const wifistatus = document.getElementById('wifi-status');
+      const wifistatusinput = document.getElementById('wifi-status-input');
 
-      wifistatusblinkinput.addEventListener('click', function() {
-        if (wifistatusblinkinput.checked) {
-          wifistatusblink.textContent = 'true';
-          wifistatusblinkalert.style.display = 'block';
+      wifistatusinput.addEventListener('click', function() {
+        if (wifistatusinput.checked) {
+          wifistatus.textContent = 'true';
         } else {
-          wifistatusblink.textContent = 'false';
-          wifistatusblinkalert.style.display = 'none';
+          wifistatus.textContent = 'false';
         }
       });
 
@@ -392,43 +442,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         } else {
           greenstates.textContent = 'false';
         }
-      });
-
-      const blink = document.getElementById('blink');
-      const blinkinput = document.getElementById('blink-input');
-
-      blinkinput.addEventListener('click', function() {
-        if (blinkinput.checked) {
-          blink.textContent = 'true';
-          blinktimeform.style.display = 'block';
-          blinkcountform.style.display = 'block';
-        } else {
-          blink.textContent = 'false';
-          blinktimeform.style.display = 'none';
-          blinkcountform.style.display = 'none';
-        }
-      });
-
-      const blinktime = document.getElementById('blink-time');
-      const blinktimeform = document.getElementById('blink-time-form');
-      const blinktimeformvalue = document.getElementById('blink-time-form-value');
-      const blinktimeinput = document.getElementById('blink-time-input');
-
-      blinktimeinput.addEventListener('input', function() {
-        let value = parseInt(blinktimeinput.value);
-        blinktimeformvalue.textContent = value;
-        blinktime.textContent = value;
-      });
-
-      const blinkcount = document.getElementById('blink-count');
-      const blinkcountform = document.getElementById('blink-count-form');
-      const blinkcountformvalue = document.getElementById('blink-count-form-value');
-      const blinkncountinput = document.getElementById('blink-count-input');
-
-      blinkncountinput.addEventListener('input', function() {
-        let value = parseInt(blinkncountinput.value);
-        blinkcountformvalue.textContent = value;
-        blinkcount.textContent = value;
       });
 
       const autobrightnessinput = document.getElementById('autobrightness-input');
@@ -513,6 +526,51 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
 
 
 
+
+
+
+      const brightnessgreen = document.getElementById('brightness-green');
+      const brightnessgreenform = document.getElementById('brightness-green-form');
+      const brightnessgreenformvalue = document.getElementById('brightness-green-form-value');
+      const brightnessgreeninput = document.getElementById('brightness-green-input');
+
+      brightnessgreeninput.addEventListener('input', function() {
+        let value = parseInt(brightnessgreeninput.value);
+
+        brightnessgreen.textContent = value;
+        brightnessgreenformvalue.textContent = value;
+      });
+
+      const brightnessorange = document.getElementById('brightness-orange');
+      const brightnessorangeform = document.getElementById('brightness-orange-form');
+      const brightnessorangeformvalue = document.getElementById('brightness-orange-form-value');
+      const brightnessorangeinput = document.getElementById('brightness-orange-input');
+
+      brightnessorangeinput.addEventListener('input', function() {
+        let value = parseInt(brightnessorangeinput.value);
+
+        brightnessorange.textContent = value;
+        brightnessorangeformvalue.textContent = value;
+      });
+
+      const brightnessred = document.getElementById('brightness-red');
+      const brightnessredform = document.getElementById('brightness-red-form');
+      const brightnessredformvalue = document.getElementById('brightness-red-form-value');
+      const brightnessredinput = document.getElementById('brightness-red-input');
+
+      brightnessredinput.addEventListener('input', function() {
+        let value = parseInt(brightnessredinput.value);
+
+        brightnessred.textContent = value;
+        brightnessredformvalue.textContent = value;
+      });
+
+
+
+
+
+
+
       const modeinput1 = document.getElementById('mode-input-1');
       const modeinput2 = document.getElementById('mode-input-2');
       const modeinput3 = document.getElementById('mode-input-3');
@@ -578,16 +636,18 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
 
       const modulationmodeinput1 = document.getElementById('modulation-mode-input-1');
       const modulationmodeinput2 = document.getElementById('modulation-mode-input-2');
+      const modulationmodeinput3 = document.getElementById('modulation-mode-input-3');
       const modulationmode = document.getElementById('modulation-mode');
+      const modulationform = document.getElementById('modulation-form');
+
 
       modulationmodeinput1.addEventListener('click', function() {
         if (modulationmodeinput1.className === 'btn btn-secondary') {
           modulationmode.textContent = 1;
           modulationmodeinput1.className = 'btn btn-danger';
           modulationmodeinput2.className = 'btn btn-secondary';
-          modulationstepform.style.display = 'none';
-          modulationtimeform.style.display = 'none';
-          modulationcountform.style.display = 'none';
+          modulationmodeinput3.className = 'btn btn-secondary';
+          modulationform.style.display = 'none';
         }
       });
       modulationmodeinput2.addEventListener('click', function() {
@@ -595,14 +655,31 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
           modulationmode.textContent = 2;
           modulationmodeinput1.className = 'btn btn-secondary';
           modulationmodeinput2.className = 'btn btn-success';
-          modulationstepform.style.display = 'block';
-          modulationtimeform.style.display = 'block';
-          modulationcountform.style.display = 'block';
+          modulationmodeinput3.className = 'btn btn-secondary';
+          modulationform.style.display = 'block';
+        }
+      });
+      modulationmodeinput3.addEventListener('click', function() {
+        if (modulationmodeinput3.className === 'btn btn-secondary') {
+          modulationmode.textContent = 3;
+          modulationmodeinput1.className = 'btn btn-secondary';
+          modulationmodeinput2.className = 'btn btn-secondary';
+          modulationmodeinput3.className = 'btn btn-success';
+          modulationform.style.display = 'block';
         }
       });
 
+      const modulationlevel = document.getElementById('modulation-level');
+      const modulationlevelformvalue = document.getElementById('modulation-level-form-value');
+      const modulationlevelinput = document.getElementById('modulation-level-input');
+
+      modulationlevelinput.addEventListener('input', function() {
+        let value = parseInt(modulationlevelinput.value);
+        modulationlevelformvalue.textContent = value;
+        modulationlevel.textContent = value;
+      });
+
       const modulationstep = document.getElementById('modulation-step');
-      const modulationstepform = document.getElementById('modulation-step-form');
       const modulationstepformvalue = document.getElementById('modulation-step-form-value');
       const modulationstepinput = document.getElementById('modulation-step-input');
 
@@ -613,7 +690,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
       });
 
       const modulationtime = document.getElementById('modulation-time');
-      const modulationtimeform = document.getElementById('modulation-time-form');
       const modulationtimeformvalue = document.getElementById('modulation-time-form-value');
       const modulationtimeinput = document.getElementById('modulation-time-input');
 
@@ -624,7 +700,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
       });
 
       const modulationcount = document.getElementById('modulation-count');
-      const modulationcountform = document.getElementById('modulation-count-form');
       const modulationcountformvalue = document.getElementById('modulation-count-form-value');
       const modulationcountinput = document.getElementById('modulation-count-input');
 
@@ -633,6 +708,54 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         modulationcountformvalue.textContent = value;
         modulationcount.textContent = value;
       });
+
+
+      const modulationgreen = document.getElementById('modulation-green');
+      const modulationgreeninput = document.getElementById('modulation-green-input');
+
+      modulationgreeninput.addEventListener('click', function() {
+        if (modulationgreeninput.checked) {
+          modulationgreen.textContent = 'true';
+        } else {
+          modulationgreen.textContent = 'false';
+        }
+      });
+
+      const modulationorange = document.getElementById('modulation-orange');
+      const modulationorangeinput = document.getElementById('modulation-orange-input');
+
+      modulationorangeinput.addEventListener('click', function() {
+        if (modulationorangeinput.checked) {
+          modulationorange.textContent = 'true';
+        } else {
+          modulationorange.textContent = 'false';
+        }
+      });
+
+      const modulationred = document.getElementById('modulation-red');
+      const modulationredinput = document.getElementById('modulation-red-input');
+
+      modulationredinput.addEventListener('click', function() {
+        if (modulationredinput.checked) {
+          modulationred.textContent = 'true';
+        } else {
+          modulationred.textContent = 'false';
+        }
+      });
+
+      const modulationselected = document.getElementById('modulation-selected');
+      const modulationselected1 = document.getElementById('modulation-selected-1');
+      const modulationselected2 = document.getElementById('modulation-selected-2');
+      const modulationselectedinput = document.getElementById('modulation-selected-input');
+
+      modulationselectedinput.addEventListener('click', function() {
+        if (modulationselectedinput.checked) {
+          modulationselected.textContent = 'true';
+        } else {
+          modulationselected.textContent = 'false';
+        }
+      });
+
 
       const newalarmperiod = document.getElementById('new-alarm-period');
       const newalarmperiodform = document.getElementById('new-alarm-period-form');
