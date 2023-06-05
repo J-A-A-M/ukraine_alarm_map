@@ -288,6 +288,7 @@ void Modulation(int count) {
   Serial.println("Modulation: start");
   int leds_array;
   int pixel;
+  int localModulationTime = modulationTime / 2 / ((100-modulationLevel) / modulationStep);
   for (int i = 0; i < count; i++) {
     bool fadeCycleEnded = false;
     bool rizeCycleEnded = false;
@@ -332,7 +333,7 @@ void Modulation(int count) {
         //Serial.println("rizeCycleEnded");
         rizeCycleEnded = true;
       }
-      delay(modulationTime);
+      delay(localModulationTime);
     }
     //Serial.println("Cycle: end");
   }
@@ -363,6 +364,7 @@ void Blink(int count) {
   int leds_array;
   int state_id;
   int pixel;
+  int localModulationTime = modulationTime / 2;
   if (modulationSelected) {
     leds_array = arrDistrictsSize;
   } else {
@@ -383,7 +385,7 @@ void Blink(int count) {
         }
     }
     FastLED.show();
-    delay(modulationTime);
+    delay(localModulationTime);
     for (int i = 0; i < leds_array; i++) {
         if (modulationSelected) {
           pixel = blinkDistricts[i];
@@ -398,7 +400,7 @@ void Blink(int count) {
         }
     }
     FastLED.show();
-    delay(modulationTime);
+    delay(localModulationTime);
   }
 }
 
