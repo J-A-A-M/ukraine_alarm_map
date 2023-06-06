@@ -47,6 +47,9 @@ bool modulationSelected = false;
 
 int newAlarmPeriod = 180000;
 
+int displayMode = 1;
+int disy = 0;
+
 //Для погоди
 const char* apiKey = ""; //API погоди
 float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
@@ -116,6 +119,17 @@ int statesIdsWeather[] = {
   710719
 };
 
+static const uint8_t strips4[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x01, 0xff, 0xff, 0x80, 0x07, 0xff, 0xff, 0xe0,
+    0x0f, 0xc0, 0x03, 0xf0, 0x3f, 0x00, 0x00, 0xfc, 0x7c, 0x00, 0x00, 0x3e, 0x70, 0x07, 0xf0, 0x0f,
+    0x60, 0x3f, 0xfc, 0x06, 0x00, 0xff, 0xff, 0x00, 0x03, 0xfc, 0x1f, 0xc0, 0x07, 0xe0, 0x07, 0xe0,
+    0x07, 0x80, 0x01, 0xe0, 0x03, 0x00, 0x00, 0x40, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x1f, 0xf8, 0x00,
+    0x00, 0x3f, 0xfc, 0x00, 0x00, 0x38, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x80, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  };
+
 // =======================================
 
 #include <ArduinoJson.h>
@@ -127,13 +141,20 @@ int statesIdsWeather[] = {
 #include <NTPClient.h>
 #include <HTTPUpdate.h>
 #include <WebServer.h>
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
 
 #define LED_PIN     25
 #define NUM_LEDS    27
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
 
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 32
+
 CRGB leds[NUM_LEDS];
+
+Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
@@ -172,6 +193,46 @@ static  bool mapModeFirstUpdate1= true;
 static  bool mapModeFirstUpdate2= true;
 static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
+
+String utf8cyr(String source) {
+  int i,k;
+  String target;
+  unsigned char n;
+  char m[2] = { '0', '\0' };
+
+  k = source.length(); i = 0;
+  while (i < k) {
+    n = source[i]; i++;
+    if (n >= 0xC0) {
+      switch (n) {
+        case 0xD0: {                                // перекодировать 0 блок (прописные)
+          n = source[i]; i++;
+          if (n == 0x81) { n = 0xA8; break; }       // перекодировать букву Ё
+          if (n == 0x84) { n = 0xAA; break; }       // перекодировать букву Є
+          if (n == 0x86) { n = 0xB1; break; }       // перекодировать букву І
+          if (n == 0x87) { n = 0xAF; break; }       // перекодировать букву Ї
+          if (n >= 0x90 && n <= 0xBF) n = n + 0x2F; break; // перекодировать остальные буквы 0 блока
+        }
+        case 0xD1: {                                // перекодировать 1 блок (строчные)
+          n = source[i]; i++;
+          if (n == 0x91) { n = 0xB7; break; }       // перекодировать букву ё
+          if (n == 0x94) { n = 0xB9; break; }       // перекодировать букву є
+          if (n == 0x96) { n = 0xB2; break; }       // перекодировать букву і
+          if (n == 0x97) { n = 0xBE; break; }       // перекодировать букву ї
+          if (n >= 0x80 && n <= 0x8F) n = n + 0x6F; break; // перекодировать остальные буквы 1 блока
+        }
+        case 0xD2: {                                // перекодировать 2 блок (всё вместе)
+          n = source[i]; i++;
+          if (n == 0x90) { n = 0xA5; break; }       // перекодировать букву Ґ
+          if (n == 0x91) { n = 0xB3; break; }       // перекодировать букву ґ
+        }
+      }
+    }
+    m[0] = n;
+    target = target + String(m);
+  }
+  return target;
+}
 
 void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
@@ -253,6 +314,15 @@ void initWiFi() {
   while (WiFi.status() != WL_CONNECTED) {
     if(wifiStatusBlink) {
       //movingBlink(HUE_RED,1);
+      display.clearDisplay();
+      display.drawBitmap(0, 0 + disy, strips4, 32, 32, 1);
+      display.setCursor(35, 8 + disy);
+      display.setTextSize(1);
+      display.println(utf8cyr("Connecting to WiFi:"));
+      display.setCursor(35, 16 + disy);
+      display.setTextSize(1);
+      display.println(wifiSSID);
+      display.display();
       colorFill(HUE_RED, 50);
       FlashAll(10,1);
     }
@@ -267,6 +337,15 @@ void initWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     if(wifiStatusBlink) {
       //movingBlink(HUE_GREEN,3);
+      display.clearDisplay();
+      display.drawBitmap(0, 0 + disy, strips4, 32, 32, 1);
+      display.setCursor(35, 8 + disy);
+      display.setTextSize(1);
+      display.println(utf8cyr("Connected to WiFi"));
+      display.setCursor(35, 16 + disy);
+      display.setTextSize(1);
+      display.println(wifiSSID);
+      display.display();
       colorFill(HUE_GREEN, 50);
       FlashAll(10,3);
     }
@@ -448,12 +527,53 @@ void FlashAll(int wait, int count) {
   }
 }
 
+void displayInfo() {
+    timeClient.update();
+    int hour = timeClient.getHours();
+    int minute = timeClient.getMinutes();
+
+    if(displayMode == 1) {
+      display.setCursor(0, 0 + disy);
+      // Форматуємо час у рядок для виведення на дисплей
+      String time = "";
+      if (hour < 10) time += "0";
+      time += hour;
+      time += ":";
+      if (minute < 10) time += "0";
+      time += minute;
+
+      display.clearDisplay(); // clear display
+      display.setTextSize(4);
+      oledDisplayCenter(time, 0, 132, 0);
+    }
+}
+
+void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
+    int16_t x1;
+    int16_t y1;
+    uint16_t width;
+    uint16_t height;
+
+    display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
+
+    // display on horizontal and vertical center
+    display.setCursor(((screenWidth - width) / 2) + offset, y + disy);
+    display.println(text); // text to display
+    display.display();
+  }
+
 void initFastLED() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(2.54 * brightness);
   FastLED.clear();
   FastLED.show();
 }
+
+void initDisplay() {
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.clearDisplay();
+    display.setTextColor(WHITE);
+  }
 
 void initTime() {
   bool isDaylightSaving = false;
@@ -476,19 +596,21 @@ void initTime() {
 void setup() {
   initFastLED();
   Flag(50);
+  initDisplay();
   initWiFi();
   Serial.begin(115200);
   initTime();
   setupRouting();
 }
 void loop() {
-	wifiConnected = WiFi.status() == WL_CONNECTED;
+  wifiConnected = WiFi.status() == WL_CONNECTED;
   if (!wifiConnected) {
     Flag(10);
     delay(10000);
     ESP.restart();
   }
 
+  displayInfo();
   server.handleClient();
 
   if (autoBrightness) {
