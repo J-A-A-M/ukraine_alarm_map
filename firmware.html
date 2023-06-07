@@ -174,9 +174,13 @@
     <div class="col-lg-8 order-md-last">
       <div class="m-1">
         <div class="row">
-          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки</div>
+          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки <button id="copy-button" type="button" class="btn btn-outline-success">Скопіювати в буфер обміну</button></div>
         </div>
-        <div class="row bg-secondary text-white border rounded border-secondary">
+
+        <div id="confirmation-popup" style="display:none" class="alert alert-warning alert-dismissible fade show" role="alert">
+          <strong id="confirmation-title"></strong> <span id="confirmation-message"></span>
+        </div>
+        <div id="code-container" class="row bg-secondary text-white border rounded border-secondary">
           <pre>
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
@@ -1003,6 +1007,39 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         document.getElementById("api-key").textContent = openweathermapinput;
 
       }
+
+      const copyButton = document.getElementById('copy-button');
+      const codeContainer = document.getElementById('code-container');
+      const confirmationPopup = document.getElementById('confirmation-popup');
+      const confirmationTitle = document.getElementById('confirmation-title');
+      const confirmationMessage = document.getElementById('confirmation-message');
+
+      copyButton.addEventListener('click', () => {
+        const range = document.createRange();
+        range.selectNode(codeContainer);
+        window.getSelection().addRange(range);
+
+        try {
+          document.execCommand('copy');
+          console.log('Code copied!');
+          showConfirmation('Код успішно скопійовано', '');
+        } catch (err) {
+          console.error('Failed to copy code:', err);
+        }
+
+        window.getSelection().removeAllRanges();
+      });
+
+      function showConfirmation(title, message) {
+        confirmationTitle.textContent = title;
+        confirmationMessage.textContent = message;
+        confirmationPopup.style.display = 'block';
+
+        setTimeout(() => {
+          confirmationPopup.style.display = 'none';
+        }, 10000);
+      }
+
     </script>
   </body>
 </html>
