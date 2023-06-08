@@ -22,7 +22,7 @@ const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
 bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
-static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
+//static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 
 int mapModeInit = 2;
 int mapMode = 1;
@@ -208,12 +208,6 @@ void handlePost() {
   if(auto_brightness) {
     autoBrightness = true;
   }
-  if(green_states_on) {
-    greenStates = true;
-  }
-  if(green_states_off) {
-    greenStates = false;
-  }
   if(map_mode) {
     mapModeInit = map_mode;
   }
@@ -234,9 +228,7 @@ void getEnv() {
   jsonDocument["mapMode"] = mapMode;
   jsonDocument["mapModeInit"] = mapModeInit;
   jsonDocument["autoSwitch"] = autoSwitch;
-  jsonDocument["greenStates"] = greenStates;
   jsonDocument["alarmsNowCount"] = alarmsNowCount;
-  jsonDocument["greenStates"] = greenStates;
   jsonDocument["modulationMode"] = modulationMode;
   jsonDocument["newAlarmPeriod"] = newAlarmPeriod;
   jsonDocument["weatherKey"] = apiKey;
@@ -323,7 +315,7 @@ void Modulation() {
         switch (ledColor[i]) {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
           case 2: if (modulationOrange|| selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
-          case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, .55 * stepBrightness * brightnessGreen / 100); break;} else { break;}}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
           case 3: if (modulationGreen|| selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
@@ -397,7 +389,7 @@ void Blink() {
         switch (ledColor[i]) {
         case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
         case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-        case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 0); break;} else { break;}}
+        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
         case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
         }
     }
@@ -407,7 +399,7 @@ void Blink() {
         switch (ledColor[i]) {
         case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
         case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-        case 0: if (greenStates) {} else {if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}}
+        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
         case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
@@ -445,6 +437,17 @@ void FlashAll(int wait, int count) {
       leds[dot] = pixel;
       FastLED.show();
     }
+  }
+}
+
+void FlashLed(int dot, int wait, int count) {
+  for(int i = 0; i < count; i++) {
+    CRGB pixel = leds[dot];
+    leds[dot] = CHSV(0, 00, 255);
+    FastLED.show();
+    delay(wait);
+    leds[dot] = pixel;
+    FastLED.show();
   }
 }
 
@@ -535,28 +538,34 @@ void loop() {
     bool enable;
     for (int i = 0; i < arrSize; i++) {
       enable = doc["states"][states[i]]["enabled"].as<bool>();
-      if (enable && times[i] == 0) {
-        times[i] = t;
-        ledColor[i] = 2;
-        alarmsNowCount++;
-      }
-      else if (enable && times[i] + newAlarmPeriod > t && ledColor[i] != 1) {
-        ledColor[i] = 2;
-        alarmsNowCount++;
-
-      }
-      else if (enable) {
-        ledColor[i] = 1;
-        times[i] = t;
-        alarmsNowCount++;
-      }
-
-      if (!enable && times[i] + newAlarmPeriod > t && times[i] != 0) {
-        ledColor[i] = 3;
-      }
-      else if (!enable) {
-        ledColor[i] = 0;
-        times[i] = 0;
+      if (enable) {
+        if (times[i] == 0) {
+          times[i] = t;
+          ledColor[i] = 2;
+          alarmsNowCount++;
+        }
+        if (times[i] + newAlarmPeriod > t){
+          ledColor[i] = 2;
+          alarmsNowCount++;
+        }
+        if (times[i] + newAlarmPeriod <= t){
+          ledColor[i] = 1;
+          alarmsNowCount++;
+        }
+      } else {
+        if (times[i] == 0) {
+          times[i] = t;
+          ledColor[i] = 4;
+        }
+        if (times[i] + newAlarmPeriod > t && (ledColor[i] == 1 || ledColor[i] == 2)){
+          ledColor[i] = 4;
+        }
+        if (times[i] + newAlarmPeriod > t){
+          ledColor[i] = 4;
+        }
+        if (times[i] + newAlarmPeriod <= t){
+          ledColor[i] = 3;
+        }
       }
       if (autoSwitch && enable && statesIdsAlarmCheck[i]==1) {
           mapMode = 2;
@@ -595,8 +604,8 @@ void loop() {
       switch (ledColor[i]) {
       case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
       case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
-      case 0: if (greenStates) {} else {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen);}
-      case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen);
+      case 4: leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;
+      case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;
       }
     }
     FastLED.show();
