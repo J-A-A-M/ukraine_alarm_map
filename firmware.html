@@ -184,6 +184,7 @@
           <pre>
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
+
 //Налаштування WiFi
 char* wifiSSID = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
 char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
@@ -211,7 +212,7 @@ int mapModeInit = <span id="mode">2</span>;
 int mapMode = 1;
 
 int blinkDistricts[] = {
-  0
+  0,
   1,
   2,
   7,
@@ -230,7 +231,7 @@ bool modulationSelected = <span id="modulation-selected">false</span>;
 
 int newAlarmPeriod = <span id="new-alarm-period">180000</span>;
 
-int displayMode = <span id="display-mode">1</span>1;
+int displayMode = <span id="display-mode">1</span>;
 int displayYoffset = <span id="display-y-offset">0</span>;
 
 //Для погоди
@@ -240,6 +241,105 @@ float maxTemp = 35.0; // максимальна температура у гра
 
 //Налаштуванння режимів
 int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyvm">1</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
+// =======================================
+
+static String states[] = {
+  "Закарпатська область",
+  "Івано-Франківська область",
+  "Тернопільська область",
+  "Львівська область",
+  "Волинська область",
+  "Рівненська область",
+  "Житомирська область",
+  <span id="state-alarm-kyivm"></span>
+  <span id="state-alarm-kyiv">"Київська область",</span>
+  "Чернігівська область",
+  "Сумська область",
+  "Харківська область",
+  "Луганська область",
+  "Донецька область",
+  "Запорізька область",
+  "Херсонська область",
+  "Автономна Республіка Крим",
+  "Одеська область",
+  <span id="state-alarm-odessa"></span>
+  "Миколаївська область",
+  "Дніпропетровська область",
+  "Полтавська область",
+  "Черкаська область",
+  "Кіровоградська область",
+  "Вінницька область",
+  "Хмельницька область",
+  "Чернівецька область"
+};
+
+int statesIdsWeather[] = {
+  690548,
+  707471,
+  691650,
+  702550,
+  702569,
+  695594,
+  686967,
+  <span id="state-weather-kyivm"></span>
+  <span id="state-weather-kyiv">703448,</span>
+  710735,
+  692194,
+  706483,
+  702658,
+  709717,
+  687700,
+  706448,
+  703883,
+  698740,
+  <span id="state-weather-odessa"></span>
+  700569,
+  709930,
+  696643,
+  710719,
+  705811,
+  689558,
+  706369,
+  710719
+};
+
+static int flagColor[] {
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_AQUA,
+  <span id="state-flag-kyivm"></span>
+  <span id="state-flag-kyiv">HUE_AQUA,</span>
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  <span id="state-flag-odessa"></span>
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW
+};
+
+#define LED_PIN         25
+#define NUM_LEDS        <span id="num-leds">27</span>
+#define LED_TYPE        WS2812
+#define COLOR_ORDER     GRB
+
+#define DISPLAY_WIDTH   128
+#define DISPLAY_HEIGHT  32
 // =======================================
           </code>
           </pre>
@@ -432,6 +532,26 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
           </div>
 
           <div class="col-md-12 mb-1"></div>
+
+          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <div class="">
+              <label class="form-label">Режим діода на Київській області</label>
+            </div>
+            <div class="col-md-12 btn-group mb-3" role="group">
+              <button type="button" class="btn btn-success" id="mode-kyiv-input-1">Київська область</button>
+              <button type="button" class="btn btn-secondary" id="mode-kyiv-input-2">Київ</button>
+              <button type="button" class="btn btn-secondary" id="mode-kyiv-input-3">Обідва</button>
+            </div>
+
+            <div class=" col-1 mb-1">
+              <input type="checkbox" class="form-check-input" id="mode-odessa-input">
+            </div>
+            <div class=" col-11 mb-1">
+              <label class="form-check-label">Додатковий діод на Одеську область</label>
+            </div>
+          </div>
+
+        <div class="col-md-12 mb-1"></div>
 
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
@@ -665,10 +785,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
       });
 
 
-
-
-
-
       const brightnessgreen = document.getElementById('brightness-green');
       const brightnessgreenform = document.getElementById('brightness-green-form');
       const brightnessgreenformvalue = document.getElementById('brightness-green-form-value');
@@ -704,12 +820,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         brightnessred.textContent = value;
         brightnessredformvalue.textContent = value;
       });
-
-
-
-
-
-
 
       const modeinput1 = document.getElementById('mode-input-1');
       const modeinput2 = document.getElementById('mode-input-2');
@@ -905,6 +1015,105 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
 
         newalarmperiod.textContent = value*60000;
         newalarmperiodformvalue.textContent = value;
+      });
+
+
+      const numleds = document.getElementById('num-leds');
+
+
+      const stateweatherodessa = document.getElementById('state-weather-odessa');
+      const statealarmodessa = document.getElementById('state-alarm-odessa');
+      const stateflagodessa = document.getElementById('state-flag-odessa');
+      const modeodessainput = document.getElementById('mode-odessa-input');
+      const stateweatherkyivm = document.getElementById('state-weather-kyivm');
+      const stateweatherkyiv = document.getElementById('state-weather-kyiv');
+      const statealarmkyivm = document.getElementById('state-alarm-kyivm');
+      const stateflagkyivm = document.getElementById('state-flag-kyivm');
+      const statealarmkyiv = document.getElementById('state-alarm-kyiv');
+      const stateflagkyiv = document.getElementById('state-flag-kyiv');
+      const modekyivinput1 = document.getElementById('mode-kyiv-input-1');
+      const modekyivinput2 = document.getElementById('mode-kyiv-input-2');
+      const modekyivinput3 = document.getElementById('mode-kyiv-input-3');
+
+      modeodessainput.addEventListener('click', function() {
+        if (modeodessainput.checked) {
+          stateweatherodessa.textContent = '698740,';
+          statealarmodessa.textContent = '"Одеська область",';
+          stateflagodessa.textContent = 'HUE_YELLOW,';
+          if (modekyivinput3.className === 'btn btn-success') {
+            numleds.textContent = '27';
+          } else {
+            numleds.textContent = '26';
+          }
+        } else {
+          stateweatherodessa.textContent = '';
+          statealarmodessa.textContent = '';
+          stateflagodessa.textContent = '';
+          if (modekyivinput3.className === 'btn btn-success') {
+            numleds.textContent = '26';
+          } else {
+            numleds.textContent = '25';
+          }
+        }
+
+      });
+
+
+      modekyivinput1.addEventListener('click', function() {
+        if (modekyivinput1.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-success';
+          modekyivinput2.className = 'btn btn-secondary';
+          modekyivinput3.className = 'btn btn-secondary';
+          stateweatherkyiv.textContent = '703448,';
+          statealarmkyiv.textContent = '"Київська область",';
+          stateflagkyiv.textContent = 'HUE_AQUA,';
+          stateweatherkyivm.textContent = '';
+          statealarmkyivm.textContent = '';
+          stateflagkyivm.textContent = '';
+        }
+        if (modeodessainput.checked) {
+          numleds.textContent = '26';
+        } else{
+          numleds.textContent = '25';
+        }
+      });
+
+      modekyivinput2.addEventListener('click', function() {
+        if (modekyivinput2.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-secondary';
+          modekyivinput2.className = 'btn btn-success';
+          modekyivinput3.className = 'btn btn-secondary';
+          stateweatherkyivm.textContent = '703447,';
+          statealarmkyivm.textContent = '"м. Київ",';
+          stateflagkyivm.textContent = 'HUE_AQUA,';
+          stateweatherkyiv.textContent = '';
+          statealarmkyiv.textContent = '';
+          stateflagkyiv.textContent = '';
+        }
+        if (modeodessainput.checked) {
+          numleds.textContent = '26';
+        } else{
+          numleds.textContent = '25';
+        }
+      });
+
+      modekyivinput3.addEventListener('click', function() {
+        if (modekyivinput3.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-secondary';
+          modekyivinput2.className = 'btn btn-secondary';
+          modekyivinput3.className = 'btn btn-success';
+          stateweatherkyivm.textContent = '703447,';
+          statealarmkyivm.textContent = '"м. Київ",';
+          stateflagkyivm.textContent = 'HUE_AQUA,';
+          stateweatherkyiv.textContent = '703448,';
+          statealarmkyiv.textContent = '"Київська область",';
+          stateflagkyiv.textContent = 'HUE_AQUA,';
+        }
+        if (modeodessainput.checked) {
+          numleds.textContent = '27';
+        } else{
+          numleds.textContent = '26';
+        }
       });
 
 

@@ -1,5 +1,17 @@
-// Обов'зяково прочитай інструкцію перед використанням https://drukarnia.com.ua/articles/bagatofunkcionalna-proshivka-karta-povitryanikh-trivog-rjK3N
+#include <ArduinoJson.h>
+#include <FastLED.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <WiFiManager.h>
+#include <NTPClient.h>
+#include <HTTPUpdate.h>
+#include <WebServer.h>
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
+
 // ============ НАЛАШТУВАННЯ ============
+
 //Налаштування WiFi
 char* wifiSSID = ""; //Назва твоєї мережі WiFi
 char* wifiPassword = ""; //Пароль від твого WiFi
@@ -22,7 +34,6 @@ const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
 bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
-//static bool greenStates = true; //true - області без тривоги будуть зелені; false - не будуть світитися
 
 int mapModeInit = 2;
 int mapMode = 1;
@@ -67,7 +78,7 @@ static String states[] = {
   "Волинська область",
   "Рівненська область",
   "Житомирська область",
-  "м. Київ",
+
   "Київська область",
   "Чернігівська область",
   "Сумська область",
@@ -78,7 +89,7 @@ static String states[] = {
   "Херсонська область",
   "Автономна Республіка Крим",
   "Одеська область",
-  "Одеська область",
+
   "Миколаївська область",
   "Дніпропетровська область",
   "Полтавська область",
@@ -97,7 +108,7 @@ int statesIdsWeather[] = {
   702569,
   695594,
   686967,
-  703447,
+
   703448,
   710735,
   692194,
@@ -108,7 +119,7 @@ int statesIdsWeather[] = {
   706448,
   703883,
   698740,
-  698740,
+
   700569,
   709930,
   696643,
@@ -119,27 +130,44 @@ int statesIdsWeather[] = {
   710719
 };
 
+static int flagColor[] {
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_AQUA,
+
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_AQUA,
+  HUE_AQUA,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW,
+  HUE_YELLOW
+};
+
+#define LED_PIN         25
+#define NUM_LEDS        25
+#define LED_TYPE        WS2812
+#define COLOR_ORDER     GRB
+
+#define DISPLAY_WIDTH   128
+#define DISPLAY_HEIGHT  32
 // =======================================
-
-#include <ArduinoJson.h>
-#include <FastLED.h>
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <WiFiManager.h>
-#include <NTPClient.h>
-#include <HTTPUpdate.h>
-#include <WebServer.h>
-#include <Adafruit_SSD1306.h>
-#include <Wire.h>
-
-#define LED_PIN     25
-#define NUM_LEDS    27
-#define LED_TYPE    WS2812
-#define COLOR_ORDER GRB
-
-#define DISPLAY_WIDTH 128
-#define DISPLAY_HEIGHT 32
 
 CRGB leds[NUM_LEDS];
 
@@ -153,22 +181,13 @@ WebServer server(80);
 DynamicJsonDocument doc(30000);
 //String baseURL = "https://vadimklimenko.com/map/statuses.json";
 String baseURL = "https://map.vglskr.net.ua/alarm_map";
+
 WiFiClientSecure client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
 HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
-unsigned long lastTimeBotRan;
-static unsigned long times[NUM_LEDS];
-static int ledColor[NUM_LEDS];
-static int flagColor[] {HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_AQUA,HUE_AQUA,
-HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_AQUA,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,
-HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_AQUA,HUE_AQUA,
-HUE_YELLOW,HUE_YELLOW,HUE_YELLOW,HUE_YELLOW};
-int arrDistrictsSize = sizeof(blinkDistricts) / sizeof(int);
-int arrAlarms = sizeof(ledColor) / sizeof(int);
-int arrSize = sizeof(states) / sizeof(String);
-int arrWeather = sizeof(statesIdsWeather) / sizeof(int);
+
 int alarmsPeriod = 30000;
 int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
@@ -177,6 +196,8 @@ static bool firstAlarmsUpdate = true;
 static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
 static bool wifiConnected;
+static unsigned long times[NUM_LEDS];
+static int ledColor[NUM_LEDS];
 
 static  bool mapModeFirstUpdate1= true;
 static  bool mapModeFirstUpdate2= true;
@@ -210,7 +231,7 @@ void handlePost() {
   if(set_brightness) {
     autoBrightness = false;
     brightness = set_brightness;
-    FastLED.setBrightness(2.54 * set_brightness);  // Set the overall brightness of the LEDs
+    FastLED.setBrightness(2.55 * set_brightness);  // Set the overall brightness of the LEDs
     FastLED.show();
     Serial.print("Brightness: ");
     Serial.println(brightness);
@@ -328,9 +349,11 @@ void Modulation() {
   for (int i = 0; i < NUM_LEDS; i++) {
     selectedStates[i] = 0;
   }
-  for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
-    int position = blinkDistricts[i];
-    selectedStates[position] = 1;
+  if(modulationSelected) {
+    for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
+      int position = blinkDistricts[i];
+      selectedStates[position] = 1;
+    }
   }
   Serial.println("selectedStates: ");
   for (int i = 0; i < NUM_LEDS; i++) {
@@ -349,7 +372,7 @@ void Modulation() {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
           case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
           case 3: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
@@ -396,9 +419,11 @@ void Blink() {
   for (int i = 0; i < NUM_LEDS; i++) {
     selectedStates[i] = 0;
   }
-  for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
-    int position = blinkDistricts[i];
-    selectedStates[position] = 1;
+  if(modulationSelected) {
+    for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
+      int position = blinkDistricts[i];
+      selectedStates[position] = 1;
+    }
   }
   for (int i = 0; i < modulationCount; i++) {
     for (int i = 0; i < NUM_LEDS; i++) {
@@ -406,7 +431,7 @@ void Blink() {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
           case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
           case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 0); break;} else { break;}
         }
     }
     FastLED.show();
@@ -416,7 +441,7 @@ void Blink() {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
           case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
           case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
     FastLED.show();
@@ -500,7 +525,7 @@ void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
 void initFastLED() {
   //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-  FastLED.setBrightness(2.54 * brightness);
+  FastLED.setBrightness(2.55 * brightness);
   FastLED.clear();
   FastLED.show();
 }
@@ -521,7 +546,7 @@ void autoBrightnessUpdate() {
       currentBrightness = isDay ? dayBrightness : nightBrightness;
       if (currentBrightness != brightness) {
         brightness = currentBrightness;
-        FastLED.setBrightness(2.54 * brightness);
+        FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
       }
     }
@@ -557,7 +582,7 @@ void alamsUpdate() {
     bool return_to_init_mode = true;
     unsigned long  s3 = millis();
     bool enable;
-    for (int i = 0; i < arrSize; i++) {
+    for (int i = 0; i < NUM_LEDS; i++) {
       enable = doc["states"][states[i]]["enabled"].as<bool>();
       if (enable) {
         if (times[i] == 0) {
@@ -622,13 +647,13 @@ void mapInfo() {
     mapModeFirstUpdate3 = true;
     mapModeFirstUpdate4 = true;
     Serial.println("Map mode 2");
-    for (int i = 0; i < arrSize; i++)
+    for (int i = 0; i < NUM_LEDS; i++)
     {
       switch (ledColor[i]) {
-      case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
-      case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
-      case 4: leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;
-      case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;
+        case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
+        case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
+        case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;
+        case 4: leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;
       }
     }
     FastLED.show();
@@ -648,7 +673,7 @@ void mapInfo() {
       Serial.println("Weather fetch start");
       lastWeatherTime = millis();
       mapModeFirstUpdate3 = false;
-      for (int i = 0; i < arrWeather; i++) {
+      for (int i = 0; i < NUM_LEDS; i++) {
         String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
         http.begin(apiUrl);
         int httpResponseCode = http.GET();
