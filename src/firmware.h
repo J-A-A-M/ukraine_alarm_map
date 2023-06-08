@@ -315,7 +315,7 @@ void Modulation() {
         switch (ledColor[i]) {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
           case 2: if (modulationOrange|| selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_PURPLE, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
           case 3: if (modulationGreen|| selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
@@ -389,7 +389,7 @@ void Blink() {
         switch (ledColor[i]) {
         case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
         case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_PURPLE, 255, 0); break;} else { break;}
+        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
         case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
         }
     }
@@ -399,7 +399,7 @@ void Blink() {
         switch (ledColor[i]) {
         case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
         case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_PURPLE, 255, 2.55 * brightnessGreen); break;} else { break;}
+        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
         case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
@@ -437,6 +437,17 @@ void FlashAll(int wait, int count) {
       leds[dot] = pixel;
       FastLED.show();
     }
+  }
+}
+
+void FlashLed(int dot, int wait, int count) {
+  for(int i = 0; i < count; i++) {
+    CRGB pixel = leds[dot];
+    leds[dot] = CHSV(0, 00, 255);
+    FastLED.show();
+    delay(wait);
+    leds[dot] = pixel;
+    FastLED.show();
   }
 }
 
@@ -593,7 +604,7 @@ void loop() {
       switch (ledColor[i]) {
       case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
       case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
-      case 4: leds[i] = CHSV(HUE_PURPLE, 255, 2.55 * brightnessGreen); break;
+      case 4: leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;
       case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;
       }
     }
