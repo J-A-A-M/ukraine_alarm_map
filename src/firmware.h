@@ -48,7 +48,7 @@ bool modulationSelected = false;
 int newAlarmPeriod = 180000;
 
 int displayMode = 1;
-int disy = 0;
+int displayYoffset = 0;
 
 //Для погоди
 const char* apiKey = ""; //API погоди
@@ -119,17 +119,6 @@ int statesIdsWeather[] = {
   710719
 };
 
-static const uint8_t strips4[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xf8, 0x00, 0x01, 0xff, 0xff, 0x80, 0x07, 0xff, 0xff, 0xe0,
-    0x0f, 0xc0, 0x03, 0xf0, 0x3f, 0x00, 0x00, 0xfc, 0x7c, 0x00, 0x00, 0x3e, 0x70, 0x07, 0xf0, 0x0f,
-    0x60, 0x3f, 0xfc, 0x06, 0x00, 0xff, 0xff, 0x00, 0x03, 0xfc, 0x1f, 0xc0, 0x07, 0xe0, 0x07, 0xe0,
-    0x07, 0x80, 0x01, 0xe0, 0x03, 0x00, 0x00, 0x40, 0x00, 0x07, 0xe0, 0x00, 0x00, 0x1f, 0xf8, 0x00,
-    0x00, 0x3f, 0xfc, 0x00, 0x00, 0x38, 0x1c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x01, 0x80, 0x00, 0x00, 0x03, 0xc0, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  };
-
 // =======================================
 
 #include <ArduinoJson.h>
@@ -193,46 +182,6 @@ static  bool mapModeFirstUpdate1= true;
 static  bool mapModeFirstUpdate2= true;
 static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
-
-String utf8cyr(String source) {
-  int i,k;
-  String target;
-  unsigned char n;
-  char m[2] = { '0', '\0' };
-
-  k = source.length(); i = 0;
-  while (i < k) {
-    n = source[i]; i++;
-    if (n >= 0xC0) {
-      switch (n) {
-        case 0xD0: {                                // перекодировать 0 блок (прописные)
-          n = source[i]; i++;
-          if (n == 0x81) { n = 0xA8; break; }       // перекодировать букву Ё
-          if (n == 0x84) { n = 0xAA; break; }       // перекодировать букву Є
-          if (n == 0x86) { n = 0xB1; break; }       // перекодировать букву І
-          if (n == 0x87) { n = 0xAF; break; }       // перекодировать букву Ї
-          if (n >= 0x90 && n <= 0xBF) n = n + 0x2F; break; // перекодировать остальные буквы 0 блока
-        }
-        case 0xD1: {                                // перекодировать 1 блок (строчные)
-          n = source[i]; i++;
-          if (n == 0x91) { n = 0xB7; break; }       // перекодировать букву ё
-          if (n == 0x94) { n = 0xB9; break; }       // перекодировать букву є
-          if (n == 0x96) { n = 0xB2; break; }       // перекодировать букву і
-          if (n == 0x97) { n = 0xBE; break; }       // перекодировать букву ї
-          if (n >= 0x80 && n <= 0x8F) n = n + 0x6F; break; // перекодировать остальные буквы 1 блока
-        }
-        case 0xD2: {                                // перекодировать 2 блок (всё вместе)
-          n = source[i]; i++;
-          if (n == 0x90) { n = 0xA5; break; }       // перекодировать букву Ґ
-          if (n == 0x91) { n = 0xB3; break; }       // перекодировать букву ґ
-        }
-      }
-    }
-    m[0] = n;
-    target = target + String(m);
-  }
-  return target;
-}
 
 void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
@@ -305,14 +254,12 @@ void initWiFi() {
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     if(wifiStatusBlink) {
-      //movingBlink(HUE_RED,1);
       display.clearDisplay();
-      display.drawBitmap(0, 0 + disy, strips4, 32, 32, 1);
-      display.setCursor(35, 8 + disy);
+      display.setCursor(0, 0 + displayYoffset);
       display.setTextSize(1);
-      display.println(utf8cyr("Connecting to WiFi:"));
-      display.setCursor(35, 16 + disy);
-      display.setTextSize(1);
+      display.println("WiFi connecting:");
+      display.setCursor(0, 10 + displayYoffset);
+      display.setTextSize(2);
       display.println(wifiSSID);
       display.display();
       colorFill(HUE_RED, 50);
@@ -328,14 +275,12 @@ void initWiFi() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     if(wifiStatusBlink) {
-      //movingBlink(HUE_GREEN,3);
       display.clearDisplay();
-      display.drawBitmap(0, 0 + disy, strips4, 32, 32, 1);
-      display.setCursor(35, 8 + disy);
+      display.setCursor(0, 0 + displayYoffset);
       display.setTextSize(1);
-      display.println(utf8cyr("Connected to WiFi"));
-      display.setCursor(35, 16 + disy);
-      display.setTextSize(1);
+      display.println("Connected to:");
+      display.setCursor(0, 12 + displayYoffset);
+      display.setTextSize(2);
       display.println(wifiSSID);
       display.display();
       colorFill(HUE_GREEN, 50);
@@ -351,10 +296,19 @@ void initWiFi() {
 void startAPMode() {
   Serial.println("Start AP");
   if(wifiStatusBlink) {
-    //movingBlink(HUE_YELLOW,3);
     colorFill(HUE_YELLOW, 50);
     FlashAll(10,3);
   }
+  display.clearDisplay();
+  display.setCursor(0, 0 + displayYoffset);
+  display.setTextSize(1);
+  display.print("AP: ");
+  display.println(apSSID);
+  display.setCursor(0, 12 + displayYoffset);
+  display.setTextSize(1);
+  display.print("Password: ");
+  display.println(apPassword);
+  display.display();
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID, apPassword);
 
@@ -393,34 +347,25 @@ void Modulation() {
       for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
-          case 2: if (modulationOrange|| selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
           case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
-          case 3: if (modulationGreen|| selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
-      //Serial.print("stepBrightness: ");
-      //Serial.println(stepBrightness);
-      //Serial.print("pixelBrightness: ");
-      //Serial.println(pixelBrightness);
       if (fadeCycleEnded){
-        //Serial.println("acs");
         stepBrightness += modulationStep;
       } else{
-        //Serial.println("desc");
         stepBrightness -= modulationStep;
       }
       if (stepBrightness < modulationLevel) {
         fadeCycleEnded = true;
-        //Serial.println("fadeCycleEnded");
       }
       if (stepBrightness > 100) {
-        //Serial.println("rizeCycleEnded");
         rizeCycleEnded = true;
       }
       delay(localModulationTime);
     }
-    //Serial.println("Cycle: end");
   }
   Serial.println("Modulation: end");
 }
@@ -451,35 +396,27 @@ void Blink() {
   for (int i = 0; i < NUM_LEDS; i++) {
     selectedStates[i] = 0;
   }
-  Serial.print("selectedStates: ");
   for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
     int position = blinkDistricts[i];
     selectedStates[position] = 1;
   }
-  Serial.println(" ");
-  Serial.println("selectedStates: ");
-  for (int i = 0; i < NUM_LEDS; i++) {
-    Serial.print(selectedStates[i]);
-    Serial.print(" ");
-  }
-  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
-        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
-        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
         }
     }
     FastLED.show();
     delay(localModulationTime);
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
-        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
-        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
     FastLED.show();
@@ -510,7 +447,7 @@ void FlashAll(int wait, int count) {
   for(int i = 0; i < count; i++) {
     for(int dot = 0; dot <= NUM_LEDS; dot++) {
       CRGB pixel = leds[dot];
-      leds[dot] = CHSV(0, 00, 255);
+      leds[dot] = CHSV(0, 0, 255);
       FastLED.show();
       delay(wait);
       leds[dot] = pixel;
@@ -536,18 +473,16 @@ void displayInfo() {
     int minute = timeClient.getMinutes();
 
     if(displayMode == 1) {
-      display.setCursor(0, 0 + disy);
-      // Форматуємо час у рядок для виведення на дисплей
+      display.setCursor(0, 0 + displayYoffset);
       String time = "";
       if (hour < 10) time += "0";
       time += hour;
       time += ":";
       if (minute < 10) time += "0";
       time += minute;
-
-      display.clearDisplay(); // clear display
+      display.clearDisplay();
       display.setTextSize(4);
-      oledDisplayCenter(time, 0, 132, 0);
+      oledDisplayCenter(time, 0, DISPLAY_WIDTH, 0);
     }
 }
 
@@ -556,16 +491,14 @@ void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
     int16_t y1;
     uint16_t width;
     uint16_t height;
-
     display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
-
-    // display on horizontal and vertical center
-    display.setCursor(((screenWidth - width) / 2) + offset, y + disy);
-    display.println(text); // text to display
+    display.setCursor(((screenWidth - width) / 2) + offset, y + displayYoffset);
+    display.println(text);
     display.display();
   }
 
 void initFastLED() {
+  //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(2.54 * brightness);
   FastLED.clear();
@@ -578,57 +511,23 @@ void initDisplay() {
     display.setTextColor(WHITE);
   }
 
-void initTime() {
-  bool isDaylightSaving = false;
-  timeClient.begin();
-  timeClient.update();
-  String formattedTime = timeClient.getFormattedTime();
-  int day, month, year, hour, minute, second;
-  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
-  if (month >= 3 && month <= 10) {
-    isDaylightSaving = true;
-  }
-  if (isDaylightSaving) {
-    timeClient.setTimeOffset(14400);
-  }
-  else {
-    timeClient.setTimeOffset(10800);
-  }
-}
-
-void setup() {
-  initFastLED();
-  Flag(50);
-  initDisplay();
-  initWiFi();
-  Serial.begin(115200);
-  initTime();
-  setupRouting();
-}
-void loop() {
-  wifiConnected = WiFi.status() == WL_CONNECTED;
-  if (!wifiConnected) {
-    Flag(10);
-    delay(10000);
-    ESP.restart();
-  }
-
-  displayInfo();
-  server.handleClient();
-
-  if (autoBrightness) {
-    Serial.println("Autobrightness start");
-    timeClient.update();
-    int currentHour = timeClient.getHours();
-    int currentBrightness = 0;
-    bool isDay = currentHour >= day && currentHour < night;
-    currentBrightness = isDay ? dayBrightness : nightBrightness;
-    if (currentBrightness != brightness) {
-      brightness = currentBrightness;
-      FastLED.setBrightness(2.54 * brightness);
-      FastLED.show();
+void autoBrightnessUpdate() {
+    if (autoBrightness) {
+      Serial.println("Autobrightness start");
+      timeClient.update();
+      int currentHour = timeClient.getHours();
+      int currentBrightness = 0;
+      bool isDay = currentHour >= day && currentHour < night;
+      currentBrightness = isDay ? dayBrightness : nightBrightness;
+      if (currentBrightness != brightness) {
+        brightness = currentBrightness;
+        FastLED.setBrightness(2.54 * brightness);
+        FastLED.show();
+      }
     }
   }
+
+void alamsUpdate() {
   if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
     Serial.println("Alarms fetch start");
     lastAlarmsTime = millis();
@@ -707,7 +606,9 @@ void loop() {
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
+}
 
+void mapInfo() {
   if (mapMode == 1) {
     mapModeFirstUpdate2 = true;
     mapModeFirstUpdate3 = true;
@@ -782,5 +683,49 @@ void loop() {
       Flag(50);
     }
   }
+}
+
+void initTime() {
+  bool isDaylightSaving = false;
+  timeClient.begin();
+  timeClient.update();
+  String formattedTime = timeClient.getFormattedTime();
+  int day, month, year, hour, minute, second;
+  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
+  if (month >= 3 && month <= 10) {
+    isDaylightSaving = true;
+  }
+  if (isDaylightSaving) {
+    timeClient.setTimeOffset(14400);
+  }
+  else {
+    timeClient.setTimeOffset(10800);
+  }
+}
+
+void setup() {
+  initFastLED();
+  Flag(50);
+  initDisplay();
+  initWiFi();
+  Serial.begin(115200);
+  initTime();
+  setupRouting();
+}
+void loop() {
+  wifiConnected = WiFi.status() == WL_CONNECTED;
+  if (!wifiConnected) {
+    Flag(10);
+    delay(5000);
+    ESP.restart();
+  }
+
+  server.handleClient();
+
+  displayInfo();
+  autoBrightnessUpdate();
+  alamsUpdate();
+  mapInfo();
+
   delay(1000);
 }
