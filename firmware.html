@@ -174,9 +174,13 @@
     <div class="col-lg-8 order-md-last">
       <div class="m-1">
         <div class="row">
-          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки</div>
+          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки <button id="copy-button" type="button" class="btn btn-outline-success">Скопіювати в буфер обміну</button></div>
         </div>
-        <div class="row bg-secondary text-white border rounded border-secondary">
+
+        <div id="confirmation-popup" style="display:none" class="alert alert-warning alert-dismissible fade show" role="alert">
+          <strong id="confirmation-title"></strong> <span id="confirmation-message"></span>
+        </div>
+        <div id="code-container" class="row bg-secondary text-white border rounded border-secondary">
           <pre>
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
@@ -202,7 +206,6 @@ const int dayBrightness = <span id="day-brightness">100</span>; //Денна я�
 const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
 
 bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
-static bool greenStates = <span id="green-states">true</span>; //true - області без тривоги будуть зелені; false - не будуть світитися
 
 int mapModeInit = <span id="mode">2</span>;
 int mapMode = 1;
@@ -427,17 +430,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
 
           <div class="col-md-12 mb-1"></div>
 
-          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <div class=" col-1 mb-1">
-            <input type="checkbox" class="form-check-input" id="green-states-input" checked>
-            </div>
-            <div class=" col-11 mb-1">
-            <label class="form-check-label">Підсвічувати зеленим області без тривоги</label>
-            </div>
-          </div>
-
-
-          <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
             <h5 class="mb-1 text-dark">Загальна яскравість</h5>
@@ -588,17 +580,6 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
       });
 
       const autoswitch = document.getElementById('autoswitch');
-
-      const greenstates = document.getElementById('green-states');
-      const greenstatesinput = document.getElementById('green-states-input');
-
-      greenstatesinput.addEventListener('click', function() {
-        if (greenstatesinput.checked) {
-          greenstates.textContent = 'true';
-        } else {
-          greenstates.textContent = 'false';
-        }
-      });
 
       const autobrightnessinput = document.getElementById('autobrightness-input');
 
@@ -1003,6 +984,39 @@ int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-fr
         document.getElementById("api-key").textContent = openweathermapinput;
 
       }
+
+      const copyButton = document.getElementById('copy-button');
+      const codeContainer = document.getElementById('code-container');
+      const confirmationPopup = document.getElementById('confirmation-popup');
+      const confirmationTitle = document.getElementById('confirmation-title');
+      const confirmationMessage = document.getElementById('confirmation-message');
+
+      copyButton.addEventListener('click', () => {
+        const range = document.createRange();
+        range.selectNode(codeContainer);
+        window.getSelection().addRange(range);
+
+        try {
+          document.execCommand('copy');
+          console.log('Code copied!');
+          showConfirmation('Код успішно скопійовано', '');
+        } catch (err) {
+          console.error('Failed to copy code:', err);
+        }
+
+        window.getSelection().removeAllRanges();
+      });
+
+      function showConfirmation(title, message) {
+        confirmationTitle.textContent = title;
+        confirmationMessage.textContent = message;
+        confirmationPopup.style.display = 'block';
+
+        setTimeout(() => {
+          confirmationPopup.style.display = 'none';
+        }, 10000);
+      }
+
     </script>
   </body>
 </html>
