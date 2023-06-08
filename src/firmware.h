@@ -47,6 +47,9 @@ bool modulationSelected = false;
 
 int newAlarmPeriod = 180000;
 
+int displayMode = 1;
+int displayYoffset = 0;
+
 //Для погоди
 const char* apiKey = ""; //API погоди
 float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
@@ -127,13 +130,20 @@ int statesIdsWeather[] = {
 #include <NTPClient.h>
 #include <HTTPUpdate.h>
 #include <WebServer.h>
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
 
 #define LED_PIN     25
 #define NUM_LEDS    27
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
 
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 32
+
 CRGB leds[NUM_LEDS];
+
+Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
@@ -244,7 +254,14 @@ void initWiFi() {
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     if(wifiStatusBlink) {
-      //movingBlink(HUE_RED,1);
+      display.clearDisplay();
+      display.setCursor(0, 0 + displayYoffset);
+      display.setTextSize(1);
+      display.println("WiFi connecting:");
+      display.setCursor(0, 10 + displayYoffset);
+      display.setTextSize(2);
+      display.println(wifiSSID);
+      display.display();
       colorFill(HUE_RED, 50);
       FlashAll(10,1);
     }
@@ -258,7 +275,14 @@ void initWiFi() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     if(wifiStatusBlink) {
-      //movingBlink(HUE_GREEN,3);
+      display.clearDisplay();
+      display.setCursor(0, 0 + displayYoffset);
+      display.setTextSize(1);
+      display.println("Connected to:");
+      display.setCursor(0, 12 + displayYoffset);
+      display.setTextSize(2);
+      display.println(wifiSSID);
+      display.display();
       colorFill(HUE_GREEN, 50);
       FlashAll(10,3);
     }
@@ -272,10 +296,19 @@ void initWiFi() {
 void startAPMode() {
   Serial.println("Start AP");
   if(wifiStatusBlink) {
-    //movingBlink(HUE_YELLOW,3);
     colorFill(HUE_YELLOW, 50);
     FlashAll(10,3);
   }
+  display.clearDisplay();
+  display.setCursor(0, 0 + displayYoffset);
+  display.setTextSize(1);
+  display.print("AP: ");
+  display.println(apSSID);
+  display.setCursor(0, 12 + displayYoffset);
+  display.setTextSize(1);
+  display.print("Password: ");
+  display.println(apPassword);
+  display.display();
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID, apPassword);
 
@@ -314,34 +347,25 @@ void Modulation() {
       for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
           case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
-          case 2: if (modulationOrange|| selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
           case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
-          case 3: if (modulationGreen|| selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
-      //Serial.print("stepBrightness: ");
-      //Serial.println(stepBrightness);
-      //Serial.print("pixelBrightness: ");
-      //Serial.println(pixelBrightness);
       if (fadeCycleEnded){
-        //Serial.println("acs");
         stepBrightness += modulationStep;
       } else{
-        //Serial.println("desc");
         stepBrightness -= modulationStep;
       }
       if (stepBrightness < modulationLevel) {
         fadeCycleEnded = true;
-        //Serial.println("fadeCycleEnded");
       }
       if (stepBrightness > 100) {
-        //Serial.println("rizeCycleEnded");
         rizeCycleEnded = true;
       }
       delay(localModulationTime);
     }
-    //Serial.println("Cycle: end");
   }
   Serial.println("Modulation: end");
 }
@@ -372,35 +396,27 @@ void Blink() {
   for (int i = 0; i < NUM_LEDS; i++) {
     selectedStates[i] = 0;
   }
-  Serial.print("selectedStates: ");
   for (int i = 0; i < sizeof(blinkDistricts) / sizeof(int); i++) {
     int position = blinkDistricts[i];
     selectedStates[position] = 1;
   }
-  Serial.println(" ");
-  Serial.println("selectedStates: ");
-  for (int i = 0; i < NUM_LEDS; i++) {
-    Serial.print(selectedStates[i]);
-    Serial.print(" ");
-  }
-  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
-        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
-        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 0); break;} else { break;}
         }
     }
     FastLED.show();
     delay(localModulationTime);
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-        case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
-        case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-        case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
-        case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
+          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
+          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 180, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
     FastLED.show();
@@ -431,7 +447,7 @@ void FlashAll(int wait, int count) {
   for(int i = 0; i < count; i++) {
     for(int dot = 0; dot <= NUM_LEDS; dot++) {
       CRGB pixel = leds[dot];
-      leds[dot] = CHSV(0, 00, 255);
+      leds[dot] = CHSV(0, 0, 255);
       FastLED.show();
       delay(wait);
       leds[dot] = pixel;
@@ -451,62 +467,67 @@ void FlashLed(int dot, int wait, int count) {
   }
 }
 
+void displayInfo() {
+    timeClient.update();
+    int hour = timeClient.getHours();
+    int minute = timeClient.getMinutes();
+
+    if(displayMode == 1) {
+      display.setCursor(0, 0 + displayYoffset);
+      String time = "";
+      if (hour < 10) time += "0";
+      time += hour;
+      time += ":";
+      if (minute < 10) time += "0";
+      time += minute;
+      display.clearDisplay();
+      display.setTextSize(4);
+      oledDisplayCenter(time, 0, DISPLAY_WIDTH, 0);
+    }
+}
+
+void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
+    int16_t x1;
+    int16_t y1;
+    uint16_t width;
+    uint16_t height;
+    display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
+    display.setCursor(((screenWidth - width) / 2) + offset, y + displayYoffset);
+    display.println(text);
+    display.display();
+  }
+
 void initFastLED() {
+  //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(2.54 * brightness);
   FastLED.clear();
   FastLED.show();
 }
 
-void initTime() {
-  bool isDaylightSaving = false;
-  timeClient.begin();
-  timeClient.update();
-  String formattedTime = timeClient.getFormattedTime();
-  int day, month, year, hour, minute, second;
-  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
-  if (month >= 3 && month <= 10) {
-    isDaylightSaving = true;
-  }
-  if (isDaylightSaving) {
-    timeClient.setTimeOffset(14400);
-  }
-  else {
-    timeClient.setTimeOffset(10800);
-  }
-}
-
-void setup() {
-  initFastLED();
-  Flag(50);
-  initWiFi();
-  Serial.begin(115200);
-  initTime();
-  setupRouting();
-}
-void loop() {
-	wifiConnected = WiFi.status() == WL_CONNECTED;
-  if (!wifiConnected) {
-    Flag(10);
-    delay(10000);
-    ESP.restart();
+void initDisplay() {
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.clearDisplay();
+    display.setTextColor(WHITE);
   }
 
-  server.handleClient();
-
-  if (autoBrightness) {
-    Serial.println("Autobrightness start");
-    timeClient.update();
-    int currentHour = timeClient.getHours();
-    int currentBrightness = 0;
-    bool isDay = currentHour >= day && currentHour < night;
-    currentBrightness = isDay ? dayBrightness : nightBrightness;
-    if (currentBrightness != brightness) {
-      brightness = currentBrightness;
-      FastLED.setBrightness(2.54 * brightness);
-      FastLED.show();
+void autoBrightnessUpdate() {
+    if (autoBrightness) {
+      Serial.println("Autobrightness start");
+      timeClient.update();
+      int currentHour = timeClient.getHours();
+      int currentBrightness = 0;
+      bool isDay = currentHour >= day && currentHour < night;
+      currentBrightness = isDay ? dayBrightness : nightBrightness;
+      if (currentBrightness != brightness) {
+        brightness = currentBrightness;
+        FastLED.setBrightness(2.54 * brightness);
+        FastLED.show();
+      }
     }
   }
+
+void alamsUpdate() {
   if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
     Serial.println("Alarms fetch start");
     lastAlarmsTime = millis();
@@ -585,7 +606,9 @@ void loop() {
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
+}
 
+void mapInfo() {
   if (mapMode == 1) {
     mapModeFirstUpdate2 = true;
     mapModeFirstUpdate3 = true;
@@ -660,5 +683,49 @@ void loop() {
       Flag(50);
     }
   }
+}
+
+void initTime() {
+  bool isDaylightSaving = false;
+  timeClient.begin();
+  timeClient.update();
+  String formattedTime = timeClient.getFormattedTime();
+  int day, month, year, hour, minute, second;
+  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
+  if (month >= 3 && month <= 10) {
+    isDaylightSaving = true;
+  }
+  if (isDaylightSaving) {
+    timeClient.setTimeOffset(14400);
+  }
+  else {
+    timeClient.setTimeOffset(10800);
+  }
+}
+
+void setup() {
+  initFastLED();
+  Flag(50);
+  initDisplay();
+  initWiFi();
+  Serial.begin(115200);
+  initTime();
+  setupRouting();
+}
+void loop() {
+  wifiConnected = WiFi.status() == WL_CONNECTED;
+  if (!wifiConnected) {
+    Flag(10);
+    delay(5000);
+    ESP.restart();
+  }
+
+  server.handleClient();
+
+  displayInfo();
+  autoBrightnessUpdate();
+  alamsUpdate();
+  mapInfo();
+
   delay(1000);
 }
