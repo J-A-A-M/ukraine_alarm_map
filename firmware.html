@@ -235,12 +235,39 @@ int displayMode = <span id="display-mode">1</span>;
 int displayYoffset = <span id="display-y-offset">0</span>;
 
 //Для погоди
-const char* apiKey = "<span id="api-key"></span>"; //API погоди
+const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
 float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
-int statesIdsAlarmCheck[] = {<span id="zakarpattia">0</span>, <span id="ivano-frankivsk">0</span>, <span id="ternopil">0</span>, <span id="lviv">0</span>, <span id="volyn">0</span>, <span id="rivne">0</span>, <span id="zhytomyr">0</span>, <span id="kiyvm">1</span>, <span id="kiyv">0</span>, <span id="chernihiv">0</span>, <span id="sumy">0</span>, <span id="kharkiv">0</span>, <span id="luhansk">0</span>, <span id="donetsk">0</span>, <span id="zaporizhzhia">0</span>, <span id="kherson">0</span>, <span id="crimea">0</span>, <span id="odesa">0</span>, <span id="mykolaiv">0</span>, <span id="dnipropetrovsk">0</span>, <span id="poltava">0</span>, <span id="cherkasy">0</span>, <span id="kirovohrad">0</span>, <span id="vinnytsia">0</span>, <span id="khmelnytskyi">0</span>, <span id="chernivtsi">0</span>};
+int statesIdsAlarmCheck[] = {
+  <span id="zakarpattia">0,</span>
+  <span id="ivano-frankivsk">0,</span>
+  <span id="ternopil">0,</span>
+  <span id="lviv">0,</span>
+  <span id="volyn">0,</span>
+  <span id="rivne">0,</span>
+  <span id="zhytomyr">0,</span>
+  <span id="kiyvm"></span>
+  <span id="kiyv">1,</span>
+  <span id="chernihiv">0,</span>
+  <span id="sumy">0,</span>
+  <span id="kharkiv">0,</span>
+  <span id="luhansk">0,</span>
+  <span id="donetsk">0,</span>
+  <span id="zaporizhzhia">0,</span>
+  <span id="kherson">0,</span>
+  <span id="crimea">0,</span>
+  <span id="odesa">0,</span>
+  <span id="mykolaiv">0,</span>
+  <span id="dnipropetrovsk">0,</span>
+  <span id="poltava">0,</span>
+  <span id="cherkasy">0,</span>
+  <span id="kirovohrad">0,</span>
+  <span id="vinnytsia">0,</span>
+  <span id="khmelnytskyi">0,</span>
+  <span id="chernivtsi">0,</span>
+};
 // =======================================
 
 static String states[] = {
@@ -262,7 +289,6 @@ static String states[] = {
   "Херсонська область",
   "Автономна Республіка Крим",
   "Одеська область",
-  <span id="state-alarm-odessa"></span>
   "Миколаївська область",
   "Дніпропетровська область",
   "Полтавська область",
@@ -292,7 +318,6 @@ int statesIdsWeather[] = {
   706448,
   703883,
   698740,
-  <span id="state-weather-odessa"></span>
   700569,
   709930,
   696643,
@@ -322,7 +347,6 @@ static int flagColor[] {
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
-  <span id="state-flag-odessa"></span>
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_AQUA,
@@ -334,7 +358,7 @@ static int flagColor[] {
 };
 
 #define LED_PIN         25
-#define NUM_LEDS        <span id="num-leds">27</span>
+#define NUM_LEDS        <span id="num-leds">25</span>
 #define LED_TYPE        WS2812
 #define COLOR_ORDER     GRB
 
@@ -360,19 +384,19 @@ static int flagColor[] {
               <h6 class="mb-1">Підключення до Вашої точки доступу</h6>
             </div>
             <div class="col-sm-6 mb-3">
-              <input type="text" class="form-control" id="wifi-ssid-input" placeholder="SSID" value=""  oninput="updateText()">
+              <input type="text" class="form-control" id="wifi-ssid-input" placeholder="SSID" value="" oninput=updateWifiSSIDValue()>
             </div>
             <div class="col-sm-6 mb-3">
-              <input type="text" class="form-control" id="wifi-password-input" placeholder="Пароль" value=""  oninput="updateText()">
+              <input type="text" class="form-control" id="wifi-password-input" placeholder="Пароль" value="" oninput=updateWifiPasswordValue()>
             </div>
             <div class="col-sm-12">
               <h6 class="mb-1">Назва точкі доступу мапи для налаштування</h6>
             </div>
             <div class="col-sm-6 mb-3">
-              <input type="text" class="form-control" id="ap-ssid-input" value="AlarmMap"  oninput="updateText()">
+              <input type="text" class="form-control" id="ap-ssid-input" value="AlarmMap" oninput=updateApSSIDValue()>
             </div>
             <div class="col-sm-6 mb-3">
-              <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value=""  oninput="updateText()">
+              <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value="" oninput=updateApPasswordValue()>
             </div>
             <div class=" col-1 mb-1">
               <input type="checkbox" class="form-check-input" id="wifi-status-input" checked>
@@ -399,7 +423,7 @@ static int flagColor[] {
 
 
             <div id="openstreetmap" style="display:none" class="col-sm-12 mb-2">
-              <input type="text" class="form-control" id="open-weather-map-input" placeholder="Ключ OpenWeatherMap API" value=""  oninput="updateText()">
+              <input type="text" class="form-control" id="open-weather-map-input" placeholder="Ключ OpenWeatherMap API" value=""  oninput=updateOWMValue()>
             </div>
 
             <div id="alarmback-1" class=" col-1 mb-1"  style="display:none">
@@ -463,7 +487,7 @@ static int flagColor[] {
                         <h4><span class="badge bg-dark" id="modulation-time-form-value">200</span></h4>
                     </div>
                     <div class="col-10 mb-1 mt-1">
-                        <input type="range" min="1" max="1000" value="200" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
+                        <input type="range" min="0" max="1000" value="200" step="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
                     </div>
                   </div>
                 </div>
@@ -541,13 +565,6 @@ static int flagColor[] {
               <button type="button" class="btn btn-success" id="mode-kyiv-input-1">Київська область</button>
               <button type="button" class="btn btn-secondary" id="mode-kyiv-input-2">Київ</button>
               <button type="button" class="btn btn-secondary" id="mode-kyiv-input-3">Обідва</button>
-            </div>
-
-            <div class=" col-1 mb-1">
-              <input type="checkbox" class="form-check-input" id="mode-odessa-input">
-            </div>
-            <div class=" col-11 mb-1">
-              <label class="form-check-label">Додатковий діод на Одеську область</label>
             </div>
           </div>
 
@@ -668,7 +685,33 @@ static int flagColor[] {
   </div>
   </main>
     <script>
-      // Get the element by its ID
+      const wifissidinput = document.getElementById("wifi-ssid-input");
+      const wifipasswordinput = document.getElementById("wifi-password-input");
+      const apssidinput = document.getElementById("ap-ssid-input");
+      const appasswordinput = document.getElementById("ap-password-input");
+      const wifissid = document.getElementById("wifi-ssid");
+      const wifipassword = document.getElementById("wifi-password");
+      const apssid = document.getElementById("ap-ssid");
+      const appassword = document.getElementById("ap-password");
+      const openweathermapinput = document.getElementById("open-weather-map-input");
+      const openweathermap = document.getElementById("open-weather-map");
+
+      function updateWifiSSIDValue() {
+        wifissid.textContent = wifissidinput.value;
+      }
+      function updateWifiPasswordValue() {
+        wifipassword.textContent = wifipasswordinput.value;
+      }
+      function updateApSSIDValue() {
+        apssid.textContent = apssidinput.value;
+      }
+      function updateApPasswordValue() {
+        appassword.textContent = appasswordinput.value;
+      }
+      function updateOWMValue() {
+        openweathermap.textContent = openweathermapinput.value;
+      }
+
       const wifistatus = document.getElementById('wifi-status');
       const wifistatusinput = document.getElementById('wifi-status-input');
 
@@ -1018,9 +1061,6 @@ static int flagColor[] {
       });
 
 
-      const numleds = document.getElementById('num-leds');
-
-
       const stateweatherodessa = document.getElementById('state-weather-odessa');
       const statealarmodessa = document.getElementById('state-alarm-odessa');
       const stateflagodessa = document.getElementById('state-flag-odessa');
@@ -1034,88 +1074,6 @@ static int flagColor[] {
       const modekyivinput1 = document.getElementById('mode-kyiv-input-1');
       const modekyivinput2 = document.getElementById('mode-kyiv-input-2');
       const modekyivinput3 = document.getElementById('mode-kyiv-input-3');
-
-      modeodessainput.addEventListener('click', function() {
-        if (modeodessainput.checked) {
-          stateweatherodessa.textContent = '698740,';
-          statealarmodessa.textContent = '"Одеська область",';
-          stateflagodessa.textContent = 'HUE_YELLOW,';
-          if (modekyivinput3.className === 'btn btn-success') {
-            numleds.textContent = '27';
-          } else {
-            numleds.textContent = '26';
-          }
-        } else {
-          stateweatherodessa.textContent = '';
-          statealarmodessa.textContent = '';
-          stateflagodessa.textContent = '';
-          if (modekyivinput3.className === 'btn btn-success') {
-            numleds.textContent = '26';
-          } else {
-            numleds.textContent = '25';
-          }
-        }
-
-      });
-
-
-      modekyivinput1.addEventListener('click', function() {
-        if (modekyivinput1.className === 'btn btn-secondary') {
-          modekyivinput1.className = 'btn btn-success';
-          modekyivinput2.className = 'btn btn-secondary';
-          modekyivinput3.className = 'btn btn-secondary';
-          stateweatherkyiv.textContent = '703448,';
-          statealarmkyiv.textContent = '"Київська область",';
-          stateflagkyiv.textContent = 'HUE_AQUA,';
-          stateweatherkyivm.textContent = '';
-          statealarmkyivm.textContent = '';
-          stateflagkyivm.textContent = '';
-        }
-        if (modeodessainput.checked) {
-          numleds.textContent = '26';
-        } else{
-          numleds.textContent = '25';
-        }
-      });
-
-      modekyivinput2.addEventListener('click', function() {
-        if (modekyivinput2.className === 'btn btn-secondary') {
-          modekyivinput1.className = 'btn btn-secondary';
-          modekyivinput2.className = 'btn btn-success';
-          modekyivinput3.className = 'btn btn-secondary';
-          stateweatherkyivm.textContent = '703447,';
-          statealarmkyivm.textContent = '"м. Київ",';
-          stateflagkyivm.textContent = 'HUE_AQUA,';
-          stateweatherkyiv.textContent = '';
-          statealarmkyiv.textContent = '';
-          stateflagkyiv.textContent = '';
-        }
-        if (modeodessainput.checked) {
-          numleds.textContent = '26';
-        } else{
-          numleds.textContent = '25';
-        }
-      });
-
-      modekyivinput3.addEventListener('click', function() {
-        if (modekyivinput3.className === 'btn btn-secondary') {
-          modekyivinput1.className = 'btn btn-secondary';
-          modekyivinput2.className = 'btn btn-secondary';
-          modekyivinput3.className = 'btn btn-success';
-          stateweatherkyivm.textContent = '703447,';
-          statealarmkyivm.textContent = '"м. Київ",';
-          stateflagkyivm.textContent = 'HUE_AQUA,';
-          stateweatherkyiv.textContent = '703448,';
-          statealarmkyiv.textContent = '"Київська область",';
-          stateflagkyiv.textContent = 'HUE_AQUA,';
-        }
-        if (modeodessainput.checked) {
-          numleds.textContent = '27';
-        } else{
-          numleds.textContent = '26';
-        }
-      });
-
 
 
       const stateList = [
@@ -1151,7 +1109,12 @@ static int flagColor[] {
 
       stateList.forEach(function(state) {
         const liElement = document.createElement('li');
-        if (state.id === 'kiyvm-input') {
+        if (state.id === 'kiyv-input') {
+          liElement.className = 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success';
+        } else {
+          liElement.className = 'list-group-item list-group-item-action pt-0 pb-0';
+        }
+        if (state.id === 'kiyv-input') {
           liElement.className = 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success';
         } else {
           liElement.className = 'list-group-item list-group-item-action pt-0 pb-0';
@@ -1162,13 +1125,46 @@ static int flagColor[] {
       });
 
       function handleInputClick(input, output) {
+
         input.addEventListener('click', function() {
           if (input.className === 'list-group-item list-group-item-action pt-0 pb-0') {
             input.className = `list-group-item list-group-item-action pt-0 pb-0 list-group-item-success`;
-            output.textContent = 1;
+            output.textContent = '1,';
+            if (input.id === 'kiyvm-input'){
+              if (modekyivinput2.className === 'btn btn-secondary'){
+                output.textContent = '';
+              }
+              if (modekyivinput3.className === 'btn btn-success'){
+                output.textContent = '1,';
+              }
+            }
+            if (input.id === 'kiyv-input'){
+              if (modekyivinput1.className === 'btn btn-secondary'){
+                output.textContent = '';
+              }
+              if (modekyivinput3.className === 'btn btn-success'){
+                output.textContent = '1,';
+              }
+            }
           } else {
             input.className = 'list-group-item list-group-item-action pt-0 pb-0';
-            output.textContent = 0;
+            output.textContent = '0,';
+            if (input.id === 'kiyvm-input'){
+              if (modekyivinput2.className === 'btn btn-secondary'){
+                output.textContent = '';
+              }
+              if (modekyivinput3.className === 'btn btn-success'){
+                output.textContent = '0,';
+              }
+            }
+            if (input.id === 'kiyv-input'){
+              if (modekyivinput1.className === 'btn btn-secondary'){
+                output.textContent = '';
+              }
+              if (modekyivinput3.className === 'btn btn-success'){
+                output.textContent = '0,';
+              }
+            }
           }
         });
       }
@@ -1183,19 +1179,83 @@ static int flagColor[] {
       });
 
 
-      function updateText() {
-        const wifiSsid = document.getElementById("wifi-ssid-input").value;
-        document.getElementById("wifi-ssid").textContent = wifiSsid;
-        const wifiPassword = document.getElementById("wifi-password-input").value;
-        document.getElementById("wifi-password").textContent = wifiPassword;
-        const apSsid = document.getElementById("ap-ssid-input").value;
-        document.getElementById("ap-ssid").textContent = apSsid;
-        const apPassword = document.getElementById("ap-password-input").value;
-        document.getElementById("ap-password").textContent = apPassword;
-        const openweathermapinput = document.getElementById("open-weather-map-input").value;
-        document.getElementById("api-key").textContent = openweathermapinput;
+      const numleds = document.getElementById('num-leds');
 
-      }
+
+      modekyivinput1.addEventListener('click', function() {
+        const kiyvinput = document.getElementById(`kiyv-input`).className;
+        if (modekyivinput1.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-success';
+          modekyivinput2.className = 'btn btn-secondary';
+          modekyivinput3.className = 'btn btn-secondary';
+          stateweatherkyiv.textContent = '703448,';
+          statealarmkyiv.textContent = '"Київська область",';
+          stateflagkyiv.textContent = 'HUE_AQUA,';
+          stateweatherkyivm.textContent = '';
+          statealarmkyivm.textContent = '';
+          stateflagkyivm.textContent = '';
+          kiyvm.textContent = '';
+          numleds.textContent = '25';
+          if (kiyvinput === 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success'){
+            kiyv.textContent = '1,';
+          }else{
+            kiyv.textContent = '0,';
+          }
+        }
+      });
+
+      modekyivinput2.addEventListener('click', function() {
+        const kiyvminput = document.getElementById(`kiyvm-input`).className;
+        if (modekyivinput2.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-secondary';
+          modekyivinput2.className = 'btn btn-success';
+          modekyivinput3.className = 'btn btn-secondary';
+          stateweatherkyivm.textContent = '703447,';
+          statealarmkyivm.textContent = '"м. Київ",';
+          stateflagkyivm.textContent = 'HUE_AQUA,';
+          stateweatherkyiv.textContent = '';
+          statealarmkyiv.textContent = '';
+          stateflagkyiv.textContent = '';
+          kiyvm.textContent = '0,';
+          kiyv.textContent = '';
+          numleds.textContent = '25';
+          if (kiyvminput === 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success'){
+            kiyvm.textContent = '1,';
+          }else{
+            kiyvm.textContent = '0,';
+          }
+        }
+      });
+
+      modekyivinput3.addEventListener('click', function() {
+        const kiyvinput = document.getElementById(`kiyv-input`).className;
+        const kiyvminput = document.getElementById(`kiyvm-input`).className;
+        if (modekyivinput3.className === 'btn btn-secondary') {
+          modekyivinput1.className = 'btn btn-secondary';
+          modekyivinput2.className = 'btn btn-secondary';
+          modekyivinput3.className = 'btn btn-success';
+          stateweatherkyivm.textContent = '703447,';
+          statealarmkyivm.textContent = '"м. Київ",';
+          stateflagkyivm.textContent = 'HUE_AQUA,';
+          stateweatherkyiv.textContent = '703448,';
+          statealarmkyiv.textContent = '"Київська область",';
+          stateflagkyiv.textContent = 'HUE_AQUA,';
+          kiyvm.textContent = '0,';
+          kiyv.textContent = '0,';
+          numleds.textContent = '26';
+          if (kiyvminput === 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success'){
+            kiyvm.textContent = '1,';
+          }else{
+            kiyvm.textContent = '0,';
+          }
+          if (kiyvinput === 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success'){
+            kiyv.textContent = '1,';
+          }else{
+            kiyv.textContent = '0,';
+          }
+        }
+      });
+
 
       const copyButton = document.getElementById('copy-button');
       const codeContainer = document.getElementById('code-container');
