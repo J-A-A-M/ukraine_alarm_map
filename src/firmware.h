@@ -188,7 +188,7 @@ static int flagColor[] {
   HUE_YELLOW
 };
 
-#define LED_PIN         25
+#define LED_PIN         13
 #define NUM_LEDS        25
 #define LED_TYPE        WS2812
 #define COLOR_ORDER     GRB
