@@ -193,8 +193,8 @@
 // ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
-char* wifiSSID = "<span id="wifi-ssid"></span>"; //Назва твоєї мережі WiFi
-char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль від твого WiFi
+char* wifiSSID = "<span id="wifi-ssid"></span>"; //Назва мережі WiFi
+char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль  WiFi
 char* apSSID = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
 bool wifiStatusBlink = <span id="wifi-status">true</span>;
@@ -202,9 +202,9 @@ bool wifiStatusBlink = <span id="wifi-status">true</span>;
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
 
-float brightnessGreen = <span id="brightness-green">50</span>; //Яскравість %
-float brightnessOrange = <span id="brightness-orange">75</span>; //Яскравість %
-float brightnessRed = <span id="brightness-red">100</span>; //Яскравість %
+float brightnessGreen = <span id="brightness-green">50</span>; //Яскравість зон без тривог%
+float brightnessOrange = <span id="brightness-orange">75</span>; //Яскравість зон з новими тривогами %
+float brightnessRed = <span id="brightness-red">100</span>; //Яскравість зон з тривогами%
 
 //Налаштування авто-яскравості
 bool autoBrightness = <span id="autobrightness">true</span>; //Ввімкнена/вимкнена авто яскравість
@@ -215,9 +215,10 @@ const int nightBrightness = <span id="night-brightness">20</span>; //Нічна 
 
 bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
-int mapModeInit = <span id="mode">2</span>;
+int mapModeInit = <span id="mode">2</span>; //Режим мапи
 int mapMode = 1;
 
+//Майбутній функціонал, не працює
 int blinkDistricts[] = {
   0,
   1,
@@ -226,27 +227,29 @@ int blinkDistricts[] = {
   8
 };
 
-int modulationMode = <span id="modulation-mode">2</span>;
-int modulationLevel = <span id="modulation-level">50</span>;
-int modulationStep = <span id="modulation-step">5</span>;
-int modulationTime = <span id="modulation-time">200</span>;
-int modulationCount = <span id="modulation-count">3</span>;
-bool modulationGreen = <span id="modulation-green">false</span>;
-bool modulationOrange = <span id="modulation-orange">true</span>;
-bool modulationRed = <span id="modulation-red">true</span>;
-bool modulationSelected = <span id="modulation-selected">false</span>;
+//Модуляція
+int modulationMode = <span id="modulation-mode">2</span>; //Режим модуляції
+int modulationLevel = <span id="modulation-level">50</span>; //Рівень модуляції
+int modulationStep = <span id="modulation-step">5</span>; //Крок модуляції
+int modulationTime = <span id="modulation-time">200</span>; //Тривалість модуляції
+int modulationCount = <span id="modulation-count">3</span>; //Кількість модуляцій в циклі
+bool modulationGreen = <span id="modulation-green">false</span>; //Зони без тривог в модуляції
+bool modulationOrange = <span id="modulation-orange">true</span>; //Зони нових тривог в модуляції
+bool modulationRed = <span id="modulation-red">true</span>; //Зони тривог в модуляції
+bool modulationSelected = <span id="modulation-selected">false</span>; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = <span id="new-alarm-period">180000</span>;
+int newAlarmPeriod = <span id="new-alarm-period">180000</span>; //Час індикації нових тривог
 
-int displayMode = <span id="display-mode">1</span>;
-int displayYoffset = <span id="display-y-offset">0</span>;
+//Дісплей
+int displayMode = <span id="display-mode">1</span>; //Режим дісплея
+int displayYoffset = <span id="display-y-offset">0</span>; //Майбутній функціонал, не працює
 
-//Для погоди
+//Погода
 const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
 float minTemp = <span id="min-temp">5.0</span>; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = <span id="max-temp">25.0</span>; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
-//Налаштуванння режимів
+//Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] = {
   <span id="zakarpattia">0,</span>
   <span id="ivano-frankivsk">0,</span>
@@ -275,7 +278,6 @@ int statesIdsAlarmCheck[] = {
   <span id="khmelnytskyi">0,</span>
   <span id="chernivtsi">0,</span>
 };
-// =======================================
 
 static String states[] = {
   "Закарпатська область",
@@ -306,6 +308,7 @@ static String states[] = {
   "Чернівецька область"
 };
 
+//Погодні IDS
 int statesIdsWeather[] = {
   690548,
   707471,
@@ -335,6 +338,7 @@ int statesIdsWeather[] = {
   710719
 };
 
+//Прапор
 static int flagColor[] {
   HUE_YELLOW,
   HUE_YELLOW,
@@ -440,7 +444,7 @@ static int flagColor[] {
                     <h4><span class="badge bg-dark" id="min-temp-form-value">5</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="-20" max="40" value="1" step="1" class="bg-white border rounded border-secondary form-range col-12" id="min-temp-input">
+                    <input type="range" min="-20" max="40" value="5" step="1" class="bg-white border rounded border-secondary form-range col-12" id="min-temp-input">
                 </div>
               </div>
             </div>
@@ -449,10 +453,10 @@ static int flagColor[] {
               <label class="form-label">Максимальна температура</label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="max-temp-form-value">3</span></h4>
+                    <h4><span class="badge bg-dark" id="max-temp-form-value">25</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min=-20" max="40" value="1" class="bg-white border rounded border-secondary form-range col-12" id="max-temp-input">
+                    <input type="range" min=-20" max="40" value="25" class="bg-white border rounded border-secondary form-range col-12" id="max-temp-input">
                 </div>
               </div>
             </div>
@@ -467,7 +471,7 @@ static int flagColor[] {
 
             <div class="" id="alarmback-alert"  style="display:none">
               <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">New</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
+                <span class="badge bg-success">оновлення</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
               </div>
             </div>
 
@@ -484,8 +488,14 @@ static int flagColor[] {
               <button type="button" class="btn btn-secondary" id="modulation-mode-input-3">Пульсація</button>
             </div>
 
+
             <div class="" id='modulation-form'>
               <div class="row">
+                <div class=""  >
+                  <div class="alert alert-primary" role="alert">
+                    <span class="badge bg-success">оновлення</span> Це спеціальний режим підсвідки окремих зон мапи для привертання уваги до певних подій. Більш детально описано в Wіki проєкту
+                  </div>
+                </div>
 
                 <div class="" id='modulation-level-form' >
                   <label class="form-label">Рівень модуляції</label>
@@ -559,10 +569,10 @@ static int flagColor[] {
                   <label class="form-check-label"><span class="badge bg-danger"  style="font-size: 0.9rem;">Області тривог</span></label>
                 </div>
 
-                <div id="modulation-selected-1" class=" col-1 mb-1">
+                <div style="display:none" id="modulation-selected-1" class=" col-1 mb-1">
                   <input type="checkbox" class="form-check-input" id="modulation-selected-input">
                 </div>
-                <div id="modulation-selected-2" class=" col-11 mb-1">
+                <div style="display:none" id="modulation-selected-2" class=" col-11 mb-1">
                   <label class="form-check-label">Вибрати області для постійної модуляції</label>
                 </div>
               </div>
@@ -597,7 +607,13 @@ static int flagColor[] {
               <button type="button" class="btn btn-secondary" id="mode-kyiv-input-2">Київ</button>
               <button type="button" class="btn btn-secondary" id="mode-kyiv-input-3">Обідва</button>
             </div>
+            <div class="" >
+              <div class="alert alert-primary" role="alert">
+                <span class="badge bg-success">оновлення</span> В режимі "Обидва" мапа потребує додаткового діода. Більше детально описано в Wiki проекту
+              </div>
+            </div>
           </div>
+
 
         <div class="col-md-12 mb-1"></div>
 
@@ -1197,7 +1213,6 @@ static int flagColor[] {
             input.className = 'list-group-item list-group-item-action pt-0 pb-0';
             output.textContent = '0,';
           }
-          alert(input.id);
           if (input.id === 'kiyvm-input'){
             if (modekyivinput2.className === 'btn btn-secondary'){
               output.textContent = '';

@@ -22,9 +22,9 @@ bool wifiStatusBlink = true;
 //Налштування яскравості
 int brightness = 100; //Яскравість %
 
-float brightnessGreen = 50; //Яскравість %
-float brightnessOrange = 75; //Яскравість %
-float brightnessRed = 100; //Яскравість %
+float brightnessGreen = 50; //Яскравість зон без тривог%
+float brightnessOrange = 75; //Яскравість зон з новими тривогами %
+float brightnessRed = 100; //Яскравість зон з тривогами%
 
 //Налаштування авто-яскравості
 bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
@@ -35,9 +35,10 @@ const int nightBrightness = 20; //Нічна яскравість %
 
 bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
-int mapModeInit = 2;
+int mapModeInit = 3; //Режим мапи
 int mapMode = 1;
 
+//Майбутній функціонал, не працює
 int blinkDistricts[] = {
   0,
   1,
@@ -46,27 +47,29 @@ int blinkDistricts[] = {
   8
 };
 
-int modulationMode = 2;
-int modulationLevel = 50;
-int modulationStep = 5;
-int modulationTime = 200;
-int modulationCount = 3;
-bool modulationGreen = false;
-bool modulationOrange = true;
-bool modulationRed = true;
-bool modulationSelected = false;
+//Модуляція
+int modulationMode = 2; //Режим модуляції
+int modulationLevel = 50; //Рівень модуляції
+int modulationStep = 5; //Крок модуляції
+int modulationTime = 200; //Тривалість модуляції
+int modulationCount = 3; //Кількість модуляцій в циклі
+bool modulationGreen = false; //Зони без тривог в модуляції
+bool modulationOrange = true; //Зони нових тривог в модуляції
+bool modulationRed = true; //Зони тривог в модуляції
+bool modulationSelected = false; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = 180000;
+int newAlarmPeriod = 180000; //Час індикації нових тривог
 
-int displayMode = 1;
-int displayYoffset = 0;
+//Дісплей
+int displayMode = 1; //Режим дісплея
+int displayYoffset = 0; //Майбутній функціонал, не працює
 
-//Для погоди
+//Погода
 const char* apiKey = ""; //API погоди
-float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
-float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float minTemp = 5.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float maxTemp = 25.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
-//Налаштуванння режимів
+//Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] = {
   0,
   0,
@@ -95,7 +98,6 @@ int statesIdsAlarmCheck[] = {
   0,
   0,
 };
-// =======================================
 
 static String states[] = {
   "Закарпатська область",
@@ -126,6 +128,7 @@ static String states[] = {
   "Чернівецька область"
 };
 
+//Погодні IDS
 int statesIdsWeather[] = {
   690548,
   707471,
@@ -155,6 +158,7 @@ int statesIdsWeather[] = {
   710719
 };
 
+//Прапор
 static int flagColor[] {
   HUE_YELLOW,
   HUE_YELLOW,
@@ -191,7 +195,11 @@ static int flagColor[] {
 
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
-// =======================================
+// ======== КІНЕЦь НАЛАШТУВАННЯ =========
+
+
+
+
 
 CRGB leds[NUM_LEDS];
 
@@ -203,8 +211,7 @@ char buffer[250];
 WebServer server(80);
 
 DynamicJsonDocument doc(30000);
-//String baseURL = "https://vadimklimenko.com/map/statuses.json";
-String baseURL = "https://map.vglskr.net.ua/alarm_map";
+String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
 WiFiClientSecure client;
 WiFiManager wm;
