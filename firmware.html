@@ -1130,40 +1130,25 @@ static int flagColor[] {
           if (input.className === 'list-group-item list-group-item-action pt-0 pb-0') {
             input.className = `list-group-item list-group-item-action pt-0 pb-0 list-group-item-success`;
             output.textContent = '1,';
-            if (input.id === 'kiyvm-input'){
-              if (modekyivinput2.className === 'btn btn-secondary'){
-                output.textContent = '';
-              }
-              if (modekyivinput3.className === 'btn btn-success'){
-                output.textContent = '1,';
-              }
-            }
-            if (input.id === 'kiyv-input'){
-              if (modekyivinput1.className === 'btn btn-secondary'){
-                output.textContent = '';
-              }
-              if (modekyivinput3.className === 'btn btn-success'){
-                output.textContent = '1,';
-              }
-            }
           } else {
             input.className = 'list-group-item list-group-item-action pt-0 pb-0';
             output.textContent = '0,';
-            if (input.id === 'kiyvm-input'){
-              if (modekyivinput2.className === 'btn btn-secondary'){
-                output.textContent = '';
-              }
-              if (modekyivinput3.className === 'btn btn-success'){
-                output.textContent = '0,';
-              }
+          }
+          alert(input.id);
+          if (input.id === 'kiyvm-input'){
+            if (modekyivinput2.className === 'btn btn-secondary'){
+              output.textContent = '';
             }
-            if (input.id === 'kiyv-input'){
-              if (modekyivinput1.className === 'btn btn-secondary'){
-                output.textContent = '';
-              }
-              if (modekyivinput3.className === 'btn btn-success'){
-                output.textContent = '0,';
-              }
+            if (modekyivinput3.className === 'btn btn-success'){
+              output.textContent = '1,';
+            }
+          }
+          if (input.id === 'kiyv-input'){
+            if (modekyivinput1.className === 'btn btn-secondary'){
+              output.textContent = '';
+            }
+            if (modekyivinput3.className === 'btn btn-success'){
+              output.textContent = '1,';
             }
           }
         });
@@ -1280,13 +1265,28 @@ static int flagColor[] {
       });
 
       function showConfirmation(title, message) {
+        const popup = document.createElement('div');
+        popup.classList.add('confirmation-popup');
+
+        const popupTitle = document.createElement('h2');
+        popupTitle.textContent = title;
+
+        const popupMessage = document.createElement('p');
+        popupMessage.textContent = message;
+
         confirmationTitle.textContent = title;
         confirmationMessage.textContent = message;
         confirmationPopup.style.display = 'block';
 
+        popup.appendChild(popupTitle);
+        popup.appendChild(popupMessage);
+
+        document.body.appendChild(popup);
+
         setTimeout(() => {
-          confirmationPopup.style.display = 'none';
-        }, 10000);
+          document.body.removeChild(popup);
+          confirmationPopup.style.display = 'none'
+        }, 3000);
       }
 
     </script>
