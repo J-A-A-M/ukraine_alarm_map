@@ -5,8 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://getbootstrap.com/docs/5.3/assets/css/docs.css" rel="stylesheet">
-
     <title>Bootstrap Example</title>
+    <style>
+      .fixed-top-right {
+        position: fixed;
+        top: 0;
+        right: 0;
+      }
+    </style>
   </head>
   <body class=" border-0 bd-example bd-example-cssgrid">
   <main>
@@ -172,16 +178,17 @@
 
   <div class="row">
     <div class="col-lg-8 order-md-last">
-      <div class="m-1">
+      <div class="m-1 bg-secondary">
         <div class="row">
-          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки <button id="copy-button" type="button" class="btn btn-outline-success">Скопіювати в буфер обміну</button></div>
+          <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Код прошивки <button id="copy-button" type="button" class="btn btn-outline-success" style="font-size: 0.75rem;">Скопіювати в буфер обміну</button
+            ></div>
         </div>
 
-        <div id="confirmation-popup" style="display:none" class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div id="confirmation-popup" style="display:none" class="fixed-top-right alert alert-warning alert-dismissible fade show" role="alert">
           <strong id="confirmation-title"></strong> <span id="confirmation-message"></span>
         </div>
-        <div id="code-container" class="row bg-secondary text-white border rounded border-secondary">
-          <pre>
+        <div  id="code-container" class="row bg-light text-dark border rounded border-secondary">
+          <pre style="height: 1200px;">
           <code class="">
 // ============ НАЛАШТУВАННЯ ============
 
@@ -364,14 +371,14 @@ static int flagColor[] {
 
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
-// =======================================
+// ======== КІНЕЦь НАЛАШТУВАННЯ =========
           </code>
           </pre>
         </div>
       </div>
     </div>
     <div class="col-md-4">
-      <div class="m-1">
+      <div class="m-1 bg-secondary">
         <form class="needs-validation" novalidate>
           <div class="row ">
             <div class="col-md-12 bg-dark text-white rounded text-center fs-3 pb-2 mb-2">Налаштування</div>

@@ -547,11 +547,11 @@ void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
   }
 
 void initFastLED() {
-  //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-  FastLED.setBrightness(2.55 * brightness);
-  FastLED.clear();
-  FastLED.show();
+    //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
+    FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
+    FastLED.setBrightness(2.55 * brightness);
+    FastLED.clear();
+    FastLED.show();
 }
 
 void initDisplay() {
