@@ -236,8 +236,8 @@ int displayYoffset = <span id="display-y-offset">0</span>;
 
 //Для погоди
 const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
-float minTemp = 10.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
-float maxTemp = 35.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float minTemp = <span id="min-temp">5.0</span>; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float maxTemp = <span id="max-temp">25.0</span>; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Налаштуванння режимів
 int statesIdsAlarmCheck[] = {
@@ -424,6 +424,30 @@ static int flagColor[] {
 
             <div id="openstreetmap" style="display:none" class="col-sm-12 mb-2">
               <input type="text" class="form-control" id="open-weather-map-input" placeholder="Ключ OpenWeatherMap API" value=""  oninput=updateOWMValue()>
+            </div>
+
+            <div class="" id='min-temp-form' style="display:none">
+              <label class="form-label">Мінімальна температура</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="min-temp-form-value">5</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="-20" max="40" value="1" step="1" class="bg-white border rounded border-secondary form-range col-12" id="min-temp-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="" id='max-temp-form'style="display:none" >
+              <label class="form-label">Максимальна температура</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="max-temp-form-value">3</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min=-20" max="40" value="1" class="bg-white border rounded border-secondary form-range col-12" id="max-temp-input">
+                </div>
+              </div>
             </div>
 
             <div id="alarmback-1" class=" col-1 mb-1"  style="display:none">
@@ -727,6 +751,30 @@ static int flagColor[] {
 
       const openstreetmap = document.getElementById('openstreetmap');
 
+      const mintemp = document.getElementById('min-temp');
+      const mintempform = document.getElementById('min-temp-form');
+      const mintempformvalue = document.getElementById('min-temp-form-value');
+      const mintempinput = document.getElementById('min-temp-input');
+
+      mintempinput.addEventListener('input', function() {
+        let value = parseInt(mintempinput.value);
+
+        mintemp.textContent = value+ '.0';
+        mintempformvalue.textContent = value;
+      });
+
+      const maxtemp = document.getElementById('max-temp');
+      const maxtempform = document.getElementById('max-temp-form');
+      const maxtempformvalue = document.getElementById('max-temp-form-value');
+      const maxtempinput = document.getElementById('max-temp-input');
+
+      maxtempinput.addEventListener('input', function() {
+        let value = parseInt(maxtempinput.value);
+
+        maxtemp.textContent = value + '.0';
+        maxtempformvalue.textContent = value;
+      });
+
       const alarmback1 = document.getElementById('alarmback-1');
       const alarmback2 = document.getElementById('alarmback-2');
       const alarmbackinput = document.getElementById('alarmback-input');
@@ -877,6 +925,8 @@ static int flagColor[] {
           modeinput4.className = 'btn btn-secondary';
           mode.textContent = 1;
           openstreetmap.style.display = 'none';
+          mintempform.style.display = 'none';
+          maxtempform.style.display = 'none';
           alarmback1.style.display = 'none';
           alarmback2.style.display = 'none';
           alarmbackalert.style.display = 'none';
@@ -893,6 +943,8 @@ static int flagColor[] {
           modeinput4.className = 'btn btn-secondary';
           mode.textContent = 2;
           openstreetmap.style.display = 'none';
+          mintempform.style.display = 'none';
+          maxtempform.style.display = 'none';
           alarmback1.style.display = 'none';
           alarmback2.style.display = 'none';
           alarmbackalert.style.display = 'none';
@@ -908,6 +960,8 @@ static int flagColor[] {
           modeinput4.className = 'btn btn-secondary';
           mode.textContent = 3;
           openstreetmap.style.display = 'block';
+          mintempform.style.display = 'block';
+          maxtempform.style.display = 'block';
           alarmback1.style.display = 'block';
           alarmback2.style.display = 'block';
 
@@ -921,6 +975,8 @@ static int flagColor[] {
           modeinput4.className = 'btn btn-success';
           mode.textContent = 4;
           openstreetmap.style.display = 'none';
+          mintempform.style.display = 'none';
+          maxtempform.style.display = 'none';
           alarmback1.style.display = 'block';
           alarmback2.style.display = 'block';
 
