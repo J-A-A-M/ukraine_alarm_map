@@ -4,7 +4,13 @@
 
 Онлайн редактор  [ТУТ](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
 
+WIKI по прошивці [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/wiki)
+
+Багтрекер [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/issues)
+
 всі питання та пропозиції можна писати [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/discussions)
+
+
 
 [![pages-build-deployment](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment/badge.svg?branch=master)](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment)
 
