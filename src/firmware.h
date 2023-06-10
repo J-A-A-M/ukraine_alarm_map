@@ -791,12 +791,12 @@ void setup() {
   setupRouting();
 }
 void loop() {
-  // wifiConnected = WiFi.status() == WL_CONNECTED;
-  // if (!wifiConnected) {
-  //   Flag(10);
-  //   delay(5000);
-  //   ESP.restart();
-  // }
+   wifiConnected = WiFi.status() == WL_CONNECTED;
+   if (!wifiConnected) {
+     Flag(10);
+     delay(5000);
+     ESP.restart();
+   }
 
   server.handleClient();
 
