@@ -2,13 +2,13 @@
 
 Прошивка основана на ідеях і коду з ком'юніті [СodyTech](https://t.me/codyTech) та [SLD Alarm Map](https://t.me/alarm_map) і особисто [@Danik4ua](https://t.me/Danik4ua)
 
-Онлайн редактор  [ТУТ](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
+[Онлайн редактор](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
 
-WIKI по прошивці [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/wiki)
+[WIKI по прошивці](https://github.com/v00g100skr/ukraine_alarm_map/wiki)
 
-Багтрекер [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/issues)
+[Багтрекер](https://github.com/v00g100skr/ukraine_alarm_map/issues)
 
-всі питання та пропозиції можна писати [ТУТ](https://github.com/v00g100skr/ukraine_alarm_map/discussions)
+[Питання та пропозиції](https://github.com/v00g100skr/ukraine_alarm_map/discussions)
 
 
 
