@@ -738,7 +738,7 @@ void mapInfo() {
           deserializeJson(doc, payload);
           double temp = doc["main"]["temp"];
           float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
-          int hue = 170 + normalizedValue * (0 - 170);
+          int hue = 192 + normalizedValue * (0 - 192);
           hue = (int)hue % 256;
           leds[i] = CHSV(hue, 255, 255);
         }
@@ -748,6 +748,8 @@ void mapInfo() {
         }
         http.end();
       }
+      Serial.println('.');
+      Serial.println("Weather fetch end");
       FastLED.show();
     }
   }
@@ -791,12 +793,12 @@ void setup() {
   setupRouting();
 }
 void loop() {
-   wifiConnected = WiFi.status() == WL_CONNECTED;
-   if (!wifiConnected) {
-     Flag(10);
-     delay(5000);
-     ESP.restart();
-   }
+  wifiConnected = WiFi.status() == WL_CONNECTED;
+  if (!wifiConnected) {
+    Flag(10);
+    delay(5000);
+    ESP.restart();
+  }
 
   server.handleClient();
 
