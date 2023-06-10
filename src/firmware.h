@@ -33,9 +33,9 @@ const int night = 22; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
-bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
+bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
-int mapModeInit = 3; //Режим мапи
+int mapModeInit = 2; //Режим мапи
 int mapMode = 1;
 
 //Майбутній функціонал, не працює
@@ -305,44 +305,59 @@ void initWiFi() {
   WiFi.begin(wifiSSID, wifiPassword);
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
+    connectionAttempts++;
     if(wifiStatusBlink) {
       display.clearDisplay();
       display.setCursor(0, 0 + displayYoffset);
       display.setTextSize(1);
       display.println("WiFi connecting:");
       display.setCursor(0, 10 + displayYoffset);
-      display.setTextSize(2);
+      display.setTextSize(1);
       display.println(wifiSSID);
+      display.print("Attempt: ");
+      display.println(connectionAttempts);
       display.display();
       colorFill(HUE_RED, 50);
       FlashAll(10,1);
     }
-    delay(1000);
+    delay(2000);
     Serial.println("Connecting to WiFi...");
+    Serial.print("WIFI status: ");
+    Serial.println(WiFi.status());
     if (WiFi.status() == WL_CONNECT_FAILED) {
       Serial.println("Connection failed. Starting AP mode.");
       startAPMode();
       break;
     }
+    if (connectionAttempts == 10) {
+      break;
+    }
   }
   if (WiFi.status() == WL_CONNECTED) {
-    if(wifiStatusBlink) {
-      display.clearDisplay();
-      display.setCursor(0, 0 + displayYoffset);
-      display.setTextSize(1);
-      display.println("Connected to:");
-      display.setCursor(0, 12 + displayYoffset);
-      display.setTextSize(2);
-      display.println(wifiSSID);
-      display.display();
-      colorFill(HUE_GREEN, 50);
-      FlashAll(10,3);
-    }
-    Serial.println("Connected to WiFi");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
+    wifiConnectionSuccess();
+  } else {
+    startAPMode();
   }
+}
 
+void wifiConnectionSuccess() {
+  if(wifiStatusBlink) {
+    display.clearDisplay();
+    display.setCursor(0, 0 + displayYoffset);
+    display.setTextSize(2);
+    display.println("CONNECTED");
+    display.setCursor(0, 16 + displayYoffset);
+    display.setTextSize(1);
+    display.print("IP: ");
+    display.println(WiFi.localIP());
+    display.display();
+    colorFill(HUE_GREEN, 50);
+    FlashAll(10,3);
+    delay(3000);
+  }
+  Serial.println("Connected to WiFi");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void startAPMode() {
@@ -356,21 +371,28 @@ void startAPMode() {
   display.setTextSize(1);
   display.print("AP: ");
   display.println(apSSID);
-  display.setCursor(0, 12 + displayYoffset);
-  display.setTextSize(1);
   display.print("Password: ");
   display.println(apPassword);
   display.display();
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(apSSID, apPassword);
-
   Serial.println("AP mode started");
   Serial.print("AP SSID: ");
   Serial.println(apSSID);
   Serial.print("AP Password: ");
   Serial.println(apPassword);
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.softAPIP());
+  bool connection;
+  connection = wm.autoConnect(apSSID, apPassword);
+  if (!connection) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.println("Connection error");
+    display.println("Restarting... ");
+    Serial.println("Помилка підключення");
+    delay(5000);
+    ESP.restart();
+  }
+  else {
+    wifiConnectionSuccess();
+  }
 }
 
 void Modulation() {
@@ -760,21 +782,21 @@ void initTime() {
 }
 
 void setup() {
+  Serial.begin(115200);
   initFastLED();
   Flag(50);
   initDisplay();
   initWiFi();
-  Serial.begin(115200);
   initTime();
   setupRouting();
 }
 void loop() {
-  wifiConnected = WiFi.status() == WL_CONNECTED;
-  if (!wifiConnected) {
-    Flag(10);
-    delay(5000);
-    ESP.restart();
-  }
+  // wifiConnected = WiFi.status() == WL_CONNECTED;
+  // if (!wifiConnected) {
+  //   Flag(10);
+  //   delay(5000);
+  //   ESP.restart();
+  // }
 
   server.handleClient();
 
