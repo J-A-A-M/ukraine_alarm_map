@@ -197,7 +197,7 @@ char* wifiSSID = "<span id="wifi-ssid"></span>"; //Назва мережі WiFi
 char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль  WiFi
 char* apSSID = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
-bool wifiStatusBlink = <span id="wifi-status">true</span>;
+bool wifiStatusBlink = <span id="wifi-status">true</span>; //Статуси wifi на дісплеі
 
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
@@ -220,9 +220,6 @@ int mapMode = 1;
 
 //Майбутній функціонал, не працює
 int blinkDistricts[] = {
-  0,
-  1,
-  2,
   7,
   8
 };
@@ -238,11 +235,11 @@ bool modulationOrange = <span id="modulation-orange">true</span>; //Зони н�
 bool modulationRed = <span id="modulation-red">true</span>; //Зони тривог в модуляції
 bool modulationSelected = <span id="modulation-selected">false</span>; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = <span id="new-alarm-period">180000</span>; //Час індикації нових тривог
+int newAlarmPeriod = <span id="new-alarm-period">300000</span>; //Час індикації нових тривог
 
 //Дісплей
 int displayMode = <span id="display-mode">1</span>; //Режим дісплея
-int displayYoffset = <span id="display-y-offset">0</span>; //Майбутній функціонал, не працює
+bool displayWarningStatus = <span id="display-warning-status">true</span>; //Статуси wifi на дісплеі
 
 //Погода
 const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
@@ -374,7 +371,7 @@ static int flagColor[] {
 #define COLOR_ORDER     GRB
 
 #define DISPLAY_WIDTH   128
-#define DISPLAY_HEIGHT  32
+#define DISPLAY_HEIGHT  <span id="display-height">32</span>
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
           </code>
           </pre>
@@ -409,12 +406,12 @@ static int flagColor[] {
             <div class="col-sm-6 mb-3">
               <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value="" oninput=updateApPasswordValue()>
             </div>
-            <div class=" col-1 mb-1">
+
+            <div id="wifi-status-form" class="mb-1">
               <input type="checkbox" class="form-check-input" id="wifi-status-input" checked>
+              <label class="form-check-label">Візуальна індикація на мапі при підключенні</label>
             </div>
-            <div class=" col-11 mb-1">
-              <label class="form-check-label">Індикація статусу wifi на мапі при підключенні чи проблемах <span class="badge bg-success">оновлення</span></label>
-            </div>
+
           </div>
 
           <div class="col-md-12 mb-1"></div>
@@ -456,7 +453,7 @@ static int flagColor[] {
                     <h4><span class="badge bg-dark" id="max-temp-form-value">25</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min=-20" max="40" value="25" class="bg-white border rounded border-secondary form-range col-12" id="max-temp-input">
+                    <input type="range" min="-20" max="40" value="25" class="bg-white border rounded border-secondary form-range col-12" id="max-temp-input">
                 </div>
               </div>
             </div>
@@ -587,10 +584,10 @@ static int flagColor[] {
               <label class="form-label">Період окремої підсвітки нових тривог (хвилини)</label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="new-alarm-period-form-value">3</span></h4>
+                    <h4><span class="badge bg-dark" id="new-alarm-period-form-value">5</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="60" value="3" class="bg-white border rounded border-secondary form-range col-12" id="new-alarm-period-input">
+                    <input type="range" min="1" max="60" value="5" class="bg-white border rounded border-secondary form-range col-12" id="new-alarm-period-input">
                 </div>
               </div>
             </div>
@@ -609,13 +606,39 @@ static int flagColor[] {
             </div>
             <div class="" >
               <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">оновлення</span> В режимі "Обидва" мапа потребує додаткового діода. Більше детально описано в Wiki проекту
+                 В режимі "Обидва" мапа потребує додаткового діода. Більше детально описано в Wiki проекту
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-12 mb-1"></div>
+
+          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <div class="">
+              <label class="form-label">Тип дісплея</label>
+            </div>
+            <div class="col-md-12 btn-group mb-3" role="group">
+              <button type="button" class="btn btn-danger" id="display-mode-input-1">Вимкнено</button>
+              <button type="button" class="btn btn-secondary" id="display-mode-input-2">128*32 SSD1306</button>
+              <button type="button" class="btn btn-secondary" id="display-mode-input-3">128*64 SSD1306</button>
+            </div>
+
+            <div id="display-warning-status-form" style="display:none" class="mb-1">
+              <input type="checkbox" class="form-check-input" id="display-warning-status-input" checked>
+              <label class="form-check-label">Індикація статусу wifi на дісплеі</label>
+            </div>
+
+            <div class="col-md-12 mb-2"></div>
+
+            <div id="display-text"  style="display:none" class="" >
+              <div class="alert alert-primary" role="alert">
+                <span class="badge bg-success">оновлення</span> В даний момент дісплей підтримує поточний час та сповіщення статусу мережі wifi
               </div>
             </div>
           </div>
 
 
-        <div class="col-md-12 mb-1"></div>
+          <div class="col-md-12 mb-1"></div>
 
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
@@ -689,7 +712,7 @@ static int flagColor[] {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <h5 class="mb-1 text-dark">Яскравість тривог <span class="badge bg-success" style="font-size: 0.75rem;">оновлення</span></h5>
+            <h5 class="mb-1 text-dark">Яскравість тривог</h5>
             <div class="" id='brightness-green-form'>
               <label class="form-label"><span class="badge bg-success" style="font-size: 0.9rem;">Області без тривог</span></label>
               <div class="row">
@@ -1319,6 +1342,64 @@ static int flagColor[] {
         }
       });
 
+
+      const displaymode = document.getElementById('display-mode');
+      const displayheight = document.getElementById('display-height');
+      const wifistatusform = document.getElementById('wifi-status-form');
+      const displaytext = document.getElementById('display-text');
+      const displaywarningstatus = document.getElementById('display-warning-status');
+
+      const displaywarningstatusform = document.getElementById('display-warning-status-form');
+      const displaywarningstatusinput = document.getElementById('display-warning-status-input');
+      const displaymodeinput1 = document.getElementById('display-mode-input-1');
+      const displaymodeinput2 = document.getElementById('display-mode-input-2');
+      const displaymodeinput3 = document.getElementById('display-mode-input-3');
+
+      displaywarningstatusinput.addEventListener('click', function() {
+        if (displaywarningstatusinput.checked) {
+          displaywarningstatus.textContent = 'true';
+        } else {
+          displaywarningstatus.textContent = 'false';
+        }
+      });
+
+      displaymodeinput1.addEventListener('click', function() {
+        const kiyvinput = document.getElementById(`kiyv-input`).className;
+        if (displaymodeinput1.className === 'btn btn-secondary') {
+          displaymodeinput1.className = 'btn btn-danger';
+          displaymodeinput2.className = 'btn btn-secondary';
+          displaymodeinput3.className = 'btn btn-secondary';
+          displaywarningstatusform.style.display = 'none';
+          displaytext.style.display = 'none';
+          displaymode.textContent = '1';
+        }
+      });
+
+      displaymodeinput2.addEventListener('click', function() {
+        const kiyvinput = document.getElementById(`kiyv-input`).className;
+        if (displaymodeinput2.className === 'btn btn-secondary') {
+          displaymodeinput1.className = 'btn btn-secondary';
+          displaymodeinput2.className = 'btn btn-success';
+          displaymodeinput3.className = 'btn btn-secondary';
+          displaywarningstatusform.style.display = 'block';
+          displaytext.style.display = 'block';
+          displaymode.textContent = '2';
+          displayheight.textContent = '32';
+        }
+      });
+
+      displaymodeinput3.addEventListener('click', function() {
+        const kiyvinput = document.getElementById(`kiyv-input`).className;
+        if (displaymodeinput3.className === 'btn btn-secondary') {
+          displaymodeinput1.className = 'btn btn-secondary';
+          displaymodeinput2.className = 'btn btn-secondary';
+          displaymodeinput3.className = 'btn btn-success';
+          displaywarningstatusform.style.display = 'block';
+          displaytext.style.display = 'block';
+          displaymode.textContent = '3';
+          displayheight.textContent = '64';
+        }
+      });
 
       const copyButton = document.getElementById('copy-button');
       const codeContainer = document.getElementById('code-container');

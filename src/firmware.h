@@ -13,11 +13,11 @@
 // ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
-char* wifiSSID = ""; //Назва твоєї мережі WiFi
-char* wifiPassword = ""; //Пароль від твого WiFi
+char* wifiSSID = ""; //Назва мережі WiFi
+char* wifiPassword = ""; //Пароль  WiFi
 char* apSSID = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
-bool wifiStatusBlink = true;
+bool wifiStatusBlink = true; //Статуси wifi на дісплеі
 
 //Налштування яскравості
 int brightness = 100; //Яскравість %
@@ -33,7 +33,7 @@ const int night = 22; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
-bool autoSwitch = true; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
+bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
 int mapModeInit = 2; //Режим мапи
 int mapMode = 1;
@@ -59,6 +59,7 @@ int newAlarmPeriod = 300000; //Час індикації нових тривог
 
 //Дісплей
 int displayMode = 1; //Режим дісплея
+bool displayWarningStatus = true; //Статуси wifi на дісплеі
 
 //Погода
 const char* apiKey = ""; //API погоди
@@ -298,7 +299,7 @@ void initWiFi() {
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     connectionAttempts++;
-    if(wifiStatusBlink) {
+    if(displayMode != 1 && displayWarningStatus) {
       display.clearDisplay();
       display.setCursor(0, 0);
       display.setTextSize(1);
@@ -309,6 +310,8 @@ void initWiFi() {
       display.print("Attempt: ");
       display.println(connectionAttempts);
       display.display();
+    }
+    if(wifiStatusBlink) {
       colorFill(HUE_RED, 50);
       FlashAll(10,1);
     }
@@ -333,7 +336,7 @@ void initWiFi() {
 }
 
 void wifiConnectionSuccess() {
-  if(wifiStatusBlink) {
+  if(displayMode != 1 && displayWarningStatus) {
     display.clearDisplay();
     display.setCursor(0, 0);
     display.setTextSize(2);
@@ -343,6 +346,8 @@ void wifiConnectionSuccess() {
     display.print("IP: ");
     display.println(WiFi.localIP());
     display.display();
+  }
+  if(wifiStatusBlink) {
     colorFill(HUE_GREEN, 50);
     FlashAll(10,3);
     delay(3000);
@@ -354,18 +359,20 @@ void wifiConnectionSuccess() {
 
 void startAPMode() {
   Serial.println("Start AP");
+  if(displayMode != 1 && displayWarningStatus) {
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.print("AP: ");
+    display.println(apSSID);
+    display.print("Password: ");
+    display.println(apPassword);
+    display.display();
+  }
   if(wifiStatusBlink) {
     colorFill(HUE_YELLOW, 50);
     FlashAll(10,3);
   }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.print("AP: ");
-  display.println(apSSID);
-  display.print("Password: ");
-  display.println(apPassword);
-  display.display();
   Serial.println("AP mode started");
   Serial.print("AP SSID: ");
   Serial.println(apSSID);
@@ -374,11 +381,13 @@ void startAPMode() {
   bool connection;
   connection = wm.autoConnect(apSSID, apPassword);
   if (!connection) {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.println("Connection error");
-    display.println("Restarting... ");
-    Serial.println("Помилка підключення");
+    if(displayMode != 1 && displayWarningStatus) {
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.println("Connection error");
+      display.println("Restarting... ");
+      Serial.println("Помилка підключення");
+    }
     delay(5000);
     ESP.restart();
   }
@@ -538,11 +547,12 @@ void FlashLed(int dot, int wait, int count) {
 }
 
 void displayInfo() {
+  if (displayMode != 1) {
     timeClient.update();
     int hour = timeClient.getHours();
     int minute = timeClient.getMinutes();
 
-    if(displayMode == 1) {
+    if(displayMode == 2) {
       display.setCursor(0, 0);
       String time = "";
       if (hour < 10) time += "0";
@@ -554,6 +564,7 @@ void displayInfo() {
       display.setTextSize(4);
       DisplayCenter(time);
     }
+  }
 }
 
 void DisplayCenter(String text) {
@@ -576,10 +587,12 @@ void initFastLED() {
 }
 
 void initDisplay() {
+  if (displayMode != 1) {
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     display.clearDisplay();
     display.setTextColor(WHITE);
   }
+}
 
 void autoBrightnessUpdate() {
     if (autoBrightness) {
