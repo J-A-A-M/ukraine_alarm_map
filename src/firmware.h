@@ -16,7 +16,7 @@
 char* wifiSSID = ""; //Назва твоєї мережі WiFi
 char* wifiPassword = ""; //Пароль від твого WiFi
 char* apSSID = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
-char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля, рекомендую так і залишити (пароль від 8 симолів)
+char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
 bool wifiStatusBlink = true;
 
 //Налштування яскравості
@@ -172,7 +172,7 @@ static int flagColor[] {
   HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
-  HUE_YELLOW,
+  HUE_AQUA,
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
