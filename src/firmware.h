@@ -40,9 +40,6 @@ int mapMode = 1;
 
 //Майбутній функціонал, не працює
 int blinkDistricts[] = {
-  0,
-  1,
-  2,
   7,
   8
 };
@@ -51,18 +48,17 @@ int blinkDistricts[] = {
 int modulationMode = 2; //Режим модуляції
 int modulationLevel = 50; //Рівень модуляції
 int modulationStep = 5; //Крок модуляції
-int modulationTime = 200; //Тривалість модуляції
+int modulationTime = 400; //Тривалість модуляції
 int modulationCount = 3; //Кількість модуляцій в циклі
 bool modulationGreen = false; //Зони без тривог в модуляції
 bool modulationOrange = true; //Зони нових тривог в модуляції
 bool modulationRed = true; //Зони тривог в модуляції
 bool modulationSelected = false; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = 180000; //Час індикації нових тривог
+int newAlarmPeriod = 300000; //Час індикації нових тривог
 
 //Дісплей
 int displayMode = 1; //Режим дісплея
-int displayYoffset = 0; //Майбутній функціонал, не працює
 
 //Погода
 const char* apiKey = ""; //API погоди
@@ -197,10 +193,6 @@ static int flagColor[] {
 #define DISPLAY_HEIGHT  32
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
 
-
-
-
-
 CRGB leds[NUM_LEDS];
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
@@ -308,10 +300,10 @@ void initWiFi() {
     connectionAttempts++;
     if(wifiStatusBlink) {
       display.clearDisplay();
-      display.setCursor(0, 0 + displayYoffset);
+      display.setCursor(0, 0);
       display.setTextSize(1);
       display.println("WiFi connecting:");
-      display.setCursor(0, 10 + displayYoffset);
+      display.setCursor(0, 10);
       display.setTextSize(1);
       display.println(wifiSSID);
       display.print("Attempt: ");
@@ -343,10 +335,10 @@ void initWiFi() {
 void wifiConnectionSuccess() {
   if(wifiStatusBlink) {
     display.clearDisplay();
-    display.setCursor(0, 0 + displayYoffset);
+    display.setCursor(0, 0);
     display.setTextSize(2);
     display.println("CONNECTED");
-    display.setCursor(0, 16 + displayYoffset);
+    display.setCursor(0, 16);
     display.setTextSize(1);
     display.print("IP: ");
     display.println(WiFi.localIP());
@@ -367,7 +359,7 @@ void startAPMode() {
     FlashAll(10,3);
   }
   display.clearDisplay();
-  display.setCursor(0, 0 + displayYoffset);
+  display.setCursor(0, 0);
   display.setTextSize(1);
   display.print("AP: ");
   display.println(apSSID);
@@ -551,7 +543,7 @@ void displayInfo() {
     int minute = timeClient.getMinutes();
 
     if(displayMode == 1) {
-      display.setCursor(0, 0 + displayYoffset);
+      display.setCursor(0, 0);
       String time = "";
       if (hour < 10) time += "0";
       time += hour;
@@ -560,17 +552,17 @@ void displayInfo() {
       time += minute;
       display.clearDisplay();
       display.setTextSize(4);
-      oledDisplayCenter(time, 0, DISPLAY_WIDTH, 0);
+      DisplayCenter(time);
     }
 }
 
-void oledDisplayCenter(String text, int y, int screenWidth, int offset) {
-    int16_t x1;
-    int16_t y1;
+void DisplayCenter(String text) {
+    int16_t x;
+    int16_t y;
     uint16_t width;
     uint16_t height;
-    display.getTextBounds(text, 0, 0, &x1, &y1, &width, &height);
-    display.setCursor(((screenWidth - width) / 2) + offset, y + displayYoffset);
+    display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
+    display.setCursor(((DISPLAY_WIDTH - width) / 2), ((DISPLAY_HEIGHT - height) / 2));
     display.println(text);
     display.display();
   }
@@ -750,8 +742,8 @@ void mapInfo() {
       }
       Serial.println('.');
       Serial.println("Weather fetch end");
-      FastLED.show();
     }
+    FastLED.show();
   }
   if (mapMode == 4) {
     mapModeFirstUpdate1 = true;
@@ -799,13 +791,10 @@ void loop() {
     delay(5000);
     ESP.restart();
   }
-
   server.handleClient();
-
   displayInfo();
   autoBrightnessUpdate();
   alamsUpdate();
   mapInfo();
-
   delay(1000);
 }
