@@ -8,7 +8,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        #logging.FileHandler("debug.log"),
+        # logging.FileHandler("debug.log"),
         logging.StreamHandler()
     ]
 )
@@ -18,6 +18,7 @@ port = os.environ.get('MEMCHACHED_PORT') or 11211
 
 cache = base.Client((host, port))
 
+
 @route('/test')
 def test():
     logging.info('Hello World!')
@@ -25,6 +26,14 @@ def test():
 
 
 @route('/')
+def alarm_map():
+    cached_data = cache.get('alarm_map')
+    logging.info('caching data get: %s' % cached_data)
+    response.content_type = 'application/json'
+    return cached_data or {'error': 'no data in cache'}
+
+
+@route('/statuses.json')
 def alarm_map():
     cached_data = cache.get('alarm_map')
     logging.info('caching data get: %s' % cached_data)
