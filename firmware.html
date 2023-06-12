@@ -12,6 +12,10 @@
         top: 0;
         right: 0;
       }
+      .bg-light-green {
+        --bs-bg-opacity: 1;
+        background-color: #70A745 !important;
+      }
     </style>
   </head>
   <body class=" border-0 bd-example bd-example-cssgrid">
@@ -202,6 +206,7 @@ bool wifiStatusBlink = <span id="wifi-status">true</span>; //Статуси wifi
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
 
+float brightnessLightGreen = <span id="brightness-light-green">75</span>; //Яскравість відбою тривог%
 float brightnessGreen = <span id="brightness-green">50</span>; //Яскравість зон без тривог%
 float brightnessOrange = <span id="brightness-orange">75</span>; //Яскравість зон з новими тривогами %
 float brightnessRed = <span id="brightness-red">100</span>; //Яскравість зон з тривогами%
@@ -228,11 +233,12 @@ int blinkDistricts[] = {
 int modulationMode = <span id="modulation-mode">2</span>; //Режим модуляції
 int modulationLevel = <span id="modulation-level">50</span>; //Рівень модуляції
 int modulationStep = <span id="modulation-step">5</span>; //Крок модуляції
-int modulationTime = <span id="modulation-time">200</span>; //Тривалість модуляції
+int modulationTime = <span id="modulation-time">400</span>; //Тривалість модуляції
 int modulationCount = <span id="modulation-count">3</span>; //Кількість модуляцій в циклі
-bool modulationGreen = <span id="modulation-green">false</span>; //Зони без тривог в модуляції
-bool modulationOrange = <span id="modulation-orange">true</span>; //Зони нових тривог в модуляції
-bool modulationRed = <span id="modulation-red">true</span>; //Зони тривог в модуляції
+bool modulationAlarmsOffNew = <span id="modulation-green-new">true</span>; //Відбій тривог в модуляції
+bool modulationAlarmsOff = <span id="modulation-green">false</span>; //Зони без тривог в модуляції
+bool modulationAlarmsNew = <span id="modulation-orange">true</span>; //Зони нових тривог в модуляції
+bool modulationAlarms = <span id="modulation-red">false</span>; //Зони тривог в модуляції
 bool modulationSelected = <span id="modulation-selected">false</span>; //Майбутній функціонал, не працює
 
 int newAlarmPeriod = <span id="new-alarm-period">300000</span>; //Час індикації нових тривог
@@ -522,10 +528,10 @@ static int flagColor[] {
                   <label class="form-label">Тривалість модуляції</label>
                   <div class="row">
                     <div  class="col-2">
-                        <h4><span class="badge bg-dark" id="modulation-time-form-value">200</span></h4>
+                        <h4><span class="badge bg-dark" id="modulation-time-form-value">400</span></h4>
                     </div>
                     <div class="col-10 mb-1 mt-1">
-                        <input type="range" min="0" max="1000" value="200" step="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
+                        <input type="range" min="0" max="1000" value="400" step="10" class="bg-white border rounded border-secondary form-range col-12" id="modulation-time-input">
                     </div>
                   </div>
                 </div>
@@ -545,6 +551,13 @@ static int flagColor[] {
                 <div class="col-md-12 mb-3"></div>
                 <label class="form-label">Додати наступні зони в модуляцію</label>
 
+                <div id="modulation-green-new-1" class=" col-1 mb-1">
+                  <input type="checkbox" class="form-check-input" id="modulation-green-new-input" checked>
+                </div>
+                <div id="modulation-green-new-2" class=" col-11 mb-1">
+                  <label class="form-check-label"><span class="badge bg-light-green"  style="font-size: 0.9rem;">Відбій тривог</span></label>
+                </div>
+
                 <div id="modulation-green-1" class=" col-1 mb-1">
                   <input type="checkbox" class="form-check-input" id="modulation-green-input">
                 </div>
@@ -560,7 +573,7 @@ static int flagColor[] {
                 </div>
 
                 <div id="modulation-red-1" class=" col-1 mb-1">
-                  <input type="checkbox" class="form-check-input" id="modulation-red-input" checked>
+                  <input type="checkbox" class="form-check-input" id="modulation-red-input">
                 </div>
                 <div id="modulation-red-2" class=" col-11 mb-1">
                   <label class="form-check-label"><span class="badge bg-danger"  style="font-size: 0.9rem;">Області тривог</span></label>
@@ -713,6 +726,18 @@ static int flagColor[] {
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
             <h5 class="mb-1 text-dark">Яскравість тривог</h5>
+              <div class="" id='brightness-light-green-form'>
+              <label class="form-label"><span class="badge bg-light-green" style="font-size: 0.9rem;">Відбій тривог</span></label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="brightness-light-green-form-value">75</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="0" max="100" value="75" class="bg-white border rounded border-secondary form-range col-12" id="brightness-light-green-input">
+                </div>
+              </div>
+            </div>
+
             <div class="" id='brightness-green-form'>
               <label class="form-label"><span class="badge bg-success" style="font-size: 0.9rem;">Області без тривог</span></label>
               <div class="row">
@@ -922,6 +947,18 @@ static int flagColor[] {
       });
 
 
+      const brightnesslightgreen = document.getElementById('brightness-light-green');
+      const brightnesslightgreenform = document.getElementById('brightness-light-green-form');
+      const brightnesslightgreenformvalue = document.getElementById('brightness-light-green-form-value');
+      const brightnesslightgreeninput = document.getElementById('brightness-light-green-input');
+
+      brightnesslightgreeninput.addEventListener('input', function() {
+        let value = parseInt(brightnesslightgreeninput.value);
+
+        brightnesslightgreen.textContent = value;
+        brightnesslightgreenformvalue.textContent = value;
+      });
+
       const brightnessgreen = document.getElementById('brightness-green');
       const brightnessgreenform = document.getElementById('brightness-green-form');
       const brightnessgreenformvalue = document.getElementById('brightness-green-form-value');
@@ -1102,6 +1139,18 @@ static int flagColor[] {
         let value = parseInt(modulationcountinput.value);
         modulationcountformvalue.textContent = value;
         modulationcount.textContent = value;
+      });
+
+
+      const modulationgreennew = document.getElementById('modulation-green-new');
+      const modulationgreennewinput = document.getElementById('modulation-green-new-input');
+
+      modulationgreennewinput.addEventListener('click', function() {
+        if (modulationgreennewinput.checked) {
+          modulationgreennew.textContent = 'true';
+        } else {
+          modulationgreennew.textContent = 'false';
+        }
       });
 
 

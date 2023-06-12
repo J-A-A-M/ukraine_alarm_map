@@ -22,6 +22,7 @@ bool wifiStatusBlink = true; //Статуси wifi на дісплеі
 //Налштування яскравості
 int brightness = 100; //Яскравість %
 
+float brightnessLightGreen = 75; //Яскравість відбою тривог %
 float brightnessGreen = 50; //Яскравість зон без тривог%
 float brightnessOrange = 75; //Яскравість зон з новими тривогами %
 float brightnessRed = 100; //Яскравість зон з тривогами%
@@ -50,9 +51,10 @@ int modulationLevel = 50; //Рівень модуляції
 int modulationStep = 5; //Крок модуляції
 int modulationTime = 400; //Тривалість модуляції
 int modulationCount = 3; //Кількість модуляцій в циклі
-bool modulationGreen = false; //Зони без тривог в модуляції
-bool modulationOrange = true; //Зони нових тривог в модуляції
-bool modulationRed = true; //Зони тривог в модуляції
+bool modulationAlarmsOffNew = true; //Зони без тривог в модуляції
+bool modulationAlarmsOff = false; //Зони без тривог в модуляції
+bool modulationAlarmsNew = true; //Зони нових тривог в модуляції
+bool modulationAlarms = false; //Зони тривог в модуляції
 bool modulationSelected = false; //Майбутній функціонал, не працює
 
 int newAlarmPeriod = 300000; //Час індикації нових тривог
@@ -423,10 +425,10 @@ void Modulation() {
     while (!fadeCycleEnded || !rizeCycleEnded) {
       for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
-          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
-          case 3: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+          case 1: if (modulationAlarms || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
+          case 2: if (modulationAlarmsNew || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
+          case 3: if (modulationAlarmsOff || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
@@ -482,20 +484,20 @@ void Blink() {
   for (int i = 0; i < modulationCount; i++) {
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
-          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
-          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 0); break;} else { break;}
+          case 1: if (modulationAlarms || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 0); break;} else { break;}
+          case 2: if (modulationAlarmsNew || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 0); break;} else { break;}
+          case 3: if (modulationAlarmsOff || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 0); break;} else { break;}
+          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 0); break;} else { break;}
         }
     }
     FastLED.show();
     delay(localModulationTime);
     for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
-          case 1: if (modulationRed || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
-          case 2: if (modulationOrange || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
-          case 3: if (modulationGreen || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
-          case 4: if (modulationGreen || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;} else { break;}
+          case 1: if (modulationAlarms || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
+          case 2: if (modulationAlarmsNew || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
+          case 3: if (modulationAlarmsOff || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
+          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;} else { break;}
         }
     }
     FastLED.show();
@@ -802,5 +804,5 @@ void loop() {
   autoBrightnessUpdate();
   alamsUpdate();
   mapInfo();
-  delay(1000);
+  delay(3000);
 }
