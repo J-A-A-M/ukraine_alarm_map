@@ -44,7 +44,11 @@ def fetch_and_store_data():
                     and alert["type"] == "AIR"
                 ):
                     alert["enabled"] = True
-                    filtered_data["states"][item["regionName"]] = alert
+                    if (item["regionName"] == 'Автономна Республіка Крим'):
+                        region_name = 'АР Крим'
+                    else:
+                        region_name = item["regionName"]
+                    filtered_data["states"][region_name] = alert
 
         cache.set('alarm_map', json.dumps(filtered_data, ensure_ascii=False).encode('utf-8'))
         logging.info("store alerts data: %s" % datetime.datetime.now())
