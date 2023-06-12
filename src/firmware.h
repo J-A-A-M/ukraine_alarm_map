@@ -212,7 +212,7 @@ WiFiUDP ntpUDP;
 HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
 
-int alarmsPeriod = 30000;
+int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
 unsigned long lastWeatherTime;
@@ -643,26 +643,19 @@ void alamsUpdate() {
     for (int i = 0; i < NUM_LEDS; i++) {
       enable = doc["states"][states[i]]["enabled"].as<bool>();
       if (enable) {
-        if (times[i] == 0) {
+        if (times[i] == 0 || (ledColor[i] == 3 || ledColor[i] == 4)) {
           times[i] = t;
-          ledColor[i] = 2;
-          alarmsNowCount++;
         }
         if (times[i] + newAlarmPeriod > t){
           ledColor[i] = 2;
-          alarmsNowCount++;
         }
         if (times[i] + newAlarmPeriod <= t){
           ledColor[i] = 1;
-          alarmsNowCount++;
         }
+        alarmsNowCount++;
       } else {
-        if (times[i] == 0) {
+        if (times[i] == 0 || (ledColor[i] == 1 || ledColor[i] == 2)) {
           times[i] = t;
-          ledColor[i] = 4;
-        }
-        if (times[i] + newAlarmPeriod > t && (ledColor[i] == 1 || ledColor[i] == 2)){
-          ledColor[i] = 4;
         }
         if (times[i] + newAlarmPeriod > t){
           ledColor[i] = 4;
