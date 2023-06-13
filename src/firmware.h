@@ -18,6 +18,7 @@ char* wifiPassword = ""; //Пароль  WiFi
 char* apSSID = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
 bool wifiStatusBlink = true; //Статуси wifi на дісплеі
+int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
 
 //Налштування яскравості
 int brightness = 100; //Яскравість %
@@ -381,6 +382,7 @@ void startAPMode() {
   Serial.print("AP Password: ");
   Serial.println(apPassword);
   bool connection;
+  wm.setTimeout(apModeConnectionTimeout);
   connection = wm.autoConnect(apSSID, apPassword);
   if (!connection) {
     if(displayMode != 1 && displayWarningStatus) {
