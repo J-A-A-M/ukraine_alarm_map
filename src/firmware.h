@@ -7,6 +7,7 @@
 #include <NTPClient.h>
 #include <HTTPUpdate.h>
 #include <WebServer.h>
+#include <ESPAsyncWebServer.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
 
@@ -204,7 +205,8 @@ Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
 
-WebServer server(80);
+WebServer server(8080);
+AsyncWebServer aserver(80);
 
 DynamicJsonDocument doc(30000);
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
@@ -235,6 +237,131 @@ void setupRouting() {
   server.on("/params", HTTP_POST, handlePost);
   server.on("/params", HTTP_GET, getEnv);
   server.begin();
+
+  aserver.on("/", HTTP_GET, handleRoot);
+  aserver.on("/save", HTTP_POST, handleSave);
+  aserver.begin();
+}
+
+void handleRoot(AsyncWebServerRequest* request){
+  String html = "<html><head>";
+  html += "<meta charset='UTF-8'>";
+  html += "<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>";
+  html += "<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>";
+  html += "</head><body>";
+  html += "<div class='container'>";
+  html += "<h1 class='mt-4'>Параметри конфігурації</h1>";
+  html += "<form id='configForm' action='/save' method='POST'>";
+  html += "<div class='form-group'>";
+  html += "<label for='brightness'>Яскравість:</label>";
+  html += "<input type='range' class='form-control-range' id='brightness' name='brightness' min='0' max='100' value='" + String(brightness) + "'>";
+  html += "<div class='slider-value'>" + String(brightness) + "</div>";
+  html += "</div>";
+  html += "<div class='form-group'>";
+  html += "<label for='mapMode'>Режим мапи:</label>";
+  html += "<select class='form-control' id='mapMode' name='map_mode'>";
+  html += "<option value='1'";
+  if (mapModeInit == 1) html += " selected";
+  html += ">Вимкнена</option>";
+  html += "<option value='2'";
+  if (mapModeInit == 2) html += " selected";
+  html += ">Тривоги</option>";
+  html += "<option value='3'";
+  if (mapModeInit == 3) html += " selected";
+  html += ">Погода</option>";
+  html += "<option value='4'";
+  if (mapModeInit == 4) html += " selected";
+  html += ">Прапор</option>";
+  html += "</select>";
+  html += "</div>";
+  html += "<div class='form-group'>";
+  html += "<label for='displayMode'>Режим дісплея:</label>";
+  html += "<select class='form-control' id='displayMode' name='display_mode'>";
+  html += "<option value='1'";
+  if (displayMode == 1) html += " selected";
+  html += ">Вимкнений</option>";
+  html += "<option value='2'";
+  if (displayMode == 2) html += " selected";
+  html += ">Поточний час</option>";
+  html += "</select>";
+  html += "</div>";
+  html += "<div class='form-group'>";
+  html += "<label for='modulationMode'>Режим модуляції:</label>";
+  html += "<select class='form-control' id='modulationMode' name='modulation_mode'>";
+  html += "<option value='1'";
+  if (modulationMode == 1) html += " selected";
+  html += ">Вимкнений</option>";
+  html += "<option value='2'";
+  if (modulationMode == 2) html += " selected";
+  html += ">Модуляція</option>";
+  html += "<option value='3'";
+  if (modulationMode == 3) html += " selected";
+  html += ">Пульсація</option>";
+  html += "</select>";
+  html += "</div>";
+  html += "<button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
+  html += "</form>";
+  html += "</div>";
+  html += "<div class='modal fade' id='confirmationModal' tabindex='-1' role='dialog' aria-labelledby='confirmationModalLabel' aria-hidden='true'>";
+  html += "<div class='modal-dialog' role='document'>";
+  html += "<div class='modal-content'>";
+  html += "<div class='modal-header'>";
+  html += "<h5 class='modal-title' id='confirmationModalLabel'>Підтвердження</h5>";
+  html += "<button type='button' class='close' data-dismiss='modal' aria-label='Close'>";
+  html += "<span aria-hidden='true'>&times;</span>";
+  html += "</button>";
+  html += "</div>";
+  html += "<div class='modal-body'>";
+  html += "<p>Налаштування збережено успішно.</p>";
+  html += "</div>";
+  html += "</div>";
+  html += "</div>";
+  html += "</div>";
+  html += "<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
+  html += "<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@1.16.1/dist/umd/popper.min.js'></script>";
+  html += "<script src='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
+  html += "<script>";
+  html += "$(document).ready(function() {";
+  html += "var slider = $('#brightness');";
+  html += "var sliderValue = $('.slider-value');";
+  html += "slider.on('input', function() {";
+  html += "sliderValue.text(slider.val());";
+  html += "});";
+  html += "$('#configForm').on('submit', function(e) {";
+  html += "e.preventDefault();";
+  html += "var form = $(this);";
+  html += "var modal = $('#confirmationModal');";
+  html += "modal.modal('show');";
+  html += "setTimeout(function() {";
+  html += "modal.modal('hide');";
+  html += "form.unbind('submit').submit();";
+  html += "}, 3000);";
+  html += "});";
+  html += "});";
+  html += "</script>";
+  html += "</body></html>";
+
+  request->send(200, "text/html", html);
+}
+
+void handleSave(AsyncWebServerRequest* request){
+  if (request->hasParam("brightness", true)){
+    autoBrightness = false;
+    brightness = request->getParam("brightness", true)->value().toInt();
+    FastLED.setBrightness(2.55 * brightness);
+    FastLED.show();
+  }
+  if (request->hasParam("map_mode", true)){
+    mapModeInit = request->getParam("map_mode", true)->value().toInt();
+  }
+  if (request->hasParam("display_mode", true)){
+    displayMode = request->getParam("display_mode", true)->value().toInt();
+  }
+  if (request->hasParam("modulation_mode", true)){
+    modulationMode = request->getParam("modulation_mode", true)->value().toInt();
+  }
+
+  request->redirect("/");
 }
 
 void handlePost() {
@@ -248,10 +375,6 @@ void handlePost() {
   int set_brightness = jsonDocument["brightness"];
   int auto_brightness = jsonDocument["auto_brightness"];
   int map_mode = jsonDocument["map_mode"];
-  int green_states_on = jsonDocument["green_states_on"];
-  int green_states_off = jsonDocument["green_states_off"];
-  int map_enable = jsonDocument["map_enable"];
-  int map_disable = jsonDocument["map_disable"];
   int modulation_mode = jsonDocument["modulation_mode"];
   int set_new_alarm_period = jsonDocument["new_alarm_period"];
 
@@ -568,6 +691,9 @@ void displayInfo() {
       display.setTextSize(4);
       DisplayCenter(time);
     }
+  } else {
+    display.clearDisplay();
+    display.display();
   }
 }
 
@@ -631,6 +757,8 @@ void alamsUpdate() {
       response = http.getString();
     }
     else {
+      Serial.print("Fetch fail: ");
+      Serial.println(httpResponseCode);
       return;
     }
     http.end();

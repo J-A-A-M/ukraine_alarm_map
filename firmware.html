@@ -202,7 +202,7 @@ char* wifiPassword = "<span id="wifi-password"></span>"; //Пароль  WiFi
 char* apSSID = "<span id="ap-ssid">AlarmMap</span>"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = "<span id="ap-password"></span>"; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
 bool wifiStatusBlink = <span id="wifi-status">true</span>; //Статуси wifi на дісплеі
-int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
+int apModeConnectionTimeout = <span id="ap-mode-connection-timeout">120</span>; //Час в секундах на роботу точки доступу
 
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
@@ -413,6 +413,20 @@ static int flagColor[] {
             <div class="col-sm-6 mb-3">
               <input type="text" class="form-control" id="ap-password-input" placeholder="Пароль" value="" oninput=updateApPasswordValue()>
             </div>
+
+            <div class="" id='ap-mode-connection-timeout-form'>
+              <label class="form-label">Час роботи точки доступу (секунди)</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="ap-mode-connection-timeout-form-value">120</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="1" max="300" value="120" class="bg-white border rounded border-secondary form-range col-12" id="ap-mode-connection-timeout-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-12 mb-2"></div>
 
             <div id="wifi-status-form" class="mb-1">
               <input type="checkbox" class="form-check-input" id="wifi-status-input" checked>
@@ -817,6 +831,19 @@ static int flagColor[] {
         } else {
           wifistatus.textContent = 'false';
         }
+      });
+
+
+      const apmodeconnectiontimeout = document.getElementById('ap-mode-connection-timeout');
+      const apmodeconnectiontimeoutform = document.getElementById('ap-mode-connection-timeout-form');
+      const apmodeconnectiontimeoutformvalue = document.getElementById('ap-mode-connection-timeout-form-value');
+      const apmodeconnectiontimeoutinput = document.getElementById('ap-mode-connection-timeout-input');
+
+      apmodeconnectiontimeoutinput.addEventListener('input', function() {
+        let value = parseInt(apmodeconnectiontimeoutinput.value);
+
+        apmodeconnectiontimeout.textContent = value;
+        apmodeconnectiontimeoutformvalue.textContent = value;
       });
 
       const mode = document.getElementById('mode');
