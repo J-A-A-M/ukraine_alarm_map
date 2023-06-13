@@ -428,7 +428,7 @@ void Modulation() {
           case 1: if (modulationAlarms || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * stepBrightness * brightnessRed / 100); break;} else { break;}
           case 2: if (modulationAlarmsNew || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * stepBrightness * brightnessOrange / 100); break;} else { break;}
           case 3: if (modulationAlarmsOff || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 255, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
-          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * stepBrightness * brightnessGreen / 100); break;} else { break;}
+          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * stepBrightness * brightnessLightGreen / 100); break;} else { break;}
         }
       }
       FastLED.show();
@@ -497,7 +497,7 @@ void Blink() {
           case 1: if (modulationAlarms || selectedStates[i]) {leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;} else { break;}
           case 2: if (modulationAlarmsNew || selectedStates[i]) {leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;} else { break;}
           case 3: if (modulationAlarmsOff || selectedStates[i]) {leds[i] =CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;} else { break;}
-          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;} else { break;}
+          case 4: if (modulationAlarmsOffNew || selectedStates[i]) {leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessLightGreen); break;} else { break;}
         }
     }
     FastLED.show();
@@ -706,7 +706,7 @@ void mapInfo() {
         case 1: leds[i] = CHSV(HUE_RED, 255, 2.55 * brightnessRed); break;
         case 2: leds[i] = CHSV(HUE_ORANGE, 255, 2.55 * brightnessOrange); break;
         case 3: leds[i] = CHSV(HUE_GREEN, 255, 2.55 * brightnessGreen); break;
-        case 4: leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessGreen); break;
+        case 4: leds[i] = CHSV(HUE_GREEN, 160, 2.55 * brightnessLightGreen); break;
       }
     }
     FastLED.show();
