@@ -6,10 +6,10 @@
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <HTTPUpdate.h>
-#include <WebServer.h>
 #include <ESPAsyncWebServer.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
+#include <ArduinoHA.h>
 
 // ============ НАЛАШТУВАННЯ ============
 
@@ -21,10 +21,18 @@ char* apPassword = ""; //Пароль від точки доступу щоб п
 bool wifiStatusBlink = true; //Статуси wifi на дісплеі
 int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
 
+//Налштування Home Assistant
+bool enableHA = true;
+const int mqttPort = 1883;
+const char* mqttUser = "homeassistant";
+const char* mqttPassword = "eiReth8to3Oos1Quahxosha0oughexaic5aWijeechuuqueih6yeethau7roo0jo";
+#define BROKER_ADDR IPAddress(10,2,0,40)
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+
 //Налштування яскравості
 int brightness = 100; //Яскравість %
 
-float brightnessLightGreen = 75; //Яскравість відбою тривог %
+float brightnessLightGreen = 100; //Яскравість відбою тривог %
 float brightnessGreen = 50; //Яскравість зон без тривог %
 float brightnessOrange = 75; //Яскравість зон з новими тривогами %
 float brightnessRed = 100; //Яскравість зон з тривогами %
@@ -205,7 +213,6 @@ Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
 
-WebServer server(8080);
 AsyncWebServer aserver(80);
 
 DynamicJsonDocument doc(30000);
@@ -216,6 +223,10 @@ WiFiManager wm;
 WiFiUDP ntpUDP;
 HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
+
+HADevice device(mac, sizeof(mac));
+HAMqtt mqtt(client, device);
+HANumber number("alarm_map_brightness");
 
 int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
@@ -233,11 +244,39 @@ static  bool mapModeFirstUpdate2= true;
 static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
 
-void setupRouting() {
-  server.on("/params", HTTP_POST, handlePost);
-  server.on("/params", HTTP_GET, getEnv);
-  server.begin();
 
+
+void initHA() {
+  if (enableHA) {
+    device.setName("Alarm Map");
+    device.setSoftwareVersion("2.4");
+
+    number.onCommand(onNumberCommand);
+
+    number.setIcon("mdi:home");
+    number.setName("Alarm map brightness");
+    number.setCurrentState(brightness);
+
+    mqtt.begin(BROKER_ADDR,mqttPort,mqttUser,mqttPassword);
+  }
+}
+
+void onNumberCommand(HANumeric number, HANumber* sender)
+{
+    if (!number.isSet()) {
+        Serial.println('number not set');
+    } else {
+        int8_t numberInt8 = number.toInt8();
+        brightness = numberInt8;
+        FastLED.setBrightness(2.55 * brightness);
+        FastLED.show();
+        Serial.print('brightness from HA: ');
+        Serial.println(numberInt8);
+    }
+    sender->setState(number); // report the selected option back to the HA panel
+}
+
+void setupRouting() {
   aserver.on("/", HTTP_GET, handleRoot);
   aserver.on("/save", HTTP_POST, handleSave);
   aserver.begin();
@@ -350,6 +389,7 @@ void handleSave(AsyncWebServerRequest* request){
     brightness = request->getParam("brightness", true)->value().toInt();
     FastLED.setBrightness(2.55 * brightness);
     FastLED.show();
+    number.setCurrentState(brightness);
   }
   if (request->hasParam("map_mode", true)){
     mapModeInit = request->getParam("map_mode", true)->value().toInt();
@@ -362,59 +402,6 @@ void handleSave(AsyncWebServerRequest* request){
   }
 
   request->redirect("/");
-}
-
-void handlePost() {
-  if (server.hasArg("plain") == false) {
-
-  }
-
-  String body = server.arg("plain");
-  deserializeJson(jsonDocument, body);
-
-  int set_brightness = jsonDocument["brightness"];
-  int auto_brightness = jsonDocument["auto_brightness"];
-  int map_mode = jsonDocument["map_mode"];
-  int modulation_mode = jsonDocument["modulation_mode"];
-  int set_new_alarm_period = jsonDocument["new_alarm_period"];
-
-  if(set_brightness) {
-    autoBrightness = false;
-    brightness = set_brightness;
-    FastLED.setBrightness(2.55 * set_brightness);  // Set the overall brightness of the LEDs
-    FastLED.show();
-    Serial.print("Brightness: ");
-    Serial.println(brightness);
-  }
-  if(auto_brightness) {
-    autoBrightness = true;
-  }
-  if(map_mode) {
-    mapModeInit = map_mode;
-  }
-  if(modulation_mode) {
-    modulationMode = modulation_mode;
-  }
-  if (set_new_alarm_period) {
-    newAlarmPeriod = set_new_alarm_period*1000;
-  }
-  server.send(200, "application/json", "{}");
-}
-
-void getEnv() {
-  Serial.println("Get temperature");
-  jsonDocument.clear();
-  jsonDocument["brightness"] = brightness;
-  jsonDocument["autobrightness"] = autoBrightness;
-  jsonDocument["mapMode"] = mapMode;
-  jsonDocument["mapModeInit"] = mapModeInit;
-  jsonDocument["autoSwitch"] = autoSwitch;
-  jsonDocument["alarmsNowCount"] = alarmsNowCount;
-  jsonDocument["modulationMode"] = modulationMode;
-  jsonDocument["newAlarmPeriod"] = newAlarmPeriod;
-  jsonDocument["weatherKey"] = apiKey;
-  serializeJson(jsonDocument, buffer);
-  server.send(200, "application/json", buffer);
 }
 
 
@@ -919,6 +906,7 @@ void setup() {
   Flag(50);
   initDisplay();
   initWiFi();
+  initHA();
   initTime();
   setupRouting();
 }
@@ -929,7 +917,9 @@ void loop() {
     delay(5000);
     ESP.restart();
   }
-  server.handleClient();
+  if (enableHA) {
+    mqtt.loop();
+  }
   displayInfo();
   autoBrightnessUpdate();
   alamsUpdate();
