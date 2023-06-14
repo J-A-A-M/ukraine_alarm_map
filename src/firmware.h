@@ -11,6 +11,9 @@
 #include <Wire.h>
 #include <ArduinoHA.h>
 
+char* deviceName = "Alarm Map Test";
+char* softwareVersion = "2.5dev";
+
 // ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
@@ -22,12 +25,13 @@ bool wifiStatusBlink = true; //Статуси wifi на дісплеі
 int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
 
 //Налштування Home Assistant
-bool enableHA = true;
-const int mqttPort = 1883;
-const char* mqttUser = "homeassistant";
-const char* mqttPassword = "eiReth8to3Oos1Quahxosha0oughexaic5aWijeechuuqueih6yeethau7roo0jo";
-#define BROKER_ADDR IPAddress(10,2,0,40)
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+bool enableHA = false;
+int mqttPort = 1883;
+char* mqttUser = "";
+char* mqttPassword = "";
+char* brokerAddress = "";
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+byte mac[] = {0x00, 0x10, 0x00, 0x6E, 0x00, 0x4A};
 
 //Налштування яскравості
 int brightness = 100; //Яскравість %
@@ -201,7 +205,6 @@ static int flagColor[] {
 #define NUM_LEDS        25
 #define LED_TYPE        WS2812
 #define COLOR_ORDER     GRB
-
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
@@ -210,15 +213,13 @@ CRGB leds[NUM_LEDS];
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
-StaticJsonDocument<250> jsonDocument;
-char buffer[250];
-
 AsyncWebServer aserver(80);
 
 DynamicJsonDocument doc(30000);
+
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
-WiFiClientSecure client;
+WiFiClient client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
 HTTPClient http;
@@ -247,33 +248,42 @@ static  bool mapModeFirstUpdate4= true;
 
 
 void initHA() {
+  IPAddress brokerAddr;
+  if (!brokerAddr.fromString(brokerAddress)) {
+    Serial.println("Invalid IP address format!");
+    enableHA = false;
+  }
   if (enableHA) {
-    device.setName("Alarm Map");
-    device.setSoftwareVersion("2.4");
+    device.setName(deviceName);
+    device.setSoftwareVersion(softwareVersion);
+    device.setManufacturer("JAAM");
+    device.setModel("Ukraine Alarm Map Informer");
+    device.setAvailability(true);
 
-    number.onCommand(onNumberCommand);
+    haBrightness.onCommand(onHaBrightnessCommand);
+    haBrightness.setIcon("mdi:brightness-percent");
+    haBrightness.setName("Alarm Map Brightness test");
+    haBrightness.setUnitOfMeasurement("%");
+    haBrightness.setCurrentState(brightness);
 
-    number.setIcon("mdi:home");
-    number.setName("Alarm map brightness");
-    number.setCurrentState(brightness);
-
-    mqtt.begin(BROKER_ADDR,mqttPort,mqttUser,mqttPassword);
+    mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
+    Serial.println("mqtt connected");
   }
 }
 
-void onNumberCommand(HANumeric number, HANumber* sender)
+void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
 {
-    if (!number.isSet()) {
+    if (!haBrightness.isSet()) {
         Serial.println('number not set');
     } else {
-        int8_t numberInt8 = number.toInt8();
+        int8_t numberInt8 = haBrightness.toInt8();
         brightness = numberInt8;
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
         Serial.print('brightness from HA: ');
         Serial.println(numberInt8);
     }
-    sender->setState(number); // report the selected option back to the HA panel
+    sender->setState(haBrightness); // report the selected option back to the HA panel
 }
 
 void setupRouting() {
@@ -389,7 +399,7 @@ void handleSave(AsyncWebServerRequest* request){
     brightness = request->getParam("brightness", true)->value().toInt();
     FastLED.setBrightness(2.55 * brightness);
     FastLED.show();
-    number.setCurrentState(brightness);
+    haBrightness.setState(brightness);
   }
   if (request->hasParam("map_mode", true)){
     mapModeInit = request->getParam("map_mode", true)->value().toInt();
@@ -523,17 +533,10 @@ void Modulation() {
       selectedStates[position] = 1;
     }
   }
-  Serial.println("selectedStates: ");
-  for (int i = 0; i < NUM_LEDS; i++) {
-    Serial.print(selectedStates[i]);
-    Serial.print(" ");
-  }
-  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
     bool fadeCycleEnded = false;
     bool rizeCycleEnded = false;
     int stepBrightness = 100;
-    //Serial.println("Cycle: start");
     while (!fadeCycleEnded || !rizeCycleEnded) {
       for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
@@ -792,12 +795,12 @@ void alamsUpdate() {
     if (return_to_init_mode) {
       mapMode = mapModeInit;
     }
-    Serial.print("get data: ");
-    Serial.println(s2-s1);
-    Serial.print("parse data: ");
-    Serial.println(s3-s2);
-    Serial.print("set data: ");
-    Serial.println(s4-s3);
+    //Serial.print("get data: ");
+    //Serial.println(s2-s1);
+    //Serial.print("parse data: ");
+    //Serial.println(s3-s2);
+    //Serial.print("set data: ");
+    //Serial.println(s4-s3);
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
@@ -865,7 +868,6 @@ void mapInfo() {
         }
         http.end();
       }
-      Serial.println('.');
       Serial.println("Weather fetch end");
     }
     FastLED.show();
