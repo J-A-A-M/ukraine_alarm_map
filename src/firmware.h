@@ -10,8 +10,10 @@
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
 #include <ArduinoHA.h>
+#include <ESPmDNS.h>
 
 char* deviceName = "Alarm Map Test";
+char* deviceBroadcastName = "alarm-map-test";
 char* softwareVersion = "2.5dev";
 
 // ============ НАЛАШТУВАННЯ ============
@@ -227,7 +229,10 @@ NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
 
 HADevice device(mac, sizeof(mac));
 HAMqtt mqtt(client, device);
-HANumber number("alarm_map_brightness");
+HANumber haBrightness("alarm_map_brightness");
+HASelect haMapMode("alarm_map_map_mode");
+HASelect haDisplayMode("alarm_map_display_mode");
+HASelect haModulationMode("alarm_map_modulation_mode");
 
 int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
@@ -258,13 +263,30 @@ void initHA() {
     device.setSoftwareVersion(softwareVersion);
     device.setManufacturer("JAAM");
     device.setModel("Ukraine Alarm Map Informer");
-    device.setAvailability(true);
 
     haBrightness.onCommand(onHaBrightnessCommand);
     haBrightness.setIcon("mdi:brightness-percent");
-    haBrightness.setName("Alarm Map Brightness test");
-    haBrightness.setUnitOfMeasurement("%");
+    haBrightness.setName("Alarm Map Brightness");
     haBrightness.setCurrentState(brightness);
+
+    // set available options
+    haMapMode.setOptions("Off;Alarms;Weather;Flag"); // use semicolons as separator of options
+    haMapMode.onCommand(onHaMapModeCommand);
+    haMapMode.setIcon("mdi:map"); // optional
+    haMapMode.setName("Alarm Map map mode"); // optional
+    haMapMode.setCurrentState(mapModeInit-1);
+
+    haDisplayMode.setOptions("Off;Clock"); // use semicolons as separator of options
+    haDisplayMode.onCommand(onHaDisplayModeCommand);
+    haDisplayMode.setIcon("mdi:clock-digital"); // optional
+    haDisplayMode.setName("Alarm Map display mode"); // optional
+    haDisplayMode.setCurrentState(displayMode-1);
+
+    haModulationMode.setOptions("Off;Modulation;Blink"); // use semicolons as separator of options
+    haModulationMode.onCommand(onHaModulationModeCommand);
+    haModulationMode.setIcon("mdi:alarm-light"); // optional
+    haModulationMode.setName("Alarm Map modulation mode"); // optional
+    haModulationMode.setCurrentState(modulationMode-1);
 
     mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
     Serial.println("mqtt connected");
@@ -283,7 +305,64 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
         Serial.print('brightness from HA: ');
         Serial.println(numberInt8);
     }
-    sender->setState(haBrightness); // report the selected option back to the HA panel
+    sender->setState(haBrightness);
+}
+
+void onHaMapModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        mapModeInit = 1;
+        break;
+    case 1:
+        mapModeInit = 2;
+        break;
+    case 2:
+        mapModeInit = 3;
+        break;
+    case 3:
+        mapModeInit = 4;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
+}
+
+void onHaDisplayModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        displayMode = 1;
+        break;
+    case 1:
+        displayMode = 2;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
+}
+
+void onHaModulationModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        modulationMode = 1;
+        break;
+    case 1:
+        modulationMode = 2;
+        break;
+    case 2:
+        modulationMode = 3;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
 }
 
 void setupRouting() {
@@ -399,16 +478,27 @@ void handleSave(AsyncWebServerRequest* request){
     brightness = request->getParam("brightness", true)->value().toInt();
     FastLED.setBrightness(2.55 * brightness);
     FastLED.show();
-    haBrightness.setState(brightness);
+    if (enableHA) {
+      haBrightness.setState(brightness);
+    }
   }
   if (request->hasParam("map_mode", true)){
     mapModeInit = request->getParam("map_mode", true)->value().toInt();
+    if (enableHA) {
+      haMapMode.setState(mapModeInit-1);
+    }
   }
   if (request->hasParam("display_mode", true)){
     displayMode = request->getParam("display_mode", true)->value().toInt();
+    if (enableHA) {
+      haDisplayMode.setState(displayMode-1);
+    }
   }
   if (request->hasParam("modulation_mode", true)){
     modulationMode = request->getParam("modulation_mode", true)->value().toInt();
+    if (enableHA) {
+      haModulationMode.setState(modulationMode-1);
+    }
   }
 
   request->redirect("/");
@@ -902,16 +992,28 @@ void initTime() {
   }
 }
 
+void initBroadcast() {
+  if (!MDNS.begin(deviceBroadcastName)) {
+    Serial.println("Error setting up mDNS responder!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println("Device bradcasted to network!");
+}
+
 void setup() {
   Serial.begin(115200);
   initFastLED();
   Flag(50);
   initDisplay();
   initWiFi();
+  initBroadcast();
   initHA();
   initTime();
   setupRouting();
 }
+
 void loop() {
   wifiConnected = WiFi.status() == WL_CONNECTED;
   if (!wifiConnected) {
