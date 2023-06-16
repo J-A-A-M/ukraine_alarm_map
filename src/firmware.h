@@ -32,8 +32,7 @@ int mqttPort = 1883;
 char* mqttUser = "";
 char* mqttPassword = "";
 char* brokerAddress = "";
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
-byte mac[] = {0x00, 0x10, 0x00, 0x6E, 0x00, 0x4A};
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
 
 //Налштування яскравості
 int brightness = 100; //Яскравість %
@@ -67,7 +66,7 @@ int modulationLevel = 50; //Рівень модуляції
 int modulationStep = 5; //Крок модуляції
 int modulationTime = 400; //Тривалість модуляції
 int modulationCount = 3; //Кількість модуляцій в циклі
-bool modulationAlarmsOffNew = true; //Зони без тривог в модуляції
+bool modulationAlarmsOffNew = true; //Відбій тривог в модуляції
 bool modulationAlarmsOff = false; //Зони без тривог в модуляції
 bool modulationAlarmsNew = true; //Зони нових тривог в модуляції
 bool modulationAlarms = false; //Зони тривог в модуляції
@@ -299,6 +298,7 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
         Serial.println('number not set');
     } else {
         int8_t numberInt8 = haBrightness.toInt8();
+        autoBrightness = false;
         brightness = numberInt8;
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
