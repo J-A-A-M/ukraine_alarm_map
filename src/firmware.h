@@ -6,10 +6,15 @@
 #include <WiFiManager.h>
 #include <NTPClient.h>
 #include <HTTPUpdate.h>
-#include <WebServer.h>
 #include <ESPAsyncWebServer.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
+#include <ArduinoHA.h>
+#include <ESPmDNS.h>
+
+char* deviceName = "Alarm Map Test";
+char* deviceBroadcastName = "alarm-map-test";
+char* softwareVersion = "2.5dev";
 
 // ============ НАЛАШТУВАННЯ ============
 
@@ -21,10 +26,18 @@ char* apPassword = ""; //Пароль від точки доступу щоб п
 bool wifiStatusBlink = true; //Статуси wifi на дісплеі
 int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
 
+//Налштування Home Assistant
+bool enableHA = false;
+int mqttPort = 1883;
+char* mqttUser = "";
+char* mqttPassword = "";
+char* brokerAddress = "";
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+
 //Налштування яскравості
 int brightness = 100; //Яскравість %
 
-float brightnessLightGreen = 75; //Яскравість відбою тривог %
+float brightnessLightGreen = 100; //Яскравість відбою тривог %
 float brightnessGreen = 50; //Яскравість зон без тривог %
 float brightnessOrange = 75; //Яскравість зон з новими тривогами %
 float brightnessRed = 100; //Яскравість зон з тривогами %
@@ -53,7 +66,7 @@ int modulationLevel = 50; //Рівень модуляції
 int modulationStep = 5; //Крок модуляції
 int modulationTime = 400; //Тривалість модуляції
 int modulationCount = 3; //Кількість модуляцій в циклі
-bool modulationAlarmsOffNew = true; //Зони без тривог в модуляції
+bool modulationAlarmsOffNew = true; //Відбій тривог в модуляції
 bool modulationAlarmsOff = false; //Зони без тривог в модуляції
 bool modulationAlarmsNew = true; //Зони нових тривог в модуляції
 bool modulationAlarms = false; //Зони тривог в модуляції
@@ -193,7 +206,6 @@ static int flagColor[] {
 #define NUM_LEDS        25
 #define LED_TYPE        WS2812
 #define COLOR_ORDER     GRB
-
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
@@ -202,20 +214,24 @@ CRGB leds[NUM_LEDS];
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
-StaticJsonDocument<250> jsonDocument;
-char buffer[250];
-
-WebServer server(8080);
 AsyncWebServer aserver(80);
 
 DynamicJsonDocument doc(30000);
+
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
-WiFiClientSecure client;
+WiFiClient client;
 WiFiManager wm;
 WiFiUDP ntpUDP;
 HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
+
+HADevice device(mac, sizeof(mac));
+HAMqtt mqtt(client, device);
+HANumber haBrightness("alarm_map_brightness");
+HASelect haMapMode("alarm_map_map_mode");
+HASelect haDisplayMode("alarm_map_display_mode");
+HASelect haModulationMode("alarm_map_modulation_mode");
 
 int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
@@ -233,11 +249,123 @@ static  bool mapModeFirstUpdate2= true;
 static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
 
-void setupRouting() {
-  server.on("/params", HTTP_POST, handlePost);
-  server.on("/params", HTTP_GET, getEnv);
-  server.begin();
 
+
+void initHA() {
+  IPAddress brokerAddr;
+  if (!brokerAddr.fromString(brokerAddress)) {
+    Serial.println("Invalid IP address format!");
+    enableHA = false;
+  }
+  if (enableHA) {
+    device.setName(deviceName);
+    device.setSoftwareVersion(softwareVersion);
+    device.setManufacturer("JAAM");
+    device.setModel("Ukraine Alarm Map Informer");
+
+    haBrightness.onCommand(onHaBrightnessCommand);
+    haBrightness.setIcon("mdi:brightness-percent");
+    haBrightness.setName("Alarm Map Brightness");
+    haBrightness.setCurrentState(brightness);
+
+    // set available options
+    haMapMode.setOptions("Off;Alarms;Weather;Flag"); // use semicolons as separator of options
+    haMapMode.onCommand(onHaMapModeCommand);
+    haMapMode.setIcon("mdi:map"); // optional
+    haMapMode.setName("Alarm Map map mode"); // optional
+    haMapMode.setCurrentState(mapModeInit-1);
+
+    haDisplayMode.setOptions("Off;Clock"); // use semicolons as separator of options
+    haDisplayMode.onCommand(onHaDisplayModeCommand);
+    haDisplayMode.setIcon("mdi:clock-digital"); // optional
+    haDisplayMode.setName("Alarm Map display mode"); // optional
+    haDisplayMode.setCurrentState(displayMode-1);
+
+    haModulationMode.setOptions("Off;Modulation;Blink"); // use semicolons as separator of options
+    haModulationMode.onCommand(onHaModulationModeCommand);
+    haModulationMode.setIcon("mdi:alarm-light"); // optional
+    haModulationMode.setName("Alarm Map modulation mode"); // optional
+    haModulationMode.setCurrentState(modulationMode-1);
+
+    mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
+    Serial.println("mqtt connected");
+  }
+}
+
+void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
+{
+    if (!haBrightness.isSet()) {
+        Serial.println('number not set');
+    } else {
+        int8_t numberInt8 = haBrightness.toInt8();
+        autoBrightness = false;
+        brightness = numberInt8;
+        FastLED.setBrightness(2.55 * brightness);
+        FastLED.show();
+        Serial.print('brightness from HA: ');
+        Serial.println(numberInt8);
+    }
+    sender->setState(haBrightness);
+}
+
+void onHaMapModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        mapModeInit = 1;
+        break;
+    case 1:
+        mapModeInit = 2;
+        break;
+    case 2:
+        mapModeInit = 3;
+        break;
+    case 3:
+        mapModeInit = 4;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
+}
+
+void onHaDisplayModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        displayMode = 1;
+        break;
+    case 1:
+        displayMode = 2;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
+}
+
+void onHaModulationModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        modulationMode = 1;
+        break;
+    case 1:
+        modulationMode = 2;
+        break;
+    case 2:
+        modulationMode = 3;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    sender->setState(index);
+}
+
+void setupRouting() {
   aserver.on("/", HTTP_GET, handleRoot);
   aserver.on("/save", HTTP_POST, handleSave);
   aserver.begin();
@@ -350,71 +478,30 @@ void handleSave(AsyncWebServerRequest* request){
     brightness = request->getParam("brightness", true)->value().toInt();
     FastLED.setBrightness(2.55 * brightness);
     FastLED.show();
+    if (enableHA) {
+      haBrightness.setState(brightness);
+    }
   }
   if (request->hasParam("map_mode", true)){
     mapModeInit = request->getParam("map_mode", true)->value().toInt();
+    if (enableHA) {
+      haMapMode.setState(mapModeInit-1);
+    }
   }
   if (request->hasParam("display_mode", true)){
     displayMode = request->getParam("display_mode", true)->value().toInt();
+    if (enableHA) {
+      haDisplayMode.setState(displayMode-1);
+    }
   }
   if (request->hasParam("modulation_mode", true)){
     modulationMode = request->getParam("modulation_mode", true)->value().toInt();
+    if (enableHA) {
+      haModulationMode.setState(modulationMode-1);
+    }
   }
 
   request->redirect("/");
-}
-
-void handlePost() {
-  if (server.hasArg("plain") == false) {
-
-  }
-
-  String body = server.arg("plain");
-  deserializeJson(jsonDocument, body);
-
-  int set_brightness = jsonDocument["brightness"];
-  int auto_brightness = jsonDocument["auto_brightness"];
-  int map_mode = jsonDocument["map_mode"];
-  int modulation_mode = jsonDocument["modulation_mode"];
-  int set_new_alarm_period = jsonDocument["new_alarm_period"];
-
-  if(set_brightness) {
-    autoBrightness = false;
-    brightness = set_brightness;
-    FastLED.setBrightness(2.55 * set_brightness);  // Set the overall brightness of the LEDs
-    FastLED.show();
-    Serial.print("Brightness: ");
-    Serial.println(brightness);
-  }
-  if(auto_brightness) {
-    autoBrightness = true;
-  }
-  if(map_mode) {
-    mapModeInit = map_mode;
-  }
-  if(modulation_mode) {
-    modulationMode = modulation_mode;
-  }
-  if (set_new_alarm_period) {
-    newAlarmPeriod = set_new_alarm_period*1000;
-  }
-  server.send(200, "application/json", "{}");
-}
-
-void getEnv() {
-  Serial.println("Get temperature");
-  jsonDocument.clear();
-  jsonDocument["brightness"] = brightness;
-  jsonDocument["autobrightness"] = autoBrightness;
-  jsonDocument["mapMode"] = mapMode;
-  jsonDocument["mapModeInit"] = mapModeInit;
-  jsonDocument["autoSwitch"] = autoSwitch;
-  jsonDocument["alarmsNowCount"] = alarmsNowCount;
-  jsonDocument["modulationMode"] = modulationMode;
-  jsonDocument["newAlarmPeriod"] = newAlarmPeriod;
-  jsonDocument["weatherKey"] = apiKey;
-  serializeJson(jsonDocument, buffer);
-  server.send(200, "application/json", buffer);
 }
 
 
@@ -536,17 +623,10 @@ void Modulation() {
       selectedStates[position] = 1;
     }
   }
-  Serial.println("selectedStates: ");
-  for (int i = 0; i < NUM_LEDS; i++) {
-    Serial.print(selectedStates[i]);
-    Serial.print(" ");
-  }
-  Serial.println(" ");
   for (int i = 0; i < modulationCount; i++) {
     bool fadeCycleEnded = false;
     bool rizeCycleEnded = false;
     int stepBrightness = 100;
-    //Serial.println("Cycle: start");
     while (!fadeCycleEnded || !rizeCycleEnded) {
       for (int i = 0; i < NUM_LEDS; i++) {
         switch (ledColor[i]) {
@@ -805,12 +885,12 @@ void alamsUpdate() {
     if (return_to_init_mode) {
       mapMode = mapModeInit;
     }
-    Serial.print("get data: ");
-    Serial.println(s2-s1);
-    Serial.print("parse data: ");
-    Serial.println(s3-s2);
-    Serial.print("set data: ");
-    Serial.println(s4-s3);
+    //Serial.print("get data: ");
+    //Serial.println(s2-s1);
+    //Serial.print("parse data: ");
+    //Serial.println(s3-s2);
+    //Serial.print("set data: ");
+    //Serial.println(s4-s3);
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
@@ -878,7 +958,6 @@ void mapInfo() {
         }
         http.end();
       }
-      Serial.println('.');
       Serial.println("Weather fetch end");
     }
     FastLED.show();
@@ -913,15 +992,28 @@ void initTime() {
   }
 }
 
+void initBroadcast() {
+  if (!MDNS.begin(deviceBroadcastName)) {
+    Serial.println("Error setting up mDNS responder!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  Serial.println("Device bradcasted to network!");
+}
+
 void setup() {
   Serial.begin(115200);
   initFastLED();
   Flag(50);
   initDisplay();
   initWiFi();
+  initBroadcast();
+  initHA();
   initTime();
   setupRouting();
 }
+
 void loop() {
   wifiConnected = WiFi.status() == WL_CONNECTED;
   if (!wifiConnected) {
@@ -929,7 +1021,9 @@ void loop() {
     delay(5000);
     ESP.restart();
   }
-  server.handleClient();
+  if (enableHA) {
+    mqtt.loop();
+  }
   displayInfo();
   autoBrightnessUpdate();
   alamsUpdate();

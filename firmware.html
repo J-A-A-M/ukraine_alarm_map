@@ -204,6 +204,14 @@ char* apPassword = "<span id="ap-password"></span>"; //Пароль від то�
 bool wifiStatusBlink = <span id="wifi-status">true</span>; //Статуси wifi на дісплеі
 int apModeConnectionTimeout = <span id="ap-mode-connection-timeout">120</span>; //Час в секундах на роботу точки доступу
 
+//Налштування Home Assistant
+bool enableHA = <span id="enable-ha">false</span>;
+int mqttPort = <span id="mqtt-port">1883</span>;
+char* mqttUser = "<span id="mqtt-login"></span>";
+char* mqttPassword = "<span id="mqtt-password"></span>";
+char* brokerAddress = "<span id="mqtt-broker-address"></span>";
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
 
@@ -430,7 +438,39 @@ static int flagColor[] {
 
             <div id="wifi-status-form" class="mb-1">
               <input type="checkbox" class="form-check-input" id="wifi-status-input" checked>
-              <label class="form-check-label">Візуальна індикація на мапі при підключенні</label>
+              <label class="form-check-label">Візуальна індикація статусів на мапі</label>
+            </div>
+
+          </div>
+
+          <div class="col-md-12 mb-1"></div>
+
+          <div class="row bg-light border rounded border-secondary">
+            <div class="col-md-12 mb-2"></div>
+            <div id="enable-ha-form" class="mb-1">
+              <input type="checkbox" class="form-check-input" id="enable-ha-input">
+              <label class="form-check-label">Підтримка Home Assistant <span class="badge bg-success">оновлення</span></label>
+            </div>
+            <div class="" id='mqtt-form' style="display:none">
+              <div class="row">
+                <div class=""  >
+                  <div class="alert alert-primary" role="alert">
+                    <span class="badge bg-success">оновлення</span> ДЛя інтеграції в Home Assistant потрібер вже налаштований mqtt-брокер, підключений до HA. Інтеграція створює потрібні топікі с даними в брокері. HA бачить мапу як окремий прилад розумного будинку і має можливість керувати мапою
+                  </div>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <input type="text" class="form-control" id="mqtt-broker-address-input" placeholder="Адреса брокера" value="" oninput=updateMqttBrokerAddressValue()>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <input type="text" class="form-control" id="mqtt-port-input" placeholder="Порт" value="" oninput=updateMqttPortValue()>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <input type="text" class="form-control" id="mqtt-login-input" placeholder="Логін" oninput=updateMqttLoginValue()>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <input type="text" class="form-control" id="mqtt-password-input" placeholder="Пароль" value="" oninput=updateMqttPasswordValue()>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -467,7 +507,7 @@ static int flagColor[] {
               </div>
             </div>
 
-            <div class="" id='max-temp-form'style="display:none" >
+            <div class="" id='max-temp-form' style="display:none" >
               <label class="form-label">Максимальна температура</label>
               <div class="row">
                 <div  class="col-2">
@@ -489,7 +529,7 @@ static int flagColor[] {
 
             <div class="" id="alarmback-alert"  style="display:none">
               <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">оновлення</span> Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
+                Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
               </div>
             </div>
 
@@ -845,6 +885,43 @@ static int flagColor[] {
         apmodeconnectiontimeout.textContent = value;
         apmodeconnectiontimeoutformvalue.textContent = value;
       });
+
+
+      const enableha = document.getElementById('enable-ha');
+      const enablehainput = document.getElementById('enable-ha-input');
+      const mqttform = document.getElementById('mqtt-form');
+      const mqttbrokeraddress = document.getElementById("mqtt-broker-address");
+      const mqttbrokeraddressinput = document.getElementById("mqtt-broker-address-input");
+      const mqttport = document.getElementById("mqtt-port");
+      const mqttportinput = document.getElementById("mqtt-port-input");
+      const mqttlogin = document.getElementById("mqtt-login");
+      const mqttlogininput = document.getElementById("mqtt-login-input");
+      const mqttpassword = document.getElementById("mqtt-password");
+      const mqttpasswordinput = document.getElementById("mqtt-password-input");
+
+      enablehainput.addEventListener('click', function() {
+        if (enablehainput.checked) {
+          enableha.textContent = 'true';
+          mqttform.style.display = 'block'
+        } else {
+          enableha.textContent = 'false';
+          mqttform.style.display = 'none'
+        }
+      });
+
+      function updateMqttPortValue() {
+        mqttport.textContent = mqttportinput.value;
+      }
+      function updateMqttBrokerAddressValue() {
+        mqttbrokeraddress.textContent = mqttbrokeraddressinput.value;
+      }
+      function updateMqttLoginValue() {
+        mqttlogin.textContent = mqttlogininput.value;
+      }
+      function updateMqttPasswordValue() {
+        mqttpassword.textContent = mqttpasswordinput.value;
+      }
+
 
       const mode = document.getElementById('mode');
 
