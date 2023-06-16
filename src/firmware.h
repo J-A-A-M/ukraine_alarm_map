@@ -12,9 +12,9 @@
 #include <ArduinoHA.h>
 #include <ESPmDNS.h>
 
-char* deviceName = "Alarm Map Test";
-char* deviceBroadcastName = "alarm-map-test";
-char* softwareVersion = "2.5dev";
+char* deviceName = "Alarm Map";
+char* deviceBroadcastName = "alarm-map";
+char* softwareVersion = "2.5";
 
 // ============ НАЛАШТУВАННЯ ============
 
