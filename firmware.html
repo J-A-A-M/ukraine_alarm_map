@@ -451,10 +451,10 @@ static int flagColor[] {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light border rounded border-secondary">
-            <div class="col-md-12 mb-2"></div>
-            <div id="enable-ha-form" class="mb-1">
+          <h5 class="mb-2 text-dark">Home Assistant <span class="badge bg-success">оновлення</span></h5>
+            <div id="enable-ha-form" class="mb-3">
               <input type="checkbox" class="form-check-input" id="enable-ha-input">
-              <label class="form-check-label">Підтримка Home Assistant <span class="badge bg-success">оновлення</span></label>
+              <label class="form-check-label">Підтримка Home Assistant</label>
             </div>
             <div class="" id='mqtt-form' style="display:none">
               <div class="row">
@@ -543,7 +543,7 @@ static int flagColor[] {
             </div>
 
             <div class="">
-              <label class="form-label">Режим модуляції <span class="badge bg-success">оновлення</span></label>
+              <label class="form-label">Режим модуляції
             </div>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-secondary" id="modulation-mode-input-1">Вимкнено</button>
@@ -556,7 +556,7 @@ static int flagColor[] {
               <div class="row">
                 <div class=""  >
                   <div class="alert alert-primary" role="alert">
-                    <span class="badge bg-success">оновлення</span> Це спеціальний режим підсвідки окремих зон мапи для привертання уваги до певних подій. Більш детально описано в Wіki проєкту
+                     Це спеціальний режим підсвідки окремих зон мапи для привертання уваги до певних подій. Більш детально описано в Wіki проєкту
                   </div>
                 </div>
 
@@ -654,7 +654,8 @@ static int flagColor[] {
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
             <div class="" id='new-alarm-period-form'>
-              <label class="form-label">Період окремої підсвітки нових тривог (хвилини)</label>
+              <h5 class="mb-1 text-dark">Окрема підсвітка нових тривог</h5>
+              <label class="form-label">в хвилинах</label>
               <div class="row">
                 <div  class="col-2">
                     <h4><span class="badge bg-dark" id="new-alarm-period-form-value">5</span></h4>
@@ -669,9 +670,7 @@ static int flagColor[] {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <div class="">
-              <label class="form-label">Режим діода на Київській області</label>
-            </div>
+            <h5 class="mb-2 text-dark">Режим діода на Київській області</h5>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-success" id="mode-kyiv-input-1">Київська область</button>
               <button type="button" class="btn btn-secondary" id="mode-kyiv-input-2">Київ</button>
@@ -687,9 +686,7 @@ static int flagColor[] {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <div class="">
-              <label class="form-label">Тип дісплея</label>
-            </div>
+            <h5 class="mb-2 text-dark">Дісплей <span class="badge bg-success">оновлення</span></h5>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-danger" id="display-type-input-1">Без дісплея</button>
               <button type="button" class="btn btn-secondary" id="display-type-input-2">128*32 SSD1306</button>
