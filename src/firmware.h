@@ -12,10 +12,10 @@
 #include <ArduinoHA.h>
 #include <ESPmDNS.h>
 
-char* deviceName = "Alarm Map";
-char* deviceBroadcastName = "alarm-map";
-char* softwareVersion = "2.5";
-
+char* deviceName = "Alarm Map Test";
+char* deviceBroadcastName = "alarm-map-test";
+char* softwareVersion = "2.6dev";
+ 
 // ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
@@ -37,10 +37,10 @@ byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
 //Налштування яскравості
 int brightness = 100; //Яскравість %
 
-float brightnessLightGreen = 100; //Яскравість відбою тривог %
-float brightnessGreen = 50; //Яскравість зон без тривог %
+float brightnessLightGreen = 100; //Яскравість відбою тривог%
+float brightnessGreen = 75; //Яскравість зон без тривог%
 float brightnessOrange = 75; //Яскравість зон з новими тривогами %
-float brightnessRed = 100; //Яскравість зон з тривогами %
+float brightnessRed = 100; //Яскравість зон з тривогами%
 
 //Налаштування авто-яскравості
 bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
@@ -49,7 +49,7 @@ const int night = 22; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
-bool autoSwitch = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
+bool autoSwitchMap = false; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
 int mapModeInit = 2; //Режим мапи
 int mapMode = 1;
@@ -75,13 +75,18 @@ bool modulationSelected = false; //Майбутній функціонал, не
 int newAlarmPeriod = 180000; //Час індикації нових тривог
 
 //Дісплей
-int displayMode = 2; //Режим дісплея
+bool autoSwitchDisplay = true; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
+
+int displayModeInit = 4;
+int displayMode = 1; //Режим дісплея
 bool displayWarningStatus = true; //Статуси wifi на дісплеі
 
 //Погода
 const char* apiKey = ""; //API погоди
 float minTemp = 5.0; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
-float maxTemp = 25.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+float maxTemp = 30.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+
+int stateId = 7;
 
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] = {
@@ -211,6 +216,8 @@ static int flagColor[] {
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
 
 CRGB leds[NUM_LEDS];
+CRGB ledWeatherColor[NUM_LEDS];
+
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
@@ -244,10 +251,18 @@ static bool wifiConnected;
 static unsigned long times[NUM_LEDS];
 static int ledColor[NUM_LEDS];
 
+bool isAlarm = false;
+bool isDaylightSaving = false;
+
+float currentTemp;
+String currentWeather;
+
 static  bool mapModeFirstUpdate1= true;
 static  bool mapModeFirstUpdate2= true;
 static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
+
+long timeDifference;
 
 
 
@@ -334,10 +349,16 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
 {
     switch (index) {
     case 0:
-        displayMode = 1;
+        displayModeInit = 1;
         break;
     case 1:
-        displayMode = 2;
+        displayModeInit = 2;
+        break;
+    case 2:
+        displayModeInit = 3;
+        break;
+    case 3:
+        displayModeInit = 4;
         break;
     default:
         // unknown option
@@ -411,6 +432,12 @@ void handleRoot(AsyncWebServerRequest* request){
   html += "<option value='2'";
   if (displayMode == 2) html += " selected";
   html += ">Поточний час</option>";
+  html += "<option value='3'";
+  if (displayMode == 3) html += " selected";
+  html += ">Час тривог</option>";
+  html += "<option value='4'";
+  if (displayMode == 4) html += " selected";
+  html += ">Погода</option>";
   html += "</select>";
   html += "</div>";
   html += "<div class='form-group'>";
@@ -489,9 +516,9 @@ void handleSave(AsyncWebServerRequest* request){
     }
   }
   if (request->hasParam("display_mode", true)){
-    displayMode = request->getParam("display_mode", true)->value().toInt();
+    displayModeInit = request->getParam("display_mode", true)->value().toInt();
     if (enableHA) {
-      haDisplayMode.setState(displayMode-1);
+      haDisplayMode.setState(displayModeInit-1);
     }
   }
   if (request->hasParam("modulation_mode", true)){
@@ -512,20 +539,17 @@ void initWiFi() {
   int connectionAttempts;
   while (WiFi.status() != WL_CONNECTED) {
     connectionAttempts++;
-    if(displayMode != 1 && displayWarningStatus) {
-      display.clearDisplay();
+    if(displayWarningStatus) {
       display.setCursor(0, 0);
+      display.clearDisplay();
       display.setTextSize(1);
-      display.println("WiFi connecting:");
-      display.setCursor(0, 10);
-      display.setTextSize(1);
-      display.println(wifiSSID);
-      display.print("Attempt: ");
+      display.print("WiFi connecting: ");
       display.println(connectionAttempts);
-      display.display();
+      display.setTextSize(2);
+      DisplayCenter(wifiSSID,3);
     }
     if(wifiStatusBlink) {
-      colorFill(HUE_RED, 50);
+      colorFill(HUE_RED, 255);
       FlashAll(10,1);
     }
     delay(2000);
@@ -549,19 +573,18 @@ void initWiFi() {
 }
 
 void wifiConnectionSuccess() {
-  if(displayMode != 1 && displayWarningStatus) {
-    display.clearDisplay();
+  if(displayWarningStatus) {
     display.setCursor(0, 0);
-    display.setTextSize(2);
-    display.println("CONNECTED");
-    display.setCursor(0, 16);
+    display.clearDisplay();
     display.setTextSize(1);
     display.print("IP: ");
     display.println(WiFi.localIP());
-    display.display();
+    display.setTextSize(2);
+    DisplayCenter("connected",3);
+
   }
   if(wifiStatusBlink) {
-    colorFill(HUE_GREEN, 50);
+    colorFill(HUE_GREEN, 255);
     FlashAll(10,3);
     delay(3000);
   }
@@ -572,7 +595,7 @@ void wifiConnectionSuccess() {
 
 void startAPMode() {
   Serial.println("Start AP");
-  if(displayMode != 1 && displayWarningStatus) {
+  if(displayWarningStatus) {
     display.clearDisplay();
     display.setCursor(0, 0);
     display.setTextSize(1);
@@ -583,7 +606,7 @@ void startAPMode() {
     display.display();
   }
   if(wifiStatusBlink) {
-    colorFill(HUE_YELLOW, 50);
+    colorFill(HUE_YELLOW, 255);
     FlashAll(10,3);
   }
   Serial.println("AP mode started");
@@ -595,7 +618,7 @@ void startAPMode() {
   wm.setTimeout(apModeConnectionTimeout);
   connection = wm.autoConnect(apSSID, apPassword);
   if (!connection) {
-    if(displayMode != 1 && displayWarningStatus) {
+    if(displayWarningStatus) {
       display.clearDisplay();
       display.setTextSize(1);
       display.println("Connection error");
@@ -754,36 +777,89 @@ void FlashLed(int dot, int wait, int count) {
 }
 
 void displayInfo() {
-  if (displayMode != 1) {
-    timeClient.update();
-    int hour = timeClient.getHours();
-    int minute = timeClient.getMinutes();
+  //timeClient.update();
+  int hour = timeClient.getHours();
+  int minute = timeClient.getMinutes();
 
-    if(displayMode == 2) {
-      display.setCursor(0, 0);
-      String time = "";
-      if (hour < 10) time += "0";
-      time += hour;
-      time += ":";
-      if (minute < 10) time += "0";
-      time += minute;
-      display.clearDisplay();
-      display.setTextSize(4);
-      DisplayCenter(time);
-    }
-  } else {
+  if (displayMode == 1) {
+    Serial.println("Display mode 1");
     display.clearDisplay();
     display.display();
   }
+  if (displayMode == 2) {
+    Serial.println("Display mode 2");
+    int day = timeClient.getDay();
+    String daysOfWeek[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.println(daysOfWeek[day]);
+    String time = "";
+    if (hour < 10) time += "0";
+    time += hour;
+    time += ":";
+    if (minute < 10) time += "0";
+    time += minute;
+
+    display.setTextSize(3);
+    DisplayCenter(time,6);
+  }
+  if (displayMode == 3) {
+    Serial.println("Display mode 3");
+    int days = timeDifference / 86400;  // Number of seconds in a day
+    int hours = (timeDifference % 86400) / 3600;
+    int minutes = (timeDifference % 3600) / 60;
+    int seconds = (timeDifference % 3600) % 60;
+
+    String time = "";
+    //if (days < 10) time += "0";
+    time += days;
+    time += "d ";
+    if (hours < 10) time += "0";
+    time += hours;
+    time += ":";
+    if (minutes < 10) time += "0";
+    time += minutes;
+    //time += "m";
+    // if (seconds < 10) time += "0";
+    // time += seconds;
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    display.setTextSize(1);
+    if (isAlarm){
+      display.println("Alarm:");
+    }else{
+      display.println("No Alarm:");
+    }
+    display.setTextSize(2);
+    // display.println(time);
+    // display.display();
+    DisplayCenter(time,3);
+  }
+  if (displayMode == 4) {
+    Serial.println("Display mode 3");
+    int day = timeClient.getDay();
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.println(currentWeather);
+    String time = "";
+    char roundedTemp[4];
+    dtostrf(currentTemp, 3, 1, roundedTemp);
+    time += roundedTemp;
+    time += " C";
+    display.setTextSize(2);
+    DisplayCenter(time,6);
+  }
 }
 
-void DisplayCenter(String text) {
+void DisplayCenter(String text, int bound) {
     int16_t x;
     int16_t y;
     uint16_t width;
     uint16_t height;
     display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
-    display.setCursor(((DISPLAY_WIDTH - width) / 2), ((DISPLAY_HEIGHT - height) / 2));
+    display.setCursor(((DISPLAY_WIDTH - width) / 2), ((DISPLAY_HEIGHT - height) / 2) + bound);
     display.println(text);
     display.display();
   }
@@ -797,28 +873,87 @@ void initFastLED() {
 }
 
 void initDisplay() {
-  if (displayMode != 1) {
-    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-  }
+  displayMode = displayModeInit;
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextColor(WHITE);
 }
 
 void autoBrightnessUpdate() {
     if (autoBrightness) {
-      Serial.println("Autobrightness start");
+      Serial.print("Autobrightness start: ");
       timeClient.update();
       int currentHour = timeClient.getHours();
       int currentBrightness = 0;
       bool isDay = currentHour >= day && currentHour < night;
+      Serial.print("isDay: ");
+      Serial.print(isDay);
       currentBrightness = isDay ? dayBrightness : nightBrightness;
+      Serial.print(" currentBrightness: ");
+      Serial.print(currentBrightness);
       if (currentBrightness != brightness) {
         brightness = currentBrightness;
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
+        Serial.print(" set brightness: ");
+        Serial.println(brightness);
+      }else{
+        Serial.println("");
       }
     }
   }
+
+void weatherUpdate () {
+  if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
+    if (firstWeatherUpdate){
+      Serial.println("firstWeatherUpdate");
+    }
+    Serial.println("Weather fetch start");
+    lastWeatherTime = millis();
+    firstWeatherUpdate = false;
+    for (int i = 0; i < NUM_LEDS; i++) {
+      String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
+      http.begin(apiUrl);
+      int httpResponseCode = http.GET();
+
+      DynamicJsonDocument doc(1024);
+      if (httpResponseCode == 200) {
+        String payload = http.getString();
+        StaticJsonDocument<512> doc;
+        deserializeJson(doc, payload);
+        double temp = doc["main"]["temp"];
+        if (stateId == i) {
+          currentTemp = doc["main"]["temp"];
+          currentWeather = doc["weather"][0]["main"].as<String>();
+          Serial.println(currentWeather);
+        }
+        float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
+        Serial.print(states[i]);
+        Serial.print(':');
+        Serial.print(temp);
+        Serial.print(':');
+        Serial.print(normalizedValue);
+        Serial.print(':');
+        if (normalizedValue > 1){
+          normalizedValue = 1;
+        }
+        if (normalizedValue < 0){
+          normalizedValue = 0;
+        }
+        int hue = 192 + normalizedValue * (0 - 192);
+        hue = (int)hue % 256;
+        Serial.println(hue);
+        ledWeatherColor[i] = CHSV(hue, 255, 255);
+      }
+      else {
+        Serial.print("Error getting weather data for city ID ");
+        Serial.println(statesIdsWeather[i]);
+      }
+      http.end();
+    }
+    Serial.println("Weather fetch end");
+  }
+}
 
 void alamsUpdate() {
   if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
@@ -849,7 +984,8 @@ void alamsUpdate() {
     }
     unsigned long  t = millis();
     alarmsNowCount = 0;
-    bool return_to_init_mode = true;
+    bool return_to_map_init_mode = true;
+    bool return_to_display_init_mode = true;
     unsigned long  s3 = millis();
     bool enable;
     for (int i = 0; i < NUM_LEDS; i++) {
@@ -864,6 +1000,18 @@ void alamsUpdate() {
         if (times[i] + newAlarmPeriod <= t){
           ledColor[i] = 1;
         }
+        if (stateId == i) {
+          const char* oldDate = doc["states"][states[i]]["enabled_at"];
+          struct tm tm;
+          strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
+          time_t oldTime = mktime(&tm);
+          time_t currentTime = timeClient.getEpochTime();
+          timeDifference = difftime(currentTime, oldTime);
+          if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
+          Serial.print("timeDifference: ");
+          Serial.println(timeDifference);
+          isAlarm = true;
+        }
         alarmsNowCount++;
       } else {
         if (times[i] == 0 || (ledColor[i] == 1 || ledColor[i] == 2)) {
@@ -875,22 +1023,39 @@ void alamsUpdate() {
         if (times[i] + newAlarmPeriod <= t){
           ledColor[i] = 3;
         }
+        if (stateId == i) {
+          const char* oldDate = doc["states"][states[i]]["disabled_at"];
+          struct tm tm;
+          strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
+          time_t oldTime = mktime(&tm);
+          time_t currentTime = timeClient.getEpochTime();
+          timeDifference = difftime(currentTime, oldTime);
+          if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
+          //Serial.print("timeDifference: ");
+          //Serial.println(timeDifference);
+          isAlarm = false;
+        }
       }
-      if (autoSwitch && enable && statesIdsAlarmCheck[i]==1) {
+      if (autoSwitchMap && enable && statesIdsAlarmCheck[i]==1) {
           mapMode = 2;
-          return_to_init_mode = false;
+          return_to_map_init_mode = false;
+      }
+      if (autoSwitchDisplay && enable && statesIdsAlarmCheck[i]==1) {
+          displayMode = 3;
+          return_to_display_init_mode = false;
       }
     }
     unsigned long  s4 = millis();
-    if (return_to_init_mode) {
+    if (return_to_map_init_mode) {
       mapMode = mapModeInit;
+      Serial.print("switch to map mode: ");
+      Serial.println(mapMode);
     }
-    //Serial.print("get data: ");
-    //Serial.println(s2-s1);
-    //Serial.print("parse data: ");
-    //Serial.println(s3-s2);
-    //Serial.print("set data: ");
-    //Serial.println(s4-s3);
+    if (return_to_display_init_mode) {
+      displayMode = displayModeInit;
+      Serial.print("switch to display mode: ");
+      Serial.println(displayMode);
+    }
     Serial.print("Alarms fetch end: ");
     Serial.println(s4-s1);
   }
@@ -932,33 +1097,9 @@ void mapInfo() {
     mapModeFirstUpdate2 = true;
     mapModeFirstUpdate4 = true;
     Serial.println("Map mode 3");
-    if (millis() - lastWeatherTime > weatherPeriod || mapModeFirstUpdate3) {
-      Serial.println("Weather fetch start");
-      lastWeatherTime = millis();
-      mapModeFirstUpdate3 = false;
-      for (int i = 0; i < NUM_LEDS; i++) {
-        String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
-        http.begin(apiUrl);
-        int httpResponseCode = http.GET();
-        Serial.println(httpResponseCode);
-        JsonObject obj = doc.to<JsonObject>();
-        if (httpResponseCode == 200) {
-          String payload = http.getString();
-          StaticJsonDocument<512> doc;
-          deserializeJson(doc, payload);
-          double temp = doc["main"]["temp"];
-          float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
-          int hue = 192 + normalizedValue * (0 - 192);
-          hue = (int)hue % 256;
-          leds[i] = CHSV(hue, 255, 255);
-        }
-        else {
-          Serial.print("Error getting weather data for city ID ");
-          Serial.println(statesIdsWeather[i]);
-        }
-        http.end();
-      }
-      Serial.println("Weather fetch end");
+    for (int i = 0; i < NUM_LEDS; i++)
+    {
+      leds[i] = ledWeatherColor[i];
     }
     FastLED.show();
   }
@@ -975,7 +1116,6 @@ void mapInfo() {
 }
 
 void initTime() {
-  bool isDaylightSaving = false;
   timeClient.begin();
   timeClient.update();
   String formattedTime = timeClient.getFormattedTime();
@@ -1008,9 +1148,10 @@ void setup() {
   Flag(50);
   initDisplay();
   initWiFi();
+  initTime();
+  autoBrightnessUpdate();
   initBroadcast();
   initHA();
-  initTime();
   setupRouting();
 }
 
@@ -1024,9 +1165,10 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
-  displayInfo();
   autoBrightnessUpdate();
   alamsUpdate();
+  weatherUpdate();
+  displayInfo();
   mapInfo();
   delay(3000);
 }

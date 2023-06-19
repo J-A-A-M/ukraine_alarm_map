@@ -227,7 +227,7 @@ const int night = <span id="night-start">22</span>; //Початок ночі
 const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
 const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
 
-bool autoSwitch = <span id="autoswitch">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
+bool autoSwitchMap = <span id="autoswitch-map">false</span>; //Автоматичне переключення карти на режим тривоги при початку тривоги в вибраній області
 
 int mapModeInit = <span id="mode">2</span>; //Режим мапи
 int mapMode = 1;
@@ -253,13 +253,18 @@ bool modulationSelected = <span id="modulation-selected">false</span>; //Май�
 int newAlarmPeriod = <span id="new-alarm-period">300000</span>; //Час індикації нових тривог
 
 //Дісплей
-int displayMode = <span id="display-mode">1</span>; //Режим дісплея
-bool displayWarningStatus = <span id="display-warning-status">true</span>; //Статуси wifi на дісплеі
+bool autoSwitchDisplay = <span id="autoswitch-display">false</span>; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
+
+int displayModeInit = <span id="display-mode">1</span>;
+int displayMode = 1; //Режим дісплея
+bool displayWarningStatus = <span id="display-warning-status">false</span>; //Статуси wifi на дісплеі
 
 //Погода
 const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
 float minTemp = <span id="min-temp">5.0</span>; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = <span id="max-temp">25.0</span>; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
+
+int stateId = <span id="state-id">8</span>;
 
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] = {
@@ -686,21 +691,36 @@ static int flagColor[] {
               <label class="form-label">Тип дісплея</label>
             </div>
             <div class="col-md-12 btn-group mb-3" role="group">
-              <button type="button" class="btn btn-danger" id="display-mode-input-1">Вимкнено</button>
-              <button type="button" class="btn btn-secondary" id="display-mode-input-2">128*32 SSD1306</button>
-              <button type="button" class="btn btn-secondary" id="display-mode-input-3">128*64 SSD1306</button>
+              <button type="button" class="btn btn-danger" id="display-type-input-1">Без дісплея</button>
+              <button type="button" class="btn btn-secondary" id="display-type-input-2">128*32 SSD1306</button>
+              <button type="button" class="btn btn-secondary" id="display-type-input-3">128*64 SSD1306</button>
             </div>
+            <div class="row" id="display-form" style="display:none">
+              <div  class="col">
+                <div  class="mb-1">
+                  <input type="checkbox" class="form-check-input" id="display-warning-status-input">
+                  <label class="form-check-label">Індикація статусу wifi на дісплеі</label>
+                </div>
 
-            <div id="display-warning-status-form" style="display:none" class="mb-1">
-              <input type="checkbox" class="form-check-input" id="display-warning-status-input" checked>
-              <label class="form-check-label">Індикація статусу wifi на дісплеі</label>
-            </div>
+                <div class="col-md-12 mb-2"></div>
 
-            <div class="col-md-12 mb-2"></div>
-
-            <div id="display-text"  style="display:none" class="" >
-              <div class="alert alert-primary" role="alert">
-                <span class="badge bg-success">оновлення</span> В даний момент дісплей підтримує поточний час та сповіщення статусу мережі wifi
+                <div class="">
+                  <label class="form-label">Режим дісплея</label>
+                </div>
+                <div class="col-md-12 btn-group mb-3" role="group">
+                  <button type="button" class="btn btn-danger" id="display-mode-input-1">Вимкнено</button>
+                  <button type="button" class="btn btn-secondary" id="display-mode-input-2">Час</button>
+                  <button type="button" class="btn btn-secondary" id="display-mode-input-3">Тривоги</button>
+                  <button type="button" class="btn btn-secondary" id="display-mode-input-4">Погода</button>
+                </div>
+                <div class="row">
+                    <div class="col-1 mb-1">
+                      <input type="checkbox" class="form-check-input" id="displayback-input">
+                    </div>
+                    <div class="col-11 mb-1">
+                      <label class="form-check-label">Перемикати дісплей в режим тривоги у випадку тривоги у вибраних областях</label>
+                    </div>
+                </div>
               </div>
             </div>
           </div>
@@ -956,20 +976,21 @@ static int flagColor[] {
       const alarmbackinput = document.getElementById('alarmback-input');
       const alarmbackalert = document.getElementById('alarmback-alert');
       const alarmbackstates = document.getElementById('alarmback-states');
+      const autoswitchmap = document.getElementById('autoswitch-map');
 
       alarmbackinput.addEventListener('click', function() {
-        if (alarmbackinput.checked && (modeinput3.className == 'btn btn-success' || modeinput4.className == 'btn btn-success')) {
+        if (alarmbackinput.checked) {
           alarmbackstates.style.display = 'block';
           alarmbackalert.style.display = 'block';
-          autoswitch.textContent = 'true'
+          autoswitchmap.textContent = 'true'
         } else {
           alarmbackstates.style.display = 'none';
           alarmbackalert.style.display = 'none';
-          autoswitch.textContent = 'false'
+          autoswitchmap.textContent = 'false'
         }
       });
 
-      const autoswitch = document.getElementById('autoswitch');
+
 
       const autobrightnessinput = document.getElementById('autobrightness-input');
 
@@ -1115,10 +1136,10 @@ static int flagColor[] {
           openstreetmap.style.display = 'none';
           mintempform.style.display = 'none';
           maxtempform.style.display = 'none';
-          alarmback1.style.display = 'none';
-          alarmback2.style.display = 'none';
-          alarmbackalert.style.display = 'none';
-          alarmbackinput.checked = false;
+          alarmback1.style.display = 'block';
+          alarmback2.style.display = 'block';
+          //alarmbackalert.style.display = 'none';
+          //alarmbackinput.checked = false;
           alarmbackstates.style.display = 'none';
         }
       });
@@ -1137,6 +1158,7 @@ static int flagColor[] {
           alarmback2.style.display = 'none';
           alarmbackalert.style.display = 'none';
           alarmbackinput.checked = false;
+          autoswitchmap.textContent = 'false'
           alarmbackstates.style.display = 'none';
         }
       });
@@ -1500,14 +1522,28 @@ static int flagColor[] {
       const displaymode = document.getElementById('display-mode');
       const displayheight = document.getElementById('display-height');
       const wifistatusform = document.getElementById('wifi-status-form');
-      const displaytext = document.getElementById('display-text');
       const displaywarningstatus = document.getElementById('display-warning-status');
+      const displaybackinput = document.getElementById('displayback-input');
+      const autoswitchdisplay = document.getElementById('autoswitch-display');
 
-      const displaywarningstatusform = document.getElementById('display-warning-status-form');
+
+      const displayform = document.getElementById('display-form');
       const displaywarningstatusinput = document.getElementById('display-warning-status-input');
+      const displaytypeinput1 = document.getElementById('display-type-input-1');
+      const displaytypeinput2 = document.getElementById('display-type-input-2');
+      const displaytypeinput3 = document.getElementById('display-type-input-3');
       const displaymodeinput1 = document.getElementById('display-mode-input-1');
       const displaymodeinput2 = document.getElementById('display-mode-input-2');
       const displaymodeinput3 = document.getElementById('display-mode-input-3');
+      const displaymodeinput4 = document.getElementById('display-mode-input-4');
+
+      displaybackinput.addEventListener('click', function() {
+        if (displaybackinput.checked) {
+          autoswitchdisplay.textContent = 'true'
+        } else {
+          autoswitchdisplay.textContent = 'false'
+        }
+      });
 
       displaywarningstatusinput.addEventListener('click', function() {
         if (displaywarningstatusinput.checked) {
@@ -1517,41 +1553,85 @@ static int flagColor[] {
         }
       });
 
+      displaytypeinput1.addEventListener('click', function() {
+        if (displaytypeinput1.className === 'btn btn-secondary') {
+          displaytypeinput1.className = 'btn btn-danger';
+          displaytypeinput2.className = 'btn btn-secondary';
+          displaytypeinput3.className = 'btn btn-secondary';
+          displayform.style.display = 'none';
+          displaymode.textContent = '1';
+          displaywarningstatusinput.checked = false;
+          displaywarningstatus.textContent = 'false';
+          displaymodeinput1.className = 'btn btn-danger';
+          displaymodeinput2.className = 'btn btn-secondary';
+          displaymodeinput3.className = 'btn btn-secondary';
+          displaymodeinput4.className = 'btn btn-secondary';
+        }
+      });
+
+      displaytypeinput2.addEventListener('click', function() {
+        if (displaytypeinput2.className === 'btn btn-secondary') {
+          displaytypeinput1.className = 'btn btn-secondary';
+          displaytypeinput2.className = 'btn btn-success';
+          displaytypeinput3.className = 'btn btn-secondary';
+          displaywarningstatusinput.checked = true;
+          displaywarningstatus.textContent = 'true';
+          displayform.style.display = 'block';
+          //displaymode.textContent = '2';
+          displayheight.textContent = '32';
+        }
+      });
+
+      displaytypeinput3.addEventListener('click', function() {
+        if (displaytypeinput3.className === 'btn btn-secondary') {
+          displaytypeinput1.className = 'btn btn-secondary';
+          displaytypeinput2.className = 'btn btn-secondary';
+          displaytypeinput3.className = 'btn btn-success';
+          displaywarningstatusinput.checked = true;
+          displaywarningstatus.textContent = 'true';
+          displayform.style.display = 'block';
+          //displaymode.textContent = '3';
+          displayheight.textContent = '64';
+        }
+      });
+
       displaymodeinput1.addEventListener('click', function() {
-        const kiyvinput = document.getElementById(`kiyv-input`).className;
         if (displaymodeinput1.className === 'btn btn-secondary') {
           displaymodeinput1.className = 'btn btn-danger';
           displaymodeinput2.className = 'btn btn-secondary';
           displaymodeinput3.className = 'btn btn-secondary';
-          displaywarningstatusform.style.display = 'none';
-          displaytext.style.display = 'none';
+          displaymodeinput4.className = 'btn btn-secondary';
           displaymode.textContent = '1';
         }
       });
 
       displaymodeinput2.addEventListener('click', function() {
-        const kiyvinput = document.getElementById(`kiyv-input`).className;
         if (displaymodeinput2.className === 'btn btn-secondary') {
           displaymodeinput1.className = 'btn btn-secondary';
           displaymodeinput2.className = 'btn btn-success';
           displaymodeinput3.className = 'btn btn-secondary';
-          displaywarningstatusform.style.display = 'block';
-          displaytext.style.display = 'block';
+          displaymodeinput4.className = 'btn btn-secondary';
           displaymode.textContent = '2';
-          displayheight.textContent = '32';
         }
       });
 
       displaymodeinput3.addEventListener('click', function() {
-        const kiyvinput = document.getElementById(`kiyv-input`).className;
         if (displaymodeinput3.className === 'btn btn-secondary') {
           displaymodeinput1.className = 'btn btn-secondary';
           displaymodeinput2.className = 'btn btn-secondary';
           displaymodeinput3.className = 'btn btn-success';
-          displaywarningstatusform.style.display = 'block';
-          displaytext.style.display = 'block';
+          displaymodeinput4.className = 'btn btn-secondary';
           displaymode.textContent = '3';
-          displayheight.textContent = '64';
+        }
+      });
+
+      displaymodeinput4.addEventListener('click', function() {
+        if (displaymodeinput4.className === 'btn btn-secondary') {
+          displaymodeinput1.className = 'btn btn-secondary';
+          displaymodeinput2.className = 'btn btn-secondary';
+          displaymodeinput3.className = 'btn btn-secondary';
+          displaymodeinput4.className = 'btn btn-success';
+          displaymode.textContent = '4';
         }
       });
 
