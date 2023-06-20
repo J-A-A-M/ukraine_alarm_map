@@ -13,9 +13,9 @@
 #include <ESPmDNS.h>
 #include <esp32-hal-psram.h>
 
-char* deviceName = "Alarm Map Test";
-char* deviceBroadcastName = "alarm-map-test";
-char* softwareVersion = "2.6dev";
+char* deviceName = "Alarm Map";
+char* deviceBroadcastName = "alarm-map";
+char* softwareVersion = "2.6";
 
 // ============ НАЛАШТУВАННЯ ============
 
