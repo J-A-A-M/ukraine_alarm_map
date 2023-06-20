@@ -262,10 +262,11 @@ bool isDaylightSaving = false;
 float currentTemp;
 String currentWeather;
 
-static  bool mapModeFirstUpdate1= true;
-static  bool mapModeFirstUpdate2= true;
-static  bool mapModeFirstUpdate3= true;
-static  bool mapModeFirstUpdate4= true;
+static bool mapModeFirstUpdate1 = true;
+static bool mapModeFirstUpdate2 = true;
+static bool mapModeFirstUpdate3 = true;
+static bool mapModeFirstUpdate4 = true;
+static bool firstUptime = true;
 
 long timeDifference;
 long lastUpdateAt = 0;
@@ -840,9 +841,10 @@ void displayInfo() {
     int seconds = (timeDifference % 3600) % 60;
 
     String time = "";
-    //if (days < 10) time += "0";
-    time += days;
-    time += "d ";
+    if (days > 1){
+      time += days;
+      time += "d ";
+    }
     if (hours < 10) time += "0";
     time += hours;
     time += ":";
@@ -865,7 +867,7 @@ void displayInfo() {
     DisplayCenter(time,3);
   }
   if (displayMode == 4) {
-    Serial.println("Display mode 3");
+    Serial.println("Display mode 4");
     int day = timeClient.getDay();
     display.setCursor(0, 0);
     display.clearDisplay();
@@ -1153,7 +1155,8 @@ void mapInfo() {
 }
 
 void uptime() {
-  if ((millis() - lastUpdateAt) > 60000) {
+  if ((millis() - lastUpdateAt) > 60000 || firstUptime) {
+      firstUptime = false;
       int uptimeValue = millis() / 1000;
       lastUpdateAt = millis();
       int32_t number = WiFi.RSSI();
