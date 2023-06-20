@@ -11,11 +11,12 @@
 #include <Wire.h>
 #include <ArduinoHA.h>
 #include <ESPmDNS.h>
+#include <esp32-hal-psram.h>
 
 char* deviceName = "Alarm Map Test";
 char* deviceBroadcastName = "alarm-map-test";
 char* softwareVersion = "2.6dev";
- 
+
 // ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
@@ -234,11 +235,15 @@ HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
 
 HADevice device(mac, sizeof(mac));
-HAMqtt mqtt(client, device);
+HAMqtt mqtt(client, device, 12);
 HANumber haBrightness("alarm_map_brightness");
 HASelect haMapMode("alarm_map_map_mode");
 HASelect haDisplayMode("alarm_map_display_mode");
 HASelect haModulationMode("alarm_map_modulation_mode");
+HASensorNumber haUptimeSensor("alarm_map_uptime");
+HASensorNumber haWifiSignal("alarm_map_wifi");
+HASensorNumber haFreeMemory("alarm_map_free_memory");
+HASensorNumber haUsedMemory("alarm_map_used_memory");
 
 int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
@@ -263,6 +268,7 @@ static  bool mapModeFirstUpdate3= true;
 static  bool mapModeFirstUpdate4= true;
 
 long timeDifference;
+long lastUpdateAt = 0;
 
 
 
@@ -277,6 +283,8 @@ void initHA() {
     device.setSoftwareVersion(softwareVersion);
     device.setManufacturer("JAAM");
     device.setModel("Ukraine Alarm Map Informer");
+    device.enableSharedAvailability();
+
 
     haBrightness.onCommand(onHaBrightnessCommand);
     haBrightness.setIcon("mdi:brightness-percent");
@@ -301,6 +309,26 @@ void initHA() {
     haModulationMode.setIcon("mdi:alarm-light"); // optional
     haModulationMode.setName("Alarm Map modulation mode"); // optional
     haModulationMode.setCurrentState(modulationMode-1);
+
+    haUptimeSensor.setIcon("mdi:timer-outline");
+    haUptimeSensor.setName("Alarm Map Uptime");
+    haUptimeSensor.setUnitOfMeasurement("s");
+    haUptimeSensor.setDeviceClass("duration");
+
+    haWifiSignal.setIcon("mdi:wifi");
+    haWifiSignal.setName("Alarm Map Wifi signal");
+    haWifiSignal.setUnitOfMeasurement("dBm");
+    haWifiSignal.setDeviceClass("signal_strength");
+
+    haFreeMemory.setIcon("mdi:memory");
+    haFreeMemory.setName("Alarm Map free memory");
+    haFreeMemory.setUnitOfMeasurement("kB");
+    haFreeMemory.setDeviceClass("data_size");
+
+    haUsedMemory.setIcon("mdi:memory");
+    haUsedMemory.setName("Alarm Map used memory");
+    haUsedMemory.setUnitOfMeasurement("kB");
+    haUsedMemory.setDeviceClass("data_size");
 
     mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
     Serial.println("mqtt connected");
@@ -427,16 +455,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html += "<label for='displayMode'>Режим дісплея:</label>";
   html += "<select class='form-control' id='displayMode' name='display_mode'>";
   html += "<option value='1'";
-  if (displayMode == 1) html += " selected";
+  if (displayModeInit == 1) html += " selected";
   html += ">Вимкнений</option>";
   html += "<option value='2'";
-  if (displayMode == 2) html += " selected";
+  if (displayModeInit == 2) html += " selected";
   html += ">Поточний час</option>";
   html += "<option value='3'";
-  if (displayMode == 3) html += " selected";
+  if (displayModeInit == 3) html += " selected";
   html += ">Час тривог</option>";
   html += "<option value='4'";
-  if (displayMode == 4) html += " selected";
+  if (displayModeInit == 4) html += " selected";
   html += ">Погода</option>";
   html += "</select>";
   html += "</div>";
@@ -895,6 +923,9 @@ void autoBrightnessUpdate() {
         brightness = currentBrightness;
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
+        if (enableHA) {
+          haBrightness.setState(brightness);
+        }
         Serial.print(" set brightness: ");
         Serial.println(brightness);
       }else{
@@ -1048,11 +1079,17 @@ void alamsUpdate() {
     unsigned long  s4 = millis();
     if (return_to_map_init_mode) {
       mapMode = mapModeInit;
+      if (enableHA) {
+        haMapMode.setState(mapModeInit-1);
+      }
       Serial.print("switch to map mode: ");
       Serial.println(mapMode);
     }
     if (return_to_display_init_mode) {
       displayMode = displayModeInit;
+      if (enableHA) {
+        haDisplayMode.setState(displayModeInit-1);
+      }
       Serial.print("switch to display mode: ");
       Serial.println(displayMode);
     }
@@ -1115,6 +1152,36 @@ void mapInfo() {
   }
 }
 
+void uptime() {
+  if ((millis() - lastUpdateAt) > 60000) {
+      int uptimeValue = millis() / 1000;
+      lastUpdateAt = millis();
+      int32_t number = WiFi.RSSI();
+      int rssi = 0 - number;
+
+      float totalHeapSize = ESP.getHeapSize() / 1024.0;
+      float freeHeapSize = ESP.getFreeHeap() / 1024.0;
+      float usedHeapSize = totalHeapSize - freeHeapSize;
+
+      haUptimeSensor.setValue(uptimeValue);
+      haWifiSignal.setValue(rssi);
+      haFreeMemory.setValue(freeHeapSize);
+      haUsedMemory.setValue(usedHeapSize);
+
+      Serial.print("Wi-Fi Signal Strength (RSSI): ");
+      Serial.print(rssi);
+      Serial.println(" dBm");
+
+      Serial.print("Current Free Heap: ");
+      Serial.print(freeHeapSize);
+      Serial.println(" kB");
+
+      Serial.print("Current Used Heap: ");
+      Serial.print(usedHeapSize);
+      Serial.println(" kB");
+  }
+}
+
 void initTime() {
   timeClient.begin();
   timeClient.update();
@@ -1170,5 +1237,6 @@ void loop() {
   weatherUpdate();
   displayInfo();
   mapInfo();
+  uptime();
   delay(3000);
 }

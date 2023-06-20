@@ -460,7 +460,7 @@ static int flagColor[] {
               <div class="row">
                 <div class=""  >
                   <div class="alert alert-primary" role="alert">
-                    <span class="badge bg-success">оновлення</span> ДЛя інтеграції в Home Assistant потрібер вже налаштований mqtt-брокер, підключений до HA. Інтеграція створює потрібні топікі с даними в брокері. HA бачить мапу як окремий прилад розумного будинку і має можливість керувати мапою
+                    <span class="badge bg-success">оновлення</span> Для інтеграції в Home Assistant потрібер вже налаштований mqtt-брокер, підключений до HA. Інтеграція створює потрібні топікі с даними в брокері. HA бачить мапу як окремий прилад розумного будинку і має можливість керувати мапою
                   </div>
                 </div>
                 <div class="col-sm-6 mb-3">
@@ -482,18 +482,32 @@ static int flagColor[] {
 
           <div class="col-md-12 mb-1"></div>
 
+          <div class="row bg-light border rounded border-secondary">
+            <h5 class="mb-2 text-dark">Область <span class="badge bg-success">оновлення</span></h5>
+            <div class="col-md-12 mb-3">
+              <select class="form-select" id="default-state" oninput=updateDefaultState()></select>
+            </div>
+            <div class="" >
+              <div class="alert alert-primary" role="alert">
+                Вибір області для роботи режимів сповіщення часу тривог та погоди
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-12 mb-1"></div>
+
           <div class="row bg-light text-secondary border rounded border-secondary">
             <h5 class="mb-1 text-dark">Зовнішній вигляд мапи</h5>
 
-              <div class="">
-                <label class="form-label">Режим мапи</label>
-              </div>
-              <div class="col-md-12 btn-group mb-3" role="group">
-                <button type="button" class="btn btn-secondary" id="mode-input-1">Вимкнено</button>
-                <button type="button" class="btn btn-success" id="mode-input-2">Тривоги</button>
-                <button type="button" class="btn btn-secondary" id="mode-input-3">Погода</button>
-                <button type="button" class="btn btn-secondary" id="mode-input-4">Прапор</button>
-              </div>
+            <div class="">
+              <label class="form-label">Режим мапи</label>
+            </div>
+            <div class="col-md-12 btn-group mb-3" role="group">
+              <button type="button" class="btn btn-secondary" id="mode-input-1">Вимкнено</button>
+              <button type="button" class="btn btn-success" id="mode-input-2">Тривоги</button>
+              <button type="button" class="btn btn-secondary" id="mode-input-3">Погода</button>
+              <button type="button" class="btn btn-secondary" id="mode-input-4">Прапор</button>
+            </div>
 
 
             <div id="openstreetmap" style="display:none" class="col-sm-12 mb-2">
@@ -529,13 +543,6 @@ static int flagColor[] {
             </div>
             <div id="alarmback-2" class=" col-11 mb-1" style="display:none" >
               <label class="form-check-label">Перемикати мапу в режим тривоги у випадку тривоги у вибраних областях</label>
-            </div>
-
-
-            <div class="" id="alarmback-alert"  style="display:none">
-              <div class="alert alert-primary" role="alert">
-                Мапа повернеться у попередній режим погоди або прапора, коли всі тривоги у вибраних регіонах закінчаться
-              </div>
             </div>
 
             <div class="col-md-12 mb-3">
@@ -862,6 +869,8 @@ static int flagColor[] {
       const appassword = document.getElementById("ap-password");
       const openweathermapinput = document.getElementById("open-weather-map-input");
       const openweathermap = document.getElementById("open-weather-map");
+      const stateidinput = document.getElementById("default-state");
+      const stateid = document.getElementById("state-id");
 
       function updateWifiSSIDValue() {
         wifissid.textContent = wifissidinput.value;
@@ -877,6 +886,10 @@ static int flagColor[] {
       }
       function updateOWMValue() {
         openweathermap.textContent = openweathermapinput.value;
+      }
+
+      function updateDefaultState() {
+        stateid.textContent = stateidinput.value;
       }
 
       const wifistatus = document.getElementById('wifi-status');
@@ -971,18 +984,15 @@ static int flagColor[] {
       const alarmback1 = document.getElementById('alarmback-1');
       const alarmback2 = document.getElementById('alarmback-2');
       const alarmbackinput = document.getElementById('alarmback-input');
-      const alarmbackalert = document.getElementById('alarmback-alert');
       const alarmbackstates = document.getElementById('alarmback-states');
       const autoswitchmap = document.getElementById('autoswitch-map');
 
       alarmbackinput.addEventListener('click', function() {
         if (alarmbackinput.checked) {
           alarmbackstates.style.display = 'block';
-          alarmbackalert.style.display = 'block';
           autoswitchmap.textContent = 'true'
         } else {
           alarmbackstates.style.display = 'none';
-          alarmbackalert.style.display = 'none';
           autoswitchmap.textContent = 'false'
         }
       });
@@ -1135,8 +1145,6 @@ static int flagColor[] {
           maxtempform.style.display = 'none';
           alarmback1.style.display = 'block';
           alarmback2.style.display = 'block';
-          //alarmbackalert.style.display = 'none';
-          //alarmbackinput.checked = false;
           alarmbackstates.style.display = 'none';
         }
       });
@@ -1153,7 +1161,6 @@ static int flagColor[] {
           maxtempform.style.display = 'none';
           alarmback1.style.display = 'none';
           alarmback2.style.display = 'none';
-          alarmbackalert.style.display = 'none';
           alarmbackinput.checked = false;
           autoswitchmap.textContent = 'false'
           alarmbackstates.style.display = 'none';
@@ -1350,53 +1357,58 @@ static int flagColor[] {
       const modekyivinput2 = document.getElementById('mode-kyiv-input-2');
       const modekyivinput3 = document.getElementById('mode-kyiv-input-3');
 
-
       const stateList = [
-        { id: 'crimea-input', name: 'АР Крим' },
-        { id: 'vinnytsia-input', name: 'Вінницька область' },
-        { id: 'volyn-input', name: 'Волиньська область' },
-        { id: 'dnipropetrovsk-input', name: 'Дніпропетровська область' },
-        { id: 'donetsk-input', name: 'Донецька область' },
-        { id: 'zhytomyr-input', name: 'Житомирська область' },
-        { id: 'zakarpattia-input', name: 'Закарпатська область' },
-        { id: 'zaporizhzhia-input', name: 'Запорізька область' },
-        { id: 'ivano-frankivsk-input', name: 'Івано-Франківська область' },
-        { id: 'kiyvm-input', name: 'м. Київ' },
-        { id: 'kiyv-input', name: 'Київська область' },
-        { id: 'kirovohrad-input', name: 'Кіровоградська область' },
-        { id: 'luhansk-input', name: 'Луганська область' },
-        { id: 'lviv-input', name: 'Львівська область' },
-        { id: 'mykolaiv-input', name: 'Миколаївська область' },
-        { id: 'odesa-input', name: 'Одеська область' },
-        { id: 'poltava-input', name: 'Полтавська область' },
-        { id: 'rivne-input', name: 'Рівненська область' },
-        { id: 'sumy-input', name: 'Сумська область' },
-        { id: 'ternopil-input', name: 'Тернопільська область' },
-        { id: 'kharkiv-input', name: 'Харківська область' },
-        { id: 'kherson-input', name: 'Херсонська область' },
-        { id: 'khmelnytskyi-input', name: 'Хмельницька область' },
-        { id: 'cherkasy-input', name: 'Черкаська область' },
-        { id: 'chernivtsi-input', name: 'Чернівецька область' },
-        { id: 'chernihiv-input', name: 'Чернігівська область' }
+        { id: 'crimea-input', name: 'АР Крим', value: 16 },
+        { id: 'vinnytsia-input', name: 'Вінницька область', value: 23 },
+        { id: 'volyn-input', name: 'Волиньська область', value: 4 },
+        { id: 'dnipropetrovsk-input', name: 'Дніпропетровська область', value: 19 },
+        { id: 'donetsk-input', name: 'Донецька область', value: 13 },
+        { id: 'zhytomyr-input', name: 'Житомирська область', value: 6 },
+        { id: 'zakarpattia-input', name: 'Закарпатська область', value: 0 },
+        { id: 'zaporizhzhia-input', name: 'Запорізька область', value: 14 },
+        { id: 'ivano-frankivsk-input', name: 'Івано-Франківська область', value: 1 },
+        { id: 'kiyvm-input', name: 'м. Київ', value: 7 },
+        { id: 'kiyv-input', name: 'Київська область', value: 8 },
+        { id: 'kirovohrad-input', name: 'Кіровоградська область', value: 22 },
+        { id: 'luhansk-input', name: 'Луганська область', value: 12 },
+        { id: 'lviv-input', name: 'Львівська область', value: 3 },
+        { id: 'mykolaiv-input', name: 'Миколаївська область', value: 18 },
+        { id: 'odesa-input', name: 'Одеська область', value: 17 },
+        { id: 'poltava-input', name: 'Полтавська область', value: 20 },
+        { id: 'rivne-input', name: 'Рівненська область', value: 5 },
+        { id: 'sumy-input', name: 'Сумська область', value: 10 },
+        { id: 'ternopil-input', name: 'Тернопільська область', value: 2 },
+        { id: 'kharkiv-input', name: 'Харківська область', value: 11 },
+        { id: 'kherson-input', name: 'Херсонська область', value: 115 },
+        { id: 'khmelnytskyi-input', name: 'Хмельницька область', value: 24 },
+        { id: 'cherkasy-input', name: 'Черкаська область', value: 21 },
+        { id: 'chernivtsi-input', name: 'Чернівецька область', value: 25 },
+        { id: 'chernihiv-input', name: 'Чернігівська область', value: 9 }
       ];
 
       const ulElement = document.getElementById('alarmback-states');
+      const ulElement2 = document.getElementById('default-state');
 
-      stateList.forEach(function(state) {
+      stateList.forEach(function(state, index) {
         const liElement = document.createElement('li');
+        const liElement2 = document.createElement('option');
         if (state.id === 'kiyv-input') {
           liElement.className = 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success';
+          liElement2.selected = true;
         } else {
           liElement.className = 'list-group-item list-group-item-action pt-0 pb-0';
         }
-        if (state.id === 'kiyv-input') {
-          liElement.className = 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success';
-        } else {
-          liElement.className = 'list-group-item list-group-item-action pt-0 pb-0';
-        }
+        // if (state.id === 'kiyv-input') {
+        //   liElement.className = 'list-group-item list-group-item-action pt-0 pb-0 list-group-item-success';
+        // } else {
+        //   liElement.className = 'list-group-item list-group-item-action pt-0 pb-0';
+        // }
         liElement.id = state.id;
         liElement.textContent = state.name;
+        liElement2.value = state.value;
+        liElement2.textContent = state.name;
         ulElement.appendChild(liElement);
+        ulElement2.appendChild(liElement2);
       });
 
       function handleInputClick(input, output) {
