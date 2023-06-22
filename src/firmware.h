@@ -24,7 +24,7 @@ char* wifiSSID = ""; //Назва мережі WiFi
 char* wifiPassword = ""; //Пароль  WiFi
 char* apSSID = "AlarmMap"; //Назва точки доступу щоб переналаштувати WiFi
 char* apPassword = ""; //Пароль від точки доступу щоб переналаштувати WiFi. Пусте - без пароля
-bool wifiStatusBlink = true; //Статуси wifi на дісплеі
+bool wifiStatusBlink = true; //Статуси wifi на мапі
 int apModeConnectionTimeout = 120; //Час в секундах на роботу точки доступу
 
 //Налштування Home Assistant
@@ -212,13 +212,13 @@ static int flagColor[] {
 #define NUM_LEDS        25
 #define LED_TYPE        WS2812
 #define COLOR_ORDER     GRB
+
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
 // ======== КІНЕЦь НАЛАШТУВАННЯ =========
 
 CRGB leds[NUM_LEDS];
 CRGB ledWeatherColor[NUM_LEDS];
-
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
@@ -244,6 +244,22 @@ HASensorNumber haUptimeSensor("alarm_map_uptime");
 HASensorNumber haWifiSignal("alarm_map_wifi");
 HASensorNumber haFreeMemory("alarm_map_free_memory");
 HASensorNumber haUsedMemory("alarm_map_used_memory");
+HASensor haMapModeCurrent("alarm_map_map_mode_current");
+HASensor haDisplayModeCurrent("alarm_map_display_mode_current");
+
+char* mapModes [] = {
+  "Off",
+  "Alarms",
+  "Weather",
+  "Flag"
+};
+
+char* displayModes [] = {
+  "Off",
+  "Clock",
+  "Alarms",
+  "Weather"
+};
 
 int alarmsPeriod = 15000;
 int weatherPeriod = 600000;
@@ -270,6 +286,17 @@ static bool firstUptime = true;
 
 long timeDifference;
 long lastUpdateAt = 0;
+
+const unsigned char trident_small [] PROGMEM = {
+	0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
+	0x07, 0xc1, 0xc1, 0xf0, 0x06, 0xc1, 0xc1, 0xb0, 0x06, 0xe1, 0xc3, 0xb0, 0x06, 0x61, 0xc3, 0x30,
+	0x06, 0x71, 0xc7, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30,
+	0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0xf1, 0xc7, 0xb0, 0x07, 0xe1, 0xc3, 0xf0,
+	0x07, 0x83, 0xe0, 0xf0, 0x07, 0x03, 0x60, 0x70, 0x07, 0x87, 0x70, 0xf0, 0x07, 0xc6, 0x31, 0xf0,
+	0x06, 0xee, 0x3b, 0xb0, 0x06, 0x7f, 0x7f, 0x30, 0x06, 0x3d, 0xde, 0x30, 0x06, 0x19, 0xcc, 0x30,
+	0x07, 0xff, 0xff, 0xf0, 0x03, 0xff, 0xff, 0xe0, 0x01, 0xfc, 0x9f, 0xc0, 0x00, 0x0c, 0xd8, 0x00,
+	0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
+};
 
 
 
@@ -299,11 +326,19 @@ void initHA() {
     haMapMode.setName("Alarm Map map mode"); // optional
     haMapMode.setCurrentState(mapModeInit-1);
 
-    haDisplayMode.setOptions("Off;Clock"); // use semicolons as separator of options
+    haMapModeCurrent.setIcon("mdi:map"); // optional
+    haMapModeCurrent.setName("Alarm Map map mode current"); // optional
+    haMapModeCurrent.setValue(mapModes[mapMode-1]);
+
+    haDisplayMode.setOptions("Off;Clock;Alarms;Weather"); // use semicolons as separator of options
     haDisplayMode.onCommand(onHaDisplayModeCommand);
     haDisplayMode.setIcon("mdi:clock-digital"); // optional
     haDisplayMode.setName("Alarm Map display mode"); // optional
-    haDisplayMode.setCurrentState(displayMode-1);
+    haDisplayMode.setCurrentState(displayModeInit-1);
+
+    haDisplayModeCurrent.setIcon("mdi:clock-digital"); // optional
+    haDisplayModeCurrent.setName("Alarm Map display mode current"); // optional
+    haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
 
     haModulationMode.setOptions("Off;Modulation;Blink"); // use semicolons as separator of options
     haModulationMode.onCommand(onHaModulationModeCommand);
@@ -565,14 +600,15 @@ void initWiFi() {
   Serial.println("WiFi init");
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifiSSID, wifiPassword);
-  int connectionAttempts;
+  int connectionAttempts = 1;
   while (WiFi.status() != WL_CONNECTED) {
-    connectionAttempts++;
+    Serial.print("connectionAttempts: ");
+    Serial.println(connectionAttempts);
     if(displayWarningStatus) {
       display.setCursor(0, 0);
       display.clearDisplay();
       display.setTextSize(1);
-      display.print("WiFi connecting: ");
+      display.print(utf8cyr("WiFi пiдключення: "));
       display.println(connectionAttempts);
       display.setTextSize(2);
       DisplayCenter(wifiSSID,3);
@@ -593,6 +629,7 @@ void initWiFi() {
     if (connectionAttempts == 10) {
       break;
     }
+    connectionAttempts++;
   }
   if (WiFi.status() == WL_CONNECTED) {
     wifiConnectionSuccess();
@@ -609,7 +646,7 @@ void wifiConnectionSuccess() {
     display.print("IP: ");
     display.println(WiFi.localIP());
     display.setTextSize(2);
-    DisplayCenter("connected",3);
+    DisplayCenter("пiдключено",10);
 
   }
   if(wifiStatusBlink) {
@@ -630,7 +667,7 @@ void startAPMode() {
     display.setTextSize(1);
     display.print("AP: ");
     display.println(apSSID);
-    display.print("Password: ");
+    display.print(utf8cyr("Пароль: "));
     display.println(apPassword);
     display.display();
   }
@@ -650,8 +687,8 @@ void startAPMode() {
     if(displayWarningStatus) {
       display.clearDisplay();
       display.setTextSize(1);
-      display.println("Connection error");
-      display.println("Restarting... ");
+      display.println(utf8cyr("Помилка WIFI"));
+      display.println(utf8cyr("Перезавантаження... "));
       Serial.println("Помилка підключення");
     }
     delay(5000);
@@ -818,11 +855,11 @@ void displayInfo() {
   if (displayMode == 2) {
     Serial.println("Display mode 2");
     int day = timeClient.getDay();
-    String daysOfWeek[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    String daysOfWeek[] = {"Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"};
     display.setCursor(0, 0);
     display.clearDisplay();
     display.setTextSize(1);
-    display.println(daysOfWeek[day]);
+    display.println(utf8cyr(daysOfWeek[day]));
     String time = "";
     if (hour < 10) time += "0";
     time += hour;
@@ -831,7 +868,7 @@ void displayInfo() {
     time += minute;
 
     display.setTextSize(3);
-    DisplayCenter(time,6);
+    DisplayCenter(time,7);
   }
   if (displayMode == 3) {
     Serial.println("Display mode 3");
@@ -857,14 +894,14 @@ void displayInfo() {
     display.clearDisplay();
     display.setTextSize(1);
     if (isAlarm){
-      display.println("Alarm:");
+      display.println(utf8cyr("Тривалість тривоги:"));
     }else{
-      display.println("No Alarm:");
+      display.println(utf8cyr("Час без тривоги:"));
     }
     display.setTextSize(2);
     // display.println(time);
     // display.display();
-    DisplayCenter(time,3);
+    DisplayCenter(time,6);
   }
   if (displayMode == 4) {
     Serial.println("Display mode 4");
@@ -872,7 +909,7 @@ void displayInfo() {
     display.setCursor(0, 0);
     display.clearDisplay();
     display.setTextSize(1);
-    display.println(currentWeather);
+    display.println(utf8cyr(currentWeather));
     String time = "";
     char roundedTemp[4];
     dtostrf(currentTemp, 3, 1, roundedTemp);
@@ -890,7 +927,7 @@ void DisplayCenter(String text, int bound) {
     uint16_t height;
     display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
     display.setCursor(((DISPLAY_WIDTH - width) / 2), ((DISPLAY_HEIGHT - height) / 2) + bound);
-    display.println(text);
+    display.println(utf8cyr(text));
     display.display();
   }
 
@@ -903,10 +940,27 @@ void initFastLED() {
 }
 
 void initDisplay() {
-  displayMode = displayModeInit;
+  //displayMode = displayModeInit;
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
   display.setTextColor(WHITE);
+  int16_t centerX = (DISPLAY_WIDTH - 32) / 2;    // Calculate the X coordinate
+  int16_t centerY = (DISPLAY_HEIGHT - 32) / 2;
+  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+  display.setTextSize(1);
+  String text1 = utf8cyr("Just Another");
+  String text2 = utf8cyr("Alarm Map ");
+  text2 += softwareVersion;
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+  display.setCursor(35, ((DISPLAY_HEIGHT - height) / 2) - 7);
+  display.print(text1);
+  display.setCursor(35, ((DISPLAY_HEIGHT - height) / 2) + 2);
+  display.print(text2);
+  display.display();
 }
 
 void autoBrightnessUpdate() {
@@ -945,7 +999,7 @@ void weatherUpdate () {
     lastWeatherTime = millis();
     firstWeatherUpdate = false;
     for (int i = 0; i < NUM_LEDS; i++) {
-      String apiUrl = "http://api.openweathermap.org/data/2.5/weather?id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
+      String apiUrl = "http://api.openweathermap.org/data/2.5/weather?lang=ua&id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
       http.begin(apiUrl);
       int httpResponseCode = http.GET();
 
@@ -957,7 +1011,7 @@ void weatherUpdate () {
         double temp = doc["main"]["temp"];
         if (stateId == i) {
           currentTemp = doc["main"]["temp"];
-          currentWeather = doc["weather"][0]["main"].as<String>();
+          currentWeather = doc["weather"][0]["description"].as<String>();
           Serial.println(currentWeather);
         }
         float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
@@ -1071,10 +1125,16 @@ void alamsUpdate() {
       }
       if (autoSwitchMap && enable && statesIdsAlarmCheck[i]==1) {
           mapMode = 2;
+          if (enableHA) {
+            haMapModeCurrent.setValue(mapModes[mapMode-1]);
+          }
           return_to_map_init_mode = false;
       }
       if (autoSwitchDisplay && enable && statesIdsAlarmCheck[i]==1) {
           displayMode = 3;
+          if (enableHA) {
+            haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
+          }
           return_to_display_init_mode = false;
       }
     }
@@ -1082,6 +1142,7 @@ void alamsUpdate() {
     if (return_to_map_init_mode) {
       mapMode = mapModeInit;
       if (enableHA) {
+        haMapModeCurrent.setValue(mapModes[mapMode-1]);
         haMapMode.setState(mapModeInit-1);
       }
       Serial.print("switch to map mode: ");
@@ -1090,6 +1151,7 @@ void alamsUpdate() {
     if (return_to_display_init_mode) {
       displayMode = displayModeInit;
       if (enableHA) {
+        haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
         haDisplayMode.setState(displayModeInit-1);
       }
       Serial.print("switch to display mode: ");
@@ -1212,12 +1274,20 @@ void initBroadcast() {
   Serial.println("Device bradcasted to network!");
 }
 
+void startText() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  DisplayCenter(utf8cyr("Завантаження даних..."),0);
+}
+
 void setup() {
   Serial.begin(115200);
   initFastLED();
-  Flag(50);
   initDisplay();
+  Flag(100);
   initWiFi();
+  startText();
   initTime();
   autoBrightnessUpdate();
   initBroadcast();
@@ -1243,3 +1313,43 @@ void loop() {
   uptime();
   delay(3000);
 }
+
+String utf8cyr(String source) {
+    int i,k;
+    String target;
+    unsigned char n;
+    char m[2] = { '0', '\0' };
+
+    k = source.length(); i = 0;
+    while (i < k) {
+      n = source[i]; i++;
+      if (n >= 0xC0) {
+        switch (n) {
+          case 0xD0: {
+            n = source[i]; i++;
+            if (n == 0x81) { n = 0xA8; break; }       //  Ё
+            if (n == 0x84) { n = 0xAA; break; }       //  Є
+            if (n == 0x86) { n = 0xB1; break; }       //  І
+            if (n == 0x87) { n = 0xAF; break; }       //  Ї
+            if (n >= 0x90 && n <= 0xBF) n = n + 0x2F; break;
+          }
+          case 0xD1: {
+            n = source[i]; i++;
+            if (n == 0x91) { n = 0xB7; break; }       //  ё
+            if (n == 0x94) { n = 0xB9; break; }       //  є
+            if (n == 0x96) { n = 0xB2; break; }       //  і
+            if (n == 0x97) { n = 0xBE; break; }       //  ї
+            if (n >= 0x80 && n <= 0x8F) n = n + 0x6F; break;
+          }
+          case 0xD2: {
+            n = source[i]; i++;
+            if (n == 0x90) { n = 0xA5; break; }       //  Ґ
+            if (n == 0x91) { n = 0xB3; break; }       //  ґ
+          }
+        }
+      }
+      m[0] = n;
+      target = target + String(m);
+    }
+    return target;
+  }
