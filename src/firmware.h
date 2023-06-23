@@ -5,19 +5,19 @@
 #include <HTTPClient.h>
 #include <WiFiManager.h>
 #include <NTPClient.h>
-#include <HTTPUpdate.h>
 #include <ESPAsyncWebServer.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
 #include <ArduinoHA.h>
 #include <ESPmDNS.h>
-#include <esp32-hal-psram.h>
+#include <ArduinoOTA.h>
+#include <EEPROM.h>
+
+//#include <esp32-hal-psram.h>
 
 char* deviceName = "Alarm Map";
 char* deviceBroadcastName = "alarm-map";
-char* softwareVersion = "2.6";
-
-// ============ НАЛАШТУВАННЯ ============
+char* softwareVersion = "2.7";
 
 //Налаштування WiFi
 char* wifiSSID = ""; //Назва мережі WiFi
@@ -65,7 +65,7 @@ int blinkDistricts[] = {
 int modulationMode = 2; //Режим модуляції
 int modulationLevel = 50; //Рівень модуляції
 int modulationStep = 5; //Крок модуляції
-int modulationTime = 400; //Тривалість модуляції
+int modulationTime = 500; //Тривалість модуляції
 int modulationCount = 3; //Кількість модуляцій в циклі
 bool modulationAlarmsOffNew = true; //Відбій тривог в модуляції
 bool modulationAlarmsOff = false; //Зони без тривог в модуляції
@@ -90,7 +90,7 @@ float maxTemp = 30.0; // максимальна температура у гра
 int stateId = 7;
 
 //Налаштуванння повернення в режим тривог
-int statesIdsAlarmCheck[] = {
+int statesIdsAlarmCheck[] PROGMEM = {
   0,
   0,
   0,
@@ -119,7 +119,7 @@ int statesIdsAlarmCheck[] = {
   0,
 };
 
-static String states[] = {
+static String states[] PROGMEM = {
   "Закарпатська область",
   "Івано-Франківська область",
   "Тернопільська область",
@@ -149,7 +149,7 @@ static String states[] = {
 };
 
 //Погодні IDS
-int statesIdsWeather[] = {
+int statesIdsWeather[] PROGMEM =  {
   690548,
   707471,
   691650,
@@ -226,6 +226,12 @@ AsyncWebServer aserver(80);
 
 DynamicJsonDocument doc(30000);
 
+const int eepromBrightnessAddress = 20;
+const int eepromMapModeAddress = 21;
+const int eepromDisplayModeAddress = 22;
+const int eepromModulationModeAddress = 23;
+
+//String baseURL = "https://map.vglskr.net.ua/alarm_map/statuses.json";
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
 WiFiClient client;
@@ -313,37 +319,35 @@ void initHA() {
     device.setModel("Ukraine Alarm Map Informer");
     device.enableSharedAvailability();
 
-
     haBrightness.onCommand(onHaBrightnessCommand);
     haBrightness.setIcon("mdi:brightness-percent");
     haBrightness.setName("Alarm Map Brightness");
     haBrightness.setCurrentState(brightness);
 
-    // set available options
-    haMapMode.setOptions("Off;Alarms;Weather;Flag"); // use semicolons as separator of options
+    haMapMode.setOptions("Off;Alarms;Weather;Flag");
     haMapMode.onCommand(onHaMapModeCommand);
-    haMapMode.setIcon("mdi:map"); // optional
-    haMapMode.setName("Alarm Map map mode"); // optional
+    haMapMode.setIcon("mdi:map");
+    haMapMode.setName("Alarm Map map mode");
     haMapMode.setCurrentState(mapModeInit-1);
 
-    haMapModeCurrent.setIcon("mdi:map"); // optional
-    haMapModeCurrent.setName("Alarm Map map mode current"); // optional
+    haMapModeCurrent.setIcon("mdi:map");
+    haMapModeCurrent.setName("Alarm Map map mode current");
     haMapModeCurrent.setValue(mapModes[mapMode-1]);
 
-    haDisplayMode.setOptions("Off;Clock;Alarms;Weather"); // use semicolons as separator of options
+    haDisplayMode.setOptions("Off;Clock;Alarms;Weather");
     haDisplayMode.onCommand(onHaDisplayModeCommand);
-    haDisplayMode.setIcon("mdi:clock-digital"); // optional
-    haDisplayMode.setName("Alarm Map display mode"); // optional
+    haDisplayMode.setIcon("mdi:clock-digital");
+    haDisplayMode.setName("Alarm Map display mode");
     haDisplayMode.setCurrentState(displayModeInit-1);
 
-    haDisplayModeCurrent.setIcon("mdi:clock-digital"); // optional
-    haDisplayModeCurrent.setName("Alarm Map display mode current"); // optional
+    haDisplayModeCurrent.setIcon("mdi:clock-digital");
+    haDisplayModeCurrent.setName("Alarm Map display mode current");
     haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
 
-    haModulationMode.setOptions("Off;Modulation;Blink"); // use semicolons as separator of options
+    haModulationMode.setOptions("Off;Modulation;Blink");
     haModulationMode.onCommand(onHaModulationModeCommand);
-    haModulationMode.setIcon("mdi:alarm-light"); // optional
-    haModulationMode.setName("Alarm Map modulation mode"); // optional
+    haModulationMode.setIcon("mdi:alarm-light");
+    haModulationMode.setName("Alarm Map modulation mode");
     haModulationMode.setCurrentState(modulationMode-1);
 
     haUptimeSensor.setIcon("mdi:timer-outline");
@@ -379,6 +383,9 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
         int8_t numberInt8 = haBrightness.toInt8();
         autoBrightness = false;
         brightness = numberInt8;
+        EEPROM.write(eepromBrightnessAddress, brightness);
+        EEPROM.commit();
+        Serial.println("brightness commited to eeprom");
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
         Serial.print('brightness from HA: ');
@@ -406,6 +413,9 @@ void onHaMapModeCommand(int8_t index, HASelect* sender)
         // unknown option
         return;
     }
+    EEPROM.write(eepromMapModeAddress, mapModeInit);
+    EEPROM.commit();
+    Serial.println("mapModeInit commited to eeprom");
     sender->setState(index);
 }
 
@@ -428,6 +438,9 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
         // unknown option
         return;
     }
+    EEPROM.write(eepromDisplayModeAddress, displayModeInit);
+    EEPROM.commit();
+    Serial.println("displayModeInit commited to eeprom");
     sender->setState(index);
 }
 
@@ -447,6 +460,9 @@ void onHaModulationModeCommand(int8_t index, HASelect* sender)
         // unknown option
         return;
     }
+    EEPROM.write(eepromModulationModeAddress, modulationMode);
+    EEPROM.commit();
+    Serial.println("modulationMode commited to eeprom");
     sender->setState(index);
 }
 
@@ -458,12 +474,19 @@ void setupRouting() {
 
 void handleRoot(AsyncWebServerRequest* request){
   String html = "<html><head>";
+  html += "<title>Керування мапою тривог</title>";
   html += "<meta charset='UTF-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>";
   html += "<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>";
   html += "</head><body>";
   html += "<div class='container'>";
   html += "<h1 class='mt-4'>Параметри конфігурації</h1>";
+  html += "<h4 class='mt-4'>Локальна IP-адреса: ";
+  html += WiFi.localIP().toString();
+  html += "</h4>";
+  html += "<h4 class='mt-4'>Версія прошивки: ";
+  html += softwareVersion;
+  html += "</h4>";
   html += "<form id='configForm' action='/save' method='POST'>";
   html += "<div class='form-group'>";
   html += "<label for='brightness'>Яскравість:</label>";
@@ -567,6 +590,9 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("brightness", true)){
     autoBrightness = false;
     brightness = request->getParam("brightness", true)->value().toInt();
+    EEPROM.write(eepromBrightnessAddress, brightness);
+    EEPROM.commit();
+    Serial.println("brightness commited to eeprom");
     FastLED.setBrightness(2.55 * brightness);
     FastLED.show();
     if (enableHA) {
@@ -578,18 +604,27 @@ void handleSave(AsyncWebServerRequest* request){
     if (enableHA) {
       haMapMode.setState(mapModeInit-1);
     }
+    EEPROM.write(eepromMapModeAddress, mapModeInit);
+    EEPROM.commit();
+    Serial.println("mapModeInit commited to eeprom");
   }
   if (request->hasParam("display_mode", true)){
     displayModeInit = request->getParam("display_mode", true)->value().toInt();
     if (enableHA) {
       haDisplayMode.setState(displayModeInit-1);
     }
+    EEPROM.write(eepromDisplayModeAddress, displayModeInit);
+    EEPROM.commit();
+    Serial.println("displayModeInit commited to eeprom");
   }
   if (request->hasParam("modulation_mode", true)){
     modulationMode = request->getParam("modulation_mode", true)->value().toInt();
     if (enableHA) {
       haModulationMode.setState(modulationMode-1);
     }
+    EEPROM.write(eepromModulationModeAddress, modulationMode);
+    EEPROM.commit();
+    Serial.println("modulationMode commited to eeprom");
   }
 
   request->redirect("/");
@@ -602,8 +637,8 @@ void initWiFi() {
   WiFi.begin(wifiSSID, wifiPassword);
   int connectionAttempts = 1;
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.print("connectionAttempts: ");
-    Serial.println(connectionAttempts);
+    //Serial.print("connectionAttempts: ");
+    //Serial.println(connectionAttempts);
     if(displayWarningStatus) {
       display.setCursor(0, 0);
       display.clearDisplay();
@@ -618,11 +653,11 @@ void initWiFi() {
       FlashAll(10,1);
     }
     delay(2000);
-    Serial.println("Connecting to WiFi...");
-    Serial.print("WIFI status: ");
-    Serial.println(WiFi.status());
+    //Serial.println("Connecting to WiFi...");
+    //Serial.print("WIFI status: ");
+    //Serial.println(WiFi.status());
     if (WiFi.status() == WL_CONNECT_FAILED) {
-      Serial.println("Connection failed. Starting AP mode.");
+      //Serial.println("Connection failed. Starting AP mode.");
       startAPMode();
       break;
     }
@@ -675,11 +710,11 @@ void startAPMode() {
     colorFill(HUE_YELLOW, 255);
     FlashAll(10,3);
   }
-  Serial.println("AP mode started");
-  Serial.print("AP SSID: ");
-  Serial.println(apSSID);
-  Serial.print("AP Password: ");
-  Serial.println(apPassword);
+  //Serial.println("AP mode started");
+  //Serial.print("AP SSID: ");
+  //Serial.println(apSSID);
+  //Serial.print("AP Password: ");
+  //Serial.println(apPassword);
   bool connection;
   wm.setTimeout(apModeConnectionTimeout);
   connection = wm.autoConnect(apSSID, apPassword);
@@ -689,7 +724,7 @@ void startAPMode() {
       display.setTextSize(1);
       display.println(utf8cyr("Помилка WIFI"));
       display.println(utf8cyr("Перезавантаження... "));
-      Serial.println("Помилка підключення");
+      //Serial.println("Помилка підключення");
     }
     delay(5000);
     ESP.restart();
@@ -740,7 +775,7 @@ void Modulation() {
       delay(localModulationTime);
     }
   }
-  Serial.println("Modulation: end");
+  //Serial.println("Modulation: end");
 }
 
 void movingBlink(int color, int count) {
@@ -763,7 +798,7 @@ void colorFill(int color, int fillBrightness) {
 }
 
 void Blink() {
-  Serial.println("Start blink");
+  Serial.println("Blink start ");
   int localModulationTime = modulationTime / 2;
   int selectedStates[NUM_LEDS];
   for (int i = 0; i < NUM_LEDS; i++) {
@@ -797,7 +832,7 @@ void Blink() {
     FastLED.show();
     delay(localModulationTime);
   }
-  Serial.println("End blink");
+  //Serial.println("End blink");
 }
 
 void Flag(int wait) {
@@ -855,7 +890,7 @@ void displayInfo() {
   if (displayMode == 2) {
     Serial.println("Display mode 2");
     int day = timeClient.getDay();
-    String daysOfWeek[] = {"Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"};
+    String daysOfWeek[] = {"Недiля", "Понедiлок", "Вiвторок", "Середа", "Четвер", "П\'ятниця", "Субота"};
     display.setCursor(0, 0);
     display.clearDisplay();
     display.setTextSize(1);
@@ -894,7 +929,7 @@ void displayInfo() {
     display.clearDisplay();
     display.setTextSize(1);
     if (isAlarm){
-      display.println(utf8cyr("Тривалість тривоги:"));
+      display.println(utf8cyr("Тривалiсть тривоги:"));
     }else{
       display.println(utf8cyr("Час без тривоги:"));
     }
@@ -940,7 +975,7 @@ void initFastLED() {
 }
 
 void initDisplay() {
-  //displayMode = displayModeInit;
+
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
   display.setTextColor(WHITE);
@@ -965,27 +1000,30 @@ void initDisplay() {
 
 void autoBrightnessUpdate() {
     if (autoBrightness) {
-      Serial.print("Autobrightness start: ");
+      //Serial.print("Autobrightness start: ");
       timeClient.update();
       int currentHour = timeClient.getHours();
       int currentBrightness = 0;
       bool isDay = currentHour >= day && currentHour < night;
-      Serial.print("isDay: ");
-      Serial.print(isDay);
+      //Serial.print("isDay: ");
+      //Serial.print(isDay);
       currentBrightness = isDay ? dayBrightness : nightBrightness;
-      Serial.print(" currentBrightness: ");
-      Serial.print(currentBrightness);
+      //Serial.print(" currentBrightness: ");
+      //Serial.print(currentBrightness);
       if (currentBrightness != brightness) {
         brightness = currentBrightness;
+        EEPROM.write(eepromBrightnessAddress, brightness);
+        EEPROM.commit();
+        Serial.println("brightness commited to eeprom");
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
         if (enableHA) {
           haBrightness.setState(brightness);
         }
-        Serial.print(" set brightness: ");
-        Serial.println(brightness);
+        //Serial.print(" set brightness: ");
+        //Serial.println(brightness);
       }else{
-        Serial.println("");
+        //Serial.println("");
       }
     }
   }
@@ -993,7 +1031,7 @@ void autoBrightnessUpdate() {
 void weatherUpdate () {
   if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
     if (firstWeatherUpdate){
-      Serial.println("firstWeatherUpdate");
+      //Serial.println("firstWeatherUpdate");
     }
     Serial.println("Weather fetch start");
     lastWeatherTime = millis();
@@ -1012,15 +1050,16 @@ void weatherUpdate () {
         if (stateId == i) {
           currentTemp = doc["main"]["temp"];
           currentWeather = doc["weather"][0]["description"].as<String>();
-          Serial.println(currentWeather);
+          currentWeather.replace('і', 'i');
+          //Serial.println(currentWeather);
         }
         float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
-        Serial.print(states[i]);
-        Serial.print(':');
-        Serial.print(temp);
-        Serial.print(':');
-        Serial.print(normalizedValue);
-        Serial.print(':');
+        //Serial.print(states[i]);
+        //Serial.print(':');
+        //Serial.print(temp);
+        //Serial.print(':');
+        //Serial.print(normalizedValue);
+        //Serial.print(':');
         if (normalizedValue > 1){
           normalizedValue = 1;
         }
@@ -1029,16 +1068,16 @@ void weatherUpdate () {
         }
         int hue = 192 + normalizedValue * (0 - 192);
         hue = (int)hue % 256;
-        Serial.println(hue);
+        //Serial.println(hue);
         ledWeatherColor[i] = CHSV(hue, 255, 255);
       }
       else {
-        Serial.print("Error getting weather data for city ID ");
-        Serial.println(statesIdsWeather[i]);
+        //Serial.print("Error getting weather data for city ID ");
+        //Serial.println(statesIdsWeather[i]);
       }
       http.end();
     }
-    Serial.println("Weather fetch end");
+    //Serial.println("Weather fetch end");
   }
 }
 
@@ -1050,8 +1089,8 @@ void alamsUpdate() {
     firstAlarmsUpdate = false;
     String response;
     HTTPClient http;
-    Serial.print("Fetch alarm data: ");
-    Serial.println(baseURL);
+    //Serial.print("Fetch alarm data: ");
+    //Serial.println(baseURL);
     http.begin(baseURL.c_str());
     int httpResponseCode = http.GET();
 
@@ -1059,8 +1098,8 @@ void alamsUpdate() {
       response = http.getString();
     }
     else {
-      Serial.print("Fetch fail: ");
-      Serial.println(httpResponseCode);
+      //Serial.print("Fetch fail: ");
+      //Serial.println(httpResponseCode);
       return;
     }
     http.end();
@@ -1095,8 +1134,8 @@ void alamsUpdate() {
           time_t currentTime = timeClient.getEpochTime();
           timeDifference = difftime(currentTime, oldTime);
           if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
-          Serial.print("timeDifference: ");
-          Serial.println(timeDifference);
+          //Serial.print("timeDifference: ");
+          //Serial.println(timeDifference);
           isAlarm = true;
         }
         alarmsNowCount++;
@@ -1118,8 +1157,8 @@ void alamsUpdate() {
           time_t currentTime = timeClient.getEpochTime();
           timeDifference = difftime(currentTime, oldTime);
           if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
-          //Serial.print("timeDifference: ");
-          //Serial.println(timeDifference);
+          ////Serial.print("timeDifference: ");
+          ////Serial.println(timeDifference);
           isAlarm = false;
         }
       }
@@ -1143,22 +1182,22 @@ void alamsUpdate() {
       mapMode = mapModeInit;
       if (enableHA) {
         haMapModeCurrent.setValue(mapModes[mapMode-1]);
-        haMapMode.setState(mapModeInit-1);
+        //haMapMode.setState(mapModeInit-1);
       }
-      Serial.print("switch to map mode: ");
-      Serial.println(mapMode);
+      //Serial.print("switch to map mode: ");
+      //Serial.println(mapMode);
     }
     if (return_to_display_init_mode) {
       displayMode = displayModeInit;
       if (enableHA) {
         haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
-        haDisplayMode.setState(displayModeInit-1);
+        //haDisplayMode.setState(displayModeInit-1);
       }
-      Serial.print("switch to display mode: ");
-      Serial.println(displayMode);
+      //Serial.print("switch to display mode: ");
+      //Serial.println(displayMode);
     }
-    Serial.print("Alarms fetch end: ");
-    Serial.println(s4-s1);
+    //Serial.print("Alarms fetch end: ");
+    //Serial.println(s4-s1);
   }
 }
 
@@ -1233,17 +1272,17 @@ void uptime() {
       haFreeMemory.setValue(freeHeapSize);
       haUsedMemory.setValue(usedHeapSize);
 
-      Serial.print("Wi-Fi Signal Strength (RSSI): ");
-      Serial.print(rssi);
-      Serial.println(" dBm");
+      //Serial.print("Wi-Fi Signal Strength (RSSI): ");
+      //Serial.print(rssi);
+      //Serial.println(" dBm");
 
-      Serial.print("Current Free Heap: ");
-      Serial.print(freeHeapSize);
-      Serial.println(" kB");
+      //Serial.print("Current Free Heap: ");
+      //Serial.print(freeHeapSize);
+      //Serial.println(" kB");
 
-      Serial.print("Current Used Heap: ");
-      Serial.print(usedHeapSize);
-      Serial.println(" kB");
+      //Serial.print("Current Used Heap: ");
+      //Serial.print(usedHeapSize);
+      //Serial.println(" kB");
   }
 }
 
@@ -1281,8 +1320,57 @@ void startText() {
   DisplayCenter(utf8cyr("Завантаження даних..."),0);
 }
 
+void checkEEPROM() {
+  EEPROM.begin(128);
+  int eepromBrightness;
+  eepromBrightness = EEPROM.read(eepromBrightnessAddress);
+  if (eepromBrightness == 0xFF) {
+    EEPROM.write(eepromBrightnessAddress, brightness);
+    EEPROM.commit();
+    Serial.println("Brightness value not found in EEPROM. Using default value.");
+  } else {
+    brightness = eepromBrightness;
+    Serial.print("Brightness value found in EEPROM: ");
+    Serial.println(eepromBrightness);
+  }
+  int eepromMapMode;
+  eepromMapMode = EEPROM.read(eepromMapModeAddress);
+  if (eepromMapMode == 0xFF) {
+    EEPROM.write(eepromMapModeAddress, mapModeInit);
+    EEPROM.commit();
+    Serial.println("mapMode value not found in EEPROM. Using default value.");
+  } else {
+    mapModeInit = eepromMapMode;
+    Serial.print("mapMode value found in EEPROM: ");
+    Serial.println(eepromMapMode);
+  }
+  int eepromDisplayMode;
+  eepromDisplayMode = EEPROM.read(eepromDisplayModeAddress);
+  if (eepromDisplayMode == 0xFF) {
+    EEPROM.write(eepromDisplayModeAddress, displayModeInit);
+    EEPROM.commit();
+    Serial.println("displayMode value not found in EEPROM. Using default value.");
+  } else {
+    displayModeInit = eepromDisplayMode;
+    Serial.print("displayMode value found in EEPROM: ");
+    Serial.println(eepromDisplayMode);
+  }
+  int eepromModulationMode;
+  eepromModulationMode = EEPROM.read(eepromModulationModeAddress);
+  if (eepromModulationMode == 0xFF) {
+    EEPROM.write(eepromModulationModeAddress, modulationMode);
+    EEPROM.commit();
+    Serial.println("modulationMode value not found in EEPROM. Using default value.");
+  } else {
+    modulationMode = eepromModulationMode;
+    Serial.print("modulationMode value found in EEPROM: ");
+    Serial.println(eepromModulationMode);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  checkEEPROM();
   initFastLED();
   initDisplay();
   Flag(100);
@@ -1290,9 +1378,10 @@ void setup() {
   startText();
   initTime();
   autoBrightnessUpdate();
-  initBroadcast();
   initHA();
   setupRouting();
+  ArduinoOTA.begin();
+  initBroadcast();
 }
 
 void loop() {
@@ -1305,6 +1394,7 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
+  ArduinoOTA.handle();
   autoBrightnessUpdate();
   alamsUpdate();
   weatherUpdate();
