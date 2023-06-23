@@ -179,11 +179,11 @@ int statesIdsWeather[] PROGMEM =  {
 };
 
 //Прапор
-static int flagColor[] {
+static int flagColor[] PROGMEM {
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
-  HUE_YELLOW,
+  HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
@@ -378,7 +378,7 @@ void initHA() {
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
 {
     if (!haBrightness.isSet()) {
-        Serial.println('number not set');
+        //Serial.println('number not set');
     } else {
         int8_t numberInt8 = haBrightness.toInt8();
         autoBrightness = false;
@@ -388,8 +388,8 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
         Serial.println("brightness commited to eeprom");
         FastLED.setBrightness(2.55 * brightness);
         FastLED.show();
-        Serial.print('brightness from HA: ');
-        Serial.println(numberInt8);
+        //Serial.print('brightness from HA: ');
+        //Serial.println(numberInt8);
     }
     sender->setState(haBrightness);
 }
