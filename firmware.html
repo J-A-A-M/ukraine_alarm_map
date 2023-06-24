@@ -210,7 +210,6 @@ int mqttPort = <span id="mqtt-port">1883</span>;
 char* mqttUser = "<span id="mqtt-login"></span>";
 char* mqttPassword = "<span id="mqtt-password"></span>";
 char* brokerAddress = "<span id="mqtt-broker-address"></span>";
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
 
 //Налштування яскравості
 int brightness = <span id="brightness">100</span>; //Яскравість %
@@ -267,7 +266,7 @@ float maxTemp = <span id="max-temp">25.0</span>; // максимальна те�
 int stateId = <span id="state-id">8</span>;
 
 //Налаштуванння повернення в режим тривог
-int statesIdsAlarmCheck[] = {
+int statesIdsAlarmCheck[] PROGMEM = {
   <span id="zakarpattia">0,</span>
   <span id="ivano-frankivsk">0,</span>
   <span id="ternopil">0,</span>
@@ -296,7 +295,7 @@ int statesIdsAlarmCheck[] = {
   <span id="chernivtsi">0,</span>
 };
 
-static String states[] = {
+static String states[] PROGMEM = {
   "Закарпатська область",
   "Івано-Франківська область",
   "Тернопільська область",
@@ -326,7 +325,7 @@ static String states[] = {
 };
 
 //Погодні IDS
-int statesIdsWeather[] = {
+int statesIdsWeather[] PROGMEM = {
   690548,
   707471,
   691650,
@@ -356,11 +355,11 @@ int statesIdsWeather[] = {
 };
 
 //Прапор
-static int flagColor[] {
+static int flagColor[] PROGMEM {
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
-  HUE_YELLOW,
+  HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
@@ -369,7 +368,7 @@ static int flagColor[] {
   HUE_AQUA,
   HUE_AQUA,
   HUE_AQUA,
-  HUE_YELLOW,
+  HUE_AQUA,
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,

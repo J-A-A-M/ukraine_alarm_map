@@ -15,9 +15,15 @@
 
 //#include <esp32-hal-psram.h>
 
+String prefix = "";
 char* deviceName = "Alarm Map";
 char* deviceBroadcastName = "alarm-map";
-char* softwareVersion = "2.7";
+char* softwareVersion = "2.8d";
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //test
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
+
+// ============ НАЛАШТУВАННЯ ============
 
 //Налаштування WiFi
 char* wifiSSID = ""; //Назва мережі WiFi
@@ -33,7 +39,6 @@ int mqttPort = 1883;
 char* mqttUser = "";
 char* mqttPassword = "";
 char* brokerAddress = "";
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
 
 //Налштування яскравості
 int brightness = 100; //Яскравість %
@@ -73,7 +78,7 @@ bool modulationAlarmsNew = true; //Зони нових тривог в моду�
 bool modulationAlarms = false; //Зони тривог в модуляції
 bool modulationSelected = false; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = 180000; //Час індикації нових тривог
+int newAlarmPeriod = 300000; //Час індикації нових тривог
 
 //Дісплей
 bool autoSwitchDisplay = true; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
@@ -240,18 +245,40 @@ WiFiUDP ntpUDP;
 HTTPClient http;
 NTPClient timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
 
+
+String haBrightnessString = String("alarm_map") + prefix + "_brightness";
+const char* haBrightnessChar = haBrightnessString.c_str();
+String haMapModeString = String("alarm_map") + prefix + "_map_mode";
+const char* haMapModeChar = haMapModeString.c_str();
+String haDisplayModeString = String("alarm_map") + prefix + "_display_mode";
+const char* haDisplayModeChar = haDisplayModeString.c_str();
+String haModulationModeString = String("alarm_map") + prefix + "_modulation_mode";
+const char* haModulationModeChar = haModulationModeString.c_str();
+String haUptimeString = String("alarm_map") + prefix + "_uptime";
+const char* haUptimeChar = haUptimeString.c_str();
+String haWifiSignalString = String("alarm_map") + prefix + "_wifi_signal";
+const char* haWifiSignalChar = haWifiSignalString.c_str();
+String haFreeMemoryString = String("alarm_map") + prefix + "_free_memory";
+const char* haFreeMemoryChar = haFreeMemoryString.c_str();
+String haUsedMemoryString = String("alarm_map") + prefix + "_used_memory";
+const char* haUsedMemoryChar = haUsedMemoryString.c_str();
+String haMapModeCurrentString = String("alarm_map") + prefix + "_map_mode_current";
+const char* haMapModeCurrentChar = haMapModeCurrentString.c_str();
+String haDisplayModeCurrentString = String("alarm_map") + prefix + "_display_mode_current";
+const char* haDisplayModeCurrentChar = haDisplayModeCurrentString.c_str();
+
 HADevice device(mac, sizeof(mac));
-HAMqtt mqtt(client, device, 12);
-HANumber haBrightness("alarm_map_brightness");
-HASelect haMapMode("alarm_map_map_mode");
-HASelect haDisplayMode("alarm_map_display_mode");
-HASelect haModulationMode("alarm_map_modulation_mode");
-HASensorNumber haUptimeSensor("alarm_map_uptime");
-HASensorNumber haWifiSignal("alarm_map_wifi");
-HASensorNumber haFreeMemory("alarm_map_free_memory");
-HASensorNumber haUsedMemory("alarm_map_used_memory");
-HASensor haMapModeCurrent("alarm_map_map_mode_current");
-HASensor haDisplayModeCurrent("alarm_map_display_mode_current");
+HAMqtt mqtt(client, device, 11);
+HANumber haBrightness(haBrightnessChar);
+HASelect haMapMode(haMapModeChar);
+HASelect haDisplayMode(haDisplayModeChar);
+HASelect haModulationMode(haModulationModeChar);
+HASensorNumber haUptime(haUptimeChar);
+HASensorNumber haWifiSignal(haWifiSignalChar);
+HASensorNumber haFreeMemory(haFreeMemoryChar);
+HASensorNumber haUsedMemory(haUsedMemoryChar);
+HASensor haMapModeCurrent(haMapModeCurrentChar);
+HASensor haDisplayModeCurrent(haDisplayModeCurrentChar);
 
 char* mapModes [] = {
   "Off",
@@ -321,52 +348,52 @@ void initHA() {
 
     haBrightness.onCommand(onHaBrightnessCommand);
     haBrightness.setIcon("mdi:brightness-percent");
-    haBrightness.setName("Alarm Map Brightness");
+    haBrightness.setName(haBrightnessChar);
     haBrightness.setCurrentState(brightness);
 
     haMapMode.setOptions("Off;Alarms;Weather;Flag");
     haMapMode.onCommand(onHaMapModeCommand);
     haMapMode.setIcon("mdi:map");
-    haMapMode.setName("Alarm Map map mode");
+    haMapMode.setName(haMapModeChar);
     haMapMode.setCurrentState(mapModeInit-1);
 
     haMapModeCurrent.setIcon("mdi:map");
-    haMapModeCurrent.setName("Alarm Map map mode current");
+    haMapModeCurrent.setName(haMapModeCurrentChar);
     haMapModeCurrent.setValue(mapModes[mapMode-1]);
 
     haDisplayMode.setOptions("Off;Clock;Alarms;Weather");
     haDisplayMode.onCommand(onHaDisplayModeCommand);
     haDisplayMode.setIcon("mdi:clock-digital");
-    haDisplayMode.setName("Alarm Map display mode");
+    haDisplayMode.setName(haDisplayModeChar);
     haDisplayMode.setCurrentState(displayModeInit-1);
 
     haDisplayModeCurrent.setIcon("mdi:clock-digital");
-    haDisplayModeCurrent.setName("Alarm Map display mode current");
+    haDisplayModeCurrent.setName(haDisplayModeCurrentChar);
     haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
 
     haModulationMode.setOptions("Off;Modulation;Blink");
     haModulationMode.onCommand(onHaModulationModeCommand);
     haModulationMode.setIcon("mdi:alarm-light");
-    haModulationMode.setName("Alarm Map modulation mode");
+    haModulationMode.setName(haModulationModeChar);
     haModulationMode.setCurrentState(modulationMode-1);
 
-    haUptimeSensor.setIcon("mdi:timer-outline");
-    haUptimeSensor.setName("Alarm Map Uptime");
-    haUptimeSensor.setUnitOfMeasurement("s");
-    haUptimeSensor.setDeviceClass("duration");
+    haUptime.setIcon("mdi:timer-outline");
+    haUptime.setName(haUptimeChar);
+    haUptime.setUnitOfMeasurement("s");
+    haUptime.setDeviceClass("duration");
 
     haWifiSignal.setIcon("mdi:wifi");
-    haWifiSignal.setName("Alarm Map Wifi signal");
+    haWifiSignal.setName(haWifiSignalChar);
     haWifiSignal.setUnitOfMeasurement("dBm");
     haWifiSignal.setDeviceClass("signal_strength");
 
     haFreeMemory.setIcon("mdi:memory");
-    haFreeMemory.setName("Alarm Map free memory");
+    haFreeMemory.setName(haFreeMemoryChar);
     haFreeMemory.setUnitOfMeasurement("kB");
     haFreeMemory.setDeviceClass("data_size");
 
     haUsedMemory.setIcon("mdi:memory");
-    haUsedMemory.setName("Alarm Map used memory");
+    haUsedMemory.setName(haUsedMemoryChar);
     haUsedMemory.setUnitOfMeasurement("kB");
     haUsedMemory.setDeviceClass("data_size");
 
@@ -1267,7 +1294,7 @@ void uptime() {
       float freeHeapSize = ESP.getFreeHeap() / 1024.0;
       float usedHeapSize = totalHeapSize - freeHeapSize;
 
-      haUptimeSensor.setValue(uptimeValue);
+      haUptime.setValue(uptimeValue);
       haWifiSignal.setValue(rssi);
       haFreeMemory.setValue(freeHeapSize);
       haUsedMemory.setValue(usedHeapSize);
