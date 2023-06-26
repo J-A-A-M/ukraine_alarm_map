@@ -51,7 +51,7 @@ float brightnessRed = 100; //Яскравість зон з тривогами%
 //Налаштування авто-яскравості
 bool autoBrightness = true; //Ввімкнена/вимкнена авто яскравість
 const int day = 8; //Початок дня
-const int night = 22; //Початок ночі
+const int night = 23; //Початок ночі
 const int dayBrightness = 100; //Денна яскравість %
 const int nightBrightness = 20; //Нічна яскравість %
 
@@ -1156,15 +1156,18 @@ void initDisplay() {
   display.display();
 }
 
+void timeUpdate() {
+  timeClient.update();
+  int currentHour = timeClient.getHours();
+  isDay = currentHour >= day && currentHour < night;
+  Serial.print("isDay: ");
+  Serial.println(isDay);
+}
+
 void autoBrightnessUpdate() {
     if (autoBrightness) {
       //Serial.print("Autobrightness start: ");
-      timeClient.update();
-      int currentHour = timeClient.getHours();
       int currentBrightness = 0;
-      isDay = currentHour >= day && currentHour < night;
-      //Serial.print("isDay: ");
-      //Serial.print(isDay);
       currentBrightness = isDay ? dayBrightness : nightBrightness;
       //Serial.print(" currentBrightness: ");
       //Serial.print(currentBrightness);
@@ -1557,9 +1560,7 @@ void buzzer() {
 void initBuzzer() {
   if(enableBuzzer) {
     pinMode(BUZZER_PIN, OUTPUT);
-    if(enableBuzzerAtNight){
-      melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
-    }
+    melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
   }
 }
 
@@ -1620,6 +1621,7 @@ void setup() {
   initWiFi();
   startText();
   initTime();
+  timeUpdate();
   autoBrightnessUpdate();
   initHA();
   setupRouting();
@@ -1637,6 +1639,7 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
+  timeUpdate();
   ArduinoOTA.handle();
   autoBrightnessUpdate();
   alamsUpdate();
