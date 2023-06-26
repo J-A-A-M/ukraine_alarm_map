@@ -265,6 +265,16 @@ float maxTemp = <span id="max-temp">25.0</span>; // максимальна те�
 
 int stateId = <span id="state-id">8</span>;
 
+//Буззер
+bool enableBuzzer = <span id="buzzer">false</span>;
+bool enableBuzzerAtNight = <span id="buzzer-night">false</span>;
+int buzzerTone = <span id="buzzer-tone">100</span>;
+int buzzerDuration = <span id="buzzer-duration">300</span>;
+int buzzerCount = <span id="buzzer-count">3</span>;
+int buzzerTempo = <span id="buzzer-tempo">100</span>;
+int buzzerStartSound = <span id="buzzer-start-sound">4</span>;
+int buzzerEndSound = <span id="buzzer-end-sound">3</span>;
+
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] PROGMEM = {
   <span id="zakarpattia">0,</span>
@@ -731,13 +741,107 @@ static int flagColor[] PROGMEM {
 
           <div class="col-md-12 mb-1"></div>
 
+          <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <h5 class="mb-2 text-dark">Буззер <span class="badge bg-success">оновлення</span></h5>
+            <div class="mb-1">
+              <input type="checkbox" class="form-check-input" id="buzzer-input">
+              <label class="form-check-label">Ввімкнути буззер</label>
+            </div>
+            <div class="" id='buzzer-form'  style="display:none" >
+              <div class="row">
+                <div class=""  >
+                  <div class="alert alert-primary" role="alert">
+                     Це спеціальний режим підсвідки окремих зон мапи для привертання уваги до певних подій. Більш детально описано в Wіki проєкту
+                  </div>
+                </div>
+
+                <div class="" >
+                  <label class="form-label">Тон буззера (чим більше тим вище)</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="buzzer-tone-form-value">100</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="100" max="5000" value="100" step="10" class="bg-white border rounded border-secondary form-range col-12" id="buzzer-tone-input">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="" >
+                  <label class="form-label">Час звучання тону</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="buzzer-duration-form-value">300</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="50" max="1000" value="300" step="10" class="bg-white border rounded border-secondary form-range col-12" id="buzzer-duration-input">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="" >
+                  <label class="form-label">Кількість тонів</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="buzzer-count-form-value">3</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="1" max="10" value="3" class="bg-white border rounded border-secondary form-range col-12" id="buzzer-count-input">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="" >
+                  <label class="form-label">Темп (длля мелодій)</label>
+                  <div class="row">
+                    <div  class="col-2">
+                        <h4><span class="badge bg-dark" id="buzzer-tempo-form-value">100</span></h4>
+                    </div>
+                    <div class="col-10 mb-1 mt-1">
+                        <input type="range" min="50" max="200" value="100" step="10" class="bg-white border rounded border-secondary form-range col-12" id="buzzer-tempo-input">
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-12 mb-3">
+                  <label class="form-label">Звук при тривозі</label>
+                  <select class="form-select" id="buzzer-start-sound-input" oninput=updateBuzzerStartState()>
+                    <option value="1">Вимкнено</option>
+                    <option value="2">Тоновий звук</option>
+                    <option value="3">Гімн України</option>
+                    <option value="4" selected>Імперський марш</option>
+                    <option value="5">StarTrek</option>
+                    <option value="6">Рінгтон Nokia</option>
+                  </select>
+                </div>
+                <div class="col-md-12 mb-3">Звук при відбої</label>
+                  <select class="form-select" id="buzzer-end-sound-input" oninput=updateBuzzerEndState()>
+                    <option value="1">вимкнено</option>
+                    <option value="2">Тоновий звук</option>
+                    <option value="3" selected>Гімн України</option>
+                    <option value="4">Імперський марш</option>
+                    <option value="5">StarTrek</option>
+                    <option value="6">Рінгтон Nokia</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="col-md-12 mb-1"></div>
+
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <h5 class="mb-1 text-dark">Загальна яскравість</h5>
+            <h5 class="mb-1 text-dark">Налаштування дій по часу доби</h5>
+            <div class="mb-1"  style="display:none" id="buzzer-night-input-form">
+              <input type="checkbox" class="form-check-input" id="buzzer-night-input">
+              <label class="form-check-label">Ввімкнути буззер вночі</label>
+            </div>
             <div class="mb-1">
               <input type="checkbox" class="form-check-input" id="autobrightness-input" checked>
               <label class="form-check-label">Автоматичне керування яскравістю</label>
             </div>
+
 
             <div class="" id='brightness-form' style="display:none">
               <label class="form-label">Яскравість</label>
@@ -747,30 +851,6 @@ static int flagColor[] PROGMEM {
                 </div>
                 <div class="col-10 mb-1 mt-1">
                     <input type="range" min="1" max="100" value="100" class="bg-white border rounded border-secondary form-range col-12" id="brightness-input">
-                </div>
-              </div>
-            </div>
-
-            <div class="" id='day-start-form'>
-              <label class="form-label">Початок дня</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="day-start-form-value">8</span></h4>
-                </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="1" max="24" value="8" class="bg-white border rounded border-secondary form-range col-12" id="day-start-input">
-                </div>
-              </div>
-            </div>
-
-            <div class="" id='night-start-form'>
-              <label class="form-label">Початок ночі</label>
-              <div class="row">
-                <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="night-start-form-value">22</span></h4>
-                </div>
-                <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="0" max="24" value="22" class="bg-white border rounded border-secondary form-range col-12" id="night-start-input">
                 </div>
               </div>
             </div>
@@ -795,6 +875,30 @@ static int flagColor[] PROGMEM {
                 </div>
                 <div class="col-10 mb-1 mt-1">
                     <input type="range" min="1" max="100" value="20" class="bg-white border rounded border-secondary form-range col-12" id="night-brightness-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="" id='day-start-form'>
+              <label class="form-label">Початок дня</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="day-start-form-value">8</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="1" max="24" value="8" class="bg-white border rounded border-secondary form-range col-12" id="day-start-input">
+                </div>
+              </div>
+            </div>
+
+            <div class="" id='night-start-form'>
+              <label class="form-label">Початок ночі</label>
+              <div class="row">
+                <div  class="col-2">
+                    <h4><span class="badge bg-dark" id="night-start-form-value">22</span></h4>
+                </div>
+                <div class="col-10 mb-1 mt-1">
+                    <input type="range" min="0" max="24" value="22" class="bg-white border rounded border-secondary form-range col-12" id="night-start-input">
                 </div>
               </div>
             </div>
@@ -1004,15 +1108,15 @@ static int flagColor[] PROGMEM {
         if (autobrightnessinput.checked) {
           autobrightness.textContent = 'true';
           brightnessform.style.display = 'none';
-          daystartform.style.display = 'block';
-          nightstartform.style.display = 'block';
+          //daystartform.style.display = 'block';
+          //nightstartform.style.display = 'block';
           daybrightnessform.style.display = 'block';
           nightbrightnessform.style.display = 'block';
         } else {
           autobrightness.textContent = 'false';
           brightnessform.style.display = 'block';
-          daystartform.style.display = 'none';
-          nightstartform.style.display = 'none';
+          //daystartform.style.display = 'none';
+          //nightstartform.style.display = 'none';
           daybrightnessform.style.display = 'none';
           nightbrightnessform.style.display = 'none';
         }
@@ -1144,7 +1248,6 @@ static int flagColor[] PROGMEM {
           maxtempform.style.display = 'none';
           alarmback1.style.display = 'block';
           alarmback2.style.display = 'block';
-          alarmbackstates.style.display = 'none';
         }
       });
 
@@ -1642,6 +1745,90 @@ static int flagColor[] PROGMEM {
           displaymode.textContent = '4';
         }
       });
+
+
+      const buzzer = document.getElementById('buzzer');
+      const buzzerinput = document.getElementById('buzzer-input');
+      const buzzernight = document.getElementById('buzzer-night');
+      const buzzernightinput = document.getElementById('buzzer-night-input');
+      const buzzernightinputform = document.getElementById('buzzer-night-input-form');
+      const buzzerform = document.getElementById('buzzer-form');
+      const buzzerstartsound = document.getElementById('buzzer-start-sound');
+      const buzzerstartsoundinput = document.getElementById('buzzer-start-sound-input');
+      const buzzerendsound = document.getElementById('buzzer-end-sound');
+      const buzzerendsoundinput = document.getElementById('buzzer-end-sound-input');
+
+      buzzerinput.addEventListener('click', function() {
+        if (buzzerinput.checked) {
+          buzzerform.style.display = 'block';
+          buzzernightinputform.style.display = 'block';
+          buzzer.textContent = 'true';
+        } else {
+          buzzerform.style.display = 'none';
+          buzzernightinputform.style.display = 'none';
+          buzzer.textContent = 'false';
+          buzzernight.textContent = 'false';
+          buzzernightinput.checked = false;
+        }
+      });
+
+      buzzernightinput.addEventListener('click', function() {
+        if (buzzernightinput.checked) {
+          buzzernight.textContent = 'true';
+        } else {
+          buzzernight.textContent = 'false';
+        }
+      });
+
+      const buzzertone = document.getElementById('buzzer-tone');
+      const buzzertoneformvalue = document.getElementById('buzzer-tone-form-value');
+      const buzzertoneinput = document.getElementById('buzzer-tone-input');
+
+      buzzertoneinput.addEventListener('input', function() {
+        let value = parseInt(buzzertoneinput.value);
+        buzzertoneformvalue.textContent = value;
+        buzzertone.textContent = value;
+      });
+
+      const buzzerduration = document.getElementById('buzzer-duration');
+      const buzzerdurationformvalue = document.getElementById('buzzer-duration-form-value');
+      const buzzerdurationinput = document.getElementById('buzzer-duration-input');
+
+      buzzerdurationinput.addEventListener('input', function() {
+        let value = parseInt(buzzerdurationinput.value);
+        buzzerdurationformvalue.textContent = value;
+        buzzerduration.textContent = value;
+      });
+
+      const buzzercount = document.getElementById('buzzer-count');
+      const buzzercountformvalue = document.getElementById('buzzer-count-form-value');
+      const buzzercountinput = document.getElementById('buzzer-count-input');
+
+      buzzercountinput.addEventListener('input', function() {
+        let value = parseInt(buzzercountinput.value);
+        buzzercountformvalue.textContent = value;
+        buzzercount.textContent = value;
+      });
+
+      const buzzertempo = document.getElementById('buzzer-tempo');
+      const buzzertempoformvalue = document.getElementById('buzzer-tempo-form-value');
+      const buzzertempoinput = document.getElementById('buzzer-tempo-input');
+
+      buzzertempoinput.addEventListener('input', function() {
+        let value = parseInt(buzzertempoinput.value);
+        buzzertempoformvalue.textContent = value;
+        buzzertempo.textContent = value;
+      });
+
+      function updateBuzzerStartState() {
+        buzzerstartsound.textContent = buzzerstartsoundinput.value;
+      }
+
+      function updateBuzzerEndState() {
+        buzzerendsound.textContent = buzzerendsoundinput.value;
+      }
+
+
 
       const copyButton = document.getElementById('copy-button');
       const codeContainer = document.getElementById('code-container');
