@@ -18,7 +18,7 @@
 String prefix = "";
 char* deviceName = "Alarm Map";
 char* deviceBroadcastName = "alarm-map";
-char* softwareVersion = "2.8d";
+char* softwareVersion = "2.8";
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //test
 byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
@@ -737,7 +737,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html += "</select>";
   html += "</div>";
   html += "<div class='form-group'>";
-  html += "<label for='modulationMode'>Буззер:</label>";
+  html += "<label for='modulationMode'>Режим буззера:</label>";
   html += "<select class='form-control' id='buzzerMode' name='enable_buzzer'>";
   html += "<option value='1'";
   if (buzzerMode == 1) html += " selected";
@@ -747,7 +747,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html += ">Ввімкнений вдень</option>";
   html += "<option value='3'";
   if (buzzerMode == 3) html += " selected";
-  html += ">Ввімнений всю добу</option>";
+  html += ">Ввімкнений всю добу</option>";
   html += "</select>";
   html += "</div>";
   html += "<button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
@@ -1630,7 +1630,7 @@ void buzzer() {
 void initBuzzer() {
   if(buzzerMode > 1) {
     pinMode(BUZZER_PIN, OUTPUT);
-    //melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
+    melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
   }
 }
 
