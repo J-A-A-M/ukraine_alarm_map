@@ -463,7 +463,7 @@ static int flagColor[] PROGMEM {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light border rounded border-secondary">
-          <h5 class="mb-2 text-dark">Home Assistant <span class="badge bg-success">оновлення</span></h5>
+          <h5 class="mb-2 text-dark">Home Assistant</h5>
             <div id="enable-ha-form" class="mb-3">
               <input type="checkbox" class="form-check-input" id="enable-ha-input">
               <label class="form-check-label">Підтримка Home Assistant</label>
@@ -472,7 +472,7 @@ static int flagColor[] PROGMEM {
               <div class="row">
                 <div class=""  >
                   <div class="alert alert-primary" role="alert">
-                    <span class="badge bg-success">оновлення</span> Для інтеграції в Home Assistant потрібер вже налаштований mqtt-брокер, підключений до HA. Інтеграція створює потрібні топікі с даними в брокері. HA бачить мапу як окремий прилад розумного будинку і має можливість керувати мапою
+                    Для інтеграції в Home Assistant потрібер вже налаштований mqtt-брокер, підключений до HA. Інтеграція створює потрібні топікі с даними в брокері. HA бачить мапу як окремий прилад розумного будинку і має можливість керувати мапою
                   </div>
                 </div>
                 <div class="col-sm-6 mb-3">
@@ -495,7 +495,7 @@ static int flagColor[] PROGMEM {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light border rounded border-secondary">
-            <h5 class="mb-2 text-dark">Область <span class="badge bg-success">оновлення</span></h5>
+            <h5 class="mb-2 text-dark">Домашный регіон</h5>
             <div class="col-md-12 mb-3">
               <select class="form-select" id="default-state" oninput=updateDefaultState()></select>
             </div>
@@ -705,7 +705,7 @@ static int flagColor[] PROGMEM {
           <div class="col-md-12 mb-1"></div>
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
-            <h5 class="mb-2 text-dark">Дісплей <span class="badge bg-success">оновлення</span></h5>
+            <h5 class="mb-2 text-dark">Дісплей</h5>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-danger" id="display-type-input-1">Без дісплея</button>
               <button type="button" class="btn btn-secondary" id="display-type-input-2">128*32 SSD1306</button>
@@ -755,7 +755,10 @@ static int flagColor[] PROGMEM {
               <div class="row">
                 <div class=""  >
                   <div class="alert alert-primary" role="alert">
-                     Це спеціальний режим підсвідки окремих зон мапи для привертання уваги до певних подій. Більш детально описано в Wіki проєкту
+                     Редагування тону дозволяє вибрати висоту тона (чим більше - там вище і "мерзенніше"), тривалість і кількість повторів.
+                     Є можливість вибрати різні тоні на початок і відбій тривоги.
+                     Буззер спрацьовує на тривогу лише в домашньому регіоні.
+                     Більш детально описано в Wіki проєкту
                   </div>
                 </div>
 
