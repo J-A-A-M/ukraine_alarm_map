@@ -96,8 +96,7 @@ float maxTemp = 30.0; // максимальна температура у гра
 int stateId = 7;
 
 //Буззер
-bool enableBuzzer = true;
-bool enableBuzzerAtNight = false;
+int buzzerMode = 1; //Режим буззера
 int buzzerTone = 100;
 int buzzerDuration = 300;
 int buzzerCount = 3;
@@ -195,7 +194,7 @@ int statesIdsWeather[] PROGMEM = {
 };
 
 //Прапор
-static int flagColor[] PROGMEM {
+static int flagColor[] PROGMEM = {
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
@@ -248,6 +247,7 @@ const int eepromBrightnessAddress = 20;
 const int eepromMapModeAddress = 21;
 const int eepromDisplayModeAddress = 22;
 const int eepromModulationModeAddress = 23;
+const int eepromBuzzerModeAddress = 24;
 
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
@@ -278,9 +278,11 @@ String haMapModeCurrentString = String("alarm_map") + prefix + "_map_mode_curren
 const char* haMapModeCurrentChar = haMapModeCurrentString.c_str();
 String haDisplayModeCurrentString = String("alarm_map") + prefix + "_display_mode_current";
 const char* haDisplayModeCurrentChar = haDisplayModeCurrentString.c_str();
+String haBuzzerModeString = String("alarm_map") + prefix + "_buzzer_mode";
+const char* haBuzzerModeChar = haBuzzerModeString.c_str();
 
 HADevice device(mac, sizeof(mac));
-HAMqtt mqtt(client, device, 11);
+HAMqtt mqtt(client, device, 14);
 HANumber haBrightness(haBrightnessChar);
 HASelect haMapMode(haMapModeChar);
 HASelect haDisplayMode(haDisplayModeChar);
@@ -291,6 +293,7 @@ HASensorNumber haFreeMemory(haFreeMemoryChar);
 HASensorNumber haUsedMemory(haUsedMemoryChar);
 HASensor haMapModeCurrent(haMapModeCurrentChar);
 HASensor haDisplayModeCurrent(haDisplayModeCurrentChar);
+HASelect  haBuzzerMode(haBuzzerModeChar);
 
 char* mapModes [] = {
   "Off",
@@ -304,6 +307,12 @@ char* displayModes [] = {
   "Clock",
   "Alarms",
   "Weather"
+};
+
+char* buzzerModes [] = {
+  "Off",
+  "Day",
+  "Day+Night"
 };
 
 int alarmsPeriod = 15000;
@@ -527,10 +536,38 @@ void initHA() {
     haUsedMemory.setUnitOfMeasurement("kB");
     haUsedMemory.setDeviceClass("data_size");
 
+    haBuzzerMode.setOptions("Off;Day;Day+Night");
+    haBuzzerMode.onCommand(onBuzzerModeCommand);
+    haBuzzerMode.setIcon("mdi:timer-music");
+    haBuzzerMode.setName(haBuzzerModeChar);
+    haBuzzerMode.setCurrentState(buzzerMode-1);
+
     device.enableLastWill();
     mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
     Serial.println("mqtt connected");
   }
+}
+
+void onBuzzerModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        buzzerMode = 1;
+        break;
+    case 1:
+        buzzerMode = 2;
+        break;
+    case 2:
+        buzzerMode = 3;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    EEPROM.write(eepromBuzzerModeAddress, buzzerMode);
+    EEPROM.commit();
+    Serial.println("BuzzerMode commited to eeprom");
+    sender->setState(index);
 }
 
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
@@ -699,6 +736,20 @@ void handleRoot(AsyncWebServerRequest* request){
   html += ">Пульсація</option>";
   html += "</select>";
   html += "</div>";
+  html += "<div class='form-group'>";
+  html += "<label for='modulationMode'>Буззер:</label>";
+  html += "<select class='form-control' id='buzzerMode' name='enable_buzzer'>";
+  html += "<option value='1'";
+  if (buzzerMode == 1) html += " selected";
+  html += ">Вимкнений</option>";
+  html += "<option value='2'";
+  if (buzzerMode == 2) html += " selected";
+  html += ">Ввімкнений вдень</option>";
+  html += "<option value='3'";
+  if (buzzerMode == 3) html += " selected";
+  html += ">Ввімнений всю добу</option>";
+  html += "</select>";
+  html += "</div>";
   html += "<button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
   html += "</form>";
   html += "</div>";
@@ -783,6 +834,15 @@ void handleSave(AsyncWebServerRequest* request){
     EEPROM.write(eepromModulationModeAddress, modulationMode);
     EEPROM.commit();
     Serial.println("modulationMode commited to eeprom");
+  }
+  if (request->hasParam("enable_buzzer", true)){
+    buzzerMode = request->getParam("enable_buzzer", true)->value().toInt();
+    if (enableHA) {
+      haBuzzerMode.setState(buzzerMode-1);
+    }
+    EEPROM.write(eepromBuzzerModeAddress, buzzerMode);
+    EEPROM.commit();
+    Serial.println("buzzerMode commited to eeprom");
   }
 
   request->redirect("/");
@@ -1523,8 +1583,18 @@ void checkEEPROM() {
     Serial.print("modulationMode value found in EEPROM: ");
     Serial.println(eepromModulationMode);
   }
+  int eepromBuzzerMode;
+  eepromBuzzerMode = EEPROM.read(eepromBuzzerModeAddress);
+  if (eepromBuzzerMode == 0xFF) {
+    EEPROM.write(eepromBuzzerModeAddress, eepromBuzzerMode);
+    EEPROM.commit();
+    Serial.println("BuzzerMode value not found in EEPROM. Using default value.");
+  } else {
+    buzzerMode = eepromBuzzerMode;
+    Serial.print("BuzzerMode value found in EEPROM: ");
+    Serial.println(eepromBuzzerMode);
+  }
 }
-
 
 void melody(int song[], int notes) {
   Serial.println("melody start");
@@ -1558,16 +1628,16 @@ void buzzer() {
 }
 
 void initBuzzer() {
-  if(enableBuzzer) {
+  if(buzzerMode > 1) {
     pinMode(BUZZER_PIN, OUTPUT);
-    melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
+    //melody(ukrainianAnthem, sizeof(ukrainianAnthem) / sizeof(ukrainianAnthem[0]) / 2 );
   }
 }
 
 void buzzerUpdate() {
-  if(enableBuzzer) {
+  if(buzzerMode > 1) {
     if (isAlarm && isBuzzerStart) {
-      if (isDay || (!isDay && enableBuzzerAtNight)) {
+      if (isDay || (!isDay && buzzerMode == 3)) {
         if (buzzerStartSound == 2){
           buzzer();
         }
@@ -1588,7 +1658,7 @@ void buzzerUpdate() {
       isBuzzerEnd = true;
     }
     if (!isAlarm && isBuzzerEnd) {
-      if (isDay || (!isDay && enableBuzzerAtNight)) {
+      if (isDay || (!isDay && buzzerMode == 3)) {
         if (buzzerEndSound == 2){
           buzzer();
         }

@@ -222,7 +222,7 @@ float brightnessRed = <span id="brightness-red">100</span>; //Яскравіст
 //Налаштування авто-яскравості
 bool autoBrightness = <span id="autobrightness">true</span>; //Ввімкнена/вимкнена авто яскравість
 const int day = <span id="day-start">8</span>; //Початок дня
-const int night = <span id="night-start">22</span>; //Початок ночі
+const int night = <span id="night-start">23</span>; //Початок ночі
 const int dayBrightness = <span id="day-brightness">100</span>; //Денна яскравість %
 const int nightBrightness = <span id="night-brightness">20</span>; //Нічна яскравість %
 
@@ -266,8 +266,7 @@ float maxTemp = <span id="max-temp">25.0</span>; // максимальна те�
 int stateId = <span id="state-id">8</span>;
 
 //Буззер
-bool enableBuzzer = <span id="buzzer">false</span>;
-bool enableBuzzerAtNight = <span id="buzzer-night">false</span>;
+int buzzerMode = <span id="buzzer-mode">1</span>; //Режим буззера
 int buzzerTone = <span id="buzzer-tone">100</span>;
 int buzzerDuration = <span id="buzzer-duration">300</span>;
 int buzzerCount = <span id="buzzer-count">3</span>;
@@ -743,9 +742,10 @@ static int flagColor[] PROGMEM {
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
             <h5 class="mb-2 text-dark">Буззер <span class="badge bg-success">оновлення</span></h5>
-            <div class="mb-1">
-              <input type="checkbox" class="form-check-input" id="buzzer-input">
-              <label class="form-check-label">Ввімкнути буззер</label>
+            <div class="col-md-12 btn-group mb-3" role="group">
+              <button type="button" class="btn btn-danger" id="buzzer-mode-input-1">Вимкнений</button>
+              <button type="button" class="btn btn-secondary" id="buzzer-mode-input-2">Вдень</button>
+              <button type="button" class="btn btn-secondary" id="buzzer-mode-input-3">Всю добу</button>
             </div>
             <div class="" id='buzzer-form'  style="display:none" >
               <div class="row">
@@ -833,10 +833,6 @@ static int flagColor[] PROGMEM {
 
           <div class="row bg-light text-secondary p-1 border rounded border-secondary">
             <h5 class="mb-1 text-dark">Налаштування дій по часу доби</h5>
-            <div class="mb-1"  style="display:none" id="buzzer-night-input-form">
-              <input type="checkbox" class="form-check-input" id="buzzer-night-input">
-              <label class="form-check-label">Ввімкнути буззер вночі</label>
-            </div>
             <div class="mb-1">
               <input type="checkbox" class="form-check-input" id="autobrightness-input" checked>
               <label class="form-check-label">Автоматичне керування яскравістю</label>
@@ -895,10 +891,10 @@ static int flagColor[] PROGMEM {
               <label class="form-label">Початок ночі</label>
               <div class="row">
                 <div  class="col-2">
-                    <h4><span class="badge bg-dark" id="night-start-form-value">22</span></h4>
+                    <h4><span class="badge bg-dark" id="night-start-form-value">23</span></h4>
                 </div>
                 <div class="col-10 mb-1 mt-1">
-                    <input type="range" min="0" max="24" value="22" class="bg-white border rounded border-secondary form-range col-12" id="night-start-input">
+                    <input type="range" min="0" max="24" value="23" class="bg-white border rounded border-secondary form-range col-12" id="night-start-input">
                 </div>
               </div>
             </div>
@@ -1747,36 +1743,48 @@ static int flagColor[] PROGMEM {
       });
 
 
-      const buzzer = document.getElementById('buzzer');
-      const buzzerinput = document.getElementById('buzzer-input');
-      const buzzernight = document.getElementById('buzzer-night');
-      const buzzernightinput = document.getElementById('buzzer-night-input');
-      const buzzernightinputform = document.getElementById('buzzer-night-input-form');
+      const buzzermode = document.getElementById('buzzer-mode');
+      const buzzermodeinput1 = document.getElementById('buzzer-mode-input-1');
+      const buzzermodeinput2 = document.getElementById('buzzer-mode-input-2');
+      const buzzermodeinput3 = document.getElementById('buzzer-mode-input-3');
+
       const buzzerform = document.getElementById('buzzer-form');
       const buzzerstartsound = document.getElementById('buzzer-start-sound');
       const buzzerstartsoundinput = document.getElementById('buzzer-start-sound-input');
       const buzzerendsound = document.getElementById('buzzer-end-sound');
       const buzzerendsoundinput = document.getElementById('buzzer-end-sound-input');
 
-      buzzerinput.addEventListener('click', function() {
-        if (buzzerinput.checked) {
-          buzzerform.style.display = 'block';
-          buzzernightinputform.style.display = 'block';
-          buzzer.textContent = 'true';
-        } else {
+
+      buzzermodeinput1.addEventListener('click', function() {
+        if (buzzermodeinput1.className === 'btn btn-secondary') {
+          buzzermodeinput1.className = 'btn btn-danger';
+          buzzermodeinput2.className = 'btn btn-secondary';
+          buzzermodeinput3.className = 'btn btn-secondary';
+          buzzermode.textContent = '1';
           buzzerform.style.display = 'none';
           buzzernightinputform.style.display = 'none';
-          buzzer.textContent = 'false';
-          buzzernight.textContent = 'false';
-          buzzernightinput.checked = false;
         }
       });
 
-      buzzernightinput.addEventListener('click', function() {
-        if (buzzernightinput.checked) {
-          buzzernight.textContent = 'true';
-        } else {
-          buzzernight.textContent = 'false';
+      buzzermodeinput2.addEventListener('click', function() {
+        if (buzzermodeinput2.className === 'btn btn-secondary') {
+          buzzermodeinput1.className = 'btn btn-secondary';
+          buzzermodeinput2.className = 'btn btn-success';
+          buzzermodeinput3.className = 'btn btn-secondary';
+          buzzermode.textContent = '2';
+          buzzerform.style.display = 'block';
+          buzzernightinputform.style.display = 'block';
+        }
+      });
+
+      buzzermodeinput3.addEventListener('click', function() {
+        if (buzzermodeinput3.className === 'btn btn-secondary') {
+          buzzermodeinput1.className = 'btn btn-secondary';
+          buzzermodeinput2.className = 'btn btn-secondary';
+          buzzermodeinput3.className = 'btn btn-success';
+          buzzermode.textContent = '3';
+          buzzerform.style.display = 'block';
+          buzzernightinputform.style.display = 'block';
         }
       });
 
