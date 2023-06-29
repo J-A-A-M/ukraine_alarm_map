@@ -12,6 +12,7 @@
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
 #include <EEPROM.h>
+#include <async.h>
 
 //#include <esp32-hal-psram.h>
 
@@ -241,6 +242,8 @@ Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 
 AsyncWebServer aserver(80);
 
+Async asyncEngine = Async();
+
 DynamicJsonDocument doc(30000);
 
 const int eepromBrightnessAddress = 20;
@@ -315,7 +318,7 @@ char* buzzerModes [] = {
   "Day+Night"
 };
 
-int alarmsPeriod = 15000;
+int alarmsPeriod = 5000;
 int weatherPeriod = 600000;
 unsigned long lastAlarmsTime;
 unsigned long lastWeatherTime;
@@ -844,7 +847,6 @@ void handleSave(AsyncWebServerRequest* request){
     EEPROM.commit();
     Serial.println("buzzerMode commited to eeprom");
   }
-
   request->redirect("/");
 }
 
@@ -1241,8 +1243,8 @@ void autoBrightnessUpdate() {
         if (enableHA) {
           haBrightness.setState(brightness);
         }
-        //Serial.print(" set brightness: ");
-        //Serial.println(brightness);
+        Serial.print(" set brightness: ");
+        Serial.println(brightness);
       }else{
         //Serial.println("");
       }
@@ -1250,12 +1252,12 @@ void autoBrightnessUpdate() {
   }
 
 void weatherUpdate () {
-  if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
+  //if (millis() - lastWeatherTime > weatherPeriod || firstWeatherUpdate) {
     if (firstWeatherUpdate){
-      //Serial.println("firstWeatherUpdate");
+      Serial.println("firstWeatherUpdate");
     }
     Serial.println("Weather fetch start");
-    lastWeatherTime = millis();
+    //lastWeatherTime = millis();
     firstWeatherUpdate = false;
     for (int i = 0; i < NUM_LEDS; i++) {
       String apiUrl = "http://api.openweathermap.org/data/2.5/weather?lang=ua&id=" + String(statesIdsWeather[i]) + "&units=metric&appid=" + String(apiKey);
@@ -1299,13 +1301,16 @@ void weatherUpdate () {
       http.end();
     }
     //Serial.println("Weather fetch end");
-  }
+  //}
 }
 
 void alamsUpdate() {
-  if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
+  //if (millis() - lastAlarmsTime > alarmsPeriod || firstAlarmsUpdate) {
+    if (firstAlarmsUpdate){
+      Serial.println("firstAlarmsUpdate");
+    }
     Serial.println("Alarms fetch start");
-    lastAlarmsTime = millis();
+    //lastAlarmsTime = millis();
     unsigned long  s1 = millis();
     firstAlarmsUpdate = false;
     String response;
@@ -1356,6 +1361,8 @@ void alamsUpdate() {
           timeDifference = difftime(currentTime, oldTime);
           if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
           isAlarm = true;
+          Serial.print("isAlarm: ");
+          Serial.println(isAlarm);
         }
         alarmsNowCount++;
       } else {
@@ -1377,6 +1384,8 @@ void alamsUpdate() {
           timeDifference = difftime(currentTime, oldTime);
           if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
           isAlarm = false;
+          Serial.print("isAlarm: ");
+          Serial.println(isAlarm);
         }
       }
       if (autoSwitchMap && enable && statesIdsAlarmCheck[i]==1) {
@@ -1415,7 +1424,7 @@ void alamsUpdate() {
     }
     //Serial.print("Alarms fetch end: ");
     //Serial.println(s4-s1);
-  }
+  //}
 }
 
 void mapInfo() {
@@ -1442,12 +1451,6 @@ void mapInfo() {
       }
     }
     FastLED.show();
-    if (modulationMode == 3) {
-      Blink();
-    }
-    if (modulationMode == 2) {
-      Modulation();
-    }
   }
   if (mapMode == 3) {
     mapModeFirstUpdate1 = true;
@@ -1472,35 +1475,32 @@ void mapInfo() {
   }
 }
 
-void uptime() {
-  if ((millis() - lastUpdateAt) > 60000 || firstUptime) {
-      firstUptime = false;
-      int uptimeValue = millis() / 1000;
-      lastUpdateAt = millis();
-      int32_t number = WiFi.RSSI();
-      int rssi = 0 - number;
-
-      float totalHeapSize = ESP.getHeapSize() / 1024.0;
-      float freeHeapSize = ESP.getFreeHeap() / 1024.0;
-      float usedHeapSize = totalHeapSize - freeHeapSize;
-
-      haUptime.setValue(uptimeValue);
-      haWifiSignal.setValue(rssi);
-      haFreeMemory.setValue(freeHeapSize);
-      haUsedMemory.setValue(usedHeapSize);
-
-      //Serial.print("Wi-Fi Signal Strength (RSSI): ");
-      //Serial.print(rssi);
-      //Serial.println(" dBm");
-
-      //Serial.print("Current Free Heap: ");
-      //Serial.print(freeHeapSize);
-      //Serial.println(" kB");
-
-      //Serial.print("Current Used Heap: ");
-      //Serial.print(usedHeapSize);
-      //Serial.println(" kB");
+void modulationInfo() {
+  if (mapMode==2 && modulationMode == 3) {
+    Blink();
   }
+  if (mapMode==2 && modulationMode == 2) {
+    Modulation();
+  }
+}
+
+void uptime() {
+  //if ((millis() - lastUpdateAt) > 60000 || firstUptime) {
+  firstUptime = false;
+  int uptimeValue = millis() / 1000;
+  //lastUpdateAt = millis();
+  int32_t number = WiFi.RSSI();
+  int rssi = 0 - number;
+
+  float totalHeapSize = ESP.getHeapSize() / 1024.0;
+  float freeHeapSize = ESP.getFreeHeap() / 1024.0;
+  float usedHeapSize = totalHeapSize - freeHeapSize;
+
+  haUptime.setValue(uptimeValue);
+  haWifiSignal.setValue(rssi);
+  haFreeMemory.setValue(freeHeapSize);
+  haUsedMemory.setValue(usedHeapSize);
+  //}
 }
 
 void initTime() {
@@ -1635,6 +1635,8 @@ void initBuzzer() {
 }
 
 void buzzerUpdate() {
+  Serial.print("buzzerMode: ");
+  Serial.println(buzzerMode);
   if(buzzerMode > 1) {
     if (isAlarm && isBuzzerStart) {
       if (isDay || (!isDay && buzzerMode == 3)) {
@@ -1697,6 +1699,17 @@ void setup() {
   setupRouting();
   ArduinoOTA.begin();
   initBroadcast();
+  alamsUpdate();
+  weatherUpdate();
+  asyncEngine.setInterval(alamsUpdate, 5000);
+  asyncEngine.setInterval(weatherUpdate, 600000);
+  asyncEngine.setInterval(modulationInfo, 1000);
+  asyncEngine.setInterval(timeUpdate, 1000);
+  asyncEngine.setInterval(autoBrightnessUpdate, 1000);
+  asyncEngine.setInterval(displayInfo, 1000);
+  asyncEngine.setInterval(mapInfo, 1000);
+  asyncEngine.setInterval(buzzerUpdate, 1000);
+  asyncEngine.setInterval(uptime, 60000);
 }
 
 void loop() {
@@ -1709,16 +1722,8 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
-  timeUpdate();
+  asyncEngine.run();
   ArduinoOTA.handle();
-  autoBrightnessUpdate();
-  alamsUpdate();
-  weatherUpdate();
-  displayInfo();
-  mapInfo();
-  buzzerUpdate();
-  uptime();
-  delay(3000);
 }
 
 String utf8cyr(String source) {
