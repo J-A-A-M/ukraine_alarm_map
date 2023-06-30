@@ -79,7 +79,7 @@ bool modulationAlarmsNew = true; //Зони нових тривог в моду�
 bool modulationAlarms = false; //Зони тривог в модуляції
 bool modulationSelected = false; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = 300000; //Час індикації нових тривог
+int newAlarmPeriod = 300; //Час індикації нових тривог
 
 //Дісплей
 bool autoSwitchDisplay = true; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
@@ -326,7 +326,7 @@ static bool firstAlarmsUpdate = true;
 static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
 static bool wifiConnected;
-static unsigned long times[NUM_LEDS];
+//static unsigned long times[NUM_LEDS];
 static int ledColor[NUM_LEDS];
 
 bool isAlarm = false;
@@ -1334,55 +1334,56 @@ void alamsUpdate() {
     if (error) {
       return;
     }
-    unsigned long  t = millis();
+    //unsigned long  t = millis();
     alarmsNowCount = 0;
     bool return_to_map_init_mode = true;
     bool return_to_display_init_mode = true;
     unsigned long  s3 = millis();
     bool enable;
+    long timeDiffLocal;
+    const char* oldDate;
     for (int i = 0; i < NUM_LEDS; i++) {
       enable = doc["states"][states[i]]["enabled"].as<bool>();
       if (enable) {
-        if (times[i] == 0 || (ledColor[i] == 3 || ledColor[i] == 4)) {
-          times[i] = t;
-        }
-        if (times[i] + newAlarmPeriod > t){
+        oldDate = doc["states"][states[i]]["enabled_at"];
+      } else {
+        oldDate = doc["states"][states[i]]["disabled_at"];
+      }
+      struct tm tm;
+      strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
+      time_t oldTime = mktime(&tm);
+      time_t currentTime = timeClient.getEpochTime();
+      timeDiffLocal = difftime(currentTime, oldTime);
+      if (isDaylightSaving){timeDiffLocal -= 14400;} else {timeDiffLocal -= 10800;};
+      if (enable) {
+        // if (times[i] == 0 || (ledColor[i] == 3 || ledColor[i] == 4)) {
+        //   times[i] = timeDiffLocal;
+        // }
+        if (newAlarmPeriod > timeDiffLocal){
           ledColor[i] = 2;
         }
-        if (times[i] + newAlarmPeriod <= t){
+        if (newAlarmPeriod <= timeDiffLocal){
           ledColor[i] = 1;
         }
         if (stateId == i) {
-          const char* oldDate = doc["states"][states[i]]["enabled_at"];
-          struct tm tm;
-          strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
-          time_t oldTime = mktime(&tm);
-          time_t currentTime = timeClient.getEpochTime();
-          timeDifference = difftime(currentTime, oldTime);
-          if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
+          timeDifference = timeDiffLocal;
           isAlarm = true;
           Serial.print("isAlarm: ");
           Serial.println(isAlarm);
         }
         alarmsNowCount++;
       } else {
-        if (times[i] == 0 || (ledColor[i] == 1 || ledColor[i] == 2)) {
-          times[i] = t;
-        }
-        if (times[i] + newAlarmPeriod > t){
+        // if (times[i] == 0 || (ledColor[i] == 1 || ledColor[i] == 2)) {
+        //   times[i] = timeDiffLocal;
+        // }
+        if (newAlarmPeriod > timeDiffLocal){
           ledColor[i] = 4;
         }
-        if (times[i] + newAlarmPeriod <= t){
+        if (newAlarmPeriod <= timeDiffLocal){
           ledColor[i] = 3;
         }
         if (stateId == i) {
-          const char* oldDate = doc["states"][states[i]]["disabled_at"];
-          struct tm tm;
-          strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
-          time_t oldTime = mktime(&tm);
-          time_t currentTime = timeClient.getEpochTime();
-          timeDifference = difftime(currentTime, oldTime);
-          if (isDaylightSaving){timeDifference -= 14400;} else {timeDifference -= 10800;};
+          timeDifference = timeDiffLocal;
           isAlarm = false;
           Serial.print("isAlarm: ");
           Serial.println(isAlarm);
@@ -1613,7 +1614,7 @@ void melody(int song[], int notes) {
     tone(BUZZER_PIN, song[thisNote], noteDuration*0.9);
     delay(noteDuration);
     noTone(BUZZER_PIN);
-    Serial.println(thisNote);
+    //Serial.println(thisNote);
   }
   Serial.println("melody end");
 }

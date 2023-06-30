@@ -251,7 +251,7 @@ bool modulationAlarmsNew = <span id="modulation-orange">true</span>; //Зони 
 bool modulationAlarms = <span id="modulation-red">false</span>; //Зони тривог в модуляції
 bool modulationSelected = <span id="modulation-selected">false</span>; //Майбутній функціонал, не працює
 
-int newAlarmPeriod = <span id="new-alarm-period">300000</span>; //Час індикації нових тривог
+int newAlarmPeriod = <span id="new-alarm-period">300</span>; //Час індикації нових тривог
 
 //Дісплей
 bool autoSwitchDisplay = <span id="autoswitch-display">false</span>; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
@@ -1443,7 +1443,7 @@ static int flagColor[] PROGMEM {
       newalarmperiodinput.addEventListener('input', function() {
         let value = parseInt(newalarmperiodinput.value);
 
-        newalarmperiod.textContent = value*60000;
+        newalarmperiod.textContent = value*60;
         newalarmperiodformvalue.textContent = value;
       });
 
