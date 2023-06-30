@@ -82,11 +82,11 @@ bool modulationSelected = false; //Майбутній функціонал, не
 int newAlarmPeriod = 300; //Час індикації нових тривог
 
 //Дісплей
-bool autoSwitchDisplay = true; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
+bool autoSwitchDisplay = false; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
 
 int displayModeInit = 4;
 int displayMode = 1; //Режим дісплея
-bool displayWarningStatus = true; //Статуси wifi на дісплеі
+bool displayWarningStatus = false; //Статуси wifi на дісплеі
 
 //Погода
 const char* apiKey = ""; //API погоди
@@ -94,7 +94,7 @@ float minTemp = 5.0; // мінімальна температура у град�
 float maxTemp = 30.0; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
 //Домашній регіон
-int stateId = 7;
+int stateId = 8;
 
 //Буззер
 int buzzerMode = 1; //Режим буззера
@@ -104,6 +104,9 @@ int buzzerCount = 3;
 int buzzerTempo = 100;
 int buzzerStartSound = 4;
 int buzzerEndSound = 3;
+
+//Кнопка
+int touchMode = 3; //Режим кнопки
 
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] PROGMEM = {
@@ -230,6 +233,8 @@ static int flagColor[] PROGMEM = {
 #define COLOR_ORDER     GRB
 
 #define BUZZER_PIN      16
+
+#define TOUCH_PIN       18
 
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  32
@@ -611,6 +616,8 @@ void onHaMapModeCommand(int8_t index, HASelect* sender)
         // unknown option
         return;
     }
+    mapMode = mapModeInit;
+    mapInfo();
     EEPROM.write(eepromMapModeAddress, mapModeInit);
     EEPROM.commit();
     Serial.println("mapModeInit commited to eeprom");
@@ -636,6 +643,8 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
         // unknown option
         return;
     }
+    displayMode = displayModeInit;
+    displayInfo();
     EEPROM.write(eepromDisplayModeAddress, displayModeInit);
     EEPROM.commit();
     Serial.println("displayModeInit commited to eeprom");
@@ -816,6 +825,8 @@ void handleSave(AsyncWebServerRequest* request){
     if (enableHA) {
       haMapMode.setState(mapModeInit-1);
     }
+    mapMode = mapModeInit;
+    mapInfo();
     EEPROM.write(eepromMapModeAddress, mapModeInit);
     EEPROM.commit();
     Serial.println("mapModeInit commited to eeprom");
@@ -825,6 +836,8 @@ void handleSave(AsyncWebServerRequest* request){
     if (enableHA) {
       haDisplayMode.setState(displayModeInit-1);
     }
+    displayMode = displayModeInit;
+    displayInfo();
     EEPROM.write(eepromDisplayModeAddress, displayModeInit);
     EEPROM.commit();
     Serial.println("displayModeInit commited to eeprom");
@@ -1368,6 +1381,7 @@ void alamsUpdate() {
         if (stateId == i) {
           timeDifference = timeDiffLocal;
           isAlarm = true;
+          buzzerUpdate();
           Serial.print("isAlarm: ");
           Serial.println(isAlarm);
         }
@@ -1385,12 +1399,14 @@ void alamsUpdate() {
         if (stateId == i) {
           timeDifference = timeDiffLocal;
           isAlarm = false;
+          buzzerUpdate();
           Serial.print("isAlarm: ");
           Serial.println(isAlarm);
         }
       }
       if (autoSwitchMap && enable && statesIdsAlarmCheck[i]==1) {
           mapMode = 2;
+          mapInfo();
           if (enableHA) {
             haMapModeCurrent.setValue(mapModes[mapMode-1]);
           }
@@ -1398,6 +1414,7 @@ void alamsUpdate() {
       }
       if (autoSwitchDisplay && enable && statesIdsAlarmCheck[i]==1) {
           displayMode = 3;
+          displayInfo();
           if (enableHA) {
             haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
           }
@@ -1407,6 +1424,7 @@ void alamsUpdate() {
     unsigned long  s4 = millis();
     if (return_to_map_init_mode) {
       mapMode = mapModeInit;
+      mapInfo();
       if (enableHA) {
         haMapModeCurrent.setValue(mapModes[mapMode-1]);
         //haMapMode.setState(mapModeInit-1);
@@ -1416,6 +1434,7 @@ void alamsUpdate() {
     }
     if (return_to_display_init_mode) {
       displayMode = displayModeInit;
+      displayInfo();
       if (enableHA) {
         haDisplayModeCurrent.setValue(displayModes[displayMode-1]);
         //haDisplayMode.setState(displayModeInit-1);
@@ -1474,6 +1493,30 @@ void mapInfo() {
       Flag(50);
     }
   }
+}
+
+void mapModeSwitch() {
+  mapModeInit += 1;
+  if (mapModeInit > 4) {
+    mapModeInit = 1;
+  }
+  if (enableHA) {
+    haMapMode.setState(mapModeInit-1);
+  }
+  mapMode = mapModeInit;
+  mapInfo();
+}
+
+void displayModeSwitch() {
+  displayModeInit += 1;
+  if (displayModeInit > 4) {
+    displayModeInit = 1;
+  }
+  if (enableHA) {
+    haDisplayMode.setState(displayModeInit-1);
+  }
+  displayMode = displayModeInit;
+  displayInfo();
 }
 
 void modulationInfo() {
@@ -1702,14 +1745,17 @@ void setup() {
   initBroadcast();
   alamsUpdate();
   weatherUpdate();
-  asyncEngine.setInterval(alamsUpdate, 5000);
+  mapInfo();
+  displayInfo();
+  pinMode(TOUCH_PIN, INPUT);
+  asyncEngine.setInterval(alamsUpdate, 10000);
   asyncEngine.setInterval(weatherUpdate, 600000);
-  asyncEngine.setInterval(modulationInfo, 1000);
+  asyncEngine.setInterval(modulationInfo, 3000);
   asyncEngine.setInterval(timeUpdate, 1000);
-  asyncEngine.setInterval(autoBrightnessUpdate, 1000);
-  asyncEngine.setInterval(displayInfo, 1000);
-  asyncEngine.setInterval(mapInfo, 1000);
-  asyncEngine.setInterval(buzzerUpdate, 1000);
+  asyncEngine.setInterval(autoBrightnessUpdate, 5000);
+  //asyncEngine.setInterval(displayInfo, 1000);
+  //asyncEngine.setInterval(mapInfo, 1000);
+  //asyncEngine.setInterval(buzzerUpdate, 1000);
   asyncEngine.setInterval(uptime, 60000);
 }
 
@@ -1725,6 +1771,21 @@ void loop() {
   }
   asyncEngine.run();
   ArduinoOTA.handle();
+  if (digitalRead(TOUCH_PIN) == HIGH && touchMode > 1) {
+    if (touchMode == 2) {
+      mapModeSwitch();
+    }
+    if (touchMode == 3) {
+      displayModeSwitch();
+    }
+    if (buzzerMode > 1) {
+      tone(BUZZER_PIN, 100, 100);
+      delay(100);
+      noTone(BUZZER_PIN);
+    }
+    while (digitalRead(TOUCH_PIN) == HIGH){
+    }
+  }
 }
 
 String utf8cyr(String source) {

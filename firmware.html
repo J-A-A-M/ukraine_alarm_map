@@ -265,6 +265,7 @@ const char* apiKey = "<span id="open-weather-map"></span>"; //API погоди
 float minTemp = <span id="min-temp">5.0</span>; // мінімальна температура у градусах Цельсія для налашутвання діапазону кольорів
 float maxTemp = <span id="max-temp">25.0</span>; // максимальна температура у градусах Цельсія для налашутвання діапазону кольорів
 
+//Домашній регіон
 int stateId = <span id="state-id">8</span>;
 
 //Буззер
@@ -275,6 +276,9 @@ int buzzerCount = <span id="buzzer-count">3</span>;
 int buzzerTempo = <span id="buzzer-tempo">100</span>;
 int buzzerStartSound = <span id="buzzer-start-sound">4</span>;
 int buzzerEndSound = <span id="buzzer-end-sound">3</span>;
+
+//Кнопка
+int touchMode = <span id="button-mode">1</span>; //Режим кнопки
 
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] PROGMEM = {
@@ -366,7 +370,7 @@ int statesIdsWeather[] PROGMEM = {
 };
 
 //Прапор
-static int flagColor[] PROGMEM {
+static int flagColor[] PROGMEM = {
   HUE_YELLOW,
   HUE_YELLOW,
   HUE_YELLOW,
@@ -829,6 +833,27 @@ static int flagColor[] PROGMEM {
                     <option value="5">StarTrek</option>
                     <option value="6">Рінгтон Nokia</option>
                   </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="col-md-12 mb-1"></div>
+
+         <div class="row bg-light text-secondary p-1 border rounded border-secondary">
+            <h5 class="mb-2 text-dark">Кнопка перемикання режимів <span class="badge bg-success">оновлення</span></h5>
+            <div class="col-md-12 btn-group mb-3" role="group">
+              <button type="button" class="btn btn-danger" id="button-mode-input-1">Вимкнена</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-2">Режими мапи</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-3">Режими дисплея</button>
+            </div>
+            <div class="" id='button-mode-form'  style="display:none" >
+              <div class="row">
+                <div class=""  >
+                  <div class="alert alert-primary" role="alert">
+                     Ручне перемикання кнопкою вибраних режимів. Якшо у вас вибрано автоперемикання в режим тривоги - мапа і дісплей примусово будуть повертатись в режим тривоги через декілька секунд
+                  </div>
                 </div>
               </div>
             </div>
@@ -1842,6 +1867,44 @@ static int flagColor[] PROGMEM {
       function updateBuzzerEndState() {
         buzzerendsound.textContent = buzzerendsoundinput.value;
       }
+
+      const buttonmode = document.getElementById('button-mode');
+      const buttonmodeinput1 = document.getElementById('button-mode-input-1');
+      const buttonmodeinput2 = document.getElementById('button-mode-input-2');
+      const buttonmodeinput3 = document.getElementById('button-mode-input-3');
+
+      const buttonmodeform = document.getElementById('button-mode-form');
+
+
+      buttonmodeinput1.addEventListener('click', function() {
+        if (buttonmodeinput1.className === 'btn btn-secondary') {
+          buttonmodeinput1.className = 'btn btn-danger';
+          buttonmodeinput2.className = 'btn btn-secondary';
+          buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmode.textContent = '1';
+          buttonmodeform.style.display = 'none';
+        }
+      });
+
+      buttonmodeinput2.addEventListener('click', function() {
+        if (buttonmodeinput2.className === 'btn btn-secondary') {
+          buttonmodeinput1.className = 'btn btn-secondary';
+          buttonmodeinput2.className = 'btn btn-success';
+          buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmode.textContent = '2';
+          buttonmodeform.style.display = 'block';
+        }
+      });
+
+      buttonmodeinput3.addEventListener('click', function() {
+        if (buttonmodeinput3.className === 'btn btn-secondary') {
+          buttonmodeinput1.className = 'btn btn-secondary';
+          buttonmodeinput2.className = 'btn btn-secondary';
+          buttonmodeinput3.className = 'btn btn-success';
+          buttonmode.textContent = '3';
+          buttonmodeform.style.display = 'block';
+        }
+      });
 
 
 
