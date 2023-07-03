@@ -845,8 +845,10 @@ static int flagColor[] PROGMEM = {
             <h5 class="mb-2 text-dark">Кнопка перемикання режимів <span class="badge bg-success">оновлення</span></h5>
             <div class="col-md-12 btn-group mb-3" role="group">
               <button type="button" class="btn btn-danger" id="button-mode-input-1">Вимкнена</button>
-              <button type="button" class="btn btn-secondary" id="button-mode-input-2">Режими мапи</button>
-              <button type="button" class="btn btn-secondary" id="button-mode-input-3">Режими дисплея</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-2">мапа</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-3">дисплей</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-4">модуляція</button>
+              <button type="button" class="btn btn-secondary" id="button-mode-input-5">буззер</button>
             </div>
             <div class="" id='button-mode-form'  style="display:none" >
               <div class="row">
@@ -1872,6 +1874,8 @@ static int flagColor[] PROGMEM = {
       const buttonmodeinput1 = document.getElementById('button-mode-input-1');
       const buttonmodeinput2 = document.getElementById('button-mode-input-2');
       const buttonmodeinput3 = document.getElementById('button-mode-input-3');
+      const buttonmodeinput4 = document.getElementById('button-mode-input-4');
+      const buttonmodeinput5 = document.getElementById('button-mode-input-5');
 
       const buttonmodeform = document.getElementById('button-mode-form');
 
@@ -1881,6 +1885,8 @@ static int flagColor[] PROGMEM = {
           buttonmodeinput1.className = 'btn btn-danger';
           buttonmodeinput2.className = 'btn btn-secondary';
           buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmodeinput4.className = 'btn btn-secondary';
+          buttonmodeinput5.className = 'btn btn-secondary';
           buttonmode.textContent = '1';
           buttonmodeform.style.display = 'none';
         }
@@ -1891,6 +1897,8 @@ static int flagColor[] PROGMEM = {
           buttonmodeinput1.className = 'btn btn-secondary';
           buttonmodeinput2.className = 'btn btn-success';
           buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmodeinput4.className = 'btn btn-secondary';
+          buttonmodeinput5.className = 'btn btn-secondary';
           buttonmode.textContent = '2';
           buttonmodeform.style.display = 'block';
         }
@@ -1901,7 +1909,33 @@ static int flagColor[] PROGMEM = {
           buttonmodeinput1.className = 'btn btn-secondary';
           buttonmodeinput2.className = 'btn btn-secondary';
           buttonmodeinput3.className = 'btn btn-success';
+          buttonmodeinput4.className = 'btn btn-secondary';
+          buttonmodeinput5.className = 'btn btn-secondary';
           buttonmode.textContent = '3';
+          buttonmodeform.style.display = 'block';
+        }
+      });
+
+      buttonmodeinput4.addEventListener('click', function() {
+        if (buttonmodeinput4.className === 'btn btn-secondary') {
+          buttonmodeinput1.className = 'btn btn-secondary';
+          buttonmodeinput2.className = 'btn btn-secondary';
+          buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmodeinput4.className = 'btn btn-success';
+          buttonmodeinput5.className = 'btn btn-secondary';
+          buttonmode.textContent = '4';
+          buttonmodeform.style.display = 'block';
+        }
+      });
+
+      buttonmodeinput5.addEventListener('click', function() {
+        if (buttonmodeinput5.className === 'btn btn-secondary') {
+          buttonmodeinput1.className = 'btn btn-secondary';
+          buttonmodeinput2.className = 'btn btn-secondary';
+          buttonmodeinput3.className = 'btn btn-secondary';
+          buttonmodeinput4.className = 'btn btn-secondary';
+          buttonmodeinput5.className = 'btn btn-success';
+          buttonmode.textContent = '5';
           buttonmodeform.style.display = 'block';
         }
       });

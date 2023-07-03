@@ -84,7 +84,7 @@ int newAlarmPeriod = 300; //Час індикації нових тривог
 //Дісплей
 bool autoSwitchDisplay = false; //Автоматичне переключення дісплея на режим тривоги при початку тривоги в вибраній області
 
-int displayModeInit = 4;
+int displayModeInit = 1;
 int displayMode = 1; //Режим дісплея
 bool displayWarningStatus = false; //Статуси wifi на дісплеі
 
@@ -106,7 +106,7 @@ int buzzerStartSound = 4;
 int buzzerEndSound = 3;
 
 //Кнопка
-int touchMode = 3; //Режим кнопки
+int touchMode = 1; //Режим кнопки
 
 //Налаштуванння повернення в режим тривог
 int statesIdsAlarmCheck[] PROGMEM = {
@@ -256,6 +256,7 @@ const int eepromMapModeAddress = 21;
 const int eepromDisplayModeAddress = 22;
 const int eepromModulationModeAddress = 23;
 const int eepromBuzzerModeAddress = 24;
+const int eepromButtonModeAddress = 25;
 
 String baseURL = "https://vadimklimenko.com/map/statuses.json";
 
@@ -288,6 +289,8 @@ String haDisplayModeCurrentString = String("alarm_map") + prefix + "_display_mod
 const char* haDisplayModeCurrentChar = haDisplayModeCurrentString.c_str();
 String haBuzzerModeString = String("alarm_map") + prefix + "_buzzer_mode";
 const char* haBuzzerModeChar = haBuzzerModeString.c_str();
+String haButtonModeString = String("alarm_map") + prefix + "_button_mode";
+const char* haButtonModeChar = haButtonModeString.c_str();
 
 HADevice device(mac, sizeof(mac));
 HAMqtt mqtt(client, device, 14);
@@ -302,25 +305,40 @@ HASensorNumber haUsedMemory(haUsedMemoryChar);
 HASensor haMapModeCurrent(haMapModeCurrentChar);
 HASensor haDisplayModeCurrent(haDisplayModeCurrentChar);
 HASelect  haBuzzerMode(haBuzzerModeChar);
+HASelect  haButtonMode(haButtonModeChar);
 
 char* mapModes [] = {
-  "Off",
-  "Alarms",
-  "Weather",
-  "Flag"
+  "Вимкнено",
+  "Tpивoгa",
+  "Погода",
+  "Прапор"
 };
 
 char* displayModes [] = {
-  "Off",
-  "Clock",
-  "Alarms",
-  "Weather"
+  "Вимкнено",
+  "Годинник",
+  "Tpивoгa",
+  "Погода"
+};
+
+char* modulationModes [] = {
+  "Вимкнено",
+  "Moдyляцiя",
+  "Пyльcaцiя"
 };
 
 char* buzzerModes [] = {
-  "Off",
-  "Day",
-  "Day+Night"
+  "Вимкнено",
+  "День",
+  "День+Hiчь"
+};
+
+char* buttonModes [] = {
+  "Вимкнено",
+  "Мапа",
+  "Дicплeй",
+  "Moдyляцiя",
+  "Буззер"
 };
 
 int alarmsPeriod = 5000;
@@ -550,10 +568,44 @@ void initHA() {
     haBuzzerMode.setName(haBuzzerModeChar);
     haBuzzerMode.setCurrentState(buzzerMode-1);
 
+    haButtonMode.setOptions("Off;Map;Display;Modulation;Buzzer");
+    haButtonMode.onCommand(onButtonModeCommand);
+    haButtonMode.setIcon("mdi:gesture-tap-button");
+    haButtonMode.setName(haButtonModeChar);
+    haButtonMode.setCurrentState(touchMode-1);
+
     device.enableLastWill();
     mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
     Serial.println("mqtt connected");
   }
+}
+
+void onButtonModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        touchMode = 1;
+        break;
+    case 1:
+        touchMode = 2;
+        break;
+    case 2:
+        touchMode = 3;
+        break;
+    case 3:
+        touchMode = 4;
+        break;
+    case 4:
+        touchMode = 5;
+        break;
+    default:
+        // unknown option
+        return;
+    }
+    EEPROM.write(eepromButtonModeAddress, touchMode);
+    EEPROM.commit();
+    Serial.println("touchMode commited to eeprom");
+    sender->setState(index);
 }
 
 void onBuzzerModeCommand(int8_t index, HASelect* sender)
@@ -749,8 +801,8 @@ void handleRoot(AsyncWebServerRequest* request){
   html += "</select>";
   html += "</div>";
   html += "<div class='form-group'>";
-  html += "<label for='modulationMode'>Режим буззера:</label>";
-  html += "<select class='form-control' id='buzzerMode' name='enable_buzzer'>";
+  html += "<label for='buzzerMode'>Режим буззера:</label>";
+  html += "<select class='form-control' id='buzzerMode' name='buzzer_mode'>";
   html += "<option value='1'";
   if (buzzerMode == 1) html += " selected";
   html += ">Вимкнений</option>";
@@ -760,6 +812,26 @@ void handleRoot(AsyncWebServerRequest* request){
   html += "<option value='3'";
   if (buzzerMode == 3) html += " selected";
   html += ">Ввімкнений всю добу</option>";
+  html += "</select>";
+  html += "</div>";
+  html += "<div class='form-group'>";
+  html += "<label for='buttonMode'>Режим кнопки:</label>";
+  html += "<select class='form-control' id='buttonMode' name='button_mode'>";
+  html += "<option value='1'";
+  if (touchMode == 1) html += " selected";
+  html += ">Вимкнена</option>";
+  html += "<option value='2'";
+  if (touchMode == 2) html += " selected";
+  html += ">Перемикання мапи</option>";
+  html += "<option value='3'";
+  if (touchMode == 3) html += " selected";
+  html += ">Перемикання дисплея</option>";
+  html += "<option value='4'";
+  if (touchMode == 4) html += " selected";
+  html += ">Перемикання модуляції</option>";
+  html += "<option value='5'";
+  if (touchMode == 5) html += " selected";
+  html += ">Перемикання буззера</option>";
   html += "</select>";
   html += "</div>";
   html += "<button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
@@ -851,14 +923,23 @@ void handleSave(AsyncWebServerRequest* request){
     EEPROM.commit();
     Serial.println("modulationMode commited to eeprom");
   }
-  if (request->hasParam("enable_buzzer", true)){
-    buzzerMode = request->getParam("enable_buzzer", true)->value().toInt();
+  if (request->hasParam("buzzer_mode", true)){
+    buzzerMode = request->getParam("buzzer_mode", true)->value().toInt();
     if (enableHA) {
       haBuzzerMode.setState(buzzerMode-1);
     }
     EEPROM.write(eepromBuzzerModeAddress, buzzerMode);
     EEPROM.commit();
     Serial.println("buzzerMode commited to eeprom");
+  }
+  if (request->hasParam("button_mode", true)){
+    touchMode = request->getParam("button_mode", true)->value().toInt();
+    if (enableHA) {
+      haButtonMode.setState(touchMode-1);
+    }
+    EEPROM.write(eepromButtonModeAddress, touchMode);
+    EEPROM.commit();
+    Serial.println("touchMode commited to eeprom");
   }
   request->redirect("/");
 }
@@ -1504,7 +1585,12 @@ void mapModeSwitch() {
     haMapMode.setState(mapModeInit-1);
   }
   mapMode = mapModeInit;
+  EEPROM.write(eepromMapModeAddress, mapMode);
+  EEPROM.commit();
+  Serial.println("mapMode commited to eeprom");
+  touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
   mapInfo();
+  displayInfo();
 }
 
 void displayModeSwitch() {
@@ -1516,6 +1602,40 @@ void displayModeSwitch() {
     haDisplayMode.setState(displayModeInit-1);
   }
   displayMode = displayModeInit;
+  EEPROM.write(eepromDisplayModeAddress, displayMode);
+  EEPROM.commit();
+  Serial.println("displayMode commited to eeprom");
+  touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
+  displayInfo();
+}
+
+void modulationModeSwitch() {
+  modulationMode += 1;
+  if (modulationMode > 3) {
+    modulationMode = 1;
+  }
+  if (enableHA) {
+    haModulationMode.setState(modulationMode-1);
+  }
+  EEPROM.write(eepromModulationModeAddress, modulationMode);
+  EEPROM.commit();
+  Serial.println("modulationMode commited to eeprom");
+  touchModeDisplay(utf8cyr("Режим модуляцii:"), utf8cyr(modulationModes[modulationMode-1]));
+  displayInfo();
+}
+
+void buzzerModeSwitch() {
+  buzzerMode += 1;
+  if (buzzerMode > 3) {
+    buzzerMode = 1;
+  }
+  if (enableHA) {
+    haBuzzerMode.setState(buzzerMode-1);
+  }
+  EEPROM.write(eepromBuzzerModeAddress, buzzerMode);
+  EEPROM.commit();
+  Serial.println("buzzerMode commited to eeprom");
+  touchModeDisplay(utf8cyr("Режим буззера:"), utf8cyr(buzzerModes[buzzerMode-1]));
   displayInfo();
 }
 
@@ -1638,6 +1758,17 @@ void checkEEPROM() {
     Serial.print("BuzzerMode value found in EEPROM: ");
     Serial.println(eepromBuzzerMode);
   }
+  int eepromButtonMode;
+  eepromButtonMode = EEPROM.read(eepromButtonModeAddress);
+  if (eepromButtonMode == 0xFF) {
+    EEPROM.write(eepromButtonModeAddress, eepromButtonMode);
+    EEPROM.commit();
+    Serial.println("touchMode value not found in EEPROM. Using default value.");
+  } else {
+    touchMode = eepromButtonMode;
+    Serial.print("touchMode value found in EEPROM: ");
+    Serial.println(eepromButtonMode);
+  }
 }
 
 void melody(int song[], int notes) {
@@ -1727,6 +1858,78 @@ void buzzerUpdate() {
   }
 }
 
+void touchModeDisplay(String text1, String text2) {
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.println(text1);
+  display.setTextSize(2);
+  DisplayCenter(text2,6);
+  delay(2000);
+}
+
+void touchUpdate() {
+  if (digitalRead(TOUCH_PIN) == HIGH) {
+    if (buzzerMode > 1) {
+      tone(BUZZER_PIN, 100, 100);
+      delay(100);
+      noTone(BUZZER_PIN);
+    }
+    unsigned long  buttonPressStart = millis();
+    bool changeButtonMode = true;
+    while (digitalRead(TOUCH_PIN) == HIGH){
+      unsigned long  buttonPressEnd = millis();
+      if (buttonPressEnd - buttonPressStart > 2000){
+        if (buzzerMode > 1) {
+          tone(BUZZER_PIN, 100, 1000);
+          delay(1000);
+          noTone(BUZZER_PIN);
+          delay(500);
+        }
+        changeButtonMode = false;
+      }
+    }
+    if (changeButtonMode) {
+      if (touchMode == 2) {
+        mapModeSwitch();
+      }
+      if (touchMode == 3) {
+        displayModeSwitch();
+      }
+      if (touchMode == 4) {
+        modulationModeSwitch();
+      }
+      if (touchMode == 5) {
+        buzzerModeSwitch();
+      }
+
+    } else {
+      touchMode += 1;
+      if (touchMode > 5) {
+        touchMode = 2;
+      }
+      if (touchMode == 2) {
+        touchModeDisplay(utf8cyr("Режим кнопки:"),utf8cyr("мапа"));
+      }
+      if (touchMode == 3) {
+        touchModeDisplay(utf8cyr("Режим кнопки:"),utf8cyr("дисплей"));
+      }
+      if (touchMode == 4) {
+        touchModeDisplay(utf8cyr("Режим кнопки:"),utf8cyr("модуляцiя"));
+      }
+      if (touchMode == 5) {
+        touchModeDisplay(utf8cyr("Режим кнопки:"),utf8cyr("буззер"));
+      }
+      if (enableHA) {
+        haButtonMode.setState(touchMode-1);
+      }
+      EEPROM.write(eepromButtonModeAddress, touchMode);
+      EEPROM.commit();
+      Serial.println("touchMode commited to eeprom");
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   checkEEPROM();
@@ -1751,7 +1954,7 @@ void setup() {
   asyncEngine.setInterval(alamsUpdate, 10000);
   asyncEngine.setInterval(weatherUpdate, 600000);
   asyncEngine.setInterval(modulationInfo, 3000);
-  asyncEngine.setInterval(timeUpdate, 1000);
+  asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(autoBrightnessUpdate, 5000);
   //asyncEngine.setInterval(displayInfo, 1000);
   //asyncEngine.setInterval(mapInfo, 1000);
@@ -1771,21 +1974,7 @@ void loop() {
   }
   asyncEngine.run();
   ArduinoOTA.handle();
-  if (digitalRead(TOUCH_PIN) == HIGH && touchMode > 1) {
-    if (touchMode == 2) {
-      mapModeSwitch();
-    }
-    if (touchMode == 3) {
-      displayModeSwitch();
-    }
-    if (buzzerMode > 1) {
-      tone(BUZZER_PIN, 100, 100);
-      delay(100);
-      noTone(BUZZER_PIN);
-    }
-    while (digitalRead(TOUCH_PIN) == HIGH){
-    }
-  }
+  touchUpdate();
 }
 
 String utf8cyr(String source) {
