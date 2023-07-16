@@ -17,8 +17,18 @@
 
 
 [![pages-build-deployment](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment/badge.svg?branch=master)](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment)
-
 [![CodeQL](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql)
+
+[![GitHub version](https://img.shields.io/github/release/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/releases/latest)
+[![GitHub commits](https://img.shields.io/github/commit-activity/t/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/commits/master)
+[![GitHub issues](https://img.shields.io/github/issues/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/issues)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/v00g100skr/ukraine_alarm_map/blob/master/LICENSE)
+
+[![website](https://img.shields.io/website?url=https%3A%2F%2Fv00g100skr.github.io%2Fukraine_alarm_map%2Ffirmware.html)](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
 
 
 [![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://vshymanskyy.github.io/StandWithUkraine)
+
+
+
+
