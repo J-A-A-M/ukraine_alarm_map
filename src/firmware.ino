@@ -19,7 +19,7 @@
 String prefix = "";
 char* deviceName = "Alarm Map";
 char* deviceBroadcastName = "alarm-map";
-char* softwareVersion = "2.8";
+char* softwareVersion = "2.10d";
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //test
 byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
@@ -349,7 +349,6 @@ static bool firstAlarmsUpdate = true;
 static bool firstWeatherUpdate = true;
 int alarmsNowCount = 0;
 static bool wifiConnected;
-//static unsigned long times[NUM_LEDS];
 static int ledColor[NUM_LEDS];
 
 bool isAlarm = false;
@@ -366,10 +365,8 @@ static bool mapModeFirstUpdate1 = true;
 static bool mapModeFirstUpdate2 = true;
 static bool mapModeFirstUpdate3 = true;
 static bool mapModeFirstUpdate4 = true;
-static bool firstUptime = true;
 
 long timeDifference;
-long lastUpdateAt = 0;
 
 const unsigned char trident_small [] PROGMEM = {
 	0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
@@ -1227,7 +1224,7 @@ void displayInfo() {
     int seconds = (timeDifference % 3600) % 60;
 
     String time = "";
-    if (days > 1){
+    if (days > 0){
       time += days;
       time += "d ";
     }
@@ -1281,7 +1278,7 @@ void DisplayCenter(String text, int bound) {
   }
 
 void initFastLED() {
-    //FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
+    //FastLED.setMaxPowerInVoltsAndMilliamps(5, 20);
     FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.setBrightness(2.55 * brightness);
     FastLED.clear();
@@ -1443,6 +1440,7 @@ void alamsUpdate() {
       } else {
         oldDate = doc["states"][states[i]]["disabled_at"];
       }
+
       struct tm tm;
       strptime(oldDate, "%Y-%m-%dT%H:%M:%SZ", &tm);
       time_t oldTime = mktime(&tm);
@@ -1450,9 +1448,6 @@ void alamsUpdate() {
       timeDiffLocal = difftime(currentTime, oldTime);
       if (isDaylightSaving){timeDiffLocal -= 14400;} else {timeDiffLocal -= 10800;};
       if (enable) {
-        // if (times[i] == 0 || (ledColor[i] == 3 || ledColor[i] == 4)) {
-        //   times[i] = timeDiffLocal;
-        // }
         if (newAlarmPeriod > timeDiffLocal){
           ledColor[i] = 2;
         }
@@ -1468,9 +1463,6 @@ void alamsUpdate() {
         }
         alarmsNowCount++;
       } else {
-        // if (times[i] == 0 || (ledColor[i] == 1 || ledColor[i] == 2)) {
-        //   times[i] = timeDiffLocal;
-        // }
         if (newAlarmPeriod > timeDiffLocal){
           ledColor[i] = 4;
         }
@@ -1649,10 +1641,7 @@ void modulationInfo() {
 }
 
 void uptime() {
-  //if ((millis() - lastUpdateAt) > 60000 || firstUptime) {
-  firstUptime = false;
   int uptimeValue = millis() / 1000;
-  //lastUpdateAt = millis();
   int32_t number = WiFi.RSSI();
   int rssi = 0 - number;
 
