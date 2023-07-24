@@ -94,11 +94,13 @@ def fetch_and_store_data():
                         and alert["regionType"] == "State"
                         and alert["type"] == "AIR"
                 ):
-                    region_data = cached_data['states'].get(region_name, empty_data)
+
                     if item["regionName"] == 'Автономна Республіка Крим':
                         region_name = 'АР Крим'
                     else:
                         region_name = item["regionName"]
+
+                    region_data = cached_data['states'].get(region_name, empty_data)
 
                     region_names.append(region_name)
 
