@@ -111,8 +111,7 @@ def fetch_and_store_data():
         for region_name in cached_data['states'].keys():
             if region_name not in region_names and cached_data['states'][region_name]['enabled'] is True:
                 cached_data['states'][region_name]['enabled'] = False
-                if(cached_data['info'].get('is_start', True)):
-                    cached_data['states'][region_name]['disabled_at'] = current_datetime
+                cached_data['states'][region_name]['disabled_at'] = current_datetime
 
         cached_data['info']['is_start'] = False
 
