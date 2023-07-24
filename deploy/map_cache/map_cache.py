@@ -21,8 +21,8 @@ host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 port = os.environ.get('MEMCACHED_PORT') or 11211
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
-alert_loop_time = os.environ.get('PERIOD') or 10
-weather_loop_time = os.environ.get('PERIOD') or 600
+alert_loop_time = os.environ.get('ALERT_PERIOD') or 10
+weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
 
 cache = base.Client((host, port))
 
