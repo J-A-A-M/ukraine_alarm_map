@@ -13,8 +13,8 @@ logging.basicConfig(
     ]
 )
 
-host = os.environ.get('MEMCHACHED_HOST') or 'memcached'
-port = os.environ.get('MEMCHACHED_PORT') or 11211
+host = os.environ.get('MEMCACHED_HOST') or 'memcached'
+port = os.environ.get('MEMCACHED_PORT') or 11211
 
 cache = base.Client((host, port))
 
