@@ -94,7 +94,7 @@ def fetch_and_store_data():
                         and alert["regionType"] == "State"
                         and alert["type"] == "AIR"
                 ):
-                    alert["enabled"] = True
+                    region_data = cached_data['states'].get(region_name, empty_data)
                     if item["regionName"] == 'Автономна Республіка Крим':
                         region_name = 'АР Крим'
                     else:
@@ -102,11 +102,11 @@ def fetch_and_store_data():
 
                     region_names.append(region_name)
 
-                    region_data = cached_data['states'].get(region_name, empty_data)
-                    region_data['enabled'] = True
-                    region_data['enabled_at'] = alert['lastUpdate']
+                    if region_data['enabled'] is False:
+                        region_data['enabled'] = True
+                        region_data['enabled_at'] = alert['lastUpdate']
 
-                    cached_data["states"][region_name] = region_data
+                        cached_data["states"][region_name] = region_data
 
         for region_name in cached_data['states'].keys():
             if region_name not in region_names and cached_data['states'][region_name]['enabled'] is True:
