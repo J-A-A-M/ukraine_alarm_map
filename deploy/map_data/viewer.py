@@ -19,13 +19,16 @@ port = os.environ.get('MEMCHACHED_PORT') or 11211
 cache = base.Client((host, port))
 
 
-@route('/test')
-def test():
-    logging.info('Hello World!')
-    return "Hello World!"
-
-
 @route('/')
+def alarm_map():
+    response.content_type = 'application/json'
+    return {
+        'alerts': '/statuses.json',
+        'weather': '/weather_statuses.json',
+    }
+
+
+@route('/statuses.json')
 def alarm_map():
     cached_data = cache.get('alarm_map')
     logging.info('caching data get: %s' % cached_data)
@@ -33,9 +36,9 @@ def alarm_map():
     return cached_data or {'error': 'no data in cache'}
 
 
-@route('/statuses.json')
-def alarm_map():
-    cached_data = cache.get('alarm_map')
+@route('/weather_statuses.json')
+def weather_map():
+    cached_data = cache.get('weather_map')
     logging.info('caching data get: %s' % cached_data)
     response.content_type = 'application/json'
     return cached_data or {'error': 'no data in cache'}
