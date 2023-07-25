@@ -23,8 +23,8 @@ alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 10
-weather_loop_time = os.environ.get('WEATHER_PERIOD') or 20
-etryvoga_loop_time = os.environ.get('WEATHER_PERIOD') or 600
+weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
+etryvoga_loop_time = os.environ.get('WEATHER_PERIOD') or 20
 
 cache_alarm = base.Client((host, port))
 cache_weather = base.Client((host, port))
