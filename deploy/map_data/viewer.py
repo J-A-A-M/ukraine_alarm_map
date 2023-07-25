@@ -23,12 +23,13 @@ cache = base.Client((host, port))
 def alarm_map():
     response.content_type = 'application/json'
     return {
-        'alerts': '/statuses.json',
+        'alerts': '/alert_statuses.json',
         'weather': '/weather_statuses.json',
+        'explosives': '/explosives_statuses.json',
     }
 
 
-@route('/statuses.json')
+@route('/alert_statuses.json')
 def alarm_map():
     cached_data = cache.get('alarm_map')
     logging.info('caching data get: %s' % cached_data)
@@ -39,6 +40,14 @@ def alarm_map():
 @route('/weather_statuses.json')
 def weather_map():
     cached_data = cache.get('weather_map')
+    logging.info('caching data get: %s' % cached_data)
+    response.content_type = 'application/json'
+    return cached_data or {'error': 'no data in cache'}
+
+
+@route('/explosives_statuses.json')
+def weather_map():
+    cached_data = cache.get('etryvoga_data')
     logging.info('caching data get: %s' % cached_data)
     response.content_type = 'application/json'
     return cached_data or {'error': 'no data in cache'}

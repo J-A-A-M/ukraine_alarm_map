@@ -13,18 +13,22 @@ from copy import copy
 # URL to fetch JSON data from
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
-
+etryvoga_url = os.environ.get('ETRYVOGA_HOST') or 'localhost'  # sorry, no public urls for this api
 weather_url = "http://api.openweathermap.org/data/2.5/weather"
-
 
 host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 port = os.environ.get('MEMCACHED_PORT') or 11211
+
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
-alert_loop_time = os.environ.get('ALERT_PERIOD') or 10
-weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
 
-cache = base.Client((host, port))
+alert_loop_time = os.environ.get('ALERT_PERIOD') or 10
+weather_loop_time = os.environ.get('WEATHER_PERIOD') or 20
+etryvoga_loop_time = os.environ.get('WEATHER_PERIOD') or 600
+
+cache_alarm = base.Client((host, port))
+cache_weather = base.Client((host, port))
+cache_etryvoga = base.Client((host, port))
 
 # Authorization header
 headers = {
@@ -32,6 +36,35 @@ headers = {
 }
 
 first_update = True
+
+compatibility_slugs = [
+  "ZAKARPATSKA",
+  "IVANOFRANKIWSKA",
+  "TERNOPILSKA",
+  "LVIVKA",
+  "VOLYNSKA",
+  "RIVENSKA",
+  "JITOMIRSKAYA",
+  "KIYEW",
+  "KIYEWSKAYA",
+  "CHERNIGIWSKA",
+  "SUMSKA",
+  "HARKIVSKA",
+  "LUGANSKA",
+  "DONETSKAYA",
+  "ZAPORIZKA",
+  "HERSONSKA",
+  "KRIMEA",
+  "ODESKA",
+  "MYKOLAYIV",
+  "DNIPROPETROVSKAYA",
+  "POLTASKA",
+  "CHERKASKA",
+  "KIROWOGRADSKA",
+  "VINNYTSA",
+  "HMELNYCKA",
+  "CHERNIVETSKA"
+]
 
 regions = [
   "Закарпатська область",
@@ -98,12 +131,12 @@ def alarm_data():
         try:
             current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            cached_data = cache.get('alarm_map')
-            if cached_data:
-                cached_data = cached_data.decode('utf-8')
-                cached_data = json.loads(cached_data)
+            alerts_cached_data = cache_alarm.get('alarm_map')
+            if alerts_cached_data:
+                alerts_cached_data = alerts_cached_data.decode('utf-8')
+                alerts_cached_data = json.loads(alerts_cached_data)
             else:
-                cached_data = {
+                alerts_cached_data = {
                     "version": 1,
                     "states": {},
                     "info": {
@@ -112,7 +145,7 @@ def alarm_data():
                     }
                 }
 
-            cached_data['info']['last_update'] = current_datetime
+            alerts_cached_data['info']['last_update'] = current_datetime
             empty_data = {
                 'type': "state",
                 'disabled_at': None,
@@ -122,7 +155,7 @@ def alarm_data():
 
             region_names = []
 
-            if cached_data['info'].get('is_start', True):
+            if alerts_cached_data['info'].get('is_start', True):
                 response = requests.get(region_url, headers=headers)
                 data = json.loads(response.text)
                 for item in data['states']:
@@ -130,12 +163,12 @@ def alarm_data():
                         region_name = 'АР Крим'
                     else:
                         region_name = item["regionName"]
-                    cached_data["states"][region_name] = copy(empty_data)
+                    alerts_cached_data["states"][region_name] = copy(empty_data)
 
                     region_alert_url = "%s/%s" % (alarm_url, item['regionId'])
                     region_response = requests.get(region_alert_url, headers=headers)
                     region_data = json.loads(region_response.text)[0]
-                    cached_data["states"][region_name]["disabled_at"] = region_data["lastUpdate"]
+                    alerts_cached_data["states"][region_name]["disabled_at"] = region_data["lastUpdate"]
 
             response = requests.get(alarm_url, headers=headers)
             data = json.loads(response.text)
@@ -153,7 +186,7 @@ def alarm_data():
                         else:
                             region_name = item["regionName"]
 
-                        region_data = cached_data['states'].get(region_name, empty_data)
+                        region_data = alerts_cached_data['states'].get(region_name, empty_data)
 
                         region_names.append(region_name)
 
@@ -161,16 +194,16 @@ def alarm_data():
                             region_data['enabled'] = True
                             region_data['enabled_at'] = alert['lastUpdate']
 
-                            cached_data["states"][region_name] = region_data
+                            alerts_cached_data["states"][region_name] = region_data
 
-            for region_name in cached_data['states'].keys():
-                if region_name not in region_names and cached_data['states'][region_name]['enabled'] is True:
-                    cached_data['states'][region_name]['enabled'] = False
-                    cached_data['states'][region_name]['disabled_at'] = current_datetime
+            for region_name in alerts_cached_data['states'].keys():
+                if region_name not in region_names and alerts_cached_data['states'][region_name]['enabled'] is True:
+                    alerts_cached_data['states'][region_name]['enabled'] = False
+                    alerts_cached_data['states'][region_name]['disabled_at'] = current_datetime
 
-            cached_data['info']['is_start'] = False
+            alerts_cached_data['info']['is_start'] = False
 
-            cache.set('alarm_map', json.dumps(cached_data, ensure_ascii=False).encode('utf-8'))
+            cache_alarm.set('alarm_map', json.dumps(alerts_cached_data, ensure_ascii=False).encode('utf-8'))
             logging.info("store alerts data: %s" % current_datetime)
             print("alerts data stored in memcached")
         except Exception as e:
@@ -183,7 +216,7 @@ def weather_data():
     while True:
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        cached_data = {
+        weather_cached_data = {
             "version": 1,
             "states": {},
             "info": {
@@ -191,7 +224,7 @@ def weather_data():
             }
         }
 
-        cached_data['info']['last_update'] = current_datetime
+        weather_cached_data['info']['last_update'] = current_datetime
 
         for region_id in weather_ids:
             params = {
@@ -210,23 +243,74 @@ def weather_data():
                     "humidity": data["main"]["humidity"],
                     "wind": data["wind"]["speed"]
                 }
-                cached_data["states"][regions[weather_ids.index(region_id)]] = region_data
+                weather_cached_data["states"][regions[weather_ids.index(region_id)]] = region_data
             else:
                 logging.error(f"Request failed with status code: {response.status_code}")
                 print(f"Request failed with status code: {response.status_code}")
 
-        cache.set('weather_map', json.dumps(cached_data, ensure_ascii=False).encode('utf-8'))
+        cache_weather.set('weather_map', json.dumps(weather_cached_data, ensure_ascii=False).encode('utf-8'))
         logging.info("store weather data: %s" % current_datetime)
         print("weather data stored in memcached")
 
         time.sleep(weather_loop_time)
 
 
+def etryvoga_data():
+    while True:
+        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        etryvoga_cached_data = cache_etryvoga.get('etryvoga_data')
+        if etryvoga_cached_data:
+            etryvoga_cached_data = etryvoga_cached_data.decode('utf-8')
+            etryvoga_cached_data = json.loads(etryvoga_cached_data)
+            etryvoga_cached_data['info']['last_update'] = current_datetime
+        else:
+            etryvoga_cached_data = {
+                "version": 1,
+                "states": {},
+                "info": {
+                    "last_update": current_datetime,
+                    "last_id": 0
+                }
+            }
+
+        first_run = True
+        last_id = '0'
+        response = requests.get(etryvoga_url)
+        if response.status_code == 200:
+            data = response.json()
+            for message in data:
+                if first_run:
+                    last_id = message['id']
+                    first_run = False
+                if message['type'] == 'INFO':
+                    region_name = regions[compatibility_slugs.index(message['region'])]
+                    region_data = {
+                        'type': "state",
+                        'enabled_at': message['createdAt'],
+                    }
+                    etryvoga_cached_data["states"][region_name] = region_data
+
+            etryvoga_cached_data['info']['last_id'] = last_id
+            cache_etryvoga.set('etryvoga_data', json.dumps(etryvoga_cached_data, ensure_ascii=False).encode('utf-8'))
+            logging.info("store etryvoga data: %s" % current_datetime)
+            print("etryvoga data stored in memcached")
+
+        else:
+            logging.error(f"Request failed with status code: {response.status_code}")
+            print(f"Request failed with status code: {response.status_code}")
+        pass
+        time.sleep(etryvoga_loop_time)
+
+
 thread_alarm = threading.Thread(target=alarm_data)
 thread_weather = threading.Thread(target=weather_data)
+thread_etryvoga = threading.Thread(target=etryvoga_data)
 
 thread_alarm.start()
 thread_weather.start()
+thread_etryvoga.start()
 
 thread_alarm.join()
 thread_weather.join()
+thread_etryvoga.join()
