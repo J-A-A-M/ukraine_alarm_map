@@ -275,21 +275,23 @@ def etryvoga_data():
             }
 
         first_run = True
-        last_id = '0'
+        last_id = 0
+        last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         response = requests.get(etryvoga_url)
         if response.status_code == 200:
             data = response.json()
             for message in data:
-                if first_run:
-                    last_id = message['id']
-                    first_run = False
-                if message['type'] == 'INFO':
-                    region_name = regions[compatibility_slugs.index(message['region'])]
-                    region_data = {
-                        'type': "state",
-                        'enabled_at': message['createdAt'],
-                    }
-                    etryvoga_cached_data["states"][region_name] = region_data
+                if int(message['id']) > last_id_cached:
+                    if first_run:
+                        last_id = int(message['id'])
+                        first_run = False
+                    if message['type'] == 'INFO':
+                        region_name = regions[compatibility_slugs.index(message['region'])]
+                        region_data = {
+                            'type': "state",
+                            'enabled_at': message['createdAt'],
+                        }
+                        etryvoga_cached_data["states"][region_name] = region_data
 
             etryvoga_cached_data['info']['last_id'] = last_id
             cache_etryvoga.set('etryvoga_data', json.dumps(etryvoga_cached_data, ensure_ascii=False).encode('utf-8'))
