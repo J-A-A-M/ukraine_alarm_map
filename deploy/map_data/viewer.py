@@ -24,7 +24,7 @@ def alarm_map():
     response.content_type = 'application/json'
     return {
         'all_data': '/statuses_v1.json',
-        'alerts': '/alert_statuses_v1.json',
+        'alarms': '/alarm_statuses_v1.json',
         'weather': '/weather_statuses_v1.json',
         'explosives': '/explosives_statuses_v1.json',
         'sources': {
