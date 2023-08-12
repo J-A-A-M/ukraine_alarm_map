@@ -248,7 +248,7 @@ def weather_data():
                 logging.error(f"Request failed with status code: {response.status_code}")
                 print(f"Request failed with status code: {response.status_code}")
 
-        #cache_weather.set('weather_map', json.dumps(weather_cached_data, ensure_ascii=False).encode('utf-8'))
+        cache_weather.set('weather_map', json.dumps(weather_cached_data, ensure_ascii=False).encode('utf-8'))
         logging.info("store weather data: %s" % current_datetime)
         print("weather data stored in memcached")
 
