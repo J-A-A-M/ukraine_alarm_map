@@ -19,8 +19,8 @@ weather_url = "http://api.openweathermap.org/data/2.5/weather"
 host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 port = os.environ.get('MEMCACHED_PORT') or 11211
 
-alert_token = os.environ.get('ALERT_TOKEN') or 'd46e8e65:3977d7d0a4b3790779855af5bfe16892'
-weather_token = os.environ.get('WEATHER_TOKEN') or 'c42681760f292b7bd667e4010a1e5ea8'
+alert_token = os.environ.get('ALERT_TOKEN') or 'token'
+weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 10
 weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
@@ -305,15 +305,15 @@ def etryvoga_data():
         time.sleep(etryvoga_loop_time)
 
 
-#thread_alarm = threading.Thread(target=alarm_data)
+thread_alarm = threading.Thread(target=alarm_data)
 thread_weather = threading.Thread(target=weather_data)
-#thread_etryvoga = threading.Thread(target=etryvoga_data)
+thread_etryvoga = threading.Thread(target=etryvoga_data)
 
-#thread_alarm.start()
+thread_alarm.start()
 thread_weather.start()
-#thread_etryvoga.start()
+thread_etryvoga.start()
 
-#thread_alarm.join()
+thread_alarm.join()
 thread_weather.join()
-#thread_etryvoga.join()
+thread_etryvoga.join()
 
