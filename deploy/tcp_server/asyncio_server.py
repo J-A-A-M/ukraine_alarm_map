@@ -15,6 +15,7 @@ etryvoga_url = os.environ.get('ETRYVOGA_HOST') or 'localhost'  # sorry, no publi
 weather_url = "http://api.openweathermap.org/data/2.5/weather"
 
 tcp_port = os.environ.get('TCP_PORT') or 12345
+web_port = os.environ.get('WEB_PORT') or 8080
 
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
@@ -359,7 +360,7 @@ async def handle_web(reader, writer):
         await handle_web_request(writer, weather_cached_data, 'weather')
     elif path == "/explosives_statuses_v1.json":
         await handle_web_request(writer, etryvoga_cached_data, 'etryvoga')
-    elif path == "/tcp.json":
+    elif path == "/tcp_statuses_v1.json":
         response_data = {
             'tcp_stored_data': previous_data
         }
@@ -369,6 +370,7 @@ async def handle_web(reader, writer):
             'alarms': '/alarm_statuses_v1.json',
             'weather': '/weather_statuses_v1.json',
             'explosives': '/explosives_statuses_v1.json',
+            'tcp_response_check': '/tcp_statuses_v1.json',
             'sources': {
                 'explosives_data': 'https://app.etryvoga.com/',
                 'alert_data': 'https://www.ukrainealarm.com/',
@@ -407,6 +409,7 @@ async def parse_and_broadcast(clients):
                 weather.append(str(weather_temp))
 
             tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
+            tcp_data = '0,0,2,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
 
             if tcp_data != previous_data:
                 print("Data changed. Broadcasting to clients...")
@@ -453,7 +456,7 @@ if __name__ == "__main__":
     ))
 
     web = loop.run_until_complete(asyncio.start_server(
-        handle_web, "0.0.0.0", 8080
+        handle_web, "0.0.0.0", web_port
     ))
 
     asyncio.ensure_future(parse_and_broadcast(clients))
