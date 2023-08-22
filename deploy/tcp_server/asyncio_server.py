@@ -329,7 +329,7 @@ async def handle_client(reader, writer):
     writer.close()
 
 
-async def handle_web_request(writer, data, api):
+async def handle_json_request(writer, data, api):
     response_json = json.dumps(data).encode('utf-8')
 
     headers = (
@@ -347,6 +347,74 @@ async def handle_web_request(writer, data, api):
     await writer.drain()
     writer.close()
 
+async def handle_web_request(writer, data, api):
+    addr = writer.get_extra_info('peername')
+
+    html_response = """
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Сервер даних JAAM</title>
+            <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
+            <style>
+                body { background-color: #4396ff; }
+                .container { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
+                label { font-weight: bold; }
+                #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }
+                .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }
+            </style>
+        </head>
+        <body>
+            <div class='container mt-3'>
+                
+                <h2 class='text-center'>Сервер даних JAAM</h2>
+                <div class='row'>
+                    <div class='col-md-6 offset-md-3'>
+                    <img class='text-center' src="https://alerts.com.ua/map.png" style="height:300px; width:450px">
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class='col-md-6 offset-md-3'>
+                        <p>Доступні API:</p>
+                        <ul>
+                            <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема)</a></li>
+                            <li><a href="/weather_statuses_v1.json">Погода</a></li>
+                            <li><a href="/explosives_statuses_v1.json">Вибухи (інформація з СМІ)</a></li>
+                            <li><a href="/tcp_statuses_v1.json">Дані TCP</a></li>
+                        </ul>
+                    </div>
+                    <div class='col-md-6 offset-md-3'>
+                        <p>TCP-сервер: 45.77.52.39:12345</p>
+                    </div>
+                    <div class='col-md-6 offset-md-3'>
+                        <p>Джерела даних:</p>
+                        <ul>
+                            <li><a href="https://app.etryvoga.com/">app.etryvoga.com</a></li>
+                            <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com</a></li>
+                            <li><a href="https://openweathermap.org/api">openweathermap.org</a></li>
+                            <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    headers = (
+            b"HTTP/1.1 200 OK\r\n"
+            b"Content-Type: text/html\r\n"
+            b"Content-Length: " + bytes(str(len(html_response)), 'utf-8') + b"\r\n\r\n"
+    )
+
+    writer.write(headers)
+    writer.write(html_response.encode())
+    await writer.drain()
+
+    print("Closing the connection")
+    writer.close()
+
 
 async def handle_web(reader, writer):
     request = await reader.read(100)
@@ -355,17 +423,17 @@ async def handle_web(reader, writer):
     # Extract the requested path from the request
     path = request_text.split()[1]
 
-    if path == "/alarm_statuses_v1.json":
-        await handle_web_request(writer, alerts_cached_data, 'alerts')
+    if path == "/alerts_statuses_v1.json":
+        await handle_json_request(writer, alerts_cached_data, 'alerts')
     elif path == "/weather_statuses_v1.json":
-        await handle_web_request(writer, weather_cached_data, 'weather')
+        await handle_json_request(writer, weather_cached_data, 'weather')
     elif path == "/explosives_statuses_v1.json":
-        await handle_web_request(writer, etryvoga_cached_data, 'etryvoga')
+        await handle_json_request(writer, etryvoga_cached_data, 'etryvoga')
     elif path == "/tcp_statuses_v1.json":
         response_data = {
             'tcp_stored_data': previous_data
         }
-        await handle_web_request(writer, response_data, 'tcp')
+        await handle_json_request(writer, response_data, 'tcp')
     elif path == "/t%s" % data_token and data_token:
         for client in clients:
             pass
@@ -373,7 +441,7 @@ async def handle_web(reader, writer):
             'tcp_clients': ['%s:%s' % (client.get_extra_info('peername')[0],client.get_extra_info('peername')[1]) for client in clients],
             'web_clients': [client for client in web_clients]
         }
-        await handle_web_request(writer, response_data, 'tcp')
+        await handle_json_request(writer, response_data, 'tcp')
     else:
         response_data = {
             'alerts': '/alerts_statuses_v1.json',
@@ -388,6 +456,20 @@ async def handle_web(reader, writer):
             }
         }
         await handle_web_request(writer, response_data, 'start')
+    # else:
+    #     response_data = {
+    #         'alerts': '/alerts_statuses_v1.json',
+    #         'weather': '/weather_statuses_v1.json',
+    #         'explosives': '/explosives_statuses_v1.json',
+    #         'tcp_response_check': '/tcp_statuses_v1.json',
+    #         'sources': {
+    #             'explosives_data': 'https://app.etryvoga.com/',
+    #             'alert_data': 'https://www.ukrainealarm.com/',
+    #             'weather_data': 'https://openweathermap.org/api',
+    #             'repo': 'https://github.com/v00g100skr/ukraine_alarm_map'
+    #         }
+    #     }
+    #     await handle_json_request(writer, response_data, 'start')
 
 
 async def parse_and_broadcast(clients):
