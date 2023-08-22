@@ -376,7 +376,7 @@ async def handle_web(reader, writer):
         await handle_web_request(writer, response_data, 'tcp')
     else:
         response_data = {
-            'alarms': '/alarm_statuses_v1.json',
+            'alerts': '/alerts_statuses_v1.json',
             'weather': '/weather_statuses_v1.json',
             'explosives': '/explosives_statuses_v1.json',
             'tcp_response_check': '/tcp_statuses_v1.json',
