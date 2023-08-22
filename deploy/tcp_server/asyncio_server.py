@@ -19,6 +19,7 @@ web_port = os.environ.get('WEB_PORT') or 8080
 
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
+data_token = os.environ.get('DATA_TOKEN') or None
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 5
 weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
@@ -363,6 +364,14 @@ async def handle_web(reader, writer):
     elif path == "/tcp_statuses_v1.json":
         response_data = {
             'tcp_stored_data': previous_data
+        }
+        await handle_web_request(writer, response_data, 'tcp')
+    elif path == "/t%s" % data_token and data_token:
+        for client in clients:
+            pass
+        response_data = {
+            'tcp_clients': ['%s:%s' % (client.get_extra_info('peername')[0],client.get_extra_info('peername')[1]) for client in clients],
+            'web_clients': [client for client in web_clients]
         }
         await handle_web_request(writer, response_data, 'tcp')
     else:
