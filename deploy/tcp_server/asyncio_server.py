@@ -261,7 +261,6 @@ async def etryvoga_data():
                 "last_id": 0
             }
         }
-        first_run = True
         last_id = 0
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         async with aiohttp.ClientSession() as session:
@@ -271,9 +270,7 @@ async def etryvoga_data():
                 data = json.loads(new_data)
                 for message in data[::-1]:
                     if int(message['id']) > last_id_cached:
-                        if first_run:
-                            last_id = int(message['id'])
-                            first_run = False
+                        last_id = int(message['id'])
                         if message['type'] == 'INFO':
                             region_name = regions[compatibility_slugs.index(message['region'])]
                             region_data = {
