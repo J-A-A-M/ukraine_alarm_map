@@ -22,32 +22,33 @@ Async           asyncEngine = Async();
 struct Settings{
   char*   apssid             = "AlarmMap";
   char*   appassword         = "";
-  char*   softwareversion    = "3.0d-4";
-  String  broadcastname      = "alarmmap";
-  String  devicename         = "Alarm Map";
+  char*   softwareversion    = "3.0d-5";
+  String  broadcastname      = "alarmmaptest";
+  String  devicename         = "Alarm Map Test";
   String  devicedescription  = "Alarm Map Informer";
-  char*   tcphost            = "";
+  char*   tcphost            = "45.77.52.39";
+  //char*   tcphost            = "10.2.0.126";
   int     tcpport            = 12345;
   int     pixelcount         = 26;
   int     pixelpin           = 17;
 
   // ------- web config start
-  int   ha_mqttport          = 1883;
-  char* ha_mqttuser          = "";
-  char* ha_mqttpassword      = "";
-  char* ha_brokeraddress     = "";
-  int   brightness           = 50;
-  int   color_alert          = 0;
-  int   color_clear          = 120;
-  int   color_new_alert      = 40;
-  int   color_alert_over     = 150;
-  int   weather_min_temp     = 5;
-  int   weather_max_temp     = 30;
-  int   alarms_auto_switch   = 1;
-  int   home_district        = 7;
-  int   kyiv_district_mode   = 1;
-  int   map_mode             = 1;
-  int   alarms_notify_mode   = 2;
+  int    ha_mqttport         = 1883;
+  String ha_mqttuser         = "";
+  String ha_mqttpassword     = "";
+  String ha_brokeraddress    = "";
+  int    brightness          = 50;
+  int    color_alert         = 0;
+  int    color_clear         = 120;
+  int    color_new_alert     = 40;
+  int    color_alert_over    = 150;
+  int    weather_min_temp    = 5;
+  int    weather_max_temp    = 30;
+  int    alarms_auto_switch  = 1;
+  int    home_district       = 7;
+  int    kyiv_district_mode  = 1;
+  int    map_mode            = 1;
+  int    alarms_notify_mode  = 2;
   // ------- web config end
 };
 
@@ -102,7 +103,7 @@ byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
 
 bool enableHA;
-bool isConnected = false;
+bool wifiReconnect = false;
 bool blink = false;
 int  mapMode;
 
@@ -160,6 +161,10 @@ void initSettings(){
   settings.alarms_notify_mode = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp   = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp   = preferences.getInt("maxtemp", settings.weather_max_temp);
+  settings.ha_brokeraddress   = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
+  settings.ha_mqttport        = preferences.getInt("ha_mqttport", settings.ha_mqttport);
+  settings.ha_mqttuser        = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
+  settings.ha_mqttpassword    = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
   preferences.end();
   mapMode                     = settings.map_mode;
 }
@@ -212,84 +217,86 @@ void initBroadcast() {
 }
 
 void initHA() {
-  Serial.println("Init Home assistant API");
-  String  brokerAddress_s      = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
-  int     mqttPort             = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  String  mqttUser_s           = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
-  String  mqttPassword_s       = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
+  if (!wifiReconnect){
+    Serial.println("Init Home assistant API");
+    // String  brokerAddress_s      = settings.ha_brokeraddress;
+    // int     mqttPort             = settings.ha_mqttport;
+    // String  mqttUser_s           = settings.ha_mqttuser;
+    // String  mqttPassword_s       = settings.ha_mqttpassword;
 
 
-  char* deviceName             = new char[settings.devicename.length() + 1];
-  char* deviceDescr            = new char[settings.devicedescription.length() + 1];
-  char* brokerAddress          = new char[brokerAddress_s.length() + 1];
-  char* mqttUser               = new char[mqttUser_s.length() + 1];
-  char* mqttPassword           = new char[mqttPassword_s.length() + 1];
+    char* deviceName             = new char[settings.devicename.length() + 1];
+    char* deviceDescr            = new char[settings.devicedescription.length() + 1];
+    char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
+    char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
+    char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
 
-  strcpy(deviceName, settings.devicename.c_str());
-  strcpy(deviceDescr, settings.devicedescription.c_str());
-  strcpy(brokerAddress, brokerAddress_s.c_str());
-  strcpy(mqttUser, mqttUser_s.c_str());
-  strcpy(mqttPassword, mqttPassword_s.c_str());
+    strcpy(deviceName, settings.devicename.c_str());
+    strcpy(deviceDescr, settings.devicedescription.c_str());
+    strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
+    strcpy(mqttUser, settings.ha_mqttuser.c_str());
+    strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
 
-  IPAddress brokerAddr;
+    IPAddress brokerAddr;
 
-  if (!brokerAddr.fromString(brokerAddress)) {
-    Serial.println("Invalid IP address format!");
-    enableHA = false;
-  } else{
-    enableHA = true;
-  }
+    if (!brokerAddr.fromString(brokerAddress)) {
+      Serial.println("Invalid IP address format!");
+      enableHA = false;
+    } else{
+      enableHA = true;
+    }
 
-  if (enableHA) {
-    device.setName(deviceName);
-    device.setSoftwareVersion(settings.softwareversion);
-    device.setManufacturer("v00g100skr");
-    device.setModel(deviceDescr);
-    device.enableSharedAvailability();
+    if (enableHA) {
+      device.setName(deviceName);
+      device.setSoftwareVersion(settings.softwareversion);
+      device.setManufacturer("v00g100skr");
+      device.setModel(deviceDescr);
+      device.enableSharedAvailability();
 
-    haUptime.setIcon("mdi:timer-outline");
-    haUptime.setName(haUptimeChar);
-    haUptime.setUnitOfMeasurement("s");
-    haUptime.setDeviceClass("duration");
+      haUptime.setIcon("mdi:timer-outline");
+      haUptime.setName(haUptimeChar);
+      haUptime.setUnitOfMeasurement("s");
+      haUptime.setDeviceClass("duration");
 
-    haWifiSignal.setIcon("mdi:wifi");
-    haWifiSignal.setName(haWifiSignalChar);
-    haWifiSignal.setUnitOfMeasurement("dBm");
-    haWifiSignal.setDeviceClass("signal_strength");
+      haWifiSignal.setIcon("mdi:wifi");
+      haWifiSignal.setName(haWifiSignalChar);
+      haWifiSignal.setUnitOfMeasurement("dBm");
+      haWifiSignal.setDeviceClass("signal_strength");
 
-    haFreeMemory.setIcon("mdi:memory");
-    haFreeMemory.setName(haFreeMemoryChar);
-    haFreeMemory.setUnitOfMeasurement("kB");
-    haFreeMemory.setDeviceClass("data_size");
+      haFreeMemory.setIcon("mdi:memory");
+      haFreeMemory.setName(haFreeMemoryChar);
+      haFreeMemory.setUnitOfMeasurement("kB");
+      haFreeMemory.setDeviceClass("data_size");
 
-    haUsedMemory.setIcon("mdi:memory");
-    haUsedMemory.setName(haUsedMemoryChar);
-    haUsedMemory.setUnitOfMeasurement("kB");
-    haUsedMemory.setDeviceClass("data_size");
+      haUsedMemory.setIcon("mdi:memory");
+      haUsedMemory.setName(haUsedMemoryChar);
+      haUsedMemory.setUnitOfMeasurement("kB");
+      haUsedMemory.setDeviceClass("data_size");
 
-    haBrightness.onCommand(onHaBrightnessCommand);
-    haBrightness.setIcon("mdi:brightness-percent");
-    haBrightness.setName(haBrightnessChar);
-    haBrightness.setCurrentState(settings.brightness);
+      haBrightness.onCommand(onHaBrightnessCommand);
+      haBrightness.setIcon("mdi:brightness-percent");
+      haBrightness.setName(haBrightnessChar);
+      haBrightness.setCurrentState(settings.brightness);
 
-    haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор");
-    haMapMode.onCommand(onHaMapModeCommand);
-    haMapMode.setIcon("mdi:map");
-    haMapMode.setName(haMapModeChar);
-    haMapMode.setCurrentState(settings.map_mode);
+      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор");
+      haMapMode.onCommand(onHaMapModeCommand);
+      haMapMode.setIcon("mdi:map");
+      haMapMode.setName(haMapModeChar);
+      haMapMode.setCurrentState(settings.map_mode);
 
-    haMapModeCurrent.setIcon("mdi:map");
-    haMapModeCurrent.setName(haMapModeCurrentChar);
-    haMapModeCurrent.setValue(mapModes[mapMode]);
+      haMapModeCurrent.setIcon("mdi:map");
+      haMapModeCurrent.setName(haMapModeCurrentChar);
+      haMapModeCurrent.setValue(mapModes[mapMode]);
 
-    haMapApiConnect.setName(haMapApiConnectChar);
-    haMapApiConnect.setDeviceClass("connectivity");
-    haMapApiConnect.setCurrentState(false);
+      haMapApiConnect.setName(haMapApiConnectChar);
+      haMapApiConnect.setDeviceClass("connectivity");
+      haMapApiConnect.setCurrentState(false);
 
-    device.enableLastWill();
-    mqtt.begin(brokerAddr,mqttPort,mqttUser,mqttPassword);
-    Serial.print("Home Assistant MQTT connected: ");
-    Serial.println(mqtt.isConnected());
+      device.enableLastWill();
+      mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
+      Serial.print("Home Assistant MQTT connected: ");
+      Serial.println(mqtt.isConnected());
+    }
   }
 }
 
@@ -373,8 +380,20 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField'>Input Field</label>";
-  html +="                        <input type='text' class='form-control' id='inputField' placeholder='Enter value'>";
+  html +="                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttport' class='form-control' id='inputField2' value='" + String(settings.ha_mqttport) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttuser' class='form-control' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
@@ -567,20 +586,37 @@ void handleRoot(AsyncWebServerRequest* request){
 
 void handleSave(AsyncWebServerRequest* request){
   preferences.begin("storage", false);
+  bool reboot = false;
   if (request->hasParam("ha_brokeraddress", true)){
-    preferences.putString("ha_brokeraddr", request->getParam("ha_brokeraddress", true)->value());
+    if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress){
+      reboot = true;
+    }
+    settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
+    preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
     Serial.println("ha_brokeraddress commited to preferences");
   }
   if (request->hasParam("ha_mqttport", true)){
-    preferences.putInt("ha_mqttport", request->getParam("ha_mqttport", true)->value().toInt());
+    if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport){
+      reboot = true;
+    }
+    settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
+    preferences.putInt("ha_mqttport", settings.ha_mqttport);
     Serial.println("ha_mqttport commited to preferences");
   }
   if (request->hasParam("ha_mqttuser", true)){
-    preferences.putString("ha_mqttuser", request->getParam("ha_mqttuser", true)->value());
+    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser){
+      reboot = true;
+    }
+    settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
+    preferences.putString("ha_mqttuser", settings.ha_mqttuser);
     Serial.println("ha_mqttuser commited to preferences");
   }
   if (request->hasParam("ha_mqttpassword", true)){
-    preferences.putString("ha_mqttpass", request->getParam("ha_mqttpassword", true)->value());
+    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword){
+      reboot = true;
+    }
+    settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
+    preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
     Serial.println("ha_mqttpassword commited to preferences");
   }
   if (request->hasParam("brightness", true)){
@@ -651,6 +687,9 @@ void handleSave(AsyncWebServerRequest* request){
   }
   preferences.end();
   request->redirect("/");
+  if(reboot){
+    ESP.restart();
+  }
 }
 //--Web server end
 
@@ -681,8 +720,6 @@ void connectStatuses(){
     Serial.println(mqtt.isConnected());
     haMapApiConnect.setState(client_tcp.connected());
   }
-
-
 }
 //--Service messages end
 
@@ -774,11 +811,9 @@ void extractWeather(String str, int size) {
 //--Map processing start
 HsbColor processAlarms(int led) {
   HsbColor hue;
-  float local_brightness;
+  float local_brightness = settings.brightness/200.0f;;
   int local_color;
-  if(blink and settings.alarms_notify_mode == 2){
-    local_brightness = settings.brightness/200.0f;
-  } else {
+  if (blink and settings.alarms_notify_mode == 2){
     local_brightness = settings.brightness/600.0f;
   }
   switch (led) {
@@ -946,6 +981,17 @@ void alarmTrigger(){
 }
 //--Map processing end
 
+void WifiReconnect(){
+  if (WiFi.status() != WL_CONNECTED){
+    Serial.println("WiFI Reconnect");
+    wifiReconnect = true;
+    initWifi();
+  }else{
+    Serial.print("WiFI status: ");
+    Serial.println(WiFi.status());
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -960,6 +1006,8 @@ void setup() {
   asyncEngine.setInterval(tcpReconnect, 5000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(alarmTrigger, 1000);
+  asyncEngine.setInterval(WifiReconnect, 5000);
+
 }
 
 void loop() {
