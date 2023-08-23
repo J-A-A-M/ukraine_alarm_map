@@ -269,7 +269,7 @@ async def etryvoga_data():
             if response.status == 200:
                 new_data = await response.text()
                 data = json.loads(new_data)
-                for message in data:
+                for message in data[::-1]:
                     if int(message['id']) > last_id_cached:
                         if first_run:
                             last_id = int(message['id'])
@@ -347,6 +347,7 @@ async def handle_json_request(writer, data, api):
     await writer.drain()
     writer.close()
 
+
 async def handle_web_request(writer, data, api):
     addr = writer.get_extra_info('peername')
 
@@ -368,7 +369,6 @@ async def handle_web_request(writer, data, api):
         </head>
         <body>
             <div class='container mt-3'>
-                
                 <h2 class='text-center'>Сервер даних JAAM</h2>
                 <div class='row'>
                     <div class='col-md-6 offset-md-3'>
