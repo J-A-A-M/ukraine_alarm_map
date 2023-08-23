@@ -363,6 +363,7 @@ async def handle_web_request(writer, api):
                 label { font-weight: bold; }
                 #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }
                 .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }
+                .full-screen-img {width: 100%;height: 100%;object-fit: cover;}
             </style>
         </head>
         <body>
@@ -370,7 +371,7 @@ async def handle_web_request(writer, api):
                 <h2 class='text-center'>Сервер даних JAAM</h2>
                 <div class='row'>
                     <div class='col-md-6 offset-md-3'>
-                    <img class='text-center' src="https://alerts.com.ua/map.png" style="height:300px; width:450px">
+                    <img class='full-screen-img' src="https://alerts.com.ua/map.png">
                     </div>
                 </div>
                 <div class='row'>
@@ -389,10 +390,12 @@ async def handle_web_request(writer, api):
                     <div class='col-md-6 offset-md-3'>
                         <p>Джерела даних:</p>
                         <ul>
-                            <li><a href="https://app.etryvoga.com/">app.etryvoga.com</a></li>
-                            <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com</a></li>
-                            <li><a href="https://openweathermap.org/api">openweathermap.org</a></li>
+                            <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з СМІ)</a></li>
+                            <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
+                            <li><a href="https://alerts.com.ua/">alerts.com.ua (статична мапа)</a></li>
+                            <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>
                             <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
+                            
                         </ul>
                     </div>
                 </div>
