@@ -32,6 +32,7 @@ headers = {
 
 clients = []
 web_clients = []
+api_clients = []
 
 previous_data = ''
 
@@ -337,15 +338,15 @@ async def handle_json_request(writer, data, api):
 
     writer.write(headers)
     writer.write(response_json)
-    if writer.get_extra_info('peername')[0] not in web_clients:
-        web_clients.append(writer.get_extra_info('peername')[0])
-    print(f"New web client connected from {writer.get_extra_info('peername')} to {api}")
+    if writer.get_extra_info('peername')[0] not in api_clients:
+        api_clients.append(writer.get_extra_info('peername')[0])
+    print(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
 
     await writer.drain()
     writer.close()
 
 
-async def handle_web_request(writer, data, api):
+async def handle_web_request(writer, api):
     addr = writer.get_extra_info('peername')
 
     html_response = """
@@ -405,6 +406,10 @@ async def handle_web_request(writer, data, api):
             b"Content-Length: " + bytes(str(len(html_response)), 'utf-8') + b"\r\n\r\n"
     )
 
+    if writer.get_extra_info('peername')[0] not in web_clients:
+        web_clients.append(writer.get_extra_info('peername')[0])
+    print(f"New web client connected from {writer.get_extra_info('peername')} to {api}")
+
     writer.write(headers)
     writer.write(html_response.encode())
     await writer.drain()
@@ -436,23 +441,12 @@ async def handle_web(reader, writer):
             pass
         response_data = {
             'tcp_clients': ['%s:%s' % (client.get_extra_info('peername')[0],client.get_extra_info('peername')[1]) for client in clients],
+            'api_clients': [client for client in api_clients],
             'web_clients': [client for client in web_clients]
         }
         await handle_json_request(writer, response_data, 'tcp')
     else:
-        response_data = {
-            'alerts': '/alerts_statuses_v1.json',
-            'weather': '/weather_statuses_v1.json',
-            'explosives': '/explosives_statuses_v1.json',
-            'tcp_response_check': '/tcp_statuses_v1.json',
-            'sources': {
-                'explosives_data': 'https://app.etryvoga.com/',
-                'alert_data': 'https://www.ukrainealarm.com/',
-                'weather_data': 'https://openweathermap.org/api',
-                'repo': 'https://github.com/v00g100skr/ukraine_alarm_map'
-            }
-        }
-        await handle_web_request(writer, response_data, 'start')
+        await handle_web_request(writer, 'start')
     # else:
     #     response_data = {
     #         'alerts': '/alerts_statuses_v1.json',
@@ -530,9 +524,10 @@ async def show_cache():
         await asyncio.sleep(10)
 
 
-async def log_clients_periodically(clients, web_clients):
+async def log_clients_periodically(clients, web_clients, api_clients):
     while True:
         print(f"Number of connected tcp-clients: {len(clients)}")
+        print(f"Number of connected api-clients: {len(api_clients)}")
         print(f"Number of connected web-clients: {len(web_clients)}")
         await asyncio.sleep(10)
 
@@ -552,7 +547,7 @@ if __name__ == "__main__":
     asyncio.ensure_future(weather_data())
     asyncio.ensure_future(etryvoga_data())
     asyncio.ensure_future(show_cache())
-    asyncio.ensure_future(log_clients_periodically(clients, web_clients))
+    asyncio.ensure_future(log_clients_periodically(clients, web_clients, api_clients))
 
     try:
         loop.run_forever()
