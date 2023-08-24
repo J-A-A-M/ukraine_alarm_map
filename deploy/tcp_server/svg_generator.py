@@ -1,6 +1,7 @@
 import cairosvg
 
-def generate_map(**kwargs):
+def generate_map(time, **kwargs):
+    print('generate map')
     svg_data = f'''
           <svg
           fill="#1a1a1a"
@@ -15,6 +16,7 @@ def generate_map(**kwargs):
           style="background-color: transparent;"
           >
             <text x="80" y="660" font-family="Arial" font-size="30" fill="white">JAAM</text>
+            <text x="820" y="660" font-family="Arial" font-size="15" fill="white">{time}</text>
             <rect x="10" y="635" width="60" height="12" fill="#005BBB" />
             <rect x="10" y="648" width="60" height="12" fill="#FEDF00" />
 

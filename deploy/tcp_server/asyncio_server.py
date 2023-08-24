@@ -257,14 +257,15 @@ async def etryvoga_data():
     global etryvoga_cached_data
     while True:
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        etryvoga_cached_data = {
-            "version": 1,
-            "states": {},
-            "info": {
-                "last_update": None,
-                "last_id": 0
+        if etryvoga_cached_data == {}:
+            etryvoga_cached_data = {
+                "version": 1,
+                "states": {},
+                "info": {
+                    "last_update": None,
+                    "last_id": 0
+                }
             }
-        }
         last_id = 0
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         async with aiohttp.ClientSession() as session:
@@ -377,7 +378,6 @@ async def handle_img_request(writer):
 
 
 async def handle_web_request(writer, api):
-    addr = writer.get_extra_info('peername')
 
     html_response = """
         <!DOCTYPE html>
@@ -408,7 +408,7 @@ async def handle_web_request(writer, api):
                     <div class='col-md-6 offset-md-3'>
                         <p>Доступні API:</p>
                         <ul>
-                            <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема)</a></li>
+                            <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема) {0}</a></li>
                             <li><a href="/weather_statuses_v1.json">Погода</a></li>
                             <li><a href="/explosives_statuses_v1.json">Вибухи (інформація з СМІ)</a></li>
                             <li><a href="/tcp_statuses_v1.json">Дані TCP</a></li>
@@ -422,7 +422,6 @@ async def handle_web_request(writer, api):
                         <ul>
                             <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з СМІ)</a></li>
                             <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
-                            <li><a href="https://alerts.com.ua/">alerts.com.ua (статична мапа)</a></li>
                             <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>
                             <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
                             
@@ -466,6 +465,18 @@ async def handle_web(reader, writer):
         await handle_json_request(writer, etryvoga_cached_data, 'etryvoga')
     elif path == "/map.png":
         await handle_img_request(writer)
+    elif path == "/api_status.json":
+        local_time = get_local_time_formatted()
+
+        alert_time_diff = calculate_time_difference(alerts_cached_data['info']['last_update'], local_time)
+        weather_time_diff = calculate_time_difference(weather_cached_data['info']['last_update'], local_time)
+        etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data['info']['last_update'], local_time)
+        response_data = {
+            'alert_time_diff': alert_time_diff,
+            'weather_time_diff': weather_time_diff,
+            'etryvoga_time_diff': etryvoga_time_diff
+        }
+        await handle_json_request(writer, response_data, 'api')
     elif path == "/tcp_statuses_v1.json":
         response_data = {
             'tcp_stored_data': previous_data
@@ -477,7 +488,8 @@ async def handle_web(reader, writer):
         response_data = {
             'tcp_clients': ['%s:%s' % (client.get_extra_info('peername')[0],client.get_extra_info('peername')[1]) for client in clients],
             'api_clients': [client for client in api_clients],
-            'web_clients': [client for client in web_clients]
+            'web_clients': [client for client in web_clients],
+            'img_clients': [client for client in img_clients]
         }
         await handle_json_request(writer, response_data, 'tcp')
     else:
@@ -512,10 +524,10 @@ async def parse_and_broadcast(clients):
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['enabled_at'], local_time)
                     if time_diff > 300:
                         alert_mode = 1
-                        svg_data[compatibility_slugs[regions.index(region)]] = "FF0000"
+                        svg_data[compatibility_slugs[regions.index(region)]] = "ff5733"
                     else:
                         alert_mode = 3
-                        svg_data[compatibility_slugs[regions.index(region)]] = "FF4F00"
+                        svg_data[compatibility_slugs[regions.index(region)]] = "ffa533"
                 else:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['disabled_at'], local_time)
                     if time_diff > 300:
@@ -523,19 +535,24 @@ async def parse_and_broadcast(clients):
                         svg_data[compatibility_slugs[regions.index(region)]] = "32CD32"
                     else:
                         alert_mode = 2
-                        svg_data[compatibility_slugs[regions.index(region)]] = "7CFC00"
+                        svg_data[compatibility_slugs[regions.index(region)]] = "bbff33"
 
                 weather_temp = float(weather_cached_data['states'][region]['temp'])
 
                 alerts.append(str(alert_mode))
                 weather.append(str(weather_temp))
 
+            # svg_data["KIROWOGRADSKA"] = "ffa533"
+            # svg_data["VINNYTSA"] = "ffa533"
+            # svg_data["HMELNYCKA"] = "bbff33"
+            # svg_data["CHERNIVETSKA"] = "bbff33"
+
             tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
             #tcp_data = '0,0,2,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
 
             if tcp_data != previous_data:
                 print("Data changed. Broadcasting to clients...")
-                generate_map(**svg_data)
+                generate_map(time=local_time, **svg_data)
                 for client_writer in clients:
                     client_writer.write(tcp_data.encode())
                     await client_writer.drain()
@@ -565,11 +582,12 @@ async def show_cache():
         await asyncio.sleep(10)
 
 
-async def log_clients_periodically(clients, web_clients, api_clients):
+async def log_clients_periodically(clients, web_clients, api_clients, img_clients):
     while True:
         print(f"Number of connected tcp-clients: {len(clients)}")
         print(f"Number of connected api-clients: {len(api_clients)}")
         print(f"Number of connected web-clients: {len(web_clients)}")
+        print(f"Number of connected img-clients: {len(img_clients)}")
         await asyncio.sleep(10)
 
 
@@ -588,7 +606,7 @@ if __name__ == "__main__":
     asyncio.ensure_future(weather_data())
     asyncio.ensure_future(etryvoga_data())
     asyncio.ensure_future(show_cache())
-    asyncio.ensure_future(log_clients_periodically(clients, web_clients, api_clients))
+    asyncio.ensure_future(log_clients_periodically(clients, web_clients, api_clients, img_clients))
 
     try:
         loop.run_forever()
