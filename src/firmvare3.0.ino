@@ -22,11 +22,11 @@ Async           asyncEngine = Async();
 struct Settings{
   char*   apssid             = "AlarmMap";
   char*   appassword         = "";
-  char*   softwareversion    = "3.0d-5";
+  char*   softwareversion    = "3.0d-6";
   String  broadcastname      = "alarmmaptest";
   String  devicename         = "Alarm Map Test";
   String  devicedescription  = "Alarm Map Informer";
-  char*   tcphost            = "45.77.52.39";
+  char*   tcphost            = "alerts.net.ua";
   //char*   tcphost            = "10.2.0.126";
   int     tcpport            = 12345;
   int     pixelcount         = 26;
@@ -86,11 +86,13 @@ int d17[] = {17,14,16,18,21};
 int d18[] = {18,10,12,13,14,17,19,21};
 int d19[] = {19,7,8,9,10,18,20,21,25};
 int d20[] = {20,7,8,19,21,22,25};
-int d21[] = {21,16,17,18,1920,22};
+int d21[] = {21,16,17,18,19,20,22};
 int d22[] = {22,6,7,16,20,21,23,24,25};
 int d23[] = {23,2,5,6,22,24};
 int d24[] = {24,1,2,22,23};
 int d25[] = {25,6,7,8,19,20,22};
+
+int counters[] = {3,5,7,5,4,6,6,6,5,4,5,3,4,4,4,2,5,5,8,8,7,7,9,6,5,7};
 
 int* neighboring_districts[] = {
   d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,
@@ -184,7 +186,7 @@ void initWifi() {
     wm.setTitle(settings.devicename);
     wm.setConfigPortalBlocking(true);
     wm.setConfigPortalTimeout(120);
-    wm.setConnectTimeout(2);
+    wm.setConnectTimeout(3);
     wm.setConnectRetries(10);
     if(wm.autoConnect(settings.apssid, settings.appassword)){
         Serial.println("connected...yeey :)");
@@ -366,15 +368,21 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        label { font-weight: bold; }";
   html +="        #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }";
   html +="        .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
+  html +="        .full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
   html +="    </style>";
   html +="</head>";
   html +="<body>";
   html +="    <div class='container mt-3'>";
+  html +="        <h2 class='text-center'>" + settings.devicedescription + " ";
+  html +=             settings.softwareversion;
+  html +="        </h2>";
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
-  html +="            <h2 class='mt-4'>" + settings.devicedescription + " ";
-  html +=             settings.softwareversion;
-  html +="            </h2>";
+  html +="                <img class='full-screen-img' src='http://alerts.net.ua/map.png'>";
+  html +="            </div>";
+  html +="        </div>";
+  html +="        <div class='row'>";
+  html +="            <div class='col-md-6 offset-md-3'>";
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
   html +=             WiFi.localIP().toString();
   html +="            </h4>";
@@ -893,7 +901,7 @@ void mapAlarms(){
     for (int i = 24; i >= 7; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
     }
-    adapted_alarm_leds[7] = alarm_leds[25];
+    adapted_alarm_leds[7] = lastValue;
   }
   if (settings.kyiv_district_mode == 4){
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0){
@@ -929,7 +937,7 @@ void mapWeather(){
     for (int i = 24; i >= 7; i--) {
       adapted_weather_leds[i + 1] = weather_leds[i];
     }
-    adapted_weather_leds[7] = weather_leds[25];
+    adapted_weather_leds[7] = lastValue;
   }
   if (settings.kyiv_district_mode == 3){
     adapted_weather_leds[7] = (weather_leds[25]+weather_leds[7])/2.0f;
@@ -953,7 +961,7 @@ void mapFlag(){
     for (int i = 24; i >= 7; i--) {
       adapted_flag_leds[i + 1] = flag_leds[i];
     }
-    adapted_flag_leds[7] = flag_leds[25];
+    adapted_flag_leds[7] = lastValue;
   }
   for (uint16_t i = 0; i < strip.PixelCount(); i++) {
     strip.SetPixelColor(i, HsbColor(adapted_flag_leds[i]/360.0f,1.0,settings.brightness/200.0f));
@@ -964,8 +972,7 @@ void mapFlag(){
 void alarmTrigger(){
   bool returnToMapInitMode = true;
   if(settings.alarms_auto_switch){
-    int size = sizeof(neighboring_districts[settings.home_district]);
-    for (int j = 0; j <= size; j++) {
+    for (int j = 0; j < counters[settings.home_district]; j++) {
       int alarm_led_id = neighboring_districts[settings.home_district][j];
       if (alarm_leds[alarm_led_id] != 0)   {
         returnToMapInitMode = false;
