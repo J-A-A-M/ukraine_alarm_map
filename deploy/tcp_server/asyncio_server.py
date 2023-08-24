@@ -408,7 +408,7 @@ async def handle_web_request(writer, api):
                     <div class='col-md-6 offset-md-3'>
                         <p>Доступні API:</p>
                         <ul>
-                            <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема) {0}</a></li>
+                            <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема)</a></li>
                             <li><a href="/weather_statuses_v1.json">Погода</a></li>
                             <li><a href="/explosives_statuses_v1.json">Вибухи (інформація з СМІ)</a></li>
                             <li><a href="/tcp_statuses_v1.json">Дані TCP</a></li>
