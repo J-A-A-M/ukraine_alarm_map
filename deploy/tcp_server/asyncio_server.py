@@ -266,7 +266,7 @@ async def etryvoga_data():
                     "last_id": 0
                 }
             }
-        last_id = 0
+
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         async with aiohttp.ClientSession() as session:
             response = await session.get(etryvoga_url)  # Replace with your URL
@@ -284,7 +284,7 @@ async def etryvoga_data():
                             }
                             etryvoga_cached_data["states"][region_name] = region_data
 
-                etryvoga_cached_data['info']['last_id'] = last_id
+                etryvoga_cached_data['info']['last_id'] = last_id or 0
                 etryvoga_cached_data['info']['last_update'] = current_datetime
                 logging.info("store etryvoga data: %s" % current_datetime)
                 print("etryvoga data stored")
