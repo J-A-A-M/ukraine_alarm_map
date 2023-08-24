@@ -401,8 +401,7 @@ async def handle_web_request(writer, api):
                 <h2 class='text-center'>Сервер даних JAAM</h2>
                 <div class='row'>
                     <div class='col-md-6 offset-md-3'>
-                
-                    <img class='full-screen-img' src="https://alerts.com.ua/map.png">
+                    <img class='full-screen-img' src="map.png">
                     </div>
                 </div>
                 <div class='row'>
@@ -536,7 +535,7 @@ async def parse_and_broadcast(clients):
 
             if tcp_data != previous_data:
                 print("Data changed. Broadcasting to clients...")
-                #generate_map(**svg_data)
+                generate_map(**svg_data)
                 for client_writer in clients:
                     client_writer.write(tcp_data.encode())
                     await client_writer.drain()
