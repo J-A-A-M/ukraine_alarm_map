@@ -42,6 +42,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+echo "ALERT_TOKEN: $ALERT_TOKEN"
+echo "WEATHER_TOKEN: $WEATHER_TOKEN"
+echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
+echo "DATA_TOKEN: $DATA_TOKEN"
+echo "CONTAINER_PORT: $CONTAINER_PORT"
+echo "UDP_PORT: $UDP_PORT"
+
 # Updating the Git repo
 echo "Updating Git repo..."
 #cd /path/to/your/git/repo
