@@ -3,8 +3,10 @@ import json
 import os
 import asyncio
 import aiohttp
+import cairosvg
 
 from datetime import datetime, timezone
+from svg_generator import generate_map
 
 from copy import copy
 
@@ -33,6 +35,7 @@ headers = {
 clients = []
 web_clients = []
 api_clients = []
+img_clients = []
 
 previous_data = ''
 
@@ -338,9 +341,36 @@ async def handle_json_request(writer, data, api):
 
     writer.write(headers)
     writer.write(response_json)
+    if writer.get_extra_info('peername')[0] not in img_clients:
+        img_clients.append(writer.get_extra_info('peername')[0])
+    print(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
+
+    await writer.drain()
+    writer.close()
+
+
+async def handle_img_request(writer):
+    try:
+        with open("map.png", "rb") as image_file:
+            image_data = image_file.read()
+        headers = (
+                b"HTTP/1.1 200 OK\r\n"
+                b"Content-Type: image/png\r\n"
+                b"Content-Length: " + str(len(image_data)).encode() + b"\r\n\r\n"
+        )
+
+        writer.write(headers)
+        writer.write(image_data)
+        await writer.drain()
+
+        print(f"Image sent to {writer.get_extra_info('peername')}")
+
+    except Exception as e:
+        print(f"Error sending image: {e}")
+
     if writer.get_extra_info('peername')[0] not in api_clients:
         api_clients.append(writer.get_extra_info('peername')[0])
-    print(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
+    print(f"Image sent to {writer.get_extra_info('peername')}")
 
     await writer.drain()
     writer.close()
@@ -371,7 +401,7 @@ async def handle_web_request(writer, api):
                 <h2 class='text-center'>Сервер даних JAAM</h2>
                 <div class='row'>
                     <div class='col-md-6 offset-md-3'>
-                    <img class='full-screen-img' src="https://alerts.com.ua/map.png">
+                    <img class='full-screen-img' src="map.png">
                     </div>
                 </div>
                 <div class='row'>
@@ -434,6 +464,8 @@ async def handle_web(reader, writer):
         await handle_json_request(writer, weather_cached_data, 'weather')
     elif path == "/explosives_statuses_v1.json":
         await handle_json_request(writer, etryvoga_cached_data, 'etryvoga')
+    elif path == "/map.png":
+        await handle_img_request(writer)
     elif path == "/tcp_statuses_v1.json":
         response_data = {
             'tcp_stored_data': previous_data
@@ -474,19 +506,24 @@ async def parse_and_broadcast(clients):
             local_time = get_local_time_formatted()
             alerts = []
             weather = []
+            svg_data = {}
             for region in regions:
                 if alerts_cached_data['states'][region]['enabled']:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['enabled_at'], local_time)
                     if time_diff > 300:
                         alert_mode = 1
+                        svg_data[compatibility_slugs[regions.index(region)]] = "FF0000"
                     else:
                         alert_mode = 3
+                        svg_data[compatibility_slugs[regions.index(region)]] = "FF4F00"
                 else:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['disabled_at'], local_time)
                     if time_diff > 300:
                         alert_mode = 0
+                        svg_data[compatibility_slugs[regions.index(region)]] = "32CD32"
                     else:
                         alert_mode = 2
+                        svg_data[compatibility_slugs[regions.index(region)]] = "7CFC00"
 
                 weather_temp = float(weather_cached_data['states'][region]['temp'])
 
@@ -498,6 +535,7 @@ async def parse_and_broadcast(clients):
 
             if tcp_data != previous_data:
                 print("Data changed. Broadcasting to clients...")
+                generate_map(**svg_data)
                 for client_writer in clients:
                     client_writer.write(tcp_data.encode())
                     await client_writer.drain()
