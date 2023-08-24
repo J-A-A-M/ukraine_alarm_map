@@ -1,4 +1,4 @@
-FROM python:3.10.6-alpine
+FROM python:3.10.6
 ADD asyncio_server.py .
 ADD svg_generator.py .
 ADD requirements.txt .
