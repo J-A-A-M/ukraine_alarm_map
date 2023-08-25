@@ -1,6 +1,7 @@
 import cairosvg
 
-def generate_map(time, **kwargs):
+
+def generate_map(time, output_file, **kwargs):
     print('generate map')
     svg_data = f'''
           <svg
@@ -190,7 +191,7 @@ def generate_map(time, **kwargs):
           </svg>
     '''
 
-    output_file = 'map.png'
+
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file)
 
 

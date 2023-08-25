@@ -3,7 +3,6 @@ import json
 import os
 import asyncio
 import aiohttp
-import cairosvg
 
 from datetime import datetime, timezone
 from svg_generator import generate_map
@@ -310,6 +309,40 @@ def calculate_time_difference(timestamp1, timestamp2):
     return abs(time_difference)
 
 
+def calculate_html_color_from_hsb(temp):
+    min_temp = 0
+    max_temp = 30
+    normalized_value = float(temp - min_temp) / float(max_temp - min_temp)
+    if normalized_value > 1:
+        normalized_value = 1
+    if normalized_value < 0:
+        normalized_value = 0
+    hue = 240 + normalized_value * (0 - 240)
+    hue %= 360
+
+    hue /= 60
+    c = 1
+    x = 1 - abs((hue % 2) - 1)
+    rgb = [0, 0, 0]
+
+    if 0 <= hue < 1:
+        rgb = [c, x, 0]
+    elif 1 <= hue < 2:
+        rgb = [x, c, 0]
+    elif 2 <= hue < 3:
+        rgb = [0, c, x]
+    elif 3 <= hue < 4:
+        rgb = [0, x, c]
+    elif 4 <= hue < 5:
+        rgb = [x, 0, c]
+    elif 5 <= hue < 6:
+        rgb = [c, 0, x]
+
+    # Convert RGB to hexadecimal
+    hex_color = "{:02X}{:02X}{:02X}".format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+    return hex_color
+
+
 async def handle_client(reader, writer):
     global previous_data
     writer.write(previous_data.encode())
@@ -401,7 +434,7 @@ async def handle_web_request(writer, api):
                 <h2 class='text-center'>Сервер даних JAAM</h2>
                 <div class='row'>
                     <div class='col-md-6 offset-md-3'>
-                    <img class='full-screen-img' src="map.png">
+                    <img class='full-screen-img' src="alerts_map.png">
                     </div>
                 </div>
                 <div class='row'>
@@ -483,8 +516,6 @@ async def handle_web(reader, writer):
         }
         await handle_json_request(writer, response_data, 'tcp')
     elif path == "/t%s" % data_token and data_token:
-        for client in clients:
-            pass
         response_data = {
             'tcp_clients': ['%s:%s' % (client.get_extra_info('peername')[0],client.get_extra_info('peername')[1]) for client in clients],
             'api_clients': [client for client in api_clients],
@@ -518,26 +549,28 @@ async def parse_and_broadcast(clients):
             local_time = get_local_time_formatted()
             alerts = []
             weather = []
-            svg_data = {}
+            alerts_svg_data = {}
+            weather_svg_data = {}
             for region in regions:
                 if alerts_cached_data['states'][region]['enabled']:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['enabled_at'], local_time)
                     if time_diff > 300:
                         alert_mode = 1
-                        svg_data[compatibility_slugs[regions.index(region)]] = "ff5733"
+                        alerts_svg_data[compatibility_slugs[regions.index(region)]] = "ff5733"
                     else:
                         alert_mode = 3
-                        svg_data[compatibility_slugs[regions.index(region)]] = "ffa533"
+                        alerts_svg_data[compatibility_slugs[regions.index(region)]] = "ffa533"
                 else:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['disabled_at'], local_time)
                     if time_diff > 300:
                         alert_mode = 0
-                        svg_data[compatibility_slugs[regions.index(region)]] = "32CD32"
+                        alerts_svg_data[compatibility_slugs[regions.index(region)]] = "32CD32"
                     else:
                         alert_mode = 2
-                        svg_data[compatibility_slugs[regions.index(region)]] = "bbff33"
+                        alerts_svg_data[compatibility_slugs[regions.index(region)]] = "bbff33"
 
                 weather_temp = float(weather_cached_data['states'][region]['temp'])
+                weather_svg_data[compatibility_slugs[regions.index(region)]] = calculate_html_color_from_hsb(weather_temp)
 
                 alerts.append(str(alert_mode))
                 weather.append(str(weather_temp))
@@ -552,7 +585,8 @@ async def parse_and_broadcast(clients):
 
             if tcp_data != previous_data:
                 print("Data changed. Broadcasting to clients...")
-                generate_map(time=local_time, **svg_data)
+                generate_map(time=local_time, output_file='alerts_map.png', **alerts_svg_data)
+                generate_map(time=local_time, output_file='weather_map.png', **weather_svg_data)
                 for client_writer in clients:
                     client_writer.write(tcp_data.encode())
                     await client_writer.drain()
