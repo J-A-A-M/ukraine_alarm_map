@@ -383,9 +383,9 @@ async def handle_json_request(writer, data, api):
     writer.close()
 
 
-async def handle_img_request(writer):
+async def handle_img_request(writer, file):
     try:
-        with open("map.png", "rb") as image_file:
+        with open(file, "rb") as image_file:
             image_data = image_file.read()
         headers = (
                 b"HTTP/1.1 200 OK\r\n"
@@ -496,8 +496,10 @@ async def handle_web(reader, writer):
         await handle_json_request(writer, weather_cached_data, 'weather')
     elif path == "/explosives_statuses_v1.json":
         await handle_json_request(writer, etryvoga_cached_data, 'etryvoga')
-    elif path == "/map.png":
-        await handle_img_request(writer)
+    elif path == "/alerts_map.png":
+        await handle_img_request(writer, "alerts_map.png")
+    elif path == "/weather_map.png":
+        await handle_img_request(writer, "weather_map.png")
     elif path == "/api_status.json":
         local_time = get_local_time_formatted()
 
