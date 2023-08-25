@@ -375,8 +375,8 @@ async def handle_json_request(writer, data, api):
 
     writer.write(headers)
     writer.write(response_json)
-    if writer.get_extra_info('peername')[0] not in img_clients:
-        img_clients.append(writer.get_extra_info('peername')[0])
+    if writer.get_extra_info('peername')[0] not in api_clients:
+        api_clients.append(writer.get_extra_info('peername')[0])
     print(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
 
     await writer.drain()
@@ -402,8 +402,8 @@ async def handle_img_request(writer, file):
     except Exception as e:
         print(f"Error sending image: {e}")
 
-    if writer.get_extra_info('peername')[0] not in api_clients:
-        api_clients.append(writer.get_extra_info('peername')[0])
+    if writer.get_extra_info('peername')[0] not in img_clients:
+        img_clients.append(writer.get_extra_info('peername')[0])
     print(f"Image sent to {writer.get_extra_info('peername')}")
 
     await writer.drain()
