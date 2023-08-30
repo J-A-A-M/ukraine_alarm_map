@@ -256,15 +256,15 @@ async def etryvoga_data():
     global etryvoga_cached_data
     while True:
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        #if etryvoga_cached_data == {}:
-        etryvoga_cached_data = {
-            "version": 1,
-            "states": {},
-            "info": {
-                "last_update": None,
-                "last_id": 0
+        if etryvoga_cached_data == {}:
+            etryvoga_cached_data = {
+                "version": 1,
+                "states": {},
+                "info": {
+                    "last_update": None,
+                    "last_id": 0
+                }
             }
-        }
 
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         try:
