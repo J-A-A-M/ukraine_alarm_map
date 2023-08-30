@@ -24,7 +24,7 @@ data_token = os.environ.get('DATA_TOKEN') or None
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 5
 weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
-etryvoga_loop_time = os.environ.get('WEATHER_PERIOD') or 30
+etryvoga_loop_time = os.environ.get('ETRYVOGA_PERIOD') or 30
 
 # Authorization header
 headers = {

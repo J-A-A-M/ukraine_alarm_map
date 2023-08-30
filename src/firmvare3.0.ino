@@ -9,50 +9,69 @@
 #include <NTPClient.h>
 #include <NeoPixelBus.h>
 #include <NeoPixelAnimator.h>
+#include <Adafruit_SSD1306.h>
+#include <Wire.h>
+#include <WiFiUdp.h>
 
-Preferences     preferences;
-WiFiManager     wm;
-WiFiClient      client;
-WiFiClient      client_tcp;
-WiFiUDP         ntpUDP;
-AsyncWebServer  webserver(80);
-NTPClient       timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
-Async           asyncEngine = Async();
 
 struct Settings{
-  char*   apssid             = "AlarmMap";
-  char*   appassword         = "";
-  char*   softwareversion    = "3.0d-6";
-  String  broadcastname      = "alarmmaptest";
-  String  devicename         = "Alarm Map Test";
-  String  devicedescription  = "Alarm Map Informer";
-  char*   tcphost            = "alerts.net.ua";
-  //char*   tcphost            = "10.2.0.126";
-  int     tcpport            = 12345;
-  int     pixelcount         = 26;
-  int     pixelpin           = 17;
+  char*   apssid                = "AlarmMap";
+  char*   appassword            = "";
+  char*   softwareversion       = "3.0.d10";
+  String  broadcastname         = "alarmmap";
+  String  devicename            = "Alarm Map";
+  String  devicedescription     = "Alarm Map Informer";
+  char*   tcphost               = "alerts.net.ua";
+  int     tcpport               = 12345;
+  int     pixelcount            = 26;
+  int     pixelpin              = 17;
+  int     buttonpin             = 18;
+  int     buttontime            = 1000;
 
   // ------- web config start
-  int    ha_mqttport         = 1883;
-  String ha_mqttuser         = "";
-  String ha_mqttpassword     = "";
-  String ha_brokeraddress    = "";
-  int    brightness          = 50;
-  int    color_alert         = 0;
-  int    color_clear         = 120;
-  int    color_new_alert     = 40;
-  int    color_alert_over    = 150;
-  int    weather_min_temp    = 5;
-  int    weather_max_temp    = 30;
-  int    alarms_auto_switch  = 1;
-  int    home_district       = 7;
-  int    kyiv_district_mode  = 1;
-  int    map_mode            = 1;
-  int    alarms_notify_mode  = 2;
+  int    ha_mqttport            = 1883;
+  String ha_mqttuser            = "";
+  String ha_mqttpassword        = "";
+  String ha_brokeraddress       = "";
+  int    brightness             = 50;
+  int    brightness_day         = 50;
+  int    brightness_night       = 5;
+  int    brightness_auto        = 0;
+  int    color_alert            = 0;
+  int    color_clear            = 120;
+  int    color_new_alert        = 20;
+  int    color_alert_over       = 100;
+  int    brightness_alert       = 100;
+  int    brightness_clear       = 100;
+  int    brightness_new_alert   = 100;
+  int    brightness_alert_over  = 100;
+  int    weather_min_temp       = -5;
+  int    weather_max_temp       = 30;
+  int    alarms_auto_switch     = 1;
+  int    home_district          = 7;
+  int    kyiv_district_mode     = 1;
+  int    map_mode               = 1;
+  int    display_mode           = 2;
+  int    button_mode            = 0;
+  int    alarms_notify_mode     = 2;
+  int    display_width          = 128;
+  int    display_height         = 32;
+  int    day_start              = 8;
+  int    night_start            = 22;
   // ------- web config end
 };
 
 Settings settings;
+
+Preferences       preferences;
+WiFiManager       wm;
+WiFiClient        client;
+WiFiClient        client_tcp;
+WiFiUDP           ntpUDP;
+AsyncWebServer    webserver(80);
+NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
+Async             asyncEngine = Async(20);
+Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod> strip(settings.pixelcount, settings.pixelpin);
 NeoGamma<NeoGammaTableMethod> colorGamma;
@@ -100,14 +119,31 @@ int* neighboring_districts[] = {
   d20,d21,d22,d23,d24,d25
 };
 
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
+const unsigned char trident_small [] PROGMEM = {
+	0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
+	0x07, 0xc1, 0xc1, 0xf0, 0x06, 0xc1, 0xc1, 0xb0, 0x06, 0xe1, 0xc3, 0xb0, 0x06, 0x61, 0xc3, 0x30,
+	0x06, 0x71, 0xc7, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30,
+	0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0xf1, 0xc7, 0xb0, 0x07, 0xe1, 0xc3, 0xf0,
+	0x07, 0x83, 0xe0, 0xf0, 0x07, 0x03, 0x60, 0x70, 0x07, 0x87, 0x70, 0xf0, 0x07, 0xc6, 0x31, 0xf0,
+	0x06, 0xee, 0x3b, 0xb0, 0x06, 0x7f, 0x7f, 0x30, 0x06, 0x3d, 0xde, 0x30, 0x06, 0x19, 0xcc, 0x30,
+	0x07, 0xff, 0xff, 0xf0, 0x03, 0xff, 0xff, 0xe0, 0x01, 0xfc, 0x9f, 0xc0, 0x00, 0x0c, 0xd8, 0x00,
+	0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
+};
+
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
 
 bool enableHA;
 bool wifiReconnect = false;
 bool blink = false;
+bool isDaylightSaving = false;
+bool isDay;
+bool isPressed = false;
 int  mapMode;
+int  displayMode;
+long  buttonPressStart = 0;
+
 
 String haUptimeString         = settings.broadcastname + "_uptime";
 String haWifiSignalString     = settings.broadcastname + "_wifi_signal";
@@ -115,8 +151,10 @@ String haFreeMemoryString     = settings.broadcastname + "_free_memory";
 String haUsedMemoryString     = settings.broadcastname + "_used_memory";
 String haBrightnessString     = settings.broadcastname + "_brightness";
 String haMapModeString        = settings.broadcastname + "_map_mode";
-String haMapModeCurrentString = settings.broadcastname + + "_map_mode_current";
-String haMapApiConnectString  = settings.broadcastname + + "_map_api_connect";
+String haDisplayModeString    = settings.broadcastname + "_display_mode";
+String haMapModeCurrentString = settings.broadcastname + "_map_mode_current";
+String haMapApiConnectString  = settings.broadcastname + "_map_api_connect";
+String haBrightnessAutoString = settings.broadcastname + "_brightness_auto";
 
 
 const char* haUptimeChar          = haUptimeString.c_str();
@@ -125,20 +163,24 @@ const char* haFreeMemoryChar      = haFreeMemoryString.c_str();
 const char* haUsedMemoryChar      = haUsedMemoryString.c_str();
 const char* haBrightnessChar      = haBrightnessString.c_str();
 const char* haMapModeChar         = haMapModeString.c_str();
+const char* haDisplayModeChar     = haDisplayModeString.c_str();
 const char* haMapModeCurrentChar  = haMapModeCurrentString.c_str();
 const char* haMapApiConnectChar   = haMapApiConnectString.c_str();
+const char* haBrightnessAutoChar   = haBrightnessAutoString.c_str();
 
 
 HADevice        device(mac, sizeof(mac));
-HAMqtt          mqtt(client, device, 9);
+HAMqtt          mqtt(client, device, 11);
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
 HASensorNumber  haFreeMemory(haFreeMemoryChar);
 HASensorNumber  haUsedMemory(haUsedMemoryChar);
 HANumber        haBrightness(haBrightnessChar);
 HASelect        haMapMode(haMapModeChar);
+HASelect        haDisplayMode(haDisplayModeChar);
 HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
+HASwitch        haBrightnessAuto(haBrightnessAutoChar);
 
 char* mapModes [] = {
   "Вимкнено",
@@ -151,34 +193,72 @@ char* mapModes [] = {
 void initSettings(){
   Serial.println("Init settings");
   preferences.begin("storage", false);
-  settings.brightness         = preferences.getInt("brightness", settings.brightness);
-  settings.color_alert        = preferences.getInt("coloral", settings.color_alert);
-  settings.color_clear        = preferences.getInt("colorcl", settings.color_clear);
-  settings.color_new_alert    = preferences.getInt("colorna", settings.color_new_alert);
-  settings.color_alert_over   = preferences.getInt("colorao", settings.color_alert_over);
-  settings.alarms_auto_switch = preferences.getInt("aas", settings.alarms_auto_switch);
-  settings.home_district      = preferences.getInt("hd", settings.home_district);
-  settings.kyiv_district_mode = preferences.getInt("kdm", settings.kyiv_district_mode);
-  settings.map_mode           = preferences.getInt("mapmode", settings.map_mode);
-  settings.alarms_notify_mode = preferences.getInt("anm", settings.alarms_notify_mode);
-  settings.weather_min_temp   = preferences.getInt("mintemp", settings.weather_min_temp);
-  settings.weather_max_temp   = preferences.getInt("maxtemp", settings.weather_max_temp);
-  settings.ha_brokeraddress   = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
-  settings.ha_mqttport        = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  settings.ha_mqttuser        = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
-  settings.ha_mqttpassword    = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
+  settings.brightness             = preferences.getInt("brightness", settings.brightness);
+  settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
+  settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
+  settings.brightness_auto        = preferences.getInt("bra", settings.brightness_auto);
+  settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
+  settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
+  settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
+  settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
+  settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
+  settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
+  settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
+  settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
+  settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
+  settings.home_district          = preferences.getInt("hd", settings.home_district);
+  settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
+  settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
+  settings.display_mode           = preferences.getInt("dm", settings.display_mode);
+  settings.button_mode            = preferences.getInt("bm", settings.button_mode);
+  settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
+  settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
+  settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
+  settings.ha_brokeraddress       = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
+  settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
+  settings.ha_mqttuser            = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
+  settings.ha_mqttpassword        = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
+  settings.display_width          = preferences.getInt("dw", settings.display_width);
+  settings.display_height         = preferences.getInt("dh", settings.display_height);
+  settings.day_start              = preferences.getInt("ds", settings.day_start);
+  settings.night_start            = preferences.getInt("ns", settings.night_start);
   preferences.end();
-  mapMode                     = settings.map_mode;
+  mapMode                         = settings.map_mode;
+  displayMode                     = settings.display_mode;
+  Serial.print("brightness_auto: ");
+  Serial.println(settings.brightness_auto);
 }
+
 void initStrip(){
   Serial.println("Init leds");
   strip.Begin();
   mapFlag();
 }
 
+void initTime() {
+  timeClient.begin();
+  timeClient.update();
+  String formattedTime = timeClient.getFormattedTime();
+  int day, month, year, hour, minute, second;
+  
+  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
+
+  if ((month > 3 && month < 10) ||
+      (month == 3 && day >= 15) ||
+      (month == 10 && day <= 7)) {
+    isDaylightSaving = true;
+  }
+  if (isDaylightSaving) {
+    timeClient.setTimeOffset(14400);
+  }
+  else {
+    timeClient.setTimeOffset(10800);
+  }
+}
+
 void initWifi() {
     Serial.println("Init Wifi");
-    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP    
     //reset settings - wipe credentials for testing
     //wm.resetSettings();
 
@@ -188,16 +268,22 @@ void initWifi() {
     wm.setConfigPortalTimeout(120);
     wm.setConnectTimeout(3);
     wm.setConnectRetries(10);
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("Пiдключення WIFI.."),0,1);
     if(wm.autoConnect(settings.apssid, settings.appassword)){
         Serial.println("connected...yeey :)");
+        display.clearDisplay();
+        DisplayCenter(utf8cyr("WIFI пiдключeнo!"),0,1);
         wm.setHttpPort(8080);
-        wm.startWebPortal();
+        wm.startWebPortal();   
         delay(5000);
+        display.clearDisplay();
+        DisplayCenter(utf8cyr(""),0,1);
         setupRouting();
         initHA();
         ArduinoOTA.begin();
-        initBroadcast();
-        tcpConnect();
+        initBroadcast();  
+        tcpConnect(); 
     }
     else {
         Serial.println("Reboot");
@@ -232,7 +318,7 @@ void initHA() {
     char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
     char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
     char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
-
+    
     strcpy(deviceName, settings.devicename.c_str());
     strcpy(deviceDescr, settings.devicedescription.c_str());
     strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
@@ -286,6 +372,12 @@ void initHA() {
       haMapMode.setName(haMapModeChar);
       haMapMode.setCurrentState(settings.map_mode);
 
+      haDisplayMode.setOptions("Вимкнено;Час;Погода");
+      haDisplayMode.onCommand(onHaDisplayModeCommand);
+      haDisplayMode.setIcon("mdi:clock-digital");
+      haDisplayMode.setName(haDisplayModeChar);
+      haDisplayMode.setCurrentState(settings.display_mode);
+
       haMapModeCurrent.setIcon("mdi:map");
       haMapModeCurrent.setName(haMapModeCurrentChar);
       haMapModeCurrent.setValue(mapModes[mapMode]);
@@ -294,12 +386,29 @@ void initHA() {
       haMapApiConnect.setDeviceClass("connectivity");
       haMapApiConnect.setCurrentState(false);
 
+      haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
+      haBrightnessAuto.setIcon("mdi:brightness-percent");
+      haBrightnessAuto.setName(haBrightnessAutoChar);
+      haBrightnessAuto.setCurrentState(settings.brightness_auto);
+      
       device.enableLastWill();
       mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
       Serial.print("Home Assistant MQTT connected: ");
       Serial.println(mqtt.isConnected());
     }
   }
+}
+
+void onhaBrightnessAutoCommand(bool state, HASwitch* sender)
+{
+    settings.brightness_auto = state;
+    preferences.begin("storage", false);
+    preferences.putInt("bra", settings.brightness_auto);
+    preferences.end();
+    Serial.println("brightness_auto commited to preferences");
+    Serial.print("brightness_auto: ");
+    Serial.println(settings.brightness_auto);
+    sender->setState(state); // report state back to the Home Assistant
 }
 
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
@@ -309,12 +418,16 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
     } else {
         int8_t numberInt8 = haBrightness.toInt8();
         settings.brightness = numberInt8;
+        settings.brightness_auto = 0;
         preferences.begin("storage", false);
         preferences.putInt("brightness", settings.brightness);
+        preferences.putInt("bra", 0);
         preferences.end();
         Serial.println("map_mode commited to preferences");
     }
+    haBrightnessAuto.setState(false);
     sender->setState(haBrightness);
+    
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender)
@@ -341,7 +454,207 @@ void onHaMapModeCommand(int8_t index, HASelect* sender)
     Serial.println("map_mode commited to preferences");
     sender->setState(index);
 }
+
+void onHaDisplayModeCommand(int8_t index, HASelect* sender)
+{
+    switch (index) {
+    case 0:
+        settings.display_mode = 0;
+        break;
+    case 1:
+        settings.display_mode = 1;
+        break;
+    case 2:
+        settings.display_mode = 2;
+        break;
+    default:
+        return;
+    }
+    preferences.begin("storage", false);
+    preferences.putInt("dm", settings.display_mode);
+    preferences.end();
+    displayMode = settings.display_mode;
+    Serial.println("display_mode commited to preferences");
+    sender->setState(index);
+}
+
+void initDisplay() {
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
+  int16_t centerY = (settings.display_height - 32) / 2;
+  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+  display.setTextSize(1);
+  String text1 = utf8cyr("Just Another");
+  String text2 = utf8cyr("Alert Map ");
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+  display.setCursor(35, ((settings.display_height - height) / 2) - 9);
+  display.print(text1);
+  display.setCursor(35, ((settings.display_height - height) / 2));
+  display.print(text2);
+  display.setCursor(35, ((settings.display_height - height) / 2) + 9);
+  display.print(settings.softwareversion);
+  display.display();
+  delay(3000);
+}
 //--Init end
+
+//--Button start
+void buttonUpdate() {
+  if (digitalRead(settings.buttonpin) == HIGH) {
+    buttonPressStart = millis();
+    if (!isPressed){
+      Serial.println("Pressed");
+      Serial.print("button_mode: ");
+      Serial.println(settings.button_mode);
+      isPressed = true;
+      if (settings.button_mode == 1){
+        mapModeSwitch();
+      }
+      if (settings.button_mode == 2){
+        displayModeSwitch();
+      }
+    }
+  }
+  if (millis() - buttonPressStart > settings.buttontime){
+    isPressed = false;
+  }
+}
+
+void mapModeSwitch() {
+  settings.map_mode += 1;
+  if (settings.map_mode > 3) {
+    settings.map_mode = 0;
+  }
+  Serial.print("map_mode: ");
+  Serial.println(settings.map_mode);
+  preferences.begin("storage", false);
+  preferences.putInt("mapmode", settings.map_mode);
+  preferences.end();
+  if (enableHA) {
+    haMapMode.setState(settings.map_mode);
+  }
+  //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
+}
+
+void displayModeSwitch() {
+  settings.display_mode += 1;
+  if (settings.display_mode > 2) {
+    settings.display_mode = 0;
+  }
+  Serial.print("display_mode: ");
+  Serial.println(settings.display_mode);
+  preferences.begin("storage", false);
+  preferences.putInt("dm", settings.display_mode);
+  preferences.end();
+  displayMode = settings.display_mode;
+  if (enableHA) {
+    haDisplayMode.setState(settings.display_mode);
+  }
+  //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
+}
+//--Button start
+
+//--Display start
+void DisplayCenter(String text, int bound, int text_size) {
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.setCursor(0, 0);
+  display.setTextSize(text_size);
+  display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
+  display.setCursor(((settings.display_width - width) / 2), ((settings.display_height - height) / 2) + bound);
+  display.println(utf8cyr(text));
+  display.display();
+}
+
+String utf8cyr(String source) {
+  int i,k;
+  String target;
+  unsigned char n;
+  char m[2] = { '0', '\0' };
+
+  k = source.length(); i = 0;
+  while (i < k) {
+    n = source[i]; i++;
+    if (n >= 0xC0) {
+      switch (n) {
+        case 0xD0: {
+          n = source[i]; i++;
+          if (n == 0x81) { n = 0xA8; break; }       //  Ё
+          if (n == 0x84) { n = 0xAA; break; }       //  Є
+          if (n == 0x86) { n = 0xB1; break; }       //  І
+          if (n == 0x87) { n = 0xAF; break; }       //  Ї
+          if (n >= 0x90 && n <= 0xBF) n = n + 0x2F; break;
+        }
+        case 0xD1: {
+          n = source[i]; i++;
+          if (n == 0x91) { n = 0xB7; break; }       //  ё
+          if (n == 0x94) { n = 0xB9; break; }       //  є
+          if (n == 0x96) { n = 0xB2; break; }       //  і
+          if (n == 0x97) { n = 0xBE; break; }       //  ї
+          if (n >= 0x80 && n <= 0x8F) n = n + 0x6F; break;
+        }
+        case 0xD2: {
+          n = source[i]; i++;
+          if (n == 0x90) { n = 0xA5; break; }       //  Ґ
+          if (n == 0x91) { n = 0xB3; break; }       //  ґ
+        }
+      }
+    }
+    m[0] = n;
+    target = target + String(m);
+  }
+  return target;
+}
+
+void displayCycle() {
+  int hour = timeClient.getHours();
+  int minute = timeClient.getMinutes();
+
+  if (displayMode == 0) {
+    //Serial.println("Display mode off");
+    display.clearDisplay();
+    display.display();
+  }
+  if (displayMode == 1) {
+    //Serial.println("Display mode clock");
+    int day = timeClient.getDay();
+    String daysOfWeek[] = {"Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота"};
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.println(utf8cyr(daysOfWeek[day]));
+    String time = "";
+    if (hour < 10) time += "0";
+    time += hour;
+    time += ":";
+    if (minute < 10) time += "0";
+    time += minute;
+
+    DisplayCenter(time,7,3);
+  }
+  if (displayMode == 2) {
+    //Serial.println("Display mode weather");
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    String time = "";
+    char roundedTemp[4];
+    dtostrf(weather_leds[settings.home_district], 3, 1, roundedTemp);
+    time += roundedTemp;
+    time += " C";
+    DisplayCenter(time,6,2);
+  }
+  
+}
+//--Display end
 
 //--Web server start
 void setupRouting() {
@@ -353,8 +666,8 @@ void setupRouting() {
 }
 
 
-void handleRoot(AsyncWebServerRequest* request){
-  String html;
+void handleRoot(AsyncWebServerRequest* request){  
+  String html; 
   html +="<!DOCTYPE html>";
   html +="<html lang='en'>";
   html +="<head>";
@@ -378,11 +691,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        </h2>";
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
-  html +="                <img class='full-screen-img' src='http://alerts.net.ua/map.png'>";
+  if (mapMode == 1){
+    html +="                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
+  }
+  if (mapMode == 2){
+    html +="                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
+  }
   html +="            </div>";
   html +="        </div>";
   html +="        <div class='row'>";
-  html +="            <div class='col-md-6 offset-md-3'>";
+  html +="            <div class='col-md-6 offset-md-3'>";        
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
   html +=             WiFi.localIP().toString();
   html +="            </h4>";
@@ -406,6 +724,46 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider1'>Денна яскравість: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span></label>";
+  html +="                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider1'>Нічна яскравість: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span></label>";
+  html +="                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='" + String(settings.brightness_night) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span></label>";
+  html +="                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span></label>";
+  html +="                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group form-check'>";
+  html +="                        <input name='brightness_auto' type='checkbox' class='form-check-input' id='checkbox2'";
+  if (settings.brightness_auto == 1) html += " checked";
+  html +=">";
+  html +="                        <label class='form-check-label' for='checkbox'>";
+  html +="                          Автояскравість";
+  html +="                        </label>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider9'>Яскравість районів з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span></label>";
+  html +="                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider10'>Яскравість районів без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span></label>";
+  html +="                        <input type='range' name='brightness_clear' class='form-control-range' id='slider10' min='0' max='100' value='" + String(settings.brightness_clear) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider11'>Яскравість нових тривог: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span></label>";
+  html +="                        <input type='range' name='brightness_new_alert' class='form-control-range' id='slider11' min='0' max='100' value='" + String(settings.brightness_new_alert) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider12'>Яскравість відбою: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span></label>";
+  html +="                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider3'>Тривога: <span id='sliderValue3'>" + String(settings.color_alert) + "</span></label>";
@@ -470,17 +828,114 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox5'>Режим дисплея</label>";
+  html +="                        <select name='display_mode' class='form-control' id='selectBox5'>";
+  html +="<option value='0'";
+  if (settings.display_mode == 0) html += " selected";
+  html +=">Вимкнений</option>";
+  html +="<option value='1'";
+  if (settings.display_mode == 1) html += " selected";
+  html +=">Час</option>";
+  html +="<option value='2'";
+  if (settings.display_mode == 2) html += " selected";
+  html +=">Погода</option>";
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox6'>Режим кнопки</label>";
+  html +="                        <select name='button_mode' class='form-control' id='selectBox6'>";
+  html +="<option value='0'";
+  if (settings.button_mode == 0) html += " selected";
+  html +=">Вимкнений</option>";
+  html +="<option value='1'";
+  if (settings.button_mode == 1) html += " selected";
+  html +=">Перемикання режимів мапи</option>";
+  html +="<option value='2'";
+  if (settings.button_mode == 2) html += " selected";
+  html +=">Перемикання режимів дисплея</option>";
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox3'>Домашній регіон</label>";
   html +="                        <select name='home_district' class='form-control' id='selectBox3'>";
-   html +="<option value='7'";
+  html +="<option value='15'";
+  if (settings.home_district == 15) html += " selected";
+  html +=">АР Крим</option>";
+  html +="<option value='22'";
+  if (settings.home_district == 22) html += " selected";
+  html +=">Вінницька область</option>";
+  html +="<option value='4'";
+  if (settings.home_district == 4) html += " selected";
+  html +=">Волинська область</option>";
+  html +="<option value='18'";
+  if (settings.home_district == 18) html += " selected";
+  html +=">Дніпропетровська область</option>";
+  html +="<option value='12'";
+  if (settings.home_district == 12) html += " selected";
+  html +=">Донецька область</option>";
+  html +="<option value='6'";
+  if (settings.home_district == 6) html += " selected";
+  html +=">Житомирська область</option>";
+  html +="<option value='0'";
+  if (settings.home_district == 0) html += " selected";
+  html +=">Закарпатська область</option>";
+  html +="<option value='13'";
+  if (settings.home_district == 13) html += " selected";
+  html +=">Запорізька область</option>";
+  html +="<option value='1'";
+  if (settings.home_district == 1) html += " selected";
+  html +=">Івано-Франківська область</option>";
+  html +="<option value='7'";
   if (settings.home_district == 7) html += " selected";
   html +=">Київська область</option>";
   html +="<option value='25'";
   if (settings.home_district == 25) html += " selected";
   html +=">Київ</option>";
-   html +="<option value='10'";
+  html +="<option value='21'";
+  if (settings.home_district == 21) html += " selected";
+  html +=">Кіровоградська область</option>";
+  html +="<option value='11'";
+  if (settings.home_district == 11) html += " selected";
+  html +=">Луганська область</option>";
+  html +="<option value='3'";
+  if (settings.home_district == 3) html += " selected";
+  html +=">Львівська область</option>";
+  html +="<option value='17'";
+  if (settings.home_district == 17) html += " selected";
+  html +=">Миколаївська область</option>";
+  html +="<option value='16'";
+  if (settings.home_district == 16) html += " selected";
+  html +=">Одеська область</option>";
+  html +="<option value='19'";
+  if (settings.home_district == 19) html += " selected";
+  html +=">Полтавська область</option>";
+  html +="<option value='5'";
+  if (settings.home_district == 5) html += " selected";
+  html +=">Рівненська область</option>";
+  html +="<option value='9'";
+  if (settings.home_district == 9) html += " selected";
+  html +=">Сумська область</option>";
+  html +="<option value='2'";
+  if (settings.home_district == 2) html += " selected";
+  html +=">Тернопільська область</option>";
+  html +="<option value='10'";
   if (settings.home_district == 10) html += " selected";
   html +=">Харківська область</option>";
+  html +="<option value='14'";
+  if (settings.home_district == 14) html += " selected";
+  html +=">Херсонська область</option>";
+  html +="<option value='23'";
+  if (settings.home_district == 23) html += " selected";
+  html +=">Хмельницька область</option>";
+  html +="<option value='20'";
+  if (settings.home_district == 20) html += " selected";
+  html +=">Черкаська область</option>";
+  html +="<option value='24'";
+  if (settings.home_district == 24) html += " selected";
+  html +=">Чернівецька область</option>";
+  html +="<option value='8'";
+  if (settings.home_district == 8) html += " selected";
+  html +=">Чернігівська область</option>";
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -515,7 +970,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html +="    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html +="    <script>";
-  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8'];";
+  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'];";
   html +="";
   html +="        sliders.forEach(slider => {";
   html +="            const sliderElem = document.getElementById(slider);";
@@ -595,6 +1050,7 @@ void handleRoot(AsyncWebServerRequest* request){
 void handleSave(AsyncWebServerRequest* request){
   preferences.begin("storage", false);
   bool reboot = false;
+  bool disableBrightnessAuto = false;
   if (request->hasParam("ha_brokeraddress", true)){
     if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress){
       reboot = true;
@@ -628,10 +1084,66 @@ void handleSave(AsyncWebServerRequest* request){
     Serial.println("ha_mqttpassword commited to preferences");
   }
   if (request->hasParam("brightness", true)){
+    int currentBrightness = request->getParam("brightness", true)->value().toInt();
+    
+    if(currentBrightness != settings.brightness){
+      disableBrightnessAuto = true;
+    }
     settings.brightness = request->getParam("brightness", true)->value().toInt();
     preferences.putInt("brightness", settings.brightness);
     haBrightness.setState(settings.brightness);
     Serial.println("brightness commited to preferences");
+  }
+  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto){
+    settings.brightness_auto = 1;
+    haBrightnessAuto.setState(true);
+    preferences.putInt("bra", settings.brightness_auto);
+    Serial.println("brightness_auto enabled to preferences");
+  }else{
+    settings.brightness_auto = 0;
+    haBrightnessAuto.setState(false);
+    preferences.putInt("bra", settings.brightness_auto);
+    Serial.println("brightness_auto disabled to preferences");
+  }
+  if (request->hasParam("brightness_day", true)){
+    settings.brightness_day = request->getParam("brightness_day", true)->value().toInt();
+    preferences.putInt("brd", settings.brightness_day);
+    Serial.println("brightness_day commited to preferences");
+  }
+  if (request->hasParam("brightness_night", true)){
+    settings.brightness_night = request->getParam("brightness_night", true)->value().toInt();
+    preferences.putInt("brn", settings.brightness_night);
+    Serial.println("brightness_night commited to preferences");
+  }
+  if (request->hasParam("day_start", true)){
+    settings.day_start = request->getParam("day_start", true)->value().toInt();
+    preferences.putInt("ds", settings.day_start);
+    Serial.println("day_start commited to preferences");
+  }
+  if (request->hasParam("night_start", true)){
+    settings.night_start = request->getParam("night_start", true)->value().toInt();
+    preferences.putInt("ns", settings.night_start);
+    Serial.println("night_start commited to preferences");
+  }
+  if (request->hasParam("brightness_alert", true)){
+    settings.brightness_alert = request->getParam("brightness_alert", true)->value().toInt();
+    preferences.putInt("ba", settings.brightness_alert);
+    Serial.println("brightness_alert commited to preferences");
+  }
+  if (request->hasParam("brightness_clear", true)){
+    settings.brightness_clear = request->getParam("brightness_clear", true)->value().toInt();
+    preferences.putInt("bc", settings.brightness_clear);
+    Serial.println("brightness_clear commited to preferences");
+  }
+  if (request->hasParam("brightness_new_alert", true)){
+    settings.brightness_new_alert = request->getParam("brightness_new_alert", true)->value().toInt();
+    preferences.putInt("bna", settings.brightness_new_alert);
+    Serial.println("brightness_new_alert commited to preferences");
+  }
+  if (request->hasParam("brightness_alert_over", true)){
+    settings.brightness_alert_over = request->getParam("brightness_alert_over", true)->value().toInt();
+    preferences.putInt("bao", settings.brightness_alert_over);
+    Serial.println("brightness_alert_over commited to preferences");
   }
   if (request->hasParam("color_alert", true)){
     settings.color_alert = request->getParam("color_alert", true)->value().toInt();
@@ -677,6 +1189,18 @@ void handleSave(AsyncWebServerRequest* request){
     preferences.putInt("mapmode", settings.map_mode);
     haMapMode.setState(settings.map_mode);
     Serial.println("map_mode commited to preferences");
+  }
+  if (request->hasParam("display_mode", true)){
+    settings.display_mode = request->getParam("display_mode", true)->value().toInt();
+    preferences.putInt("dm", settings.display_mode);
+    displayMode = settings.display_mode;
+    haDisplayMode.setState(settings.display_mode);
+    Serial.println("display_mode commited to preferences");
+  }
+  if (request->hasParam("button_mode", true)){
+    settings.button_mode = request->getParam("button_mode", true)->value().toInt();
+    preferences.putInt("bm", settings.button_mode);
+    Serial.println("button_mode commited to preferences");
   }
   if (request->hasParam("alarms_notify_mode", true)){
     settings.alarms_notify_mode = request->getParam("alarms_notify_mode", true)->value().toInt();
@@ -729,18 +1253,52 @@ void connectStatuses(){
     haMapApiConnect.setState(client_tcp.connected());
   }
 }
+
+void timeUpdate() {
+  timeClient.update();
+  int currentHour = timeClient.getHours();
+  isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
+  //Serial.print("isDay: ");
+  //Serial.println(isDay);
+}
+
+void autoBrightnessUpdate() {
+  if (settings.brightness_auto == 1) {
+    int currentBrightness = 0;
+    currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
+    if (currentBrightness != settings.brightness) {
+      settings.brightness = currentBrightness;
+      if (enableHA) {
+        haBrightness.setState(settings.brightness);
+      }
+      preferences.begin("storage", false);
+      preferences.putInt("brightness", settings.brightness);
+      preferences.end();
+      Serial.print(" set auto brightness: ");
+      Serial.println(settings.brightness);
+    }else{
+      //Serial.println("");
+    }
+  }
+}
 //--Service messages end
 
 //--TCP process start
 void tcpConnect(){
   if (!client_tcp.connected()) {
     Serial.println("Connecting to map API...");
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("Пiдключення map-API.."),0,1);
     while (!client_tcp.connect(settings.tcphost, settings.tcpport))
     {
         Serial.println("Failed");
+        display.clearDisplay();
+        DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
         haMapApiConnect.setState(false);
         delay(1000);
     }
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
     Serial.println("Connected");
     haMapApiConnect.setState(true);
   }
@@ -749,11 +1307,17 @@ void tcpConnect(){
 void tcpReconnect(){
   if (!client_tcp.connected()) {
     Serial.print("Reconnecting to map API: ");
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
     if (!client_tcp.connect(settings.tcphost, settings.tcpport))
     {
       Serial.println("Failed");
+      display.clearDisplay();
+      DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
       haMapApiConnect.setState(false);
     }else{
+      display.clearDisplay();
+      DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
       Serial.println("Connected");
       haMapApiConnect.setState(true);
     }
@@ -769,7 +1333,7 @@ void tcpProcess(){
   if (data.length()) {
     Serial.print("New data: ");
     Serial.println(data);
-    parseString(data);
+    parseString(data);  
   }
 }
 
@@ -819,31 +1383,37 @@ void extractWeather(String str, int size) {
 //--Map processing start
 HsbColor processAlarms(int led) {
   HsbColor hue;
-  float local_brightness = settings.brightness/200.0f;;
+  float local_brightness = settings.brightness/200.0f;
   int local_color;
   if (blink and settings.alarms_notify_mode == 2){
     local_brightness = settings.brightness/600.0f;
   }
+
+  float local_brightness_alert = settings.brightness_alert/100.0f;
+  float local_brightness_clear = settings.brightness_clear/100.0f;
+  float local_bbrightness_new_alert = settings.brightness_new_alert/100.0f;
+  float local_brightness_alert_over = settings.brightness_alert_over/100.0f;
+
   switch (led) {
   case 0:
-      hue = HsbColor(settings.color_clear/360.0f,1.0,settings.brightness/200.0f);
+      hue = HsbColor(settings.color_clear/360.0f,1.0,settings.brightness*local_brightness_clear/200.0f);
       break;
   case 1:
-      hue = HsbColor(settings.color_alert/360.0f,1.0,settings.brightness/200.0f);
+      hue = HsbColor(settings.color_alert/360.0f,1.0,settings.brightness*local_brightness_alert/200.0f);
       break;
   case 2:
       local_color = settings.color_alert_over;
       if (settings.alarms_notify_mode == 0){
         local_color = settings.color_clear;
       }
-      hue = HsbColor(local_color/360.0f,1.0,local_brightness);
+      hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_brightness_alert_over);
       break;
   case 3:
       local_color = settings.color_new_alert;
       if (settings.alarms_notify_mode == 0){
         local_color = settings.color_alert;
       }
-      hue = HsbColor(local_color/360.0f,1.0,local_brightness);
+      hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_bbrightness_new_alert);
       break;
   }
   return hue;
@@ -866,7 +1436,7 @@ float processWeather(int led) {
 }
 
 void mapCycle(){
-  Serial.println("Map update");
+  //Serial.println("Map update");
   if (mapMode == 0){
     mapOff();
   }
@@ -994,8 +1564,8 @@ void WifiReconnect(){
     wifiReconnect = true;
     initWifi();
   }else{
-    Serial.print("WiFI status: ");
-    Serial.println(WiFi.status());
+    //Serial.print("WiFI status: ");
+    //Serial.println(WiFi.status());
   }
 }
 
@@ -1004,17 +1574,23 @@ void setup() {
 
   initSettings();
   initStrip();
-
+  initDisplay();
   initWifi();
+  initTime();
+
+  pinMode(settings.buttonpin, INPUT);
 
   asyncEngine.setInterval(uptime, 60000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
   asyncEngine.setInterval(tcpReconnect, 5000);
   asyncEngine.setInterval(mapCycle, 1000);
+  asyncEngine.setInterval(timeUpdate, 5000);
+  asyncEngine.setInterval(displayCycle, 1000);
   asyncEngine.setInterval(alarmTrigger, 1000);
   asyncEngine.setInterval(WifiReconnect, 5000);
-
+  asyncEngine.setInterval(autoBrightnessUpdate, 1000);
+  asyncEngine.setInterval(buttonUpdate, 100);
 }
 
 void loop() {
