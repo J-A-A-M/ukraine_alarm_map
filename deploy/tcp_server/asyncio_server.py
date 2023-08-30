@@ -256,40 +256,44 @@ async def etryvoga_data():
     global etryvoga_cached_data
     while True:
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        if etryvoga_cached_data == {}:
-            etryvoga_cached_data = {
-                "version": 1,
-                "states": {},
-                "info": {
-                    "last_update": None,
-                    "last_id": 0
-                }
+        #if etryvoga_cached_data == {}:
+        etryvoga_cached_data = {
+            "version": 1,
+            "states": {},
+            "info": {
+                "last_update": None,
+                "last_id": 0
             }
+        }
 
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(etryvoga_url)  # Replace with your URL
-            if response.status == 200:
-                new_data = await response.text()
-                data = json.loads(new_data)
-                for message in data[::-1]:
-                    if int(message['id']) > last_id_cached:
-                        last_id = int(message['id'])
-                        if message['type'] == 'INFO':
-                            region_name = regions[compatibility_slugs.index(message['region'])]
-                            region_data = {
-                                'type': "state",
-                                'enabled_at': message['createdAt'],
-                            }
-                            etryvoga_cached_data["states"][region_name] = region_data
+        try:
+            async with aiohttp.ClientSession() as session:
+                response = await session.get(etryvoga_url)  # Replace with your URL
+                if response.status == 200:
+                    new_data = await response.text()
+                    data = json.loads(new_data)
+                    for message in data[::-1]:
+                        if int(message['id']) > last_id_cached:
+                            last_id = int(message['id'])
+                            if message['type'] == 'INFO':
+                                region_name = regions[compatibility_slugs.index(message['region'])]
+                                region_data = {
+                                    'type': "state",
+                                    'enabled_at': message['createdAt'],
+                                }
+                                etryvoga_cached_data["states"][region_name] = region_data
 
-                etryvoga_cached_data['info']['last_id'] = last_id or 0
-                etryvoga_cached_data['info']['last_update'] = current_datetime
-                logging.info("store etryvoga data: %s" % current_datetime)
-                print("etryvoga data stored")
-            else:
-                logging.error(f"Request failed with status code: {response.status_code}")
-                print(f"Request failed with status code: {response.status_code}")
+                    etryvoga_cached_data['info']['last_id'] = last_id or 0
+                    etryvoga_cached_data['info']['last_update'] = current_datetime
+                    logging.info("store etryvoga data: %s" % current_datetime)
+                    print("etryvoga data stored")
+                else:
+                    logging.error(f"Request failed with status code: {response.status_code}")
+                    print(f"Request failed with status code: {response.status_code}")
+        except Exception as e:
+            logging.error(f"Request failed with status code: {e.message}")
+            print(f"Request failed with status code: {e.message}")
         await asyncio.sleep(etryvoga_loop_time)
 
 
