@@ -63,7 +63,6 @@ HA бачить мапу як окремий прилад розумного б�
 
 
 
-[![pages-build-deployment](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment/badge.svg?branch=master)](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/pages/pages-build-deployment)
 [![CodeQL](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/v00g100skr/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql)
 
 [![GitHub version](https://img.shields.io/github/release/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/releases/latest)
