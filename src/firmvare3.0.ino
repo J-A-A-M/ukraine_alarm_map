@@ -8,23 +8,21 @@
 #include <ArduinoHA.h>
 #include <NTPClient.h>
 #include <NeoPixelBus.h>
-#include <NeoPixelAnimator.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
-#include <WiFiUdp.h>
 
 
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.0.d10";
+  char*   softwareversion       = "3.0";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
   char*   tcphost               = "alerts.net.ua";
   int     tcpport               = 12345;
   int     pixelcount            = 26;
-  int     pixelpin              = 17;
+  int     pixelpin              = 13;
   int     buttonpin             = 18;
   int     buttontime            = 1000;
 
@@ -45,7 +43,7 @@ struct Settings{
   int    brightness_clear       = 100;
   int    brightness_new_alert   = 100;
   int    brightness_alert_over  = 100;
-  int    weather_min_temp       = -5;
+  int    weather_min_temp       = 5;
   int    weather_max_temp       = 30;
   int    alarms_auto_switch     = 1;
   int    home_district          = 7;
@@ -74,7 +72,6 @@ Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod> strip(settings.pixelcount, settings.pixelpin);
-NeoGamma<NeoGammaTableMethod> colorGamma;
 
 int     alarm_leds[26];
 double  weather_leds[26];
@@ -142,7 +139,7 @@ bool isDay;
 bool isPressed = false;
 int  mapMode;
 int  displayMode;
-long  buttonPressStart = 0;
+long buttonPressStart = 0;
 
 
 String haUptimeString         = settings.broadcastname + "_uptime";
@@ -155,6 +152,7 @@ String haDisplayModeString    = settings.broadcastname + "_display_mode";
 String haMapModeCurrentString = settings.broadcastname + "_map_mode_current";
 String haMapApiConnectString  = settings.broadcastname + "_map_api_connect";
 String haBrightnessAutoString = settings.broadcastname + "_brightness_auto";
+String haAlarmsAutoString = settings.broadcastname + "_alarms_auto";
 
 
 const char* haUptimeChar          = haUptimeString.c_str();
@@ -166,11 +164,12 @@ const char* haMapModeChar         = haMapModeString.c_str();
 const char* haDisplayModeChar     = haDisplayModeString.c_str();
 const char* haMapModeCurrentChar  = haMapModeCurrentString.c_str();
 const char* haMapApiConnectChar   = haMapApiConnectString.c_str();
-const char* haBrightnessAutoChar   = haBrightnessAutoString.c_str();
+const char* haBrightnessAutoChar  = haBrightnessAutoString.c_str();
+const char* haAlarmsAutoChar      = haAlarmsAutoString.c_str();
 
 
 HADevice        device(mac, sizeof(mac));
-HAMqtt          mqtt(client, device, 11);
+HAMqtt          mqtt(client, device, 12);
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
 HASensorNumber  haFreeMemory(haFreeMemoryChar);
@@ -181,6 +180,7 @@ HASelect        haDisplayMode(haDisplayModeChar);
 HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
+HASwitch        haAlarmsAuto(haAlarmsAutoChar);
 
 char* mapModes [] = {
   "Вимкнено",
@@ -237,28 +237,65 @@ void initStrip(){
 
 void initTime() {
   timeClient.begin();
+  timezoneUpdate();
+}
+
+void timezoneUpdate(){
   timeClient.update();
-  String formattedTime = timeClient.getFormattedTime();
-  int day, month, year, hour, minute, second;
-  
-  sscanf(formattedTime.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second);
+
+  time_t rawTime = timeClient.getEpochTime();
+  struct tm *timeInfo;
+  timeInfo = localtime(&rawTime);
+
+  int year = 1900 + timeInfo->tm_year;
+  int month = 1 + timeInfo->tm_mon;
+  int day = timeInfo->tm_mday;
+  int hour = timeInfo->tm_hour;
+  int minite = timeInfo->tm_min;
+  int second = timeInfo->tm_sec;
+
+  Serial.print("Current date and time: ");
+  Serial.print(1900 + timeInfo->tm_year);
+  Serial.print("-");
+  Serial.print(1 + timeInfo->tm_mon);
+  Serial.print("-");
+  Serial.print(timeInfo->tm_mday);
+  Serial.print(" ");
+  Serial.print(timeInfo->tm_hour);
+  Serial.print(":");
+  Serial.print(timeInfo->tm_min);
+  Serial.print(":");
+  Serial.println(timeInfo->tm_sec);
 
   if ((month > 3 && month < 10) ||
-      (month == 3 && day >= 15) ||
-      (month == 10 && day <= 7)) {
+      (month == 3 && day > getLastSunday(year,3)) ||
+      (month == 3 && day == getLastSunday(year,3) and hour >=3) ||
+      (month == 10 && day < getLastSunday(year,10))||
+      (month == 10 && day == getLastSunday(year,10) and hour <3)) {
     isDaylightSaving = true;
   }
+  Serial.print("isDaylightSaving: ");
+  Serial.println(isDaylightSaving);
   if (isDaylightSaving) {
-    timeClient.setTimeOffset(14400);
+    timeClient.setTimeOffset(10800);
   }
   else {
-    timeClient.setTimeOffset(10800);
+    timeClient.setTimeOffset(7200);
+  }
+}
+
+int getLastSunday(int year,int month) {
+  for (int day = 31; day >= 25; day--) {
+    int h = (day + (13 * (month + 1)) / 5 + year + year / 4 - year / 100 + year / 400) % 7;
+    if (h == 1) {
+      return day;
+    }
   }
 }
 
 void initWifi() {
     Serial.println("Init Wifi");
-    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP    
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
     //reset settings - wipe credentials for testing
     //wm.resetSettings();
 
@@ -275,18 +312,18 @@ void initWifi() {
         display.clearDisplay();
         DisplayCenter(utf8cyr("WIFI пiдключeнo!"),0,1);
         wm.setHttpPort(8080);
-        wm.startWebPortal();   
+        wm.startWebPortal();
         delay(5000);
-        display.clearDisplay();
-        DisplayCenter(utf8cyr(""),0,1);
         setupRouting();
         initHA();
         ArduinoOTA.begin();
-        initBroadcast();  
-        tcpConnect(); 
+        initBroadcast();
+        tcpConnect();
     }
     else {
         Serial.println("Reboot");
+        display.clearDisplay();
+        DisplayCenter(utf8cyr("Пepeзaвaнтaжeння"),0,1);
         delay(5000);
         ESP.restart();
     }
@@ -297,6 +334,8 @@ void initBroadcast() {
 
   if (!MDNS.begin(settings.broadcastname)) {
     Serial.println("Error setting up mDNS responder");
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("Помилка mDNS"),0,1);
     while (1) {
       delay(1000);
     }
@@ -318,7 +357,7 @@ void initHA() {
     char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
     char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
     char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
-    
+
     strcpy(deviceName, settings.devicename.c_str());
     strcpy(deviceDescr, settings.devicedescription.c_str());
     strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
@@ -362,7 +401,7 @@ void initHA() {
       haUsedMemory.setDeviceClass("data_size");
 
       haBrightness.onCommand(onHaBrightnessCommand);
-      haBrightness.setIcon("mdi:brightness-percent");
+      haBrightness.setIcon("mdi:percent-circle");
       haBrightness.setName(haBrightnessChar);
       haBrightness.setCurrentState(settings.brightness);
 
@@ -387,10 +426,15 @@ void initHA() {
       haMapApiConnect.setCurrentState(false);
 
       haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
-      haBrightnessAuto.setIcon("mdi:brightness-percent");
+      haBrightnessAuto.setIcon("mdi:percent-circle-outline");
       haBrightnessAuto.setName(haBrightnessAutoChar);
       haBrightnessAuto.setCurrentState(settings.brightness_auto);
-      
+
+      haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
+      haAlarmsAuto.setIcon("mdi:alert-outline");
+      haAlarmsAuto.setName(haAlarmsAutoChar);
+      haAlarmsAuto.setCurrentState(settings.alarms_auto_switch);
+
       device.enableLastWill();
       mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
       Serial.print("Home Assistant MQTT connected: ");
@@ -413,21 +457,29 @@ void onhaBrightnessAutoCommand(bool state, HASwitch* sender)
 
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
 {
-    if (!haBrightness.isSet()) {
-        //Serial.println('number not set');
-    } else {
-        int8_t numberInt8 = haBrightness.toInt8();
-        settings.brightness = numberInt8;
-        settings.brightness_auto = 0;
-        preferences.begin("storage", false);
-        preferences.putInt("brightness", settings.brightness);
-        preferences.putInt("bra", 0);
-        preferences.end();
-        Serial.println("map_mode commited to preferences");
-    }
+    int8_t numberInt8 = haBrightness.toInt8();
+    settings.brightness = numberInt8;
+    settings.brightness_auto = 0;
+    preferences.begin("storage", false);
+    preferences.putInt("brightness", settings.brightness);
+    preferences.putInt("bra", 0);
+    preferences.end();
+    Serial.println("brightness commited to preferences");
     haBrightnessAuto.setState(false);
     sender->setState(haBrightness);
-    
+
+}
+
+void onhaAlarmsAutoCommand(bool state, HASwitch* sender)
+{
+    settings.alarms_auto_switch = state;
+    preferences.begin("storage", false);
+    preferences.putInt("aas", settings.alarms_auto_switch);
+    preferences.end();
+    Serial.println("alarms_auto_switch commited to preferences");
+    Serial.print("alarms_auto_switch: ");
+    Serial.println(settings.alarms_auto_switch);
+    sender->setState(state); // report state back to the Home Assistant
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender)
@@ -528,17 +580,25 @@ void buttonUpdate() {
 }
 
 void mapModeSwitch() {
-  settings.map_mode += 1;
-  if (settings.map_mode > 3) {
-    settings.map_mode = 0;
+  if (mapMode == settings.map_mode){
+    settings.map_mode += 1;
+    if (settings.map_mode > 3) {
+      settings.map_mode = 0;
+    }
+  }else{
+    settings.map_mode = 2;
   }
+  settings.alarms_auto_switch = 0;
+
   Serial.print("map_mode: ");
   Serial.println(settings.map_mode);
   preferences.begin("storage", false);
   preferences.putInt("mapmode", settings.map_mode);
+  preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
   if (enableHA) {
     haMapMode.setState(settings.map_mode);
+    haAlarmsAuto.setState(false);
   }
   //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
 }
@@ -652,7 +712,7 @@ void displayCycle() {
     time += " C";
     DisplayCenter(time,6,2);
   }
-  
+
 }
 //--Display end
 
@@ -666,8 +726,8 @@ void setupRouting() {
 }
 
 
-void handleRoot(AsyncWebServerRequest* request){  
-  String html; 
+void handleRoot(AsyncWebServerRequest* request){
+  String html;
   html +="<!DOCTYPE html>";
   html +="<html lang='en'>";
   html +="<head>";
@@ -700,7 +760,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="            </div>";
   html +="        </div>";
   html +="        <div class='row'>";
-  html +="            <div class='col-md-6 offset-md-3'>";        
+  html +="            <div class='col-md-6 offset-md-3'>";
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
   html +=             WiFi.localIP().toString();
   html +="            </h4>";
@@ -1085,7 +1145,7 @@ void handleSave(AsyncWebServerRequest* request){
   }
   if (request->hasParam("brightness", true)){
     int currentBrightness = request->getParam("brightness", true)->value().toInt();
-    
+
     if(currentBrightness != settings.brightness){
       disableBrightnessAuto = true;
     }
@@ -1172,10 +1232,12 @@ void handleSave(AsyncWebServerRequest* request){
   }
   if (request->hasParam("alarms_auto_switch", true)){
     settings.alarms_auto_switch = 1;
+    haAlarmsAuto.setState(true);
     preferences.putInt("aas", settings.alarms_auto_switch);
     Serial.println("alarms_auto_switch commited to preferences");
   }else{
     settings.alarms_auto_switch = 0;
+    haAlarmsAuto.setState(false);
     preferences.putInt("aas", settings.alarms_auto_switch);
     Serial.println("alarms_auto_switch commited to preferences");
   }
@@ -1218,6 +1280,7 @@ void handleSave(AsyncWebServerRequest* request){
     Serial.println("weather_max_temp commited to preferences");
   }
   preferences.end();
+  delay(1000);
   request->redirect("/");
   if(reboot){
     ESP.restart();
@@ -1276,8 +1339,6 @@ void autoBrightnessUpdate() {
       preferences.end();
       Serial.print(" set auto brightness: ");
       Serial.println(settings.brightness);
-    }else{
-      //Serial.println("");
     }
   }
 }
@@ -1333,7 +1394,7 @@ void tcpProcess(){
   if (data.length()) {
     Serial.print("New data: ");
     Serial.println(data);
-    parseString(data);  
+    parseString(data);
   }
 }
 
@@ -1540,21 +1601,19 @@ void mapFlag(){
 }
 
 void alarmTrigger(){
-  bool returnToMapInitMode = true;
+  int currentMapMode = settings.map_mode;
   if(settings.alarms_auto_switch){
     for (int j = 0; j < counters[settings.home_district]; j++) {
       int alarm_led_id = neighboring_districts[settings.home_district][j];
       if (alarm_leds[alarm_led_id] != 0)   {
-        returnToMapInitMode = false;
-        mapMode = 1;
-        haMapModeCurrent.setValue(mapModes[mapMode]);
+        currentMapMode = 1;
       }
     }
   }
-  if (returnToMapInitMode) {
-    mapMode = settings.map_mode;
-    haMapModeCurrent.setValue(mapModes[mapMode]);
+  if (mapMode != currentMapMode){
+    haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
+  mapMode = currentMapMode;
 }
 //--Map processing end
 
@@ -1563,9 +1622,6 @@ void WifiReconnect(){
     Serial.println("WiFI Reconnect");
     wifiReconnect = true;
     initWifi();
-  }else{
-    //Serial.print("WiFI status: ");
-    //Serial.println(WiFi.status());
   }
 }
 
@@ -1591,6 +1647,7 @@ void setup() {
   asyncEngine.setInterval(WifiReconnect, 5000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(buttonUpdate, 100);
+  asyncEngine.setInterval(timezoneUpdate, 60000);
 }
 
 void loop() {

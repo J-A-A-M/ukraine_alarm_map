@@ -452,7 +452,7 @@ async def handle_web_request(writer, api):
                         </ul>
                     </div>
                     <div class='col-md-6 offset-md-3'>
-                        <p>TCP-сервер: 45.77.52.39:12345</p>
+                        <p>TCP-сервер: alerts.net.ua:12345</p>
                     </div>
                     <div class='col-md-6 offset-md-3'>
                         <p>Джерела даних:</p>
