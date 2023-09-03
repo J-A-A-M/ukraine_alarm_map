@@ -999,7 +999,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='selectBox4'>Відображення на мапі новіх тривого та відбою</label>";
+  html +="                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>";
   html +="                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>";
    html +="<option value='0'";
   if (settings.alarms_notify_mode == 0) html += " selected";
