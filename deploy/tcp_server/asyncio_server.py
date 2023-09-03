@@ -460,14 +460,13 @@ async def handle_web_request(writer, api):
                             <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з СМІ)</a></li>
                             <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
                             <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>
-                            <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
-                            
+                            <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>      
                         </ul>
                     </div>
                 </div>
             </div>
             <!-- Cloudflare Web Analytics -->
-            <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"9081c22b7b7f418fb1789d1813cadb9c\"}'></script>
+            <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9081c22b7b7f418fb1789d1813cadb9c"}'></script>
             <!-- End Cloudflare Web Analytics -->
         </body>
         </html>
@@ -475,7 +474,6 @@ async def handle_web_request(writer, api):
     headers = (
             b"HTTP/1.1 200 OK\r\n"
             b"Content-Type: text/html\r\n"
-            b"Content-Length: " + bytes(str(len(html_response)), 'utf-8') + b"\r\n\r\n"
     )
 
     if writer.get_extra_info('peername')[0] not in web_clients:
