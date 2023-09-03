@@ -467,7 +467,7 @@ async def handle_web_request(writer, api):
                 </div>
             </div>
             <!-- Cloudflare Web Analytics -->
-            <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9081c22b7b7f418fb1789d1813cadb9c"}'></script>
+            <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"9081c22b7b7f418fb1789d1813cadb9c\"}'></script>
             <!-- End Cloudflare Web Analytics -->
         </body>
         </html>
