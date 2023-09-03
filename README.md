@@ -2,10 +2,6 @@
 
 Вітаю Вас в репозіторії проєкту JAAM - Just another alerts map :-)
 
-Прошивка основана на ідеях і коду з ком'юніті [СodyTech](https://t.me/codyTech)
-
-[Онлайн редактор](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
-
 [WIKI по прошивці](https://github.com/v00g100skr/ukraine_alarm_map/wiki)
 
 [Багтрекер](https://github.com/v00g100skr/ukraine_alarm_map/issues)
@@ -24,7 +20,7 @@
 [![GitHub issues](https://img.shields.io/github/issues/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/issues)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/v00g100skr/ukraine_alarm_map/blob/master/LICENSE)
 
-[![website](https://img.shields.io/website?url=https%3A%2F%2Fv00g100skr.github.io%2Fukraine_alarm_map%2Ffirmware.html)](https://v00g100skr.github.io/ukraine_alarm_map/firmware.html)
+[![website](http://alerts.net.ua/)](http://alerts.net.ua/)
 
 
 [![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://vshymanskyy.github.io/StandWithUkraine)
