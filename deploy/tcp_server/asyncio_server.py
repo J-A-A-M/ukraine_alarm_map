@@ -23,7 +23,7 @@ weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
 data_token = os.environ.get('DATA_TOKEN') or None
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 3
-weather_loop_time = os.environ.get('WEATHER_PERIOD') or 60
+weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
 etryvoga_loop_time = os.environ.get('ETRYVOGA_PERIOD') or 30
 
 # Authorization header
@@ -269,7 +269,6 @@ async def etryvoga_data():
                     "last_id": 0
                 }
             }
-
         last_id_cached = int(etryvoga_cached_data['info']['last_id'])
         try:
             async with aiohttp.ClientSession() as session:
