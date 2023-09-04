@@ -598,7 +598,7 @@ async def parse_and_broadcast(clients):
 
                 previous_data = tcp_data
         except Exception as e:
-            print("Error:", e)
+            print("Broadcast error:", e)
 
         await asyncio.sleep(1)
 
