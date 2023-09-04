@@ -216,7 +216,7 @@ async def weather_data():
     while True:
         try:
             current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-            weather_cached_data = {
+            parced_data = {
                 "version": 1,
                 "states": {},
                 "info": {
@@ -242,12 +242,13 @@ async def weather_data():
                             "humidity": data["main"]["humidity"],
                             "wind": data["wind"]["speed"]
                         }
-                        weather_cached_data["states"][regions[weather_ids.index(region_id)]] = region_data
+                        parced_data["states"][regions[weather_ids.index(region_id)]] = region_data
                     else:
                         logging.error(f"Request failed with status code: {response.status_code}")
                         print(f"Request failed with status code: {response.status_code}")
 
-            weather_cached_data['info']['last_update'] = current_datetime
+            parced_data['info']['last_update'] = current_datetime
+            weather_cached_data = parced_data
             logging.info("store weather data: %s" % current_datetime)
             print("weather data stored")
         except Exception as e:
