@@ -629,7 +629,7 @@ async def log_clients_periodically(clients, web_clients, api_clients, img_client
         print(f"Number of connected api-clients: {len(api_clients)}")
         print(f"Number of connected web-clients: {len(web_clients)}")
         print(f"Number of connected img-clients: {len(img_clients)}")
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
 
 
 if __name__ == "__main__":
