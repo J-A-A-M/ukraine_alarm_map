@@ -22,8 +22,8 @@ alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 weather_token = os.environ.get('WEATHER_TOKEN') or 'token'
 data_token = os.environ.get('DATA_TOKEN') or None
 
-alert_loop_time = os.environ.get('ALERT_PERIOD') or 5
-weather_loop_time = os.environ.get('WEATHER_PERIOD') or 600
+alert_loop_time = os.environ.get('ALERT_PERIOD') or 3
+weather_loop_time = os.environ.get('WEATHER_PERIOD') or 60
 etryvoga_loop_time = os.environ.get('ETRYVOGA_PERIOD') or 30
 
 # Authorization header
@@ -214,41 +214,44 @@ async def alarm_data():
 async def weather_data():
     global weather_cached_data
     while True:
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        weather_cached_data = {
-            "version": 1,
-            "states": {},
-            "info": {
-                "last_update": None,
+        try:
+            current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            weather_cached_data = {
+                "version": 1,
+                "states": {},
+                "info": {
+                    "last_update": None,
+                }
             }
-        }
-        for region_id in weather_ids:
-            params = {
-                "lang": "ua",
-                "id": region_id,
-                "units": "metric",
-                "appid": weather_token
-            }
-            async with aiohttp.ClientSession() as session:
-                response = await session.get(weather_url, params=params)  # Replace with your URL
-                if response.status == 200:
-                    new_data = await response.text()
-                    data = json.loads(new_data)
-                    region_data = {
-                        "temp": data["main"]["temp"],
-                        "desc": data["weather"][0]["description"],
-                        "pressure": data["main"]["pressure"],
-                        "humidity": data["main"]["humidity"],
-                        "wind": data["wind"]["speed"]
-                    }
-                    weather_cached_data["states"][regions[weather_ids.index(region_id)]] = region_data
-                else:
-                    logging.error(f"Request failed with status code: {response.status_code}")
-                    print(f"Request failed with status code: {response.status_code}")
+            for region_id in weather_ids:
+                params = {
+                    "lang": "ua",
+                    "id": region_id,
+                    "units": "metric",
+                    "appid": weather_token
+                }
+                async with aiohttp.ClientSession() as session:
+                    response = await session.get(weather_url, params=params)  # Replace with your URL
+                    if response.status == 200:
+                        new_data = await response.text()
+                        data = json.loads(new_data)
+                        region_data = {
+                            "temp": data["main"]["temp"],
+                            "desc": data["weather"][0]["description"],
+                            "pressure": data["main"]["pressure"],
+                            "humidity": data["main"]["humidity"],
+                            "wind": data["wind"]["speed"]
+                        }
+                        weather_cached_data["states"][regions[weather_ids.index(region_id)]] = region_data
+                    else:
+                        logging.error(f"Request failed with status code: {response.status_code}")
+                        print(f"Request failed with status code: {response.status_code}")
 
-        weather_cached_data['info']['last_update'] = current_datetime
-        logging.info("store weather data: %s" % current_datetime)
-        print("weather data stored")
+            weather_cached_data['info']['last_update'] = current_datetime
+            logging.info("store weather data: %s" % current_datetime)
+            print("weather data stored")
+        except Exception as e:
+            print(f"weather exception:  {str(e)}")
         await asyncio.sleep(weather_loop_time)
 
 
@@ -550,12 +553,12 @@ async def parse_and_broadcast(clients):
     global previous_data, alerts_cached_data, weather_cached_data, etryvoga_cached_data
     await asyncio.sleep(10)
     while True:
+        local_time = get_local_time_formatted()
+        alerts = []
+        weather = []
+        alerts_svg_data = {}
+        weather_svg_data = {}
         try:
-            local_time = get_local_time_formatted()
-            alerts = []
-            weather = []
-            alerts_svg_data = {}
-            weather_svg_data = {}
             for region in regions:
                 if alerts_cached_data['states'][region]['enabled']:
                     time_diff = calculate_time_difference(alerts_cached_data['states'][region]['enabled_at'], local_time)
@@ -574,31 +577,30 @@ async def parse_and_broadcast(clients):
                         alert_mode = 2
                         alerts_svg_data[compatibility_slugs[regions.index(region)]] = "bbff33"
 
+                alerts.append(str(alert_mode))
+        except Exception as e:
+            print("Alert error:", e)
+        try:
+            for region in regions:
                 weather_temp = float(weather_cached_data['states'][region]['temp'])
                 weather_svg_data[compatibility_slugs[regions.index(region)]] = calculate_html_color_from_hsb(weather_temp)
-
-                alerts.append(str(alert_mode))
                 weather.append(str(weather_temp))
-
-            # svg_data["KIROWOGRADSKA"] = "ffa533"
-            # svg_data["VINNYTSA"] = "ffa533"
-            # svg_data["HMELNYCKA"] = "bbff33"
-            # svg_data["CHERNIVETSKA"] = "bbff33"
-
-            tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
-            #tcp_data = '0,0,2,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
-
-            if tcp_data != previous_data:
-                print("Data changed. Broadcasting to clients...")
-                generate_map(time=local_time, output_file='alerts_map.png', **alerts_svg_data)
-                generate_map(time=local_time, output_file='weather_map.png', **weather_svg_data)
-                for client_writer in clients:
-                    client_writer.write(tcp_data.encode())
-                    await client_writer.drain()
-
-                previous_data = tcp_data
         except Exception as e:
-            print("Broadcast error:", e)
+            print("Weather error:", e)
+
+        tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
+        #tcp_data = '0,0,2,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
+
+        if tcp_data != previous_data:
+            print("Data changed. Broadcasting to clients...")
+            generate_map(time=local_time, output_file='alerts_map.png', **alerts_svg_data)
+            generate_map(time=local_time, output_file='weather_map.png', **weather_svg_data)
+            for client_writer in clients:
+                client_writer.write(tcp_data.encode())
+                await client_writer.drain()
+
+            previous_data = tcp_data
+
 
         await asyncio.sleep(1)
 
