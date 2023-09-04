@@ -491,10 +491,14 @@ async def handle_web_request(writer, api):
 
 async def handle_web(reader, writer):
     request = await reader.read(100)
-    request_text = request.decode('utf-8')
-
-    # Extract the requested path from the request
-    path = request_text.split()[1]
+    try:
+        request_text = request.decode('utf-8')
+    except UnicodeDecodeError:
+        await handle_web_request(writer, 'start')
+    try:
+        path = request_text.split()[1]
+    except IndexError:
+        await handle_web_request(writer, 'start')
 
     if path == "/alerts_statuses_v1.json":
         await handle_json_request(writer, alerts_cached_data, 'alerts')
@@ -533,20 +537,6 @@ async def handle_web(reader, writer):
         await handle_json_request(writer, response_data, 'tcp')
     else:
         await handle_web_request(writer, 'start')
-    # else:
-    #     response_data = {
-    #         'alerts': '/alerts_statuses_v1.json',
-    #         'weather': '/weather_statuses_v1.json',
-    #         'explosives': '/explosives_statuses_v1.json',
-    #         'tcp_response_check': '/tcp_statuses_v1.json',
-    #         'sources': {
-    #             'explosives_data': 'https://app.etryvoga.com/',
-    #             'alert_data': 'https://www.ukrainealarm.com/',
-    #             'weather_data': 'https://openweathermap.org/api',
-    #             'repo': 'https://github.com/v00g100skr/ukraine_alarm_map'
-    #         }
-    #     }
-    #     await handle_json_request(writer, response_data, 'start')
 
 
 async def parse_and_broadcast(clients):
