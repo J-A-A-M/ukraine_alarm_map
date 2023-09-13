@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.0";
+  char*   softwareversion       = "3.1.d2";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
@@ -50,6 +50,7 @@ struct Settings{
   int    kyiv_district_mode     = 1;
   int    map_mode               = 1;
   int    display_mode           = 2;
+  int    display_mode_time      = 5;
   int    button_mode            = 0;
   int    alarms_notify_mode     = 2;
   int    display_width          = 128;
@@ -131,15 +132,16 @@ const unsigned char trident_small [] PROGMEM = {
 byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
 
-bool enableHA;
-bool wifiReconnect = false;
-bool blink = false;
-bool isDaylightSaving = false;
-bool isDay;
-bool isPressed = false;
-int  mapMode;
-int  displayMode;
-long buttonPressStart = 0;
+bool    enableHA;
+bool    wifiReconnect = false;
+bool    blink = false;
+bool    isDaylightSaving = false;
+bool    isDay;
+bool    isPressed = false;
+int     mapMode;
+int     displayMode;
+long    buttonPressStart = 0;
+time_t  displayOldTime = 0;
 
 
 String haUptimeString         = settings.broadcastname + "_uptime";
@@ -152,7 +154,7 @@ String haDisplayModeString    = settings.broadcastname + "_display_mode";
 String haMapModeCurrentString = settings.broadcastname + "_map_mode_current";
 String haMapApiConnectString  = settings.broadcastname + "_map_api_connect";
 String haBrightnessAutoString = settings.broadcastname + "_brightness_auto";
-String haAlarmsAutoString = settings.broadcastname + "_alarms_auto";
+String haAlarmsAutoString     = settings.broadcastname + "_alarms_auto";
 
 
 const char* haUptimeChar          = haUptimeString.c_str();
@@ -210,6 +212,7 @@ void initSettings(){
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
   settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
   settings.display_mode           = preferences.getInt("dm", settings.display_mode);
+  settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
   settings.button_mode            = preferences.getInt("bm", settings.button_mode);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
@@ -225,8 +228,6 @@ void initSettings(){
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
-  Serial.print("brightness_auto: ");
-  Serial.println(settings.brightness_auto);
 }
 
 void initStrip(){
@@ -236,6 +237,7 @@ void initStrip(){
 }
 
 void initTime() {
+  Serial.println("Init time");
   timeClient.begin();
   timezoneUpdate();
 }
@@ -411,7 +413,7 @@ void initHA() {
       haMapMode.setName(haMapModeChar);
       haMapMode.setCurrentState(settings.map_mode);
 
-      haDisplayMode.setOptions("Вимкнено;Час;Погода");
+      haDisplayMode.setOptions("Вимкнено;Час;Погода;---;---;---;---;---;---;Перемикання");
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
       haDisplayMode.setName(haDisplayModeChar);
@@ -519,6 +521,9 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
     case 2:
         settings.display_mode = 2;
         break;
+    case 9:
+        settings.display_mode = 9;
+        break;
     default:
         return;
     }
@@ -532,7 +537,9 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
 
 void initDisplay() {
 
+  display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.display();
   display.clearDisplay();
   display.setTextColor(WHITE);
   int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
@@ -679,12 +686,12 @@ void displayCycle() {
   int hour = timeClient.getHours();
   int minute = timeClient.getMinutes();
 
-  if (displayMode == 0) {
+  if (displayMode == 0 || settings.display_mode == 0) {
     //Serial.println("Display mode off");
     display.clearDisplay();
     display.display();
   }
-  if (displayMode == 1) {
+  if (displayMode == 1 || settings.display_mode == 1) {
     //Serial.println("Display mode clock");
     int day = timeClient.getDay();
     String daysOfWeek[] = {"Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота"};
@@ -701,7 +708,7 @@ void displayCycle() {
 
     DisplayCenter(time,7,3);
   }
-  if (displayMode == 2) {
+  if (displayMode == 2 || settings.display_mode == 2) {
     //Serial.println("Display mode weather");
     display.setCursor(0, 0);
     display.clearDisplay();
@@ -710,9 +717,19 @@ void displayCycle() {
     dtostrf(weather_leds[settings.home_district], 3, 1, roundedTemp);
     time += roundedTemp;
     time += " C";
-    DisplayCenter(time,6,2);
+    DisplayCenter(time,7,3);
   }
-
+  if (displayMode == 9) {
+    time_t displayCurrentTime = timeClient.getEpochTime();
+    long displayDiffTime = difftime(displayCurrentTime, displayOldTime);
+    if (displayDiffTime >= settings.display_mode_time){
+      settings.display_mode += 1;
+      if (settings.display_mode > 2) {
+        settings.display_mode = 1;
+      }
+      displayOldTime = timeClient.getEpochTime();
+    }
+  }
 }
 //--Display end
 
@@ -854,6 +871,10 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='range' name='weather_max_temp' class='form-control-range' id='slider8' min='11' max='40' value='" + String(settings.weather_max_temp) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
+  html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
+  html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox1'>Режим діода 'Київська область'</label>";
   html +="                        <select name='kyiv_district_mode' class='form-control' id='selectBox1'>";
   html +="<option value='1'";
@@ -891,14 +912,17 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='selectBox5'>Режим дисплея</label>";
   html +="                        <select name='display_mode' class='form-control' id='selectBox5'>";
   html +="<option value='0'";
-  if (settings.display_mode == 0) html += " selected";
+  if (displayMode == 0) html += " selected";
   html +=">Вимкнений</option>";
   html +="<option value='1'";
-  if (settings.display_mode == 1) html += " selected";
+  if (displayMode == 1) html += " selected";
   html +=">Час</option>";
   html +="<option value='2'";
-  if (settings.display_mode == 2) html += " selected";
+  if (displayMode == 2) html += " selected";
   html +=">Погода</option>";
+  html +="<option value='9'";
+  if (displayMode == 9) html += " selected";
+  html +=">Перемикання за часом</option>";
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -1012,6 +1036,17 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">Колір+зміна яскравості</option>";
   html +="                        </select>";
   html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox7'>Розмір дисплея</label>";
+  html +="                        <select name='display_height' class='form-control' id='selectBox7'>";
+   html +="<option value='32'";
+  if (settings.display_height == 32) html += " selected";
+  html +=">128*32</option>";
+  html +="<option value='64'";
+  if (settings.display_height == 64) html += " selected";
+  html +=">128*64</option>";
+  html +="                        </select>";
+  html +="                    </div>";
   html +="                    <div class='form-group form-check'>";
   html +="                        <input name='alarms_auto_switch' type='checkbox' class='form-check-input' id='checkbox'";
   if (settings.alarms_auto_switch == 1) html += " checked";
@@ -1030,7 +1065,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html +="    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html +="    <script>";
-  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'];";
+  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17'];";
   html +="";
   html +="        sliders.forEach(slider => {";
   html +="            const sliderElem = document.getElementById(slider);";
@@ -1257,7 +1292,13 @@ void handleSave(AsyncWebServerRequest* request){
     preferences.putInt("dm", settings.display_mode);
     displayMode = settings.display_mode;
     haDisplayMode.setState(settings.display_mode);
-    Serial.println("display_mode commited to preferences");
+    Serial.print("display_mode commited to preferences: ");
+    Serial.println(displayMode);
+  }
+  if (request->hasParam("display_mode_time", true)){
+    settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
+    preferences.putInt("dmt", settings.display_mode_time);
+    Serial.println("display_mode_time commited to preferences");
   }
   if (request->hasParam("button_mode", true)){
     settings.button_mode = request->getParam("button_mode", true)->value().toInt();
@@ -1278,6 +1319,14 @@ void handleSave(AsyncWebServerRequest* request){
     settings.weather_max_temp = request->getParam("weather_max_temp", true)->value().toInt();
     preferences.putInt("maxtemp", settings.weather_max_temp);
     Serial.println("weather_max_temp commited to preferences");
+  }
+  if (request->hasParam("display_height", true)){
+    if (request->getParam("display_height", true)->value().toInt() != settings.display_height){
+      reboot = true;
+    }
+    preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
+    Serial.print("display_height commited to preferences: ");
+    Serial.println(request->getParam("display_height", true)->value().toInt());
   }
   preferences.end();
   delay(1000);
@@ -1313,7 +1362,7 @@ void connectStatuses(){
   if (enableHA){
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
-    haMapApiConnect.setState(client_tcp.connected());
+    haMapApiConnect.setState(client_tcp.connected(), true);
   }
 }
 
