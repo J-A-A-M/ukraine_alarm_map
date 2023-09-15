@@ -6,7 +6,7 @@
     <title>Simple Web Page with Input and Sliders</title>
     <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
     <style>
-        body { background-color: #73b0fa; }
+        body { background-color: #4396ff; }
         .container { padding: 20px; }
         .box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
         .box_blue { background-color: #4396ff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
@@ -26,7 +26,8 @@
                     <div class='box_yellow col-md-12 mt-2'>
                         <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>
                     </div>
-                    <div class='box_yellow col-md-12  mt-2'>
+                    <div class='box_yellow col-md-12 mt-2'>
+                        <h4 class='text-left'>Simple Web Page</h4>
                         <div class='form-group'>
                             <label for='inputField'>Input Field</label>
                             <input type='text' class='form-control' id='inputField' placeholder='Enter value'>
@@ -48,7 +49,6 @@
                     </div>
                     <div class='box_yellow col-md-12 mt-2'>
                         <div class='form-group'>
-                        <div class='form-group'>
                             <label for='slider4'>Hue Slider 3: <span id='sliderValue5'>90</span></label>
                             <input type='range' class='form-control-range' id='slider5' min='0' max='360' value='90'>
                             <div class='color-box' id='colorBox3'></div>
@@ -65,6 +65,9 @@
                             <input type='checkbox' class='form-check-input' id='checkbox'>
                             <label class='form-check-label' for='checkbox'>Checkbox</label>
                         </div>
+                    </div>
+                    <div class='box_yellow col-md-12 mt-2'>
+                        <button type='submit' class='btn btn-primary full-screen-img'>Зберегти налаштування</button>
                     </div>
                 </div>
             </div>
@@ -97,7 +100,7 @@
         document.getElementById('colorBox2').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;
 
         const initialHue3 = parseInt(slider5.value);
-        const initialRgbColor3 = hsbToRgb(initialHue2, 100, 100);
+        const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);
         document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;
 
         function hsbToRgb(h, s, b) {

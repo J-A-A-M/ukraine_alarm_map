@@ -15,48 +15,48 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.1.d2";
+  char*   softwareversion       = "3.1.d3";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
   char*   tcphost               = "alerts.net.ua";
   int     tcpport               = 12345;
   int     pixelcount            = 26;
-  int     pixelpin              = 13;
   int     buttonpin             = 18;
   int     buttontime            = 1000;
 
   // ------- web config start
-  int    ha_mqttport            = 1883;
-  String ha_mqttuser            = "";
-  String ha_mqttpassword        = "";
-  String ha_brokeraddress       = "";
-  int    brightness             = 50;
-  int    brightness_day         = 50;
-  int    brightness_night       = 5;
-  int    brightness_auto        = 0;
-  int    color_alert            = 0;
-  int    color_clear            = 120;
-  int    color_new_alert        = 20;
-  int    color_alert_over       = 100;
-  int    brightness_alert       = 100;
-  int    brightness_clear       = 100;
-  int    brightness_new_alert   = 100;
-  int    brightness_alert_over  = 100;
-  int    weather_min_temp       = 5;
-  int    weather_max_temp       = 30;
-  int    alarms_auto_switch     = 1;
-  int    home_district          = 7;
-  int    kyiv_district_mode     = 1;
-  int    map_mode               = 1;
-  int    display_mode           = 2;
-  int    display_mode_time      = 5;
-  int    button_mode            = 0;
-  int    alarms_notify_mode     = 2;
-  int    display_width          = 128;
-  int    display_height         = 32;
-  int    day_start              = 8;
-  int    night_start            = 22;
+  int     pixelpin              = 13;
+  int     ha_mqttport            = 1883;
+  String  ha_mqttuser            = "";
+  String  ha_mqttpassword        = "";
+  String  ha_brokeraddress       = "";
+  int     brightness             = 50;
+  int     brightness_day         = 50;
+  int     brightness_night       = 5;
+  int     brightness_auto        = 0;
+  int     color_alert            = 0;
+  int     color_clear            = 120;
+  int     color_new_alert        = 20;
+  int     color_alert_over       = 100;
+  int     brightness_alert       = 100;
+  int     brightness_clear       = 100;
+  int     brightness_new_alert   = 100;
+  int     brightness_alert_over  = 100;
+  int     weather_min_temp       = 5;
+  int     weather_max_temp       = 30;
+  int     alarms_auto_switch     = 1;
+  int     home_district          = 7;
+  int     kyiv_district_mode     = 1;
+  int     map_mode               = 1;
+  int     display_mode           = 2;
+  int     display_mode_time      = 5;
+  int     button_mode            = 0;
+  int     alarms_notify_mode     = 2;
+  int     display_width          = 128;
+  int     display_height         = 32;
+  int     day_start              = 8;
+  int     night_start            = 22;
   // ------- web config end
 };
 
@@ -72,7 +72,7 @@ NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
-NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod> strip(settings.pixelcount, settings.pixelpin);
+NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
 int     alarm_leds[26];
 double  weather_leds[26];
@@ -225,14 +225,19 @@ void initSettings(){
   settings.display_height         = preferences.getInt("dh", settings.display_height);
   settings.day_start              = preferences.getInt("ds", settings.day_start);
   settings.night_start            = preferences.getInt("ns", settings.night_start);
+  settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
 }
 
 void initStrip(){
+  Serial.print("pixelpin: ");
+  Serial.println(settings.pixelpin);
+  strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.pixelcount, settings.pixelpin);
+  //NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod> strip();
   Serial.println("Init leds");
-  strip.Begin();
+  strip->Begin();
   mapFlag();
 }
 
@@ -799,6 +804,10 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
+  html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
   html +="                    </div>";
@@ -1161,6 +1170,15 @@ void handleSave(AsyncWebServerRequest* request){
     settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
     preferences.putInt("ha_mqttport", settings.ha_mqttport);
     Serial.println("ha_mqttport commited to preferences");
+  }
+  if (request->hasParam("pixelpin", true)){
+    if (request->getParam("pixelpin", true)->value().toInt() != settings.pixelpin){
+      reboot = true;
+    }
+    settings.pixelpin = request->getParam("pixelpin", true)->value().toInt();
+    preferences.putInt("pp", settings.pixelpin);
+    Serial.println("pixelpin commited: ");
+    Serial.println(settings.pixelpin);
   }
   if (request->hasParam("ha_mqttuser", true)){
     if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser){
@@ -1562,16 +1580,16 @@ void mapCycle(){
 }
 
 void mapOff(){
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
-    strip.SetPixelColor(i, HslColor(0.0,0.0,0.0));
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, HslColor(0.0,0.0,0.0));
   }
-  strip.Show();
+  strip->Show();
 }
 
 void mapAlarms(){
   int adapted_alarm_leds[26];
   int lastValue = alarm_leds[25];
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_alarm_leds[i] = alarm_leds[i];
   }
   if (settings.kyiv_district_mode == 2){
@@ -1597,17 +1615,17 @@ void mapAlarms(){
       adapted_alarm_leds[7] = 3;
     }
   }
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
-    strip.SetPixelColor(i, processAlarms(adapted_alarm_leds[i]));
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i]));
   }
-  strip.Show();
+  strip->Show();
   blink = !blink;
 }
 
 void mapWeather(){
   int adapted_weather_leds[26];
   int lastValue = weather_leds[25];
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_weather_leds[i] = weather_leds[i];
   }
   if (settings.kyiv_district_mode == 2){
@@ -1622,16 +1640,16 @@ void mapWeather(){
   if (settings.kyiv_district_mode == 3){
     adapted_weather_leds[7] = (weather_leds[25]+weather_leds[7])/2.0f;
   }
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
-    strip.SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]),1.0,settings.brightness/200.0f));
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]),1.0,settings.brightness/200.0f));
   }
-  strip.Show();
+  strip->Show();
 }
 
 void mapFlag(){
   int adapted_flag_leds[26];
   int lastValue = flag_leds[25];
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_flag_leds[i] = flag_leds[i];
   }
   if (settings.kyiv_district_mode == 2){
@@ -1643,10 +1661,10 @@ void mapFlag(){
     }
     adapted_flag_leds[7] = lastValue;
   }
-  for (uint16_t i = 0; i < strip.PixelCount(); i++) {
-    strip.SetPixelColor(i, HsbColor(adapted_flag_leds[i]/360.0f,1.0,settings.brightness/200.0f));
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i]/360.0f,1.0,settings.brightness/200.0f));
   }
-  strip.Show();
+  strip->Show();
 }
 
 void alarmTrigger(){
