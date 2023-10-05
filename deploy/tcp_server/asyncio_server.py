@@ -491,6 +491,7 @@ async def handle_web_request(writer, api):
 
 async def handle_web(reader, writer):
     request = await reader.read(100)
+    path = ""
     try:
         request_text = request.decode('utf-8')
     except UnicodeDecodeError:
