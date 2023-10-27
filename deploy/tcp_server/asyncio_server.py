@@ -324,7 +324,7 @@ def calculate_html_color_from_hsb(temp):
         normalized_value = 1
     if normalized_value < 0:
         normalized_value = 0
-    hue = 240 + normalized_value * (0 - 240)
+    hue = 300 + normalized_value * (0 - 300)
     hue %= 360
 
     hue /= 60
@@ -580,7 +580,7 @@ async def parse_and_broadcast(clients):
             print("Weather error:", e)
 
         tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
-        #tcp_data = '0,0,2,0,3,0,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
+        tcp_data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
 
         if tcp_data != previous_data:
             print("Data changed. Broadcasting to clients...")
@@ -595,6 +595,17 @@ async def parse_and_broadcast(clients):
 
         await asyncio.sleep(1)
 
+
+async def ping(clients):
+    ping_data = "p"
+    while True:
+        for client_writer in clients:
+            client_writer.write(ping_data.encode())
+            print(f'ping {client_writer.get_extra_info("peername")[0]}')
+
+            await client_writer.drain()
+
+        await asyncio.sleep(10)
 
 async def main(host, port):
     server = await asyncio.start_server(
@@ -634,6 +645,7 @@ if __name__ == "__main__":
     ))
 
     asyncio.ensure_future(parse_and_broadcast(clients))
+    asyncio.ensure_future(ping(clients))
     asyncio.ensure_future(alarm_data())
     asyncio.ensure_future(weather_data())
     asyncio.ensure_future(etryvoga_data())
