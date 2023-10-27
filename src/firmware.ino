@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.1.d3";
+  char*   softwareversion       = "3.1.d5";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
@@ -26,7 +26,7 @@ struct Settings{
   int     buttontime            = 1000;
 
   // ------- web config start
-  int     pixelpin              = 13;
+  int     pixelpin               = 13;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -77,10 +77,16 @@ NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 int     alarm_leds[26];
 double  weather_leds[26];
 int     flag_leds[26] = {
+  60,60,60,180,180,60,60,60,60,60,60,
+  60,180,180,180,180,180,180,
+  180,180,180,60,60,60,60,180
+};
+int     legacy_flag_leds[26] = {
   60,60,60,180,180,180,180,180,180,
   180,180,180,60,60,60,60,60,60,60,
   180,180,60,60,60,60,180
 };
+
 
 int d0[]  = {0,1,3};
 int d1[]  = {1,0,2,3,24};
@@ -134,14 +140,19 @@ byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 
 bool    enableHA;
 bool    wifiReconnect = false;
+bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isDay;
-bool    isPressed = false;
+bool    isPressed = true;
 int     mapMode;
 int     displayMode;
 long    buttonPressStart = 0;
 time_t  displayOldTime = 0;
+time_t  tcpLastPingTime = 0;
+bool    legacy = true;
+int     offset = 9;
+
 
 
 String haUptimeString         = settings.broadcastname + "_uptime";
@@ -192,6 +203,17 @@ char* mapModes [] = {
 };
 
 //--Init start
+void initLegacy(){
+  if (legacy) {
+    offset = 0;
+    for (int i = 0; i < 26; i++) {
+      flag_leds[i] = legacy_flag_leds[i];
+    }
+  }else{
+    settings.kyiv_district_mode = 3;
+  }
+}
+
 void initSettings(){
   Serial.println("Init settings");
   preferences.begin("storage", false);
@@ -245,6 +267,7 @@ void initTime() {
   Serial.println("Init time");
   timeClient.begin();
   timezoneUpdate();
+  tcpLastPingTime = millis();
 }
 
 void timezoneUpdate(){
@@ -273,6 +296,8 @@ void timezoneUpdate(){
   Serial.print(timeInfo->tm_min);
   Serial.print(":");
   Serial.println(timeInfo->tm_sec);
+  Serial.print("isDay: ");
+  Serial.println(isDay);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -718,8 +743,12 @@ void displayCycle() {
     display.setCursor(0, 0);
     display.clearDisplay();
     String time = "";
+
     char roundedTemp[4];
-    dtostrf(weather_leds[settings.home_district], 3, 1, roundedTemp);
+
+    int position = calculateOffset(settings.home_district);
+
+    dtostrf(weather_leds[position], 3, 1, roundedTemp);
     time += roundedTemp;
     time += " C";
     DisplayCenter(time,7,3);
@@ -784,7 +813,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
-  html +=             WiFi.localIP().toString();
+    html +=             WiFi.localIP().toString();
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
@@ -883,6 +912,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
   html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html +="                    </div>";
+  if(legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox1'>Режим діода 'Київська область'</label>";
   html +="                        <select name='kyiv_district_mode' class='form-control' id='selectBox1'>";
@@ -900,6 +930,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">Київська область + Київ (1 діод)</option>";
   html +="                        </select>";
   html +="                    </div>";
+  }
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox2'>Режим мапи</label>";
   html +="                        <select name='map_mode' class='form-control' id='selectBox2'>";
@@ -1388,8 +1419,6 @@ void timeUpdate() {
   timeClient.update();
   int currentHour = timeClient.getHours();
   isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
-  //Serial.print("isDay: ");
-  //Serial.println(isDay);
 }
 
 void autoBrightnessUpdate() {
@@ -1413,7 +1442,10 @@ void autoBrightnessUpdate() {
 
 //--TCP process start
 void tcpConnect(){
-  if (!client_tcp.connected()) {
+  if (millis() - tcpLastPingTime > 30000){
+    tcpReconnect = true;
+  }
+  if (!client_tcp.connected() or tcpReconnect) {
     Serial.println("Connecting to map API...");
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення map-API.."),0,1);
@@ -1429,28 +1461,32 @@ void tcpConnect(){
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
     Serial.println("Connected");
     haMapApiConnect.setState(true);
+    tcpReconnect = false;
   }
 }
 
-void tcpReconnect(){
-  if (!client_tcp.connected()) {
-    Serial.print("Reconnecting to map API: ");
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
-    if (!client_tcp.connect(settings.tcphost, settings.tcpport))
-    {
-      Serial.println("Failed");
-      display.clearDisplay();
-      DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
-      haMapApiConnect.setState(false);
-    }else{
-      display.clearDisplay();
-      DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
-      Serial.println("Connected");
-      haMapApiConnect.setState(true);
-    }
-  }
-}
+// void tcpReconnect(){
+//   if (millis() - tcpLastPingTime > 30000){
+//     tcpReconnect = true;
+//   }
+//   if (!client_tcp.connected() or tcpReconnect) {
+//     Serial.print("Reconnecting to map API: ");
+//     display.clearDisplay();
+//     DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
+//     if (!client_tcp.connect(settings.tcphost, settings.tcpport))
+//     {
+//       Serial.println("Failed");
+//       display.clearDisplay();
+//       DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
+//       haMapApiConnect.setState(false);
+//     }else{
+//       display.clearDisplay();
+//       DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
+//       Serial.println("Connected");
+//       haMapApiConnect.setState(true);
+//     }
+//   }
+// }
 
 void tcpProcess(){
   String data;
@@ -1460,23 +1496,31 @@ void tcpProcess(){
   }
   if (data.length()) {
     Serial.print("New data: ");
+    Serial.print(data.length());
+    Serial.print(" : ");
     Serial.println(data);
     parseString(data);
   }
 }
 
 void parseString(String str) {
-  int colonIndex = str.indexOf(":");
-  String firstPart = str.substring(0, colonIndex);
-  String secondPart = str.substring(colonIndex + 1);
+  if (str == "p"){
+    Serial.println("TCP PING SUCCESS");
+    tcpLastPingTime = millis();
+    tcpReconnect = false;
+  }else{
+    int colonIndex = str.indexOf(":");
+    String firstPart = str.substring(0, colonIndex);
+    String secondPart = str.substring(colonIndex + 1);
 
-  int firstArraySize = countOccurrences(firstPart, ',') + 1;
-  int firstArray[firstArraySize];
-  extractAlarms(firstPart, firstArraySize);
+    int firstArraySize = countOccurrences(firstPart, ',') + 1;
+    int firstArray[firstArraySize];
+    extractAlarms(firstPart, firstArraySize);
 
-  int secondArraySize = countOccurrences(secondPart, ',') + 1;
-  int secondArray[secondArraySize];
-  extractWeather(secondPart, secondArraySize);
+    int secondArraySize = countOccurrences(secondPart, ',') + 1;
+    int secondArray[secondArraySize];
+    extractWeather(secondPart, secondArraySize);
+  }
 }
 
 int countOccurrences(String str, char target) {
@@ -1491,24 +1535,63 @@ int countOccurrences(String str, char target) {
 
 void extractAlarms(String str, int size) {
   int index = 0;
+  int position;
   char *token = strtok(const_cast<char*>(str.c_str()), ",");
   while (token != NULL && index < size) {
-    alarm_leds[index++] = atoi(token);
+    if (index == 25) {
+      position = 25;
+    }else{
+      position = index + offset;
+      if (position >= 25) {
+        position-= 25;
+      }
+    }
+    alarm_leds[position] = atoi(token);
     token = strtok(NULL, ",");
+    index++;
   }
 }
 
 void extractWeather(String str, int size) {
   int index = 0;
+  int position;
   char *token = strtok(const_cast<char*>(str.c_str()), ",");
+  //Serial.print("weather");
   while (token != NULL && index < size) {
-    weather_leds[index++] = atof(token);
+    if (index == 25) {
+      position = 25;
+    }else{
+      position = index + offset;
+      if (position >= 25) {
+        position-= 25;
+      }
+    }
+    weather_leds[position] = atof(token);
     token = strtok(NULL, ",");
+    index++;
+    //Serial.print(weather_leds[position]);
+    //Serial.print(" ");
   }
+  //Serial.println(" ");
 }
+
+
 //--TCP process end
 
 //--Map processing start
+int calculateOffset(int initial_position){
+  int position;
+  if (initial_position == 25) {
+    position = 25;
+  }else{
+    position = initial_position + offset;
+    if (position >= 25) {
+      position-= 25;
+    }
+  }
+  return position;
+}
+
 HsbColor processAlarms(int led) {
   HsbColor hue;
   float local_brightness = settings.brightness/200.0f;
@@ -1558,7 +1641,7 @@ float processWeather(int led) {
   if (normalizedValue < 0){
     normalizedValue = 0;
   }
-  int hue = 240 + normalizedValue * (0 - 240);
+  int hue = 300 + normalizedValue * (0 - 300);
   hue = (int)hue % 360;
   return hue/360.0f;
 }
@@ -1596,10 +1679,10 @@ void mapAlarms(){
     adapted_alarm_leds[7] = alarm_leds[25];
   }
   if (settings.kyiv_district_mode == 3){
-    for (int i = 24; i >= 7; i--) {
+    for (int i = 24; i >= 8 + offset; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
     }
-    adapted_alarm_leds[7] = lastValue;
+    adapted_alarm_leds[8 + offset] = lastValue;
   }
   if (settings.kyiv_district_mode == 4){
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0){
@@ -1632,17 +1715,20 @@ void mapWeather(){
     adapted_weather_leds[7] = weather_leds[25];
   }
   if (settings.kyiv_district_mode == 3){
-    for (int i = 24; i >= 7; i--) {
+    for (int i = 24; i >= 8 + offset; i--) {
       adapted_weather_leds[i + 1] = weather_leds[i];
     }
-    adapted_weather_leds[7] = lastValue;
+    adapted_weather_leds[8 + offset] = lastValue;
   }
-  if (settings.kyiv_district_mode == 3){
+  if (settings.kyiv_district_mode == 4){
     adapted_weather_leds[7] = (weather_leds[25]+weather_leds[7])/2.0f;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+     //Serial.print(adapted_weather_leds[i]);
+     //Serial.print(" ");
     strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]),1.0,settings.brightness/200.0f));
   }
+  //Serial.println(" ");
   strip->Show();
 }
 
@@ -1656,10 +1742,10 @@ void mapFlag(){
     adapted_flag_leds[7] = flag_leds[25];
   }
   if (settings.kyiv_district_mode == 3){
-    for (int i = 24; i >= 7; i--) {
+    for (int i = 24; i >= 7 + offset; i--) {
       adapted_flag_leds[i + 1] = flag_leds[i];
     }
-    adapted_flag_leds[7] = lastValue;
+    adapted_flag_leds[7 + offset] = lastValue;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i]/360.0f,1.0,settings.brightness/200.0f));
@@ -1670,8 +1756,9 @@ void mapFlag(){
 void alarmTrigger(){
   int currentMapMode = settings.map_mode;
   if(settings.alarms_auto_switch){
-    for (int j = 0; j < counters[settings.home_district]; j++) {
-      int alarm_led_id = neighboring_districts[settings.home_district][j];
+    int position = settings.home_district;
+    for (int j = 0; j < counters[position]; j++) {
+      int alarm_led_id = calculateOffset(neighboring_districts[position][j]);
       if (alarm_leds[alarm_led_id] != 0)   {
         currentMapMode = 1;
       }
@@ -1696,6 +1783,7 @@ void setup() {
   Serial.begin(115200);
 
   initSettings();
+  initLegacy();
   initStrip();
   initDisplay();
   initWifi();
@@ -1706,7 +1794,7 @@ void setup() {
   asyncEngine.setInterval(uptime, 60000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
-  asyncEngine.setInterval(tcpReconnect, 5000);
+  asyncEngine.setInterval(tcpConnect, 5000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 1000);
