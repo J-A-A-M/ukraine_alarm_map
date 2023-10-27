@@ -645,7 +645,7 @@ if __name__ == "__main__":
     ))
 
     asyncio.ensure_future(parse_and_broadcast(clients))
-    asyncio.ensure_future(ping(clients))
+    #asyncio.ensure_future(ping(clients))
     asyncio.ensure_future(alarm_data())
     asyncio.ensure_future(weather_data())
     asyncio.ensure_future(etryvoga_data())
