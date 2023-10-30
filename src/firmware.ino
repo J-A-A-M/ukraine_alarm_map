@@ -15,18 +15,19 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.1.d5";
+  char*   softwareversion       = "3.1";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
   char*   tcphost               = "alerts.net.ua";
   int     tcpport               = 12345;
   int     pixelcount            = 26;
-  int     buttonpin             = 18;
-  int     buttontime            = 1000;
+  int     buttontime            = 100;
 
   // ------- web config start
+  int     legacy                 = 1;
   int     pixelpin               = 13;
+  int     buttonpin              = 35;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -68,7 +69,7 @@ WiFiClient        client;
 WiFiClient        client_tcp;
 WiFiUDP           ntpUDP;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org", 7200);
+NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
@@ -115,6 +116,7 @@ int d23[] = {23,2,5,6,22,24};
 int d24[] = {24,1,2,22,23};
 int d25[] = {25,6,7,8,19,20,22};
 
+
 int counters[] = {3,5,7,5,4,6,6,6,5,4,5,3,4,4,4,2,5,5,8,8,7,7,9,6,5,7};
 
 int* neighboring_districts[] = {
@@ -122,6 +124,7 @@ int* neighboring_districts[] = {
   d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,
   d20,d21,d22,d23,d24,d25
 };
+
 
 const unsigned char trident_small [] PROGMEM = {
 	0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
@@ -150,7 +153,6 @@ int     displayMode;
 long    buttonPressStart = 0;
 time_t  displayOldTime = 0;
 time_t  tcpLastPingTime = 0;
-bool    legacy = true;
 int     offset = 9;
 
 
@@ -204,7 +206,7 @@ char* mapModes [] = {
 
 //--Init start
 void initLegacy(){
-  if (legacy) {
+  if (settings.legacy) {
     offset = 0;
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = legacy_flag_leds[i];
@@ -217,6 +219,7 @@ void initLegacy(){
 void initSettings(){
   Serial.println("Init settings");
   preferences.begin("storage", false);
+  settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
   settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
@@ -248,6 +251,7 @@ void initSettings(){
   settings.day_start              = preferences.getInt("ds", settings.day_start);
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
+  settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
@@ -817,6 +821,17 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox8'>Режим прошивки</label>";
+  html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
+  html +="<option value='0'";
+  if (settings.legacy == 1) html += " selected";
+  html +=">Плата JAAM</option>";
+  html +="<option value='1'";
+  if (settings.legacy == 1) html += " selected";
+  html +=">Класична (початок на Закарпатті)</option>";
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
   html +="                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
   html +="                    </div>";
@@ -835,6 +850,10 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
   html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
+  html +="                    </div>";
+    html +="                   <div class='form-group'>";
+  html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
+  html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
@@ -912,7 +931,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
   html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html +="                    </div>";
-  if(legacy){
+  if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox1'>Режим діода 'Київська область'</label>";
   html +="                        <select name='kyiv_district_mode' class='form-control' id='selectBox1'>";
@@ -1186,6 +1205,14 @@ void handleSave(AsyncWebServerRequest* request){
   preferences.begin("storage", false);
   bool reboot = false;
   bool disableBrightnessAuto = false;
+  if (request->hasParam("legacy", true)){
+    if (request->getParam("legacy", true)->value().toInt() != settings.legacy){
+      reboot = true;
+    }
+    settings.legacy = request->getParam("legacy", true)->value().toInt();
+    preferences.putInt("legacy", settings.legacy);
+    Serial.println("legacy commited to preferences");
+  }
   if (request->hasParam("ha_brokeraddress", true)){
     if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress){
       reboot = true;
@@ -1210,6 +1237,15 @@ void handleSave(AsyncWebServerRequest* request){
     preferences.putInt("pp", settings.pixelpin);
     Serial.println("pixelpin commited: ");
     Serial.println(settings.pixelpin);
+  }
+  if (request->hasParam("buttonpin", true)){
+    if (request->getParam("buttonpin", true)->value().toInt() != settings.buttonpin){
+      reboot = true;
+    }
+    settings.buttonpin = request->getParam("buttonpin", true)->value().toInt();
+    preferences.putInt("bp", settings.buttonpin);
+    Serial.println("buttonpin commited: ");
+    Serial.println(settings.buttonpin);
   }
   if (request->hasParam("ha_mqttuser", true)){
     if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser){
@@ -1535,18 +1571,9 @@ int countOccurrences(String str, char target) {
 
 void extractAlarms(String str, int size) {
   int index = 0;
-  int position;
   char *token = strtok(const_cast<char*>(str.c_str()), ",");
   while (token != NULL && index < size) {
-    if (index == 25) {
-      position = 25;
-    }else{
-      position = index + offset;
-      if (position >= 25) {
-        position-= 25;
-      }
-    }
-    alarm_leds[position] = atoi(token);
+    alarm_leds[calculateOffset(index)] = atoi(token);
     token = strtok(NULL, ",");
     index++;
   }
@@ -1554,19 +1581,10 @@ void extractAlarms(String str, int size) {
 
 void extractWeather(String str, int size) {
   int index = 0;
-  int position;
   char *token = strtok(const_cast<char*>(str.c_str()), ",");
   //Serial.print("weather");
   while (token != NULL && index < size) {
-    if (index == 25) {
-      position = 25;
-    }else{
-      position = index + offset;
-      if (position >= 25) {
-        position-= 25;
-      }
-    }
-    weather_leds[position] = atof(token);
+    weather_leds[calculateOffset(index)] = atof(token);
     token = strtok(NULL, ",");
     index++;
     //Serial.print(weather_leds[position]);
@@ -1742,10 +1760,10 @@ void mapFlag(){
     adapted_flag_leds[7] = flag_leds[25];
   }
   if (settings.kyiv_district_mode == 3){
-    for (int i = 24; i >= 7 + offset; i--) {
+    for (int i = 24; i >= 8 + offset; i--) {
       adapted_flag_leds[i + 1] = flag_leds[i];
     }
-    adapted_flag_leds[7 + offset] = lastValue;
+    adapted_flag_leds[8 + offset] = lastValue;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i]/360.0f,1.0,settings.brightness/200.0f));
