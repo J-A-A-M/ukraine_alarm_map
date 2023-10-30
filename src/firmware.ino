@@ -27,7 +27,7 @@ struct Settings{
   // ------- web config start
   int     legacy                 = 1;
   int     pixelpin               = 13;
-  int     buttonpin              = 35;
+  int     buttonpin              = 15;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -137,8 +137,8 @@ const unsigned char trident_small [] PROGMEM = {
 	0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
 };
 
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
 
 bool    enableHA;
@@ -213,6 +213,7 @@ void initLegacy(){
     }
   }else{
     settings.kyiv_district_mode = 3;
+    settings.buttonpin = 35;
   }
 }
 
@@ -817,7 +818,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
-    html +=             WiFi.localIP().toString();
+  html +=             WiFi.localIP().toString();
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
@@ -847,14 +848,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
   html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
+  if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
   html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
   html +="                    </div>";
-    html +="                   <div class='form-group'>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
   html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
   html +="                    </div>";
+  }
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
