@@ -1792,6 +1792,7 @@ void alarmTrigger(){
 }
 //--Map processing end
 
+
 void WifiReconnect(){
   if (WiFi.status() != WL_CONNECTED){
     Serial.println("WiFI Reconnect");
