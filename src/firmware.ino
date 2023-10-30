@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.1.d7";
+  char*   softwareversion       = "3.1";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
@@ -821,7 +821,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='selectBox8'>Режим прошивки'</label>";
+  html +="                        <label for='selectBox8'>Режим прошивки</label>";
   html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
   html +="<option value='0'";
   if (settings.legacy == 1) html += " selected";
@@ -1478,7 +1478,7 @@ void autoBrightnessUpdate() {
 
 //--TCP process start
 void tcpConnect(){
-  if (millis() - tcpLastPingTime > 300000){
+  if (millis() - tcpLastPingTime > 30000){
     tcpReconnect = true;
   }
   if (!client_tcp.connected() or tcpReconnect) {
@@ -1812,7 +1812,7 @@ void setup() {
   asyncEngine.setInterval(uptime, 60000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
-  //asyncEngine.setInterval(tcpConnect, 5000);
+  asyncEngine.setInterval(tcpConnect, 5000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 1000);
