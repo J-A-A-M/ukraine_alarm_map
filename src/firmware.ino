@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.1";
+  char*   softwareversion       = "3.2.d1";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
@@ -27,7 +27,7 @@ struct Settings{
   // ------- web config start
   int     legacy                 = 1;
   int     pixelpin               = 13;
-  int     buttonpin              = 35;
+  int     buttonpin              = 15;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -213,6 +213,7 @@ void initLegacy(){
     }
   }else{
     settings.kyiv_district_mode = 3;
+    settings.buttonpin = 35;
   }
 }
 
@@ -817,7 +818,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
   html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
-    html +=             WiFi.localIP().toString();
+  html +=             WiFi.localIP().toString();
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
@@ -847,14 +848,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
   html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
+  if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
   html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
   html +="                    </div>";
-    html +="                   <div class='form-group'>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
   html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
   html +="                    </div>";
+  }
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
@@ -1095,6 +1098,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">Колір+зміна яскравості</option>";
   html +="                        </select>";
   html +="                    </div>";
+  if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox7'>Розмір дисплея</label>";
   html +="                        <select name='display_height' class='form-control' id='selectBox7'>";
@@ -1106,6 +1110,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">128*64</option>";
   html +="                        </select>";
   html +="                    </div>";
+  }
   html +="                    <div class='form-group form-check'>";
   html +="                        <input name='alarms_auto_switch' type='checkbox' class='form-check-input' id='checkbox'";
   if (settings.alarms_auto_switch == 1) html += " checked";
@@ -1149,7 +1154,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);";
   html +="        document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
   html +="";
-  html +="        const initialHue4 = parseInt(slider4.value);";
+  html +="        const initialHue4 = parseInt(slider6.value);";
   html +="        const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
   html +="        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
   html +="";
