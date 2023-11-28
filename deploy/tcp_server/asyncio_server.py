@@ -3,17 +3,23 @@ import json
 import os
 import asyncio
 import aiohttp
+from aiomcache import Client
 
 from datetime import datetime, timezone
 from svg_generator import generate_map
 
 from copy import copy
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 # URL to fetch JSON data from
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 etryvoga_url = os.environ.get('ETRYVOGA_HOST') or 'localhost'  # sorry, no public urls for this api
 weather_url = "http://api.openweathermap.org/data/2.5/weather"
+
+memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 
 tcp_port = os.environ.get('TCP_PORT') or 12345
 web_port = os.environ.get('WEB_PORT') or 8080
@@ -204,10 +210,9 @@ async def alarm_data():
 
             alerts_cached_data['info']['is_start'] = True
             alerts_cached_data['info']['last_update'] = current_datetime
-            logging.info("store alerts data: %s" % current_datetime)
-            print("alerts data stored")
+            logging.debug("store alerts data: %s" % current_datetime)
         except Exception as e:
-            print(f"Error fetching data: {str(e)}")
+            logging.error(f"Error fetching data: {str(e)}")
         await asyncio.sleep(alert_loop_time)
 
 
@@ -245,14 +250,12 @@ async def weather_data():
                         parced_data["states"][regions[weather_ids.index(region_id)]] = region_data
                     else:
                         logging.error(f"Request failed with status code: {response.status_code}")
-                        print(f"Request failed with status code: {response.status_code}")
 
             parced_data['info']['last_update'] = current_datetime
             weather_cached_data = parced_data
-            logging.info("store weather data: %s" % current_datetime)
-            print("weather data stored")
+            logging.debug("store weather data: %s" % current_datetime)
         except Exception as e:
-            print(f"weather exception:  {str(e)}")
+            logging.error(f"weather exception:  {str(e)}")
         await asyncio.sleep(weather_loop_time)
 
 
@@ -289,14 +292,11 @@ async def etryvoga_data():
 
                     etryvoga_cached_data['info']['last_id'] = last_id or 0
                     etryvoga_cached_data['info']['last_update'] = current_datetime
-                    logging.info("store etryvoga data: %s" % current_datetime)
-                    print("etryvoga data stored")
+                    logging.debug("store etryvoga data: %s" % current_datetime)
                 else:
                     logging.error(f"Request failed with status code: {response.status_code}")
-                    print(f"Request failed with status code: {response.status_code}")
         except Exception as e:
             logging.error(f"Request failed with status code: {e.message}")
-            print(f"Request failed with status code: {e.message}")
         await asyncio.sleep(etryvoga_loop_time)
 
 
@@ -356,7 +356,7 @@ async def handle_client(reader, writer):
     await writer.drain()
 
     clients.append(writer)
-    print(f"New client connected from {writer.get_extra_info('peername')}")
+    logging.debug(f"New client connected from {writer.get_extra_info('peername')}")
 
     while True:
         try:
@@ -367,7 +367,7 @@ async def handle_client(reader, writer):
             break
 
     clients.remove(writer)  # Remove client writer from the list
-    print(f"Client from {writer.get_extra_info('peername')} disconnected")
+    logging.debug(f"Client from {writer.get_extra_info('peername')} disconnected")
     writer.close()
 
 
@@ -384,7 +384,7 @@ async def handle_json_request(writer, data, api):
     writer.write(response_json)
     if writer.get_extra_info('peername')[0] not in api_clients:
         api_clients.append(writer.get_extra_info('peername')[0])
-    print(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
+    logging.debug(f"New api client connected from {writer.get_extra_info('peername')} to {api}")
 
     await writer.drain()
     writer.close()
@@ -404,14 +404,14 @@ async def handle_img_request(writer, file):
         writer.write(image_data)
         await writer.drain()
 
-        print(f"Image sent to {writer.get_extra_info('peername')}")
+        logging.debug(f"Image sent to {writer.get_extra_info('peername')}")
 
     except Exception as e:
-        print(f"Error sending image: {e}")
+        logging.debug(f"Error sending image: {e}")
 
     if writer.get_extra_info('peername')[0] not in img_clients:
         img_clients.append(writer.get_extra_info('peername')[0])
-    print(f"Image sent to {writer.get_extra_info('peername')}")
+    logging.debug(f"Image sent to {writer.get_extra_info('peername')}")
 
     await writer.drain()
     writer.close()
@@ -479,13 +479,13 @@ async def handle_web_request(writer, api):
 
     if writer.get_extra_info('peername')[0] not in web_clients:
         web_clients.append(writer.get_extra_info('peername')[0])
-    print(f"New web client connected from {writer.get_extra_info('peername')} to {api}")
+    logging.debug(f"New web client connected from {writer.get_extra_info('peername')} to {api}")
 
     writer.write(headers)
     writer.write(html_response.encode())
     await writer.drain()
 
-    print("Closing the connection")
+    logging.debug("Closing the connection")
     writer.close()
 
 
@@ -542,6 +542,7 @@ async def handle_web(reader, writer):
 
 async def parse_and_broadcast(clients):
     global previous_data, alerts_cached_data, weather_cached_data, etryvoga_cached_data
+    mc = Client(memcached_host, 11211)
     await asyncio.sleep(10)
     while True:
         local_time = get_local_time_formatted()
@@ -549,6 +550,12 @@ async def parse_and_broadcast(clients):
         weather = []
         alerts_svg_data = {}
         weather_svg_data = {}
+
+        alerts_cached = await mc.get(b"alerts")
+
+        if alerts_cached:
+            alerts_cached_data = json.loads(alerts_cached.decode('utf-8'))
+
         try:
             for region in regions:
                 if alerts_cached_data['states'][region]['enabled']:
@@ -570,20 +577,20 @@ async def parse_and_broadcast(clients):
 
                 alerts.append(str(alert_mode))
         except Exception as e:
-            print("Alert error:", e)
+            logging.error(f"Alert error: {e}")
         try:
             for region in regions:
                 weather_temp = float(weather_cached_data['states'][region]['temp'])
                 weather_svg_data[compatibility_slugs[regions.index(region)]] = calculate_html_color_from_hsb(weather_temp)
                 weather.append(str(weather_temp))
         except Exception as e:
-            print("Weather error:", e)
+            logging.error(f"Weather error: {e}")
 
         tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
         #tcp_data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
 
         if tcp_data != previous_data:
-            print("Data changed. Broadcasting to clients...")
+            logging.debug("Data changed. Broadcasting to clients...")
             generate_map(time=local_time, output_file='alerts_map.png', **alerts_svg_data)
             generate_map(time=local_time, output_file='weather_map.png', **weather_svg_data)
             for client_writer in clients:
@@ -601,7 +608,7 @@ async def ping(clients):
     while True:
         for client_writer in clients:
             client_writer.write(ping_data.encode())
-            print(f'ping {client_writer.get_extra_info("peername")[0]}')
+            logging.debug(f'ping {client_writer.get_extra_info("peername")[0]}')
 
             await client_writer.drain()
 
@@ -618,19 +625,19 @@ async def main(host, port):
 
 async def show_cache():
     while True:
-        print(f"Cached data: {previous_data}")
-        print(f"Alerts cached data: {alerts_cached_data.get('info',{}).get('last_update', None)}")
-        print(f"Weather cached data: {weather_cached_data.get('info',{}).get('last_update', None)}")
-        print(f"Etryvoga cached data: {etryvoga_cached_data.get('info', {}).get('last_update', None)}")
+        logging.debug(f"Cached data: {previous_data}")
+        logging.debug(f"Alerts cached data: {alerts_cached_data.get('info',{}).get('last_update', None)}")
+        logging.debug(f"Weather cached data: {weather_cached_data.get('info',{}).get('last_update', None)}")
+        logging.debug(f"Etryvoga cached data: {etryvoga_cached_data.get('info', {}).get('last_update', None)}")
         await asyncio.sleep(10)
 
 
 async def log_clients_periodically(clients, web_clients, api_clients, img_clients):
     while True:
-        print(f"Number of connected tcp-clients: {len(clients)}")
-        print(f"Number of connected api-clients: {len(api_clients)}")
-        print(f"Number of connected web-clients: {len(web_clients)}")
-        print(f"Number of connected img-clients: {len(img_clients)}")
+        logging.debug(f"Number of connected tcp-clients: {len(clients)}")
+        logging.debug(f"Number of connected api-clients: {len(api_clients)}")
+        logging.debug(f"Number of connected web-clients: {len(web_clients)}")
+        logging.debug(f"Number of connected img-clients: {len(img_clients)}")
         await asyncio.sleep(60)
 
 
@@ -646,7 +653,7 @@ if __name__ == "__main__":
 
     asyncio.ensure_future(parse_and_broadcast(clients))
     asyncio.ensure_future(ping(clients))
-    asyncio.ensure_future(alarm_data())
+    #asyncio.ensure_future(alarm_data())
     asyncio.ensure_future(weather_data())
     asyncio.ensure_future(etryvoga_data())
     asyncio.ensure_future(show_cache())

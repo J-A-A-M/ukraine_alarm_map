@@ -1,4 +1,3 @@
-import logging
 import json
 import os
 import asyncio
@@ -130,9 +129,9 @@ async def alarm_data(mc, alerts_cached_data):
 
         alerts_cached_data['info']['is_start'] = True
         alerts_cached_data['info']['last_update'] = current_datetime
-        logging.info("store alerts data: %s" % current_datetime)
+        logging.debug("store alerts data: %s" % current_datetime)
         await mc.set(b"alerts", json.dumps(alerts_cached_data).encode('utf-8'))
-        logging.info("alerts data stored")
+        logging.debug("alerts data stored")
         await asyncio.sleep(alert_loop_time)
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
@@ -159,7 +158,7 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logging.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
