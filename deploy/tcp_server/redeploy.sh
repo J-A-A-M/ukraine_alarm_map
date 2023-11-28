@@ -7,6 +7,7 @@ ETRYVOGA_HOST=""
 DATA_TOKEN=""
 CONTAINER_PORT=8080
 UDP_PORT=12345
+MEMCACHED_HOST=""
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -35,6 +36,10 @@ while [[ $# -gt 0 ]]; do
             UDP_PORT="$2"
             shift 2
             ;;
+        -m|--memcached-host)
+            MEMCACHED_HOST="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -48,6 +53,7 @@ echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
 echo "DATA_TOKEN: $DATA_TOKEN"
 echo "CONTAINER_PORT: $CONTAINER_PORT"
 echo "UDP_PORT: $UDP_PORT"
+echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 
 # Updating the Git repo
 echo "Updating Git repo..."
@@ -69,7 +75,7 @@ docker rm ukraine_alert_tcp_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name ukraine_alert_tcp_server --restart unless-stopped -d -p "$CONTAINER_PORT":8080 -p "$UDP_PORT":12345 --env ALERT_TOKEN="$ALERT_TOKEN" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env DATA_TOKEN="$DATA_TOKEN" ukraine_alert_tcp_server
+docker run --name ukraine_alert_tcp_server --restart unless-stopped -d -p "$CONTAINER_PORT":8080 -p "$UDP_PORT":12345 --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ALERT_TOKEN="$ALERT_TOKEN" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env DATA_TOKEN="$DATA_TOKEN" ukraine_alert_tcp_server
 
 echo "Container deployed successfully!"
 
