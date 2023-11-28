@@ -13,6 +13,7 @@ alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
+memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 
 alert_loop_time = os.environ.get('ALERT_PERIOD') or 3
 
@@ -135,7 +136,7 @@ async def alarm_data(mc, alerts_cached_data):
 
 
 async def main():
-    mc = Client('memcached', 11211)  # Connect to your Memcache server
+    mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     alerts_cached_data = {}
     while True:
         try:

@@ -2,12 +2,17 @@
 
 # Default values
 ALERT_TOKEN=""
+MEMCACHED_HOST=""
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -a|--alert-token)
             ALERT_TOKEN="$2"
+            shift 2
+            ;;
+        -m|--memcached-host)
+            MEMCACHED_HOST="$2"
             shift 2
             ;;
         *)
@@ -20,6 +25,7 @@ done
 echo "ALERTS"
 
 echo "ALERT_TOKEN: $ALERT_TOKEN"
+echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 
 
 # Updating the Git repo
@@ -42,7 +48,7 @@ docker rm alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name alerts --restart unless-stopped -d --env ALERT_TOKEN="$ALERT_TOKEN" alerts
+docker run --name alerts --restart unless-stopped -d --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" alerts
 
 echo "Container deployed successfully!"
 
