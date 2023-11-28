@@ -135,7 +135,7 @@ async def alarm_data(mc, alerts_cached_data):
 
 
 async def main():
-    mc = Client('10.2.0.47', 11211)  # Connect to your Memcache server
+    mc = Client('localhost', 11211)  # Connect to your Memcache server
     alerts_cached_data = {}
     while True:
         try:
