@@ -3,11 +3,15 @@ import json
 import os
 import asyncio
 import aiohttp
+import logging
 from aiomcache import Client
 
 from datetime import datetime
 
 from copy import copy
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
@@ -128,10 +132,10 @@ async def alarm_data(mc, alerts_cached_data):
         alerts_cached_data['info']['last_update'] = current_datetime
         logging.info("store alerts data: %s" % current_datetime)
         await mc.set(b"alerts", json.dumps(alerts_cached_data).encode('utf-8'))
-        print("alerts data stored")
+        logging.info("alerts data stored")
         await asyncio.sleep(alert_loop_time)
     except Exception as e:
-        print(f"Error fetching data: {str(e)}")
+        logging.error(f"Error fetching data: {str(e)}")
         raise
 
 
@@ -143,19 +147,19 @@ async def main():
             await alarm_data(mc, alerts_cached_data)
 
         except asyncio.CancelledError:
-            print("Task canceled. Shutting down...")
+            logging.info("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            print(f"Caught an exception: {e}")
+            logging.error(f"Caught an exception: {e}")
 
         finally:
             asyncio.sleep(1)
 
 if __name__ == "__main__":
     try:
-        print("Start")
+        logging.debug("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
         pass

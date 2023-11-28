@@ -20,6 +20,7 @@ async def alarm_data(mc, alerts_cached_data):
         if task1_result:
             logger.debug("result")
             encoded_result = json.loads(task1_result.decode('utf-8'))
+            logging.info(task1_result.decode('utf-8'))
 
         await asyncio.sleep(alert_loop_time)
 
