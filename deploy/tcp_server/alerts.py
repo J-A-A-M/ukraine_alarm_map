@@ -143,6 +143,7 @@ async def main():
     alerts_cached_data = {}
     while True:
         try:
+            logging.debug("Task started")
             await alarm_data(mc, alerts_cached_data)
 
         except asyncio.CancelledError:
@@ -154,11 +155,13 @@ async def main():
             logging.error(f"Caught an exception: {e}")
 
         finally:
-            asyncio.sleep(1)
+            logging.debug("Task completed")
+            pass
 
 if __name__ == "__main__":
     try:
-        logging.info("Start")
+        logging.debug("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
+        logging.debug("KeyboardInterrupt")
         pass
