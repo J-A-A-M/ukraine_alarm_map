@@ -57,6 +57,8 @@ regions = [
 
 async def alarm_data(mc, alerts_cached_data):
     try:
+
+        logging.debug("fill empty fields")
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         if alerts_cached_data.get('info', {}).get('is_start', False) is False:
             alerts_cached_data = {
@@ -75,12 +77,9 @@ async def alarm_data(mc, alerts_cached_data):
         }
         region_names = []
 
-        task1_result = await mc.get(b"alerts")
-
-        if task1_result:
-            encoded_result = json.loads(task1_result.decode('utf-8'))
 
         if alerts_cached_data.get('info', {}).get('is_start', False) is False:
+            logging.debug("fill start data")
             async with aiohttp.ClientSession() as session:
                 response = await session.get(region_url, headers=headers)  # Replace with your URL
                 new_data = await response.text()
@@ -99,11 +98,13 @@ async def alarm_data(mc, alerts_cached_data):
                     region_data = json.loads(new_data)[0]
                 alerts_cached_data["states"][region_name]["disabled_at"] = region_data["lastUpdate"]
 
+        logging.debug("get data")
         async with aiohttp.ClientSession() as session:
             response = await session.get(alarm_url, headers=headers)  # Replace with your URL
             new_data = await response.text()
             data = json.loads(new_data)
 
+        logging.debug("parse activeAlerts")
         for item in data:
             for alert in item["activeAlerts"]:
                 if (
@@ -122,6 +123,7 @@ async def alarm_data(mc, alerts_cached_data):
                         region_data['enabled_at'] = alert['lastUpdate']
                         alerts_cached_data["states"][region_name] = region_data
 
+        logging.debug("parse states")
         for region_name in alerts_cached_data['states'].keys():
             if region_name not in region_names and alerts_cached_data['states'][region_name]['enabled'] is True:
                 alerts_cached_data['states'][region_name]['enabled'] = False
