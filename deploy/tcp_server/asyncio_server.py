@@ -324,7 +324,7 @@ def calculate_html_color_from_hsb(temp):
         normalized_value = 1
     if normalized_value < 0:
         normalized_value = 0
-    hue = 300 + normalized_value * (0 - 300)
+    hue = 275 + normalized_value * (0 - 275)
     hue %= 360
 
     hue /= 60

@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                = "AlarmMap";
   char*   appassword            = "";
-  char*   softwareversion       = "3.2.d1";
+  char*   softwareversion       = "3.2.d4";
   String  broadcastname         = "alarmmap";
   String  devicename            = "Alarm Map";
   String  devicedescription     = "Alarm Map Informer";
@@ -38,13 +38,13 @@ struct Settings{
   int     brightness_auto        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
-  int     color_new_alert        = 20;
+  int     color_new_alert        = 30;
   int     color_alert_over       = 100;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
   int     brightness_new_alert   = 100;
   int     brightness_alert_over  = 100;
-  int     weather_min_temp       = 5;
+  int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
   int     home_district          = 7;
@@ -137,7 +137,7 @@ const unsigned char trident_small [] PROGMEM = {
 	0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
 };
 
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A};
+byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //default
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
 
@@ -220,6 +220,9 @@ void initLegacy(){
 void initSettings(){
   Serial.println("Init settings");
   preferences.begin("storage", false);
+
+  settings.tcphost                = strdup(preferences.getString("tcphost", settings.tcphost).c_str());
+  settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
@@ -383,11 +386,6 @@ void initBroadcast() {
 void initHA() {
   if (!wifiReconnect){
     Serial.println("Init Home assistant API");
-    // String  brokerAddress_s      = settings.ha_brokeraddress;
-    // int     mqttPort             = settings.ha_mqttport;
-    // String  mqttUser_s           = settings.ha_mqttuser;
-    // String  mqttPassword_s       = settings.ha_mqttpassword;
-
 
     char* deviceName             = new char[settings.devicename.length() + 1];
     char* deviceDescr            = new char[settings.devicedescription.length() + 1];
@@ -848,6 +846,14 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
   html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField7'>Адреса TCP сервера даних</label>";
+  html +="                        <input type='text' name='tcphost' class='form-control' id='inputField7' value='" + String(settings.tcphost) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField8'>Порт TCP сервера даних</label>";
+  html +="                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
+  html +="                    </div>";
   if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
@@ -1234,6 +1240,23 @@ void handleSave(AsyncWebServerRequest* request){
     preferences.putInt("ha_mqttport", settings.ha_mqttport);
     Serial.println("ha_mqttport commited to preferences");
   }
+  if (request->hasParam("tcphost", true)){
+    String local_tcphost = String(settings.tcphost);
+    if (request->getParam("tcphost", true)->value() != local_tcphost){
+      reboot = true;
+    }
+    settings.tcphost = strdup(request->getParam("tcphost", true)->value().c_str());
+    preferences.putString("tcphost", request->getParam("tcphost", true)->value());
+    Serial.println("tcphost commited to preferences");
+  }
+  if (request->hasParam("tcpport", true)){
+    if (request->getParam("tcpport", true)->value().toInt() != settings.tcpport){
+      reboot = true;
+    }
+    settings.tcpport = request->getParam("tcpport", true)->value().toInt();
+    preferences.putInt("tcpport", settings.tcpport);
+    Serial.println("tcpport commited to preferences");
+  }
   if (request->hasParam("pixelpin", true)){
     if (request->getParam("pixelpin", true)->value().toInt() != settings.pixelpin){
       reboot = true;
@@ -1540,63 +1563,109 @@ void tcpProcess(){
     Serial.print(data.length());
     Serial.print(" : ");
     Serial.println(data);
-    parseString(data);
+    TestParcer(data, data.length());
   }
 }
 
-void parseString(String str) {
-  if (str == "p"){
-    Serial.println("TCP PING SUCCESS");
+void TestParcer(String sensorBuffer, int data_lenght){
+  if (sensorBuffer == "p"){
+    Serial.println("TCP PING SUCCESS!");
     tcpLastPingTime = millis();
     tcpReconnect = false;
   }else{
-    int colonIndex = str.indexOf(":");
-    String firstPart = str.substring(0, colonIndex);
-    String secondPart = str.substring(colonIndex + 1);
+    long values[26];
+    float sensorValues[26];
 
-    int firstArraySize = countOccurrences(firstPart, ',') + 1;
-    int firstArray[firstArraySize];
-    extractAlarms(firstPart, firstArraySize);
+    char buffer[data_lenght];
 
-    int secondArraySize = countOccurrences(secondPart, ',') + 1;
-    int secondArray[secondArraySize];
-    extractWeather(secondPart, secondArraySize);
-  }
-}
+    sensorBuffer.toCharArray(buffer, sizeof(buffer));
 
-int countOccurrences(String str, char target) {
-  int count = 0;
-  for (int i = 0; i < str.length(); i++) {
-    if (str.charAt(i) == target) {
-      count++;
+    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+                  &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
+                  &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
+                  &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
+                  &sensorValues[0], &sensorValues[1], &sensorValues[2], &sensorValues[3], &sensorValues[4], &sensorValues[5], &sensorValues[6], &sensorValues[7],
+                  &sensorValues[8], &sensorValues[9], &sensorValues[10], &sensorValues[11], &sensorValues[12], &sensorValues[13], &sensorValues[14],
+                  &sensorValues[15], &sensorValues[16], &sensorValues[17], &sensorValues[18], &sensorValues[19], &sensorValues[20], &sensorValues[21],
+                  &sensorValues[22], &sensorValues[23], &sensorValues[24], &sensorValues[25]);
+
+    if (n == 52) {
+      Serial.println("Successfully parsed sensor data!");
+      for (int i = 0; i < 26; ++i) {
+        alarm_leds[calculateOffset(i)] = values[i];
+        Serial.print("Value ");
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(values[i]);
+      }
+      for (int i = 0; i < 26; ++i) {
+        weather_leds[calculateOffset(i)] = sensorValues[i];
+        Serial.print("Sensor Value ");
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.println(sensorValues[i], 1);
+      }
+    } else {
+      Serial.print("Error parsing sensor buffer, could only decode ");
+      Serial.print(n);
+      Serial.println(" parameter(s).");
     }
   }
-  return count;
 }
 
-void extractAlarms(String str, int size) {
-  int index = 0;
-  char *token = strtok(const_cast<char*>(str.c_str()), ",");
-  while (token != NULL && index < size) {
-    alarm_leds[calculateOffset(index)] = atoi(token);
-    token = strtok(NULL, ",");
-    index++;
-  }
-}
+// void parseString(String str, int data_lenght) {
+//   if (str == "p"){
+//     Serial.println("TCP PING SUCCESS");
+//     tcpLastPingTime = millis();
+//     tcpReconnect = false;
+//   }else{
+//     int colonIndex = str.indexOf(":");
+//     String firstPart = str.substring(0, colonIndex);
+//     String secondPart = str.substring(colonIndex + 1);
 
-void extractWeather(String str, int size) {
-  int index = 0;
-  char *token = strtok(const_cast<char*>(str.c_str()), ",");
-  //Serial.print("weather");
-  while (token != NULL && index < size) {
-    weather_leds[calculateOffset(index)] = atof(token);
-    token = strtok(NULL, ",");
-    index++;
-    //Serial.print(weather_leds[position]);
-    //Serial.print(" ");
-  }
-  //Serial.println(" ");
-}
+//     int firstArraySize = countOccurrences(firstPart, ',') + 1;
+//     int firstArray[firstArraySize];
+//     extractAlarms(firstPart, firstArraySize);
+
+//     int secondArraySize = countOccurrences(secondPart, ',') + 1;
+//     int secondArray[secondArraySize];
+//     extractWeather(secondPart, secondArraySize);
+//   }
+// }
+
+// int countOccurrences(String str, char target) {
+//   int count = 0;
+//   for (int i = 0; i < str.length(); i++) {
+//     if (str.charAt(i) == target) {
+//       count++;
+//     }
+//   }
+//   return count;
+// }
+
+// void extractAlarms(String str, int size) {
+//   int index = 0;
+//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
+//   while (token != NULL && index < size) {
+//     alarm_leds[calculateOffset(index)] = atoi(token);
+//     token = strtok(NULL, ",");
+//     index++;
+//   }
+// }
+
+// void extractWeather(String str, int size) {
+//   int index = 0;
+//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
+//   //Serial.print("weather");
+//   while (token != NULL && index < size) {
+//     weather_leds[calculateOffset(index)] = atof(token);
+//     token = strtok(NULL, ",");
+//     index++;
+//     //Serial.print(weather_leds[position]);
+//     //Serial.print(" ");
+//   }
+//   //Serial.println(" ");
+// }
 
 
 //--TCP process end
@@ -1664,7 +1733,7 @@ float processWeather(int led) {
   if (normalizedValue < 0){
     normalizedValue = 0;
   }
-  int hue = 300 + normalizedValue * (0 - 300);
+  int hue = 275 + normalizedValue * (0 - 275);
   hue = (int)hue % 360;
   return hue/360.0f;
 }
@@ -1793,7 +1862,6 @@ void alarmTrigger(){
   mapMode = currentMapMode;
 }
 //--Map processing end
-
 
 void WifiReconnect(){
   if (WiFi.status() != WL_CONNECTED){
