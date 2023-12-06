@@ -41,7 +41,7 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd /alerts
+cd alerts
 
 # Building Docker image
 echo "Building Docker image..."
