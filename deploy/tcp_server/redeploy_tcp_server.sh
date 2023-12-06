@@ -48,7 +48,7 @@ docker rm tcp_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name tcp_server --restart unless-stopped -d  --env TCP_PORT="$TCP_PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" tcp_server
+docker run --name tcp_server --restart unless-stopped -d  -p "$TCP_PORT":"$TCP_PORT" --env TCP_PORT="$TCP_PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" tcp_server
 
 echo "Container deployed successfully!"
 

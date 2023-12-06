@@ -51,7 +51,7 @@ class SharedData:
 
 async def handle_client(reader, writer, shared_data):
     #tcp_data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
-    logging.debug(f"New client connected from {writer.get_extra_info('peername')}")
+    logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     writer.data_sent = shared_data.data
     writer.write(shared_data.data.encode() + b'\n')
     await writer.drain()
@@ -59,24 +59,25 @@ async def handle_client(reader, writer, shared_data):
     try:
         while True:
             ping_data = "p"
-            logging.debug(f"Client {writer.get_extra_info('peername')} ping")
+            logger.debug(f"Client {writer.get_extra_info('peername')} ping")
             writer.write(ping_data.encode())
             await writer.drain()
+            await asyncio.sleep(1)
 
             if shared_data.data != writer.data_sent:
                 #writer.write(tcp_data.encode() + b'\n')
                 writer.write(shared_data.data.encode() + b'\n')
-                logging.debug("Data changed. Broadcasting to clients...")
+                logger.info("Data changed. Broadcasting to clients...")
                 await writer.drain()
                 writer.data_sent = shared_data.data
-            await asyncio.sleep(5)  # Adjust the sleep duration as needed
+            await asyncio.sleep(4)
 
     except asyncio.CancelledError:
         pass
 
     finally:
-        logging.debug(f"Client from {writer.get_extra_info('peername')} disconnected")
-        if not writer.is_closing():  # Check if the writer is already closed
+        logger.info(f"Client from {writer.get_extra_info('peername')} disconnected")
+        if not writer.is_closing():
             writer.close()
         await writer.wait_closed()
 
@@ -90,10 +91,10 @@ async def update_shared_data(shared_data, mc):
 
             if data_from_memcached != shared_data.data:
                 shared_data.data = data_from_memcached
-                logger.debug(f"Data updated: {data_from_memcached}")
+                logger.info(f"Data updated: {data_from_memcached}")
 
         except Exception as e:
-            logger.debug(f"Error in update_shared_data: {e}")
+            logger.error(f"Error in update_shared_data: {e}")
 
 
 async def calculate_time_difference(timestamp1, timestamp2):
@@ -138,14 +139,14 @@ async def get_data_from_memcached(mc):
 
             alerts.append(str(alert_mode))
     except Exception as e:
-        logging.error(f"Alert error: {e}")
+        logger.error(f"Alert error: {e}")
 
     try:
         for region in regions:
             weather_temp = float(weather_data['states'][region]['temp'])
             weather.append(str(weather_temp))
     except Exception as e:
-        logging.error(f"Weather error: {e}")
+        logger.error(f"Weather error: {e}")
 
     tcp_data = "%s:%s" % (",".join(alerts), ",".join(weather))
 
