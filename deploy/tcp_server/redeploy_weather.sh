@@ -1,18 +1,23 @@
 #!/bin/bash
 
 # Default values
-ALERT_TOKEN=""
+WEATHER_TOKEN=""
 MEMCACHED_HOST=""
+WEATHER_PERIOD=600
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -a|--alert-token)
-            ALERT_TOKEN="$2"
+        -w|--alert-token)
+            WEATHER_TOKEN="$2"
             shift 2
             ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -m|--weather-period)
+            WEATHER_PERIOD="$2"
             shift 2
             ;;
         *)
@@ -22,10 +27,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "ALERTS"
+echo "WEATHER"
 
-echo "ALERT_TOKEN: $ALERT_TOKEN"
+echo "WEATHER_TOKEN: $WEATHER_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "WEATHER_PERIOD: $WEATHER_PERIOD"
 
 
 # Updating the Git repo
@@ -35,20 +41,20 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd /alerts
+cd /weather
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t alerts -f Dockerfile .
+docker build -t weather -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop alerts || true
-docker rm alerts || true
+docker stop weather || true
+docker rm weather || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name alerts --restart unless-stopped -d --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" alerts
+docker run --name weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" weather
 
 echo "Container deployed successfully!"
 
