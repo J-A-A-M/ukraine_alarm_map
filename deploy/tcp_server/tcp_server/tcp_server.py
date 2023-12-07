@@ -51,7 +51,6 @@ class SharedData:
 
 
 async def handle_client(reader, writer, shared_data):
-    #tcp_data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     writer.data_sent = shared_data.data
     writer.last_ping = int(time())
@@ -70,7 +69,6 @@ async def handle_client(reader, writer, shared_data):
                 await writer.drain()
 
             if shared_data.data != writer.data_sent:
-                #writer.write(tcp_data.encode() + b'\n')
                 writer.write(shared_data.data.encode() + b'\n')
                 logger.info("Data changed. Broadcasting to clients...")
                 await writer.drain()
@@ -96,6 +94,8 @@ async def update_shared_data(shared_data, mc):
             if data_from_memcached != shared_data.data:
                 shared_data.data = data_from_memcached
                 logger.info(f"Data updated: {data_from_memcached}")
+            # shared_data.data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
+
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
