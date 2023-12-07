@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
             MEMCACHED_HOST="$2"
             shift 2
             ;;
-        -m|--weather-period)
+        -p|--weather-period)
             WEATHER_PERIOD="$2"
             shift 2
             ;;
@@ -45,16 +45,16 @@ cd weather
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t weather -f Dockerfile .
+docker build -t map_weather -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop weather || true
-docker rm weather || true
+docker stop map_weather || true
+docker rm map_weather || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" weather
+docker run --name map_weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_weather
 
 echo "Container deployed successfully!"
 

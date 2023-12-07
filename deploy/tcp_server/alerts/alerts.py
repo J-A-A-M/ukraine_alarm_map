@@ -20,7 +20,7 @@ region_url = "https://api.ukrainealarm.com/api/v3/regions"
 alert_token = os.environ.get('ALERT_TOKEN') or 'token'
 memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 
-alert_loop_time = int(os.environ.get('ALERT_PERIOD')) or 3
+alert_loop_time = int(os.environ.get('ALERT_PERIOD', 3))
 
 # Authorization header
 headers = {

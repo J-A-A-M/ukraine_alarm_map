@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
             MEMCACHED_HOST="$2"
             shift 2
             ;;
-        -m|--alert-period)
+        -p|--alert-period)
             ALERT_PERIOD="$2"
             shift 2
             ;;
@@ -45,16 +45,16 @@ cd alerts
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t alerts -f Dockerfile .
+docker build -t map_alerts -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop alerts || true
-docker rm alerts || true
+docker stop map_alerts || true
+docker rm map_alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" alerts
+docker run --name map_alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_alerts
 
 echo "Container deployed successfully!"
 
