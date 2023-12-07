@@ -1,16 +1,11 @@
 #!/bin/bash
 
 # Default values
-ALERT_TOKEN=""
 MEMCACHED_HOST=""
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -a|--alert-token)
-            ALERT_TOKEN="$2"
-            shift 2
-            ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
             shift 2
@@ -24,7 +19,6 @@ done
 
 echo "SVG_GENERATOR"
 
-echo "ALERT_TOKEN: $ALERT_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 
 
@@ -39,11 +33,11 @@ cd svg_generator
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_svg_generator -f DockerfileCheck .
+docker build -t map_svg_generator -f Dockerfile .
 
 # Make shared data folder
 cd ../
-mkdir "shared_data"
+mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
