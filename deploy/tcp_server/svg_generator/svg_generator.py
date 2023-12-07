@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
-shared_path = os.environ.get('SHARED_PATH') or 'shared_data'
+shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
 loop_time = int(os.environ.get('SVG_PERIOD', 2))
 
 min_temp = float(os.environ.get('MIN_TEMP', -10))

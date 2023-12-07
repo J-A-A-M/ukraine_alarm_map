@@ -46,7 +46,7 @@ docker rm map_svg_generator || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_svg_generator --restart unless-stopped -d -v shared_data:/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_svg_generator
+docker run --name map_svg_generator --restart unless-stopped -d -v /shared_data:/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_svg_generator
 
 echo "Container deployed successfully!"
 
