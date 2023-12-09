@@ -21,6 +21,11 @@ api_clients = {}
 image_clients = {}
 web_clients = {}
 
+anti_restrict = [
+    '127.0.0.1',
+    '185.253.219.32'
+]
+
 
 def api_decorator(timer=1, clients={}):
     def decorator(route_function):
@@ -28,7 +33,7 @@ def api_decorator(timer=1, clients={}):
             client_ip = request.remote_addr
             last_visit_time = clients.get(client_ip)
 
-            if last_visit_time is not None and (time.time() - float(last_visit_time)) < timer:
+            if last_visit_time is not None and (time.time() - float(last_visit_time)) < timer and client_ip not in anti_restrict:
                 visit_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
                 logger.debug(f'Rejected request from IP: {client_ip} - Too soon since the last visit.')
                 abort(429, f'Bro, slow down! \nYour last visit was too recent.\n'
