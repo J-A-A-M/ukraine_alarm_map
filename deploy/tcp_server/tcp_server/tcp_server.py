@@ -1,4 +1,3 @@
-import aiomcache
 import json
 import os
 import asyncio
@@ -52,33 +51,43 @@ class SharedData:
 
 async def handle_client(reader, writer, shared_data):
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
+    data_from_client = False
+    try:
+        data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
+        data_from_client = data_from_client.decode()
+        writer.software = data_from_client
+    except asyncio.exceptions.TimeoutError as e:
+        writer.software = 'unknown'
+
+    logging.debug(f"Received data from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]}: {data_from_client}")
     writer.data_sent = shared_data.data
     writer.last_ping = int(time())
-    writer.write(shared_data.data.encode() + b'\n')
+    writer.write(shared_data.data.encode())
     await writer.drain()
 
     try:
         while True:
             await asyncio.sleep(1)
             current_timestamp = int(time())
-            if (current_timestamp - writer.last_ping) > 3:
+            if (current_timestamp - writer.last_ping) > 1:
                 ping_data = "p"
-                logger.info(f"Client {writer.get_extra_info('peername')} ping")
+                logger.info(f"Client {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} ({writer.software}) ping")
                 writer.last_ping = current_timestamp
                 writer.write(ping_data.encode())
                 await writer.drain()
+                await asyncio.sleep(1)
 
             if shared_data.data != writer.data_sent:
-                writer.write(shared_data.data.encode() + b'\n')
-                logger.info("Data changed. Broadcasting to clients...")
-                await writer.drain()
+                writer.write(shared_data.data.encode())
+                logger.info(f"Data changed. Broadcasting to {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]}")
                 writer.data_sent = shared_data.data
+                await writer.drain()
 
     except asyncio.CancelledError:
         pass
 
     finally:
-        logger.info(f"Client from {writer.get_extra_info('peername')} disconnected")
+        logger.info(f"Client from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} disconnected")
         if not writer.is_closing():
             writer.close()
         await writer.wait_closed()
@@ -87,7 +96,7 @@ async def handle_client(reader, writer, shared_data):
 async def update_shared_data(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
             logger.debug("Memcache check")
             data_from_memcached = await get_data_from_memcached(mc)
 
