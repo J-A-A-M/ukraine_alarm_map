@@ -3,16 +3,21 @@
 # Default values
 DATA_TOKEN=""
 MEMCACHED_HOST=""
+PORT=8080
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -d|--alert-token)
+        -d|--data-token)
             DATA_TOKEN="$2"
             shift 2
             ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -p|--port)
+            DATA_TOKEN="$2"
             shift 2
             ;;
         *)
@@ -26,6 +31,7 @@ echo "WEB_SERVER"
 
 echo "DATA_TOKEN: $DATA_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "PORT: $PORT"
 
 
 # Updating the Git repo
@@ -52,7 +58,7 @@ docker rm map_async_web_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_async_web_server --restart unless-stopped -d -p 8080:8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_async_web_server
+docker run --name map_async_web_server --restart unless-stopped -d -p "$PORT":8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_async_web_server
 
 echo "Container deployed successfully!"
 

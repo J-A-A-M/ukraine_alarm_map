@@ -40,11 +40,13 @@ HTML_500_PAGE = '''request error'''
 
 
 async def not_found(request: Request, exc: HTTPException):
-    return HTMLResponse(content=HTML_404_PAGE, status_code=exc.status_code)
+    logger.debug(f'Request time: {exc.args}')
+    return HTMLResponse(content=HTML_404_PAGE)
 
 
 async def server_error(request: Request, exc: HTTPException):
-    return HTMLResponse(content=HTML_500_PAGE, status_code=exc.status_code)
+    logger.debug(f'Request time: {exc.args}')
+    return HTMLResponse(content=HTML_500_PAGE)
 
 
 exception_handlers = {
@@ -61,23 +63,23 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
 
         match client_path:
             case '/':
-                web_clients[client_ip] = start_time
+                web_clients[client_ip] = [start_time, client_path]
             case '/alerts_statuses_v1.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/alerts_statuses_v2.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/weather_statuses_v1.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/explosives_statuses_v1.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/tcp_statuses_v1.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/api_status.json':
-                api_clients[client_ip] = start_time
+                api_clients[client_ip] = [start_time, client_path]
             case '/alerts_map.png':
-                image_clients[client_ip] = start_time
+                image_clients[client_ip] = [start_time, client_path]
             case '/weather_map.png':
-                image_clients[client_ip] = start_time
+                image_clients[client_ip] = [start_time, client_path]
 
         response = await call_next(request)
         elapsed_time = time.time() - start_time
@@ -277,13 +279,13 @@ async def stats(request):
     if request.path_params["token"] == data_token:
         return JSONResponse ({
             'api': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in api_clients.items()
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
             },
             'img': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in image_clients.items()
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in image_clients.items()
             },
             'web': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in web_clients.items()
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in web_clients.items()
             },
         })
     else:
