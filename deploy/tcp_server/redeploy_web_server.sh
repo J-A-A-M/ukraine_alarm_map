@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -p|--port)
-            DATA_TOKEN="$2"
+            PORT="$2"
             shift 2
             ;;
         *)
