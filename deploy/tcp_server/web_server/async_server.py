@@ -68,9 +68,13 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case '/alerts_statuses_v2.json':
                 api_clients[client_ip] = [start_time, client_path]
+            case '/alerts_statuses_v3.json':
+                api_clients[client_ip] = [start_time, client_path]
             case '/weather_statuses_v1.json':
                 api_clients[client_ip] = [start_time, client_path]
             case '/explosives_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/explosives_statuses_v2.json':
                 api_clients[client_ip] = [start_time, client_path]
             case '/tcp_statuses_v1.json':
                 api_clients[client_ip] = [start_time, client_path]
@@ -117,10 +121,10 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
                     <ul>
-                        <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема)</a></li>
-                        <li><a href="/weather_statuses_v1.json">Погода</a></li>
-                        <li><a href="/explosives_statuses_v1.json">Вибухи (інформація з СМІ)</a></li>
-                        <li><a href="/tcp_statuses_v1.json">Дані TCP</a></li>
+                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
+                        <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
+                        <li>Вибухи: (інформація з СМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
+                        <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
@@ -192,6 +196,24 @@ async def alerts_v2(request):
     return JSONResponse(cached_data)
 
 
+async def alerts_v3(request):
+    try:
+        cached = await mc.get(b'alerts')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 3
+            new_data = {}
+            for state, data in cached_data['states'].items():
+                new_data[state] = data['alertnow']
+            cached_data['states'] = new_data
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
+
+
 async def weather_v1(request):
     try:
         cached = await mc.get(b'weather')
@@ -210,6 +232,24 @@ async def explosives_v1(request):
         cached = await mc.get(b'explosions')
         if cached:
             cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
+
+
+async def explosives_v2(request):
+    try:
+        cached = await mc.get(b'explosions')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 2
+            new_data = {}
+            for state, data in cached_data['states'].items():
+                new_data[state] = data['changed']
+            cached_data['states'] = new_data
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -266,7 +306,7 @@ async def api_status(request):
         'data': {
             'alert_last_changed': alert_time_diff,
             'weather_last_changed': weather_time_diff,
-            'etryvoga_last_changed': etryvoga_time_diff
+            'explosions_last_changed': etryvoga_time_diff
         }
     })
 
@@ -296,8 +336,10 @@ app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception
     Route('/', main),
     Route('/alerts_statuses_v1.json', alerts_v1),
     Route('/alerts_statuses_v2.json', alerts_v2),
+    Route('/alerts_statuses_v3.json', alerts_v3),
     Route('/weather_statuses_v1.json', weather_v1),
     Route('/explosives_statuses_v1.json', explosives_v1),
+    Route('/explosives_statuses_v2.json', explosives_v2),
     Route('/tcp_statuses_v1.json', tcp_v1),
     Route('/api_status.json', api_status),
     Route('/{filename}.png', map),
