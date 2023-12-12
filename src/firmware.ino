@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.d5";
+  char*   softwareversion        = "3.2.d6";
   String  broadcastname          = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -141,6 +141,7 @@ const unsigned char trident_small [] PROGMEM = {
 byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //default
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
+//byte mactest[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x00};
 
 bool    enableHA;
 bool    wifiReconnect = false;
@@ -1588,10 +1589,11 @@ void autoBrightnessUpdate() {
 
 //--TCP process start
 void tcpConnect(){
-  if (millis() - tcpLastPingTime > 30000){
+  if (millis() - tcpLastPingTime > 60000){
     tcpReconnect = true;
   }
   if (!client_tcp.connected() or tcpReconnect) {
+    int cycle = 0;
     Serial.println("Connecting to map API...");
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення map-API.."),0,1);
@@ -1601,12 +1603,19 @@ void tcpConnect(){
         display.clearDisplay();
         DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
         haMapApiConnect.setState(false);
-        delay(1000);
+        tcpReconnect = true;
+        if (cycle > 30){
+          mapReconnect();
+        }
+        delay(2000);
+        cycle += 1;
     }
+    client_tcp.print(settings.softwareversion);
     display.clearDisplay();
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
     Serial.println("Connected");
     haMapApiConnect.setState(true);
+    tcpLastPingTime = millis();
     tcpReconnect = false;
   }
 }
@@ -1776,7 +1785,7 @@ HsbColor processAlarms(int led) {
 
   float local_brightness_alert = settings.brightness_alert/100.0f;
   float local_brightness_clear = settings.brightness_clear/100.0f;
-  float local_bbrightness_new_alert = settings.brightness_new_alert/100.0f;
+  float local_brightness_new_alert = settings.brightness_new_alert/100.0f;
   float local_brightness_alert_over = settings.brightness_alert_over/100.0f;
 
   switch (led) {
@@ -1798,7 +1807,7 @@ HsbColor processAlarms(int led) {
       if (settings.alarms_notify_mode == 0){
         local_color = settings.color_alert;
       }
-      hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_bbrightness_new_alert);
+      hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_brightness_new_alert);
       break;
   }
   return hue;
@@ -1820,20 +1829,35 @@ float processWeather(int led) {
   return hue/360.0f;
 }
 
+void mapReconnect(){
+  float local_brightness = settings.brightness/200.0f;
+  if (blink){
+    local_brightness = settings.brightness/600.0f;
+  }
+  HsbColor hue = HsbColor(64/360.0f,1.0,local_brightness);
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, hue);
+  }
+  strip->Show();
+  blink = !blink;
+}
+
 void mapCycle(){
-  //Serial.println("Map update");
-  if (mapMode == 0){
-    mapOff();
+  switch (mapMode) {
+  case 0:
+      mapOff();
+      break;
+  case 1:
+      mapAlarms();
+      break;
+  case 2:
+      mapWeather();
+      break;
+  case 3:
+      mapFlag();
+      break;
   }
-  if (mapMode == 1){
-    mapAlarms();
-  }
-  if (mapMode == 2){
-    mapWeather();
-  }
-  if (mapMode == 3){
-    mapFlag();
-  }
+  blink = !blink;
 }
 
 void mapOff(){
@@ -1876,7 +1900,7 @@ void mapAlarms(){
     strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i]));
   }
   strip->Show();
-  blink = !blink;
+  //blink = !blink;
 }
 
 void mapWeather(){
@@ -1968,7 +1992,7 @@ void setup() {
   asyncEngine.setInterval(uptime, 60000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
-  asyncEngine.setInterval(tcpConnect, 5000);
+  asyncEngine.setInterval(tcpConnect, 1000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 1000);
