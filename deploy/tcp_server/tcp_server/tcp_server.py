@@ -121,14 +121,17 @@ async def update_shared_data(shared_data, mc):
             logger.error(f"Error in update_shared_data: {e}")
 
 
-async def print_clients(shared_data):
+async def print_clients(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(60)
+            await asyncio.sleep(2)
             logger.debug(f"Print clients: {len(shared_data.clients)}")
+
+            await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
 
             for client, data in shared_data.clients.items():
                 logger.info(f"{client}: {data['software']}")
+
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
@@ -160,7 +163,7 @@ async def main():
     mc = Client(memcached_host, 11211)
 
     updater_task = asyncio.create_task(update_shared_data(shared_data,mc))
-    log_task = asyncio.create_task(print_clients(shared_data))
+    log_task = asyncio.create_task(print_clients(shared_data, mc))
 
     server = await asyncio.start_server(
         lambda r, w: handle_client(r, w, shared_data), '0.0.0.0', tcp_port
