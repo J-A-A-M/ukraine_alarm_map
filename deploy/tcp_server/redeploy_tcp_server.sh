@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Default values
-ALERT_TOKEN=""
 MEMCACHED_HOST=""
+TCP_PORT=12345
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -a|--alert-token)
-            ALERT_TOKEN="$2"
+        -a|--tcp-port)
+            TCP_PORT="$2"
             shift 2
             ;;
         -m|--memcached-host)
@@ -22,10 +22,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "ALERTS"
+echo "TCP SERVER"
 
-echo "ALERT_TOKEN: $ALERT_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "TCP_PORT: $TCP_PORT"
 
 
 # Updating the Git repo
@@ -35,20 +35,20 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd check
+cd tcp_server
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_check -f DockerfileCheck .
+docker build -t map_tcp_server -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_check || true
-docker rm map_check || true
+docker stop map_tcp_server || true
+docker rm map_tcp_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_check --restart unless-stopped -d --env MEMCACHED_HOST="$MEMCACHED_HOST" map_check
+docker run --name map_tcp_server --restart unless-stopped -d  -p "$TCP_PORT":"$TCP_PORT" --env TCP_PORT="$TCP_PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_tcp_server
 
 echo "Container deployed successfully!"
 

@@ -1,18 +1,23 @@
 #!/bin/bash
 
 # Default values
-ALERT_TOKEN=""
+DATA_TOKEN=""
 MEMCACHED_HOST=""
+PORT=8080
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -a|--alert-token)
-            ALERT_TOKEN="$2"
+        -d|--data-token)
+            DATA_TOKEN="$2"
             shift 2
             ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -p|--port)
+            PORT="$2"
             shift 2
             ;;
         *)
@@ -22,10 +27,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "ALERTS"
+echo "WEB_SERVER"
 
-echo "ALERT_TOKEN: $ALERT_TOKEN"
+echo "DATA_TOKEN: $DATA_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "PORT: $PORT"
 
 
 # Updating the Git repo
@@ -35,20 +41,24 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd check
+cd web_server
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_check -f DockerfileCheck .
+docker build -t map_async_web_server -f Dockerfile .
+
+# Make shared data folder
+cd ../
+mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_check || true
-docker rm map_check || true
+docker stop map_async_web_server || true
+docker rm map_async_web_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_check --restart unless-stopped -d --env MEMCACHED_HOST="$MEMCACHED_HOST" map_check
+docker run --name map_async_web_server --restart unless-stopped -d -p "$PORT":8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_async_web_server
 
 echo "Container deployed successfully!"
 

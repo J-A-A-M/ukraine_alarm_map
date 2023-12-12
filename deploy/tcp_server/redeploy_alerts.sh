@@ -3,6 +3,7 @@
 # Default values
 ALERT_TOKEN=""
 MEMCACHED_HOST=""
+ALERT_PERIOD=10
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -p|--alert-period)
+            ALERT_PERIOD="$2"
             shift 2
             ;;
         *)
@@ -26,6 +31,7 @@ echo "ALERTS"
 
 echo "ALERT_TOKEN: $ALERT_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "ALERT_PERIOD: $ALERT_PERIOD"
 
 
 # Updating the Git repo
@@ -35,20 +41,20 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-#cd /deploy/tcp_server
+cd alerts
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t alerts -f DockerfileAlerts .
+docker build -t map_alerts -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop alerts || true
-docker rm alerts || true
+docker stop map_alerts || true
+docker rm map_alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name alerts --restart unless-stopped -d --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" alerts
+docker run --name map_alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_alerts
 
 echo "Container deployed successfully!"
 

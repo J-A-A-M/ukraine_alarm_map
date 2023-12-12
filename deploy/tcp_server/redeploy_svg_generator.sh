@@ -1,16 +1,11 @@
 #!/bin/bash
 
 # Default values
-ALERT_TOKEN=""
 MEMCACHED_HOST=""
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -a|--alert-token)
-            ALERT_TOKEN="$2"
-            shift 2
-            ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
             shift 2
@@ -22,9 +17,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "ALERTS"
+echo "SVG_GENERATOR"
 
-echo "ALERT_TOKEN: $ALERT_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 
 
@@ -35,20 +29,24 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd check
+cd svg_generator
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_check -f DockerfileCheck .
+docker build -t map_svg_generator -f Dockerfile .
+
+# Make shared data folder
+cd ../
+mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_check || true
-docker rm map_check || true
+docker stop map_svg_generator || true
+docker rm map_svg_generator || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_check --restart unless-stopped -d --env MEMCACHED_HOST="$MEMCACHED_HOST" map_check
+docker run --name map_svg_generator --restart unless-stopped -d -v /shared_data:/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_svg_generator
 
 echo "Container deployed successfully!"
 
