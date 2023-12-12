@@ -124,7 +124,7 @@ async def update_shared_data(shared_data, mc):
 async def print_clients(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(2)
+            await asyncio.sleep(60)
             logger.debug(f"Print clients: {len(shared_data.clients)}")
 
             await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
