@@ -47,6 +47,7 @@ regions = [
 class SharedData:
     def __init__(self):
         self.data = "Initial data"
+        self.clients = {}
 
 
 async def handle_client(reader, writer, shared_data):
@@ -59,7 +60,14 @@ async def handle_client(reader, writer, shared_data):
     except asyncio.exceptions.TimeoutError as e:
         writer.software = 'unknown'
 
-    logging.debug(f"Received data from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]}: {data_from_client}")
+    client_ip = writer.get_extra_info('peername')[0]
+    client_port = writer.get_extra_info('peername')[1]
+
+    shared_data.clients[f'{client_ip}_{client_port}'] = {
+        'software': writer.software
+    }
+
+    logging.debug(f"Received data from {client_ip}:{client_port}: {data_from_client}")
     writer.data_sent = shared_data.data
     writer.last_ping = int(time())
     writer.write(shared_data.data.encode())
@@ -71,16 +79,18 @@ async def handle_client(reader, writer, shared_data):
             current_timestamp = int(time())
             if (current_timestamp - writer.last_ping) > 1:
                 ping_data = "p"
-                logger.info(f"Client {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} ({writer.software}) ping")
+                logger.info(f"Client {client_ip}:{client_port} ({writer.software}) ping")
                 writer.last_ping = current_timestamp
                 writer.write(ping_data.encode())
+                shared_data.clients[f'{client_ip}_{client_port}']['lasp_ping'] = current_timestamp
                 await writer.drain()
                 await asyncio.sleep(1)
 
             if shared_data.data != writer.data_sent:
                 writer.write(shared_data.data.encode())
-                logger.info(f"Data changed. Broadcasting to {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]}")
+                logger.info(f"Data changed. Broadcasting to {client_ip}:{client_port}")
                 writer.data_sent = shared_data.data
+                shared_data.clients[f'{client_ip}_{client_port}']['lasp_data'] = current_timestamp
                 await writer.drain()
 
     except asyncio.CancelledError:
@@ -88,6 +98,7 @@ async def handle_client(reader, writer, shared_data):
 
     finally:
         logger.info(f"Client from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} disconnected")
+        del shared_data.clients[f'{client_ip}_{client_port}']
         if not writer.is_closing():
             writer.close()
         await writer.wait_closed()
@@ -105,6 +116,19 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"Data updated: {data_from_memcached}")
             # shared_data.data = '1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,3:30.82,29.81,31.14,29.59,26.1,29.13,33.44,32.07,32.37,31.27,34.81,35.84,35.94,37.65,37.48,36.68,31.28,37.27,35.64,33.91,31.81,34.91,34.51,32.79,34.21,32.07'
 
+
+        except Exception as e:
+            logger.error(f"Error in update_shared_data: {e}")
+
+
+async def print_clients(shared_data):
+    while True:
+        try:
+            await asyncio.sleep(60)
+            logger.debug(f"Print clients: {len(shared_data.clients)}")
+
+            for client, data in shared_data.clients.items():
+                logger.info(f"{client}: {data['software']}")
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
@@ -136,6 +160,7 @@ async def main():
     mc = Client(memcached_host, 11211)
 
     updater_task = asyncio.create_task(update_shared_data(shared_data,mc))
+    log_task = asyncio.create_task(print_clients(shared_data))
 
     server = await asyncio.start_server(
         lambda r, w: handle_client(r, w, shared_data), '0.0.0.0', tcp_port
@@ -150,6 +175,7 @@ async def main():
         updater_task.cancel()
         await mc.close()
         await updater_task
+        await log_task
 
 
 if __name__ == "__main__":
