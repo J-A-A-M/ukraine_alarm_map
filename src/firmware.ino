@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.d6";
+  char*   softwareversion        = "3.2.d7";
   String  broadcastname          = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -38,6 +38,7 @@ struct Settings{
   int     brightness_auto        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
+  int     color_home_district    = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
   int     brightness_alert       = 100;
@@ -241,6 +242,7 @@ void initSettings(){
   settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
   settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
+  settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
   settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
   settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
   settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
@@ -828,59 +830,6 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="            </h4>";
   html +="                <form action='/save' method='POST'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='selectBox8'>Режим прошивки</label>";
-  html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
-  html +="<option value='0'";
-  if (settings.legacy == 1) html += " selected";
-  html +=">Плата JAAM</option>";
-  html +="<option value='1'";
-  if (settings.legacy == 1) html += " selected";
-  html +=">Класична (початок на Закарпатті)</option>";
-  html +="                        </select>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
-  html +="                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>";
-  html +="                        <input type='text' name='ha_mqttport' class='form-control' id='inputField2' value='" + String(settings.ha_mqttport) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>";
-  html +="                        <input type='text' name='ha_mqttuser' class='form-control' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
-  html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField7'>Адреса TCP сервера даних</label>";
-  html +="                        <input type='text' name='tcphost' class='form-control' id='inputField7' value='" + String(settings.tcphost) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField8'>Порт TCP сервера даних</label>";
-  html +="                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
-  html +="                    </div>";
-    html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField9'>Назва пристрою</label>";
-  html +="                        <input type='text' name='devicename' class='form-control' id='inputField9' value='" + String(settings.devicename) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField9'>Опис пристрою</label>";
-  html +="                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
-  html +="                    </div>";
-  if(settings.legacy){
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
-  html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
-  html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
-  html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
-  html +="                    </div>";
-  }
-  html +="                    <div class='form-group'>";
   html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
   html +="                    </div>";
@@ -945,8 +894,13 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <div class='color-box' id='colorBox4'></div>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider7'>Нижній рівень температури: <span id='sliderValue7'>" + String(settings.weather_min_temp) + "</span></label>";
-  html +="                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider7' min='-20' max='10' value='" + String(settings.weather_min_temp) + "'>";
+  html +="                        <label for='slider7'>Домашній регіон: <span id='sliderValue7'>" + String(settings.color_home_district) + "</span></label>";
+  html +="                        <input type='range' name='color_home_district' class='form-control-range' id='slider7' min='0' max='360' value='" + String(settings.color_home_district) + "'>";
+  html +="                        <div class='color-box' id='colorBox5'></div>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>" + String(settings.weather_min_temp) + "</span></label>";
+  html +="                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider18' min='-20' max='10' value='" + String(settings.weather_min_temp) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>" + String(settings.weather_max_temp) + "</span></label>";
@@ -1141,6 +1095,59 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                          Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні";
   html +="                        </label>";
   html +="                    </div>";
+    html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox8'>Режим прошивки</label>";
+  html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
+  html +="<option value='0'";
+  if (settings.legacy == 1) html += " selected";
+  html +=">Плата JAAM</option>";
+  html +="<option value='1'";
+  if (settings.legacy == 1) html += " selected";
+  html +=">Класична (початок на Закарпатті)</option>";
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttport' class='form-control' id='inputField2' value='" + String(settings.ha_mqttport) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttuser' class='form-control' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
+  html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField7'>Адреса TCP сервера даних</label>";
+  html +="                        <input type='text' name='tcphost' class='form-control' id='inputField7' value='" + String(settings.tcphost) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField8'>Порт TCP сервера даних</label>";
+  html +="                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
+  html +="                    </div>";
+    html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField9'>Назва пристрою</label>";
+  html +="                        <input type='text' name='devicename' class='form-control' id='inputField9' value='" + String(settings.devicename) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField9'>Опис пристрою</label>";
+  html +="                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
+  html +="                    </div>";
+  if(settings.legacy){
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
+  html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
+  html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
+  html +="                    </div>";
+  }
   html +="                    <button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
   html +="                </form>";
   html +="            </div>";
@@ -1151,7 +1158,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html +="    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html +="    <script>";
-  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17'];";
+  html +="        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18'];";
   html +="";
   html +="        sliders.forEach(slider => {";
   html +="            const sliderElem = document.getElementById(slider);";
@@ -1179,6 +1186,10 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="        const initialHue4 = parseInt(slider6.value);";
   html +="        const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
   html +="        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
+  html +="";
+  html +="        const initialHue5 = parseInt(slider7.value);";
+  html +="        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
+  html +="        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
   html +="";
   html +="        function hsbToRgb(h, s, b) {";
   html +="            h /= 360;";
@@ -1430,6 +1441,13 @@ void handleSave(AsyncWebServerRequest* request){
       settings.color_alert_over = request->getParam("color_alert_over", true)->value().toInt();
       preferences.putInt("colorao", settings.color_alert_over);
       Serial.println("color_alert_over commited to preferences");
+    }
+  }
+  if (request->hasParam("color_home_district", true)){
+    if (request->getParam("color_home_district", true)->value().toInt() != settings.color_home_district){
+      settings.color_home_district = request->getParam("color_home_district", true)->value().toInt();
+      preferences.putInt("colorhd", settings.color_home_district);
+      Serial.println("color_home_district commited to preferences");
     }
   }
   if (request->hasParam("home_district", true)){
@@ -1775,7 +1793,44 @@ int calculateOffset(int initial_position){
   return position;
 }
 
-HsbColor processAlarms(int led) {
+int calculateOffsetDistrict(int initial_position){
+  //Serial.print("initial_position");Serial.println(initial_position);
+  int position;
+  if (initial_position == 25) {
+    position = 25;
+  }else{
+    position = initial_position + offset;
+    if (position >= 25) {
+      position-= 25;
+    }
+  }
+  //Serial.print("position");Serial.println(position);
+  if (settings.kyiv_district_mode == 2){
+    if(position == 25){
+      return 7+offset;
+    }
+  }
+  if (settings.kyiv_district_mode == 3){
+
+    if(position == 25){
+      //Serial.print("position8+");Serial.println(8+offset);
+      return 8+offset;
+    }
+    if(position > 7+offset){
+      //Serial.print("position+");Serial.println(position + 1);
+      return position + 1;
+    }
+  }
+  if (settings.kyiv_district_mode == 4){
+    if(position == 25){
+      return 7+offset;
+    }
+  }
+  return position;
+}
+
+
+HsbColor processAlarms(int led, int position) {
   HsbColor hue;
   float local_brightness = settings.brightness/200.0f;
   int local_color;
@@ -1790,7 +1845,15 @@ HsbColor processAlarms(int led) {
 
   switch (led) {
   case 0:
-      hue = HsbColor(settings.color_clear/360.0f,1.0,settings.brightness*local_brightness_clear/200.0f);
+      int color_switch;
+      int local_district;
+      local_district = calculateOffsetDistrict(settings.home_district);
+      if (position == local_district){
+        color_switch = settings.color_home_district;
+      }else{
+        color_switch = settings.color_clear;
+      }
+      hue = HsbColor(color_switch/360.0f,1.0,settings.brightness*local_brightness_clear/200.0f);
       break;
   case 1:
       hue = HsbColor(settings.color_alert/360.0f,1.0,settings.brightness*local_brightness_alert/200.0f);
@@ -1897,7 +1960,7 @@ void mapAlarms(){
     }
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i]));
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], i));
   }
   strip->Show();
   //blink = !blink;
