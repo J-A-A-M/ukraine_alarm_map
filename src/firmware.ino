@@ -15,7 +15,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.d7";
+  char*   softwareversion        = "3.2.d8";
   String  broadcastname          = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -1087,15 +1087,21 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </select>";
   html +="                    </div>";
   }
-  html +="                    <div class='form-group form-check'>";
-  html +="                        <input name='alarms_auto_switch' type='checkbox' class='form-check-input' id='checkbox'";
-  if (settings.alarms_auto_switch == 1) html += " checked";
-  html +=">";
-  html +="                        <label class='form-check-label' for='checkbox'>";
-  html +="                          Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні";
-  html +="                        </label>";
-  html +="                    </div>";
     html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
+  html +="                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
+   html +="<option value='0'";
+  if (settings.alarms_auto_switch == 0) html += " selected";
+  html +=">Вимкнено</option>";
+  html +="<option value='1'";
+  if (settings.alarms_auto_switch == 1) html += " selected";
+  html +=">Домашній регіон + суміжні регіони</option>";
+    html +="<option value='2'";
+  if (settings.alarms_auto_switch == 2) html += " selected";
+  html +=">Домашній регіон</option>";
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox8'>Режим прошивки</label>";
   html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
   html +="<option value='0'";
@@ -1457,23 +1463,13 @@ void handleSave(AsyncWebServerRequest* request){
       Serial.println("home_district commited to preferences");
     }
   }
-
   if (request->hasParam("alarms_auto_switch", true)){
-    if (settings.alarms_auto_switch == 0){
-      settings.alarms_auto_switch = 1;
-      haAlarmsAuto.setState(true);
-      preferences.putInt("aas", settings.alarms_auto_switch);
-      Serial.println("alarms_auto_switch commited to preferences");
-    }
-  }else{
-    if (settings.alarms_auto_switch == 1){
-      settings.alarms_auto_switch = 0;
-      haAlarmsAuto.setState(false);
+    if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch){
+      settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
       preferences.putInt("aas", settings.alarms_auto_switch);
       Serial.println("alarms_auto_switch commited to preferences");
     }
   }
-
   if (request->hasParam("kyiv_district_mode", true)){
     if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode){
       settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
@@ -2016,13 +2012,18 @@ void mapFlag(){
 
 void alarmTrigger(){
   int currentMapMode = settings.map_mode;
-  if(settings.alarms_auto_switch){
-    int position = settings.home_district;
+  int position = settings.home_district;
+  switch (settings.alarms_auto_switch) {
+  case 1:
     for (int j = 0; j < counters[position]; j++) {
       int alarm_led_id = calculateOffset(neighboring_districts[position][j]);
       if (alarm_leds[alarm_led_id] != 0)   {
         currentMapMode = 1;
       }
+    }
+  case 2:
+    if (alarm_leds[calculateOffset(position)] != 0)   {
+        currentMapMode = 1;
     }
   }
   if (mapMode != currentMapMode){
