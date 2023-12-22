@@ -104,7 +104,6 @@ async def main(request):
             body { background-color: #4396ff; }
             .container { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
             label { font-weight: bold; }
-            #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }
             .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }
             .full-screen-img {width: 100%;height: 100%;object-fit: cover;}
         </style>

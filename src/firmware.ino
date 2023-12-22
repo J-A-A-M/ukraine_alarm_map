@@ -10,21 +10,31 @@
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
+#include <HTTPClient.h>
+#include <Update.h>
+#include <vector>
+#include <ArduinoJson.h>
 
 
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.d8";
-  String  broadcastname          = "alarmmap";
+  char*   softwareversion        = "3.2.d11";
   int     pixelcount             = 26;
   int     buttontime             = 100;
+  int     powerpin               = 12;
+  int     wifipin                = 14;
+  int     datapin                = 25;
+  int     hapin                  = 26;
+  int     reservedpin            = 27;
 
   // ------- web config start
   String  devicename             = "Alarm Map";
   String  devicedescription      = "Alarm Map Informer";
-  char*   tcphost                = "alerts.net.ua";
+  String  broadcastname          = "alarmmap";
+  String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
+  int     updateport             = 8090;
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
@@ -68,7 +78,9 @@ Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WiFiClient        client_tcp;
+WiFiClient        client_update;
 WiFiUDP           ntpUDP;
+HTTPClient        http;
 AsyncWebServer    webserver(80);
 NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
@@ -142,7 +154,7 @@ const unsigned char trident_small [] PROGMEM = {
 byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //default
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
 //byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
-//byte mactest[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x00};
+//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x00};
 
 bool    enableHA;
 bool    wifiReconnect = false;
@@ -157,20 +169,23 @@ long    buttonPressStart = 0;
 time_t  displayOldTime = 0;
 time_t  tcpLastPingTime = 0;
 int     offset = 9;
+bool    initUpdate = false;
+
+std::vector<String> bin_list;
 
 
 
-String haUptimeString         = settings.broadcastname + "_uptime";
-String haWifiSignalString     = settings.broadcastname + "_wifi_signal";
-String haFreeMemoryString     = settings.broadcastname + "_free_memory";
-String haUsedMemoryString     = settings.broadcastname + "_used_memory";
-String haBrightnessString     = settings.broadcastname + "_brightness";
-String haMapModeString        = settings.broadcastname + "_map_mode";
-String haDisplayModeString    = settings.broadcastname + "_display_mode";
-String haMapModeCurrentString = settings.broadcastname + "_map_mode_current";
-String haMapApiConnectString  = settings.broadcastname + "_map_api_connect";
-String haBrightnessAutoString = settings.broadcastname + "_brightness_auto";
-String haAlarmsAutoString     = settings.broadcastname + "_alarms_auto";
+String haUptimeString         = "uptime";
+String haWifiSignalString     = "wifi_signal";
+String haFreeMemoryString     = "free_memory";
+String haUsedMemoryString     = "used_memory";
+String haBrightnessString     = "brightness";
+String haMapModeString        = "map_mode";
+String haDisplayModeString    = "display_mode";
+String haMapModeCurrentString = "map_mode_current";
+String haMapApiConnectString  = "map_api_connect";
+String haBrightnessAutoString = "brightness_auto";
+String haAlarmsAutoString     = "alarms_auto";
 
 
 const char* haUptimeChar          = haUptimeString.c_str();
@@ -219,9 +234,28 @@ void initLegacy(){
       flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
     }
 
+    pinMode(settings.powerpin, OUTPUT);
+    pinMode(settings.wifipin, OUTPUT);
+    pinMode(settings.datapin, OUTPUT);
+    pinMode(settings.hapin, OUTPUT);
+    pinMode(settings.reservedpin, OUTPUT);
+
+    servicePin(settings.powerpin, HIGH);
+    // servicePin(settings.wifipin, HIGH);
+    // servicePin(settings.datapin, HIGH);
+    // servicePin(settings.hapin, HIGH);
+    // servicePin(settings.reservedpin, HIGH);
+
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
     settings.buttonpin = 35;
+    settings.display_height = 64;
+  }
+}
+
+void servicePin(int pin, uint8_t status){
+  if(!settings.legacy){
+    digitalWrite(pin, status);
   }
 }
 
@@ -231,8 +265,10 @@ void initSettings(){
 
   settings.devicename             = preferences.getString("dn", settings.devicename);
   settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
-  settings.tcphost                = strdup(preferences.getString("tcphost", settings.tcphost).c_str());
+  settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
+  settings.serverhost             = preferences.getString("host", settings.serverhost);
   settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
+  settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
@@ -357,8 +393,10 @@ void initWifi() {
     wm.setConnectRetries(10);
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення WIFI.."),0,1);
+    servicePin(settings.wifipin, LOW);
     if(wm.autoConnect(settings.apssid, settings.appassword)){
         Serial.println("connected...yeey :)");
+        servicePin(settings.wifipin, HIGH);
         display.clearDisplay();
         DisplayCenter(utf8cyr("WIFI пiдключeнo!"),0,1);
         wm.setHttpPort(8080);
@@ -607,6 +645,78 @@ void initDisplay() {
 }
 //--Init end
 
+//--Update
+
+std::vector<String> fetchAndParseJSON() {
+  String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
+  const char* jsonURL = jsonURLString.c_str();
+  http.begin(jsonURL);
+  int httpCode = http.GET();
+  std::vector<String> tempFilenames;
+
+  if (httpCode > 0) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, payload);
+
+    JsonArray arr = doc.as<JsonArray>();
+    for (String filename : arr) {
+      tempFilenames.push_back(filename);
+    }
+  } else {
+    Serial.println("Error on HTTP request");
+  }
+
+  http.end();
+  return tempFilenames;
+}
+
+void doFetchBinList(){
+  Serial.println("DoFetchBinList");
+  bin_list = fetchAndParseJSON();
+}
+
+
+void doUpdate() {
+  if (initUpdate){
+    initUpdate = false;
+    String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/update.bin";
+    const char* firmwareUrl = firmwareUrlString.c_str();
+    http.begin(firmwareUrl);
+    Serial.println(firmwareUrl);
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+      int contentLength = http.getSize();
+      bool canBegin = Update.begin(contentLength);
+      if (canBegin) {
+        size_t written = Update.writeStream(http.getStream());
+        if (written == contentLength) {
+          Serial.println("Written : " + String(written) + " successfully");
+        } else {
+          Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
+        }
+        if (Update.end()) {
+          Serial.println("OTA done!");
+          if (Update.isFinished()) {
+            Serial.println("Update successfully completed. Rebooting.");
+            ESP.restart();
+          } else {
+            Serial.println("Update not finished? Something went wrong!");
+          }
+        } else {
+          Serial.println("Error Occurred. Error #: " + String(Update.getError()));
+        }
+      } else {
+        Serial.println("Not enough space to begin OTA");
+      }
+    } else {
+      Serial.print("Error on HTTP request: ");Serial.println(httpCode);
+    }
+    http.end();
+  }
+}
+//--Update end
+
 //--Button start
 void buttonUpdate() {
   if (digitalRead(settings.buttonpin) == HIGH) {
@@ -801,44 +911,86 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>";
   html +="    <style>";
   html +="        body { background-color: #4396ff; }";
-  html +="        .container { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
+  html +="        .btn {margin-bottom: 0.25rem;}";
+  html +="        .container { padding: 20px; }";
   html +="        label { font-weight: bold; }";
   html +="        #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }";
   html +="        .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
   html +="        .full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
+  html +="        .box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
   html +="    </style>";
   html +="</head>";
   html +="<body>";
-  html +="    <div class='container mt-3'>";
+  html +="    <form action='/save' method='POST'>";
+  html +="    <div class='container mt-3'  id='accordion'>";
   html +="        <h2 class='text-center'>" + settings.devicedescription + " ";
   html +=             settings.softwareversion;
   html +="        </h2>";
   html +="        <div class='row'>";
   html +="            <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                <div class='box_yellow col-md-12 mt-2'>";
   if (mapMode == 1){
     html +="                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
   }
   if (mapMode == 2){
     html +="                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
   }
+  html +="                </div>";
+  html +="              </div>";
   html +="            </div>";
   html +="        </div>";
   html +="        <div class='row'>";
-  html +="            <div class='col-md-6 offset-md-3'>";
-  html +="            <h4 class='mt-4'>Локальна IP-адреса: ";
-  html +=             WiFi.localIP().toString();
-  html +="            </h4>";
-  html +="                <form action='/save' method='POST'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
+  html +="                    <h5>Локальна IP-адреса: ";
+  html +=                      WiFi.localIP().toString();
+  html +="                    </h5>";
+  html +="                </div>";
+  html +="              </div>";
+  html +="            </div>";
+  html +="        </div>";
+  html +="        <div class='row'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
+  html +="                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
+  html +="                         Яскравість";
+  html +="                    </button>";
+  html +="                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseColors' aria-expanded='false' aria-controls='collapseColors'>";
+  html +="                         Кольори";
+  html +="                    </button>";
+  html +="                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseWeather' aria-expanded='false' aria-controls='collapseWeather'>";
+  html +="                         Погода";
+  html +="                    </button>";
+  html +="                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>";
+  html +="                         Режими";
+  html +="                    </button>";
+  html +="                    <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
+  html +="                         DEV";
+  html +="                    </button>";
+  html +="                    <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#collapseFirmware' aria-expanded='false' aria-controls='collapseFirmware'>";
+  html +="                         Прошивка";
+  html +="                    </button>";
+  html +="                </div>";
+  html +="              </div>";
+  html +="            </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Загальна яскравість: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
+  html +="                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Денна яскравість: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span></label>";
+  html +="                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span></label>";
   html +="                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Нічна яскравість: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span></label>";
+  html +="                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span></label>";
   html +="                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='" + String(settings.brightness_night) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -858,38 +1010,47 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </label>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider9'>Яскравість районів з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span></label>";
+  html +="                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span></label>";
   html +="                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider10'>Яскравість районів без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span></label>";
+  html +="                        <label for='slider10'>Області без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span></label>";
   html +="                        <input type='range' name='brightness_clear' class='form-control-range' id='slider10' min='0' max='100' value='" + String(settings.brightness_clear) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider11'>Яскравість нових тривог: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span></label>";
+  html +="                        <label for='slider11'>Нові тривоги: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span></label>";
   html +="                        <input type='range' name='brightness_new_alert' class='form-control-range' id='slider11' min='0' max='100' value='" + String(settings.brightness_new_alert) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider12'>Яскравість відбою: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span></label>";
+  html +="                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span></label>";
   html +="                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
   html +="                    </div>";
+  html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider3'>Тривога: <span id='sliderValue3'>" + String(settings.color_alert) + "</span></label>";
+  html +="                        <label for='slider3'>Області з тривогами: <span id='sliderValue3'>" + String(settings.color_alert) + "</span></label>";
   html +="                        <input type='range' name='color_alert' class='form-control-range' id='slider3' min='0' max='360' value='" + String(settings.color_alert) + "'>";
   html +="                        <div class='color-box' id='colorBox1'></div>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider4'>Нема тривоги: <span id='sliderValue4'>" + String(settings.color_clear) + "</span></label>";
+  html +="                        <label for='slider4'>Області без тривог: <span id='sliderValue4'>" + String(settings.color_clear) + "</span></label>";
   html +="                        <input type='range' name='color_clear' class='form-control-range' id='slider4' min='0' max='360' value='" + String(settings.color_clear) + "'>";
   html +="                        <div class='color-box' id='colorBox2'></div>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider5'>Початок тривоги: <span id='sliderValue5'>" + String(settings.color_new_alert) + "</span></label>";
+  html +="                        <label for='slider5'>Нові тривоги: <span id='sliderValue5'>" + String(settings.color_new_alert) + "</span></label>";
   html +="                        <input type='range' name='color_new_alert' class='form-control-range' id='slider5' min='0' max='360' value='" + String(settings.color_new_alert) + "'>";
   html +="                        <div class='color-box' id='colorBox3'></div>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider6'>Закінчення тривоги: <span id='sliderValue6'>" + String(settings.color_alert_over) + "</span></label>";
+  html +="                        <label for='slider6'>Відбій тривог: <span id='sliderValue6'>" + String(settings.color_alert_over) + "</span></label>";
   html +="                        <input type='range' name='color_alert_over' class='form-control-range' id='slider6' min='0' max='360' value='" + String(settings.color_alert_over) + "'>";
   html +="                        <div class='color-box' id='colorBox4'></div>";
   html +="                    </div>";
@@ -898,6 +1059,15 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='range' name='color_home_district' class='form-control-range' id='slider7' min='0' max='360' value='" + String(settings.color_home_district) + "'>";
   html +="                        <div class='color-box' id='colorBox5'></div>";
   html +="                    </div>";
+  html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>" + String(settings.weather_min_temp) + "</span></label>";
   html +="                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider18' min='-20' max='10' value='" + String(settings.weather_min_temp) + "'>";
@@ -906,10 +1076,15 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>" + String(settings.weather_max_temp) + "</span></label>";
   html +="                        <input type='range' name='weather_max_temp' class='form-control-range' id='slider8' min='11' max='40' value='" + String(settings.weather_max_temp) + "'>";
   html +="                    </div>";
-  html +="                    <div class='form-group'>";
-  html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
-  html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
-  html +="                    </div>";
+  html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
   if(settings.legacy){
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox1'>Режим діода 'Київська область'</label>";
@@ -962,6 +1137,10 @@ void handleRoot(AsyncWebServerRequest* request){
   if (displayMode == 9) html += " selected";
   html +=">Перемикання за часом</option>";
   html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
+  html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox6'>Режим кнопки</label>";
@@ -1087,7 +1266,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </select>";
   html +="                    </div>";
   }
-    html +="                    <div class='form-group'>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html +="                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
    html +="<option value='0'";
@@ -1100,7 +1279,16 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.alarms_auto_switch == 2) html += " selected";
   html +=">Домашній регіон</option>";
   html +="                        </select>";
-  html +="                    </div>";
+  html +="                      </div>";
+  html +="                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox8'>Режим прошивки</label>";
   html +="                        <select name='legacy' class='form-control' id='selectBox8'>";
@@ -1129,20 +1317,28 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField7'>Адреса TCP сервера даних</label>";
-  html +="                        <input type='text' name='tcphost' class='form-control' id='inputField7' value='" + String(settings.tcphost) + "'>";
+  html +="                        <label for='inputField7'>Адреса сервера даних</label>";
+  html +="                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='inputField8'>Порт TCP сервера даних</label>";
   html +="                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
   html +="                    </div>";
-    html +="                    <div class='form-group'>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField8'>Порт сервера прошивок</label>";
+  html +="                        <input type='text' name='updateport' class='form-control' id='inputField8' value='" + String(settings.updateport) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
   html +="                        <label for='inputField9'>Назва пристрою</label>";
   html +="                        <input type='text' name='devicename' class='form-control' id='inputField9' value='" + String(settings.devicename) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField9'>Опис пристрою</label>";
+  html +="                        <label for='inputField10'>Опис пристрою</label>";
   html +="                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
+  html +="                    </div>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='inputField11'>Локальна адреса в мережі (.local) </label>";
+  html +="                        <input type='text' name='broadcastname' class='form-control' id='inputField11' value='" + String(settings.broadcastname) + "'>";
   html +="                    </div>";
   if(settings.legacy){
   html +="                    <div class='form-group'>";
@@ -1154,12 +1350,36 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
   html +="                    </div>";
   }
-  html +="                    <button type='submit' class='btn btn-primary'>Зберегти налаштування</button>";
-  html +="                </form>";
-  html +="            </div>";
+  html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
+  html +="        </div>";
+  html +="        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
+  html +="           <div class='col-md-6 offset-md-3'>";
+  html +="              <div class='row'>";
+  html +="                 <div class='box_yellow col-md-12 mt-2'>";
+  html +="                    <div class='form-group'>";
+  html +="                        <label for='selectBox9'>Файл прошивки</label>";
+  html +="                        <select name='bin_name' class='form-control' id='selectBox9'>";
+  for (String& filename : bin_list) {
+    html +="<option value='" + filename + "'>" + filename + "</option>";
+  }
+  html +="                        </select>";
+  html +="                    </div>";
+  html +="                    <div class='form-group form-check'>";
+  html +="                        <input name='do_update' type='checkbox' class='form-check-input' id='checkbox3'>";
+  html +="                        <label class='form-check-label' for='checkbox3'>";
+  html +="                          Оновлення";
+  html +="                        </label>";
+  html +="                    </div>";
+  html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html +="                 </div>";
+  html +="              </div>";
+  html +="           </div>";
   html +="        </div>";
   html +="    </div>";
-  html +="";
+  html +="    </form>";
   html +="    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
   html +="    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html +="    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
@@ -1281,6 +1501,14 @@ void handleSave(AsyncWebServerRequest* request){
       Serial.println("devicedescription commited to preferences");
     }
   }
+  if (request->hasParam("broadcastname", true)){
+    if (request->getParam("broadcastname", true)->value() != settings.broadcastname){
+      reboot = true;
+      settings.broadcastname = request->getParam("broadcastname", true)->value();
+      preferences.putString("bn", settings.broadcastname);
+      Serial.println("broadcastname commited to preferences");
+    }
+  }
   if (request->hasParam("ha_mqttport", true)){
     if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport){
       reboot = true;
@@ -1289,13 +1517,13 @@ void handleSave(AsyncWebServerRequest* request){
       Serial.println("ha_mqttport commited to preferences");
     }
   }
-  if (request->hasParam("tcphost", true)){
-    String local_tcphost = String(settings.tcphost);
-    if (request->getParam("tcphost", true)->value() != local_tcphost){
+  if (request->hasParam("serverhost", true)){
+    String local_host = String(settings.serverhost);
+    if (request->getParam("serverhost", true)->value() != local_host){
       reboot = true;
-      settings.tcphost = strdup(request->getParam("tcphost", true)->value().c_str());
-      preferences.putString("tcphost", request->getParam("tcphost", true)->value());
-      Serial.println("tcphost commited to preferences");
+      settings.serverhost = strdup(request->getParam("serverhost", true)->value().c_str());
+      preferences.putString("host", request->getParam("serverhost", true)->value());
+      Serial.println("serverhost commited to preferences");
     }
   }
   if (request->hasParam("tcpport", true)){
@@ -1304,6 +1532,14 @@ void handleSave(AsyncWebServerRequest* request){
       settings.tcpport = request->getParam("tcpport", true)->value().toInt();
       preferences.putInt("tcpport", settings.tcpport);
       Serial.println("tcpport commited to preferences");
+    }
+  }
+  if (request->hasParam("updateport", true)){
+    if (request->getParam("updateport", true)->value().toInt() != settings.updateport){
+      reboot = true;
+      settings.updateport = request->getParam("updateport", true)->value().toInt();
+      preferences.putInt("upport", settings.updateport);
+      Serial.println("updateport commited to preferences");
     }
   }
   if (request->hasParam("pixelpin", true)){
@@ -1364,6 +1600,10 @@ void handleSave(AsyncWebServerRequest* request){
       preferences.putInt("bra", settings.brightness_auto);
       Serial.println("brightness_auto disabled to preferences");
     }
+  }
+  if (request->hasParam("do_update", true)){
+    Serial.println("do_update triggered");
+    initUpdate = true;
   }
   if (request->hasParam("brightness_day", true)){
     if (request->getParam("brightness_day", true)->value().toInt() != settings.brightness_day){
@@ -1572,6 +1812,11 @@ void connectStatuses(){
   if (enableHA){
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
+    if(mqtt.isConnected()){
+      servicePin(settings.hapin, HIGH);
+    }else{
+      servicePin(settings.hapin, LOW);
+    }
     haMapApiConnect.setState(client_tcp.connected(), true);
   }
 }
@@ -1608,10 +1853,12 @@ void tcpConnect(){
   }
   if (!client_tcp.connected() or tcpReconnect) {
     int cycle = 0;
+    servicePin(settings.datapin, LOW);
     Serial.println("Connecting to map API...");
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення map-API.."),0,1);
-    while (!client_tcp.connect(settings.tcphost, settings.tcpport))
+    const char* local_serverhost = settings.serverhost.c_str();
+    while (!client_tcp.connect(local_serverhost, settings.tcpport))
     {
         Serial.println("Failed");
         display.clearDisplay();
@@ -1627,6 +1874,7 @@ void tcpConnect(){
     client_tcp.print(settings.softwareversion);
     display.clearDisplay();
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
+    servicePin(settings.datapin, HIGH);
     Serial.println("Connected");
     haMapApiConnect.setState(true);
     tcpLastPingTime = millis();
@@ -1642,7 +1890,7 @@ void tcpConnect(){
 //     Serial.print("Reconnecting to map API: ");
 //     display.clearDisplay();
 //     DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
-//     if (!client_tcp.connect(settings.tcphost, settings.tcpport))
+//     if (!client_tcp.connect(settings.serverhost, settings.tcpport))
 //     {
 //       Serial.println("Failed");
 //       display.clearDisplay();
@@ -2013,6 +2261,7 @@ void mapFlag(){
 void alarmTrigger(){
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
+  //Serial.print("position ");Serial.println(settings.home_district);
   switch (settings.alarms_auto_switch) {
   case 1:
     for (int j = 0; j < counters[position]; j++) {
@@ -2065,6 +2314,10 @@ void setup() {
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(buttonUpdate, 100);
   asyncEngine.setInterval(timezoneUpdate, 60000);
+  asyncEngine.setInterval(doUpdate, 10000);
+  asyncEngine.setInterval(doFetchBinList, 60000);
+
+
 }
 
 void loop() {
