@@ -19,7 +19,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.d11";
+  char*   softwareversion        = "3.2";
   int     pixelcount             = 26;
   int     buttontime             = 100;
   int     powerpin               = 12;
@@ -241,16 +241,13 @@ void initLegacy(){
     pinMode(settings.reservedpin, OUTPUT);
 
     servicePin(settings.powerpin, HIGH);
-    // servicePin(settings.wifipin, HIGH);
-    // servicePin(settings.datapin, HIGH);
-    // servicePin(settings.hapin, HIGH);
-    // servicePin(settings.reservedpin, HIGH);
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
     settings.buttonpin = 35;
     settings.display_height = 64;
   }
+  pinMode(settings.buttonpin, INPUT);
 }
 
 void servicePin(int pin, uint8_t status){
@@ -407,6 +404,7 @@ void initWifi() {
         ArduinoOTA.begin();
         initBroadcast();
         tcpConnect();
+        doFetchBinList();
     }
     else {
         Serial.println("Reboot");
@@ -982,23 +980,23 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="              <div class='row'>";
   html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span></label>";
+  html +="                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span>%</label>";
   html +="                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span></label>";
+  html +="                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span></label>";
+  html +="                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='" + String(settings.brightness_night) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span></label>";
+  html +="                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> годин</label>";
   html +="                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span></label>";
+  html +="                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> годин</label>";
   html +="                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group form-check'>";
@@ -1006,23 +1004,23 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.brightness_auto == 1) html += " checked";
   html +=">";
   html +="                        <label class='form-check-label' for='checkbox'>";
-  html +="                          Автояскравість";
+  html +="                          Автояскравість (день-нічь по годинам)";
   html +="                        </label>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span></label>";
+  html +="                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider10'>Області без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span></label>";
+  html +="                        <label for='slider10'>Області без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_clear' class='form-control-range' id='slider10' min='0' max='100' value='" + String(settings.brightness_clear) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider11'>Нові тривоги: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span></label>";
+  html +="                        <label for='slider11'>Нові тривоги: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_new_alert' class='form-control-range' id='slider11' min='0' max='100' value='" + String(settings.brightness_new_alert) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span></label>";
+  html +="                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span>%</label>";
   html +="                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
   html +="                    </div>";
   html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
@@ -1069,11 +1067,11 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="              <div class='row'>";
   html +="                 <div class='box_yellow col-md-12 mt-2'>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>" + String(settings.weather_min_temp) + "</span></label>";
+  html +="                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>" + String(settings.weather_min_temp) + "</span>°C</label>";
   html +="                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider18' min='-20' max='10' value='" + String(settings.weather_min_temp) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>" + String(settings.weather_max_temp) + "</span></label>";
+  html +="                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>" + String(settings.weather_max_temp) + "</span>°C</label>";
   html +="                        <input type='range' name='weather_max_temp' class='form-control-range' id='slider8' min='11' max='40' value='" + String(settings.weather_max_temp) + "'>";
   html +="                    </div>";
   html +="                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
@@ -1139,7 +1137,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span></label>";
+  html +="                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
   html +="                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -1337,7 +1335,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField11'>Локальна адреса в мережі (.local) </label>";
+  html +="                        <label for='inputField11'>Локальна адреса в мережі (" + String(settings.broadcastname) + ".local) </label>";
   html +="                        <input type='text' name='broadcastname' class='form-control' id='inputField11' value='" + String(settings.broadcastname) + "'>";
   html +="                    </div>";
   if(settings.legacy){
@@ -2300,8 +2298,6 @@ void setup() {
   initWifi();
   initTime();
 
-  pinMode(settings.buttonpin, INPUT);
-
   asyncEngine.setInterval(uptime, 60000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
@@ -2315,9 +2311,7 @@ void setup() {
   asyncEngine.setInterval(buttonUpdate, 100);
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 10000);
-  asyncEngine.setInterval(doFetchBinList, 60000);
-
-
+  asyncEngine.setInterval(doFetchBinList, 600000);
 }
 
 void loop() {
