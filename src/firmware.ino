@@ -35,6 +35,7 @@ struct Settings{
   String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
   int     updateport             = 8090;
+  String  bin_name               = "3.2.bin";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
@@ -264,6 +265,7 @@ void initSettings(){
   settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
+  settings.bin_name               = preferences.getString("bin", settings.bin_name);
   settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
@@ -678,7 +680,7 @@ void doFetchBinList(){
 void doUpdate() {
   if (initUpdate){
     initUpdate = false;
-    String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/update.bin";
+    String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + settings.bin_name + "";
     const char* firmwareUrl = firmwareUrlString.c_str();
     http.begin(firmwareUrl);
     Serial.println(firmwareUrl);
@@ -1361,7 +1363,9 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='selectBox9'>Файл прошивки</label>";
   html +="                        <select name='bin_name' class='form-control' id='selectBox9'>";
   for (String& filename : bin_list) {
-    html +="<option value='" + filename + "'>" + filename + "</option>";
+    html +="<option value='" + filename + "'";
+    if (settings.bin_name == filename) html += " selected";
+    html +=">" + filename + "</option>";
   }
   html +="                        </select>";
   html +="                    </div>";
@@ -1602,6 +1606,14 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("do_update", true)){
     Serial.println("do_update triggered");
     initUpdate = true;
+  }
+  if (request->hasParam("bin_name", true)){
+    String local_bin_name = String(settings.bin_name);
+    if (request->getParam("bin_name", true)->value() != local_bin_name){
+      settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
+      preferences.putString("bin", request->getParam("bin_name", true)->value());
+      Serial.println("bin_name commited to preferences");
+    }
   }
   if (request->hasParam("brightness_day", true)){
     if (request->getParam("brightness_day", true)->value().toInt() != settings.brightness_day){
