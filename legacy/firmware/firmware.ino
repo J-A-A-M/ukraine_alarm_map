@@ -1,3 +1,7 @@
+// ЦЯ ПРОШИВКА НЕАКТУАЛЬНА І ЗАЛИШЕНА ПРОСТО ДЛЯ ІСТОРІЇ
+// використовуйте версію з /src/firmware.uno
+
+
 #include <ArduinoJson.h>
 #include <FastLED.h>
 #include <WiFi.h>
