@@ -1,7 +1,149 @@
+import json
+import os
+import asyncio
+import logging
+from aiomcache import Client
 import cairosvg
 
+from datetime import datetime, timezone
 
-def generate_map(time, output_file, **kwargs):
+version = 2
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
+memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
+shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
+loop_time = int(os.environ.get('SVG_PERIOD', 2))
+
+min_temp = float(os.environ.get('MIN_TEMP', -10))
+max_temp = int(os.environ.get('SVG_PERIOD', 30))
+
+
+regions = [
+    "ZAKARPATSKA",
+    "IVANOFRANKIWSKA",
+    "TERNOPILSKA",
+    "LVIVKA",
+    "VOLYNSKA",
+    "RIVENSKA",
+    "JITOMIRSKAYA",
+    "KIYEWSKAYA",
+    "CHERNIGIWSKA",
+    "SUMSKA",
+    "HARKIVSKA",
+    "LUGANSKA",
+    "DONETSKAYA",
+    "ZAPORIZKA",
+    "HERSONSKA",
+    "KRIMEA",
+    "ODESKA",
+    "MYKOLAYIV",
+    "DNIPROPETROVSKAYA",
+    "POLTASKA",
+    "CHERKASKA",
+    "KIROWOGRADSKA",
+    "VINNYTSA",
+    "HMELNYCKA",
+    "CHERNIVETSKA",
+    "KIYEW"
+]
+
+
+class SharedData:
+    def __init__(self):
+        self.data = ""
+
+
+async def get_local_time_formatted():
+    local_time = datetime.now(timezone.utc)
+    formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return formatted_local_time
+
+
+async def svg_generator(mc, shared_data):
+    try:
+        await asyncio.sleep(loop_time)
+        local_time = await get_local_time_formatted()
+        cached = await mc.get(b"tcp")
+
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = ''
+
+        alerts_svg_data = {}
+        weather_svg_data = {}
+
+        if cached_data != shared_data.data:
+            alerts_data, weather_data = cached_data.split(':')
+            alerts = [
+                int(alert) for alert in alerts_data.split(',')
+            ]
+            weathers = [
+                float(weather) for weather in weather_data.split(',')
+            ]
+
+            position = 0
+            for alert in alerts:
+                match alert:
+                    case 0:
+                        alerts_svg_data[regions[position]] = "32cd32"
+                    case 1:
+                        alerts_svg_data[regions[position]] = "ff5733"
+                    case 2:
+                        alerts_svg_data[regions[position]] = "bbff33"
+                    case 3:
+                        alerts_svg_data[regions[position]] = "ffa533"
+                position += 1
+            file_path = os.path.join(shared_path, 'alerts_map.png')
+            await generate_map(time=local_time, output_file=file_path, **alerts_svg_data)
+            position = 0
+            for weather in weathers:
+                weather_svg_data[regions[position]] = calculate_html_color_from_hsb(weather)
+                position += 1
+            file_path = os.path.join(shared_path, 'weather_map.png')
+            await generate_map(time=local_time, output_file=file_path, **weather_svg_data)
+            shared_data.data = cached_data
+    except Exception as e:
+        logging.error(f"Request failed with status code: {e}")
+        raise
+
+
+def calculate_html_color_from_hsb(temp):
+    normalized_value = float(temp - min_temp) / float(max_temp - min_temp)
+    if normalized_value > 1:
+        normalized_value = 1
+    if normalized_value < 0:
+        normalized_value = 0
+    hue = 275 + normalized_value * (0 - 275)
+    hue %= 360
+
+    hue /= 60
+    c = 1
+    x = 1 - abs((hue % 2) - 1)
+    rgb = [0, 0, 0]
+
+    if 0 <= hue < 1:
+        rgb = [c, x, 0]
+    elif 1 <= hue < 2:
+        rgb = [x, c, 0]
+    elif 2 <= hue < 3:
+        rgb = [0, c, x]
+    elif 3 <= hue < 4:
+        rgb = [0, x, c]
+    elif 4 <= hue < 5:
+        rgb = [x, 0, c]
+    elif 5 <= hue < 6:
+        rgb = [c, 0, x]
+
+    # Convert RGB to hexadecimal
+    hex_color = "{:02X}{:02X}{:02X}".format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+    return hex_color
+
+
+async def generate_map(time, output_file, **kwargs):
     print('generate map')
     svg_data = f'''
           <svg
@@ -191,7 +333,34 @@ def generate_map(time, output_file, **kwargs):
           </svg>
     '''
 
-
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file)
 
 
+async def main():
+    shared_data = SharedData()
+    mc = Client(memcached_host, 11211)  # Connect to your Memcache server
+    while True:
+        try:
+            logging.debug("Task started")
+            await svg_generator(mc, shared_data)
+
+        except asyncio.CancelledError:
+            logging.info("Task canceled. Shutting down...")
+            await mc.close()
+            break
+
+        except Exception as e:
+            logging.error(f"Caught an exception: {e}")
+
+        finally:
+            logging.debug("Task completed")
+            pass
+
+
+if __name__ == "__main__":
+    try:
+        logging.debug("Start")
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.debug("KeyboardInterrupt")
+        pass

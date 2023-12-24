@@ -1,0 +1,5 @@
+bottle==0.12.23
+starlette==0.27.0
+uvicorn==0.24.0.post1
+aiomcache==0.8.1
+pymemcache==3.5.2

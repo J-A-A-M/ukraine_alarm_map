@@ -1,1 +1,2 @@
+aiohttp==3.8.5
 aiomcache==0.8.1

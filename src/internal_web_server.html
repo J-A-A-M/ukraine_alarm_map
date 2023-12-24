@@ -7,6 +7,7 @@
     <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
     <style>
         body { background-color: #4396ff; }
+        .btn {padding: 0.15rem 0.15rem;}
         .container { padding: 20px; }
         .box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
         .box_blue { background-color: #4396ff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
@@ -22,7 +23,7 @@
         <h1 class='text-center'>Simple Web Page</h1>
         <div class='row'>
             <div class='col-md-6 offset-md-3'>
-                <div class='row'>
+                <div class='row' id="accordion">
                     <div class='box_yellow col-md-12 mt-2'>
                         <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>
                     </div>
@@ -48,22 +49,55 @@
                         </div>
                     </div>
                     <div class='box_yellow col-md-12 mt-2'>
-                        <div class='form-group'>
-                            <label for='slider4'>Hue Slider 3: <span id='sliderValue5'>90</span></label>
-                            <input type='range' class='form-control-range' id='slider5' min='0' max='360' value='90'>
-                            <div class='color-box' id='colorBox3'></div>
+                        <h5 class='text-left'>Simple Web Page
+                        <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapseContent1" aria-expanded="false" aria-controls="collapseContent1">
+                            Toggle
+                        </button>
+                            </h5>
+                        <div class="collapse show" id="collapseContent1" data-parent="#accordion">
+                            <div class='form-group'>
+                                <label for='slider4'>Hue Slider 3: <span id='sliderValue5'>90</span></label>
+                                <input type='range' class='form-control-range' id='slider5' min='0' max='360' value='90'>
+                                <div class='color-box' id='colorBox3'></div>
+                            </div>
+                            <div class='form-group'>
+                                <label for='selectBox'>Select Box</label>
+                                <select class='form-control' id='selectBox'>
+                                    <option value='option1'>Option 1</option>
+                                    <option value='option2'>Option 2</option>
+                                    <option value='option3'>Option 3</option>
+                                </select>
+                            </div>
+                            <div class='form-group form-check'>
+                                <input type='checkbox' class='form-check-input' id='checkbox'>
+                                <label class='form-check-label' for='checkbox'>Checkbox</label>
+                            </div>
                         </div>
-                        <div class='form-group'>
-                            <label for='selectBox'>Select Box</label>
-                            <select class='form-control' id='selectBox'>
-                                <option value='option1'>Option 1</option>
-                                <option value='option2'>Option 2</option>
-                                <option value='option3'>Option 3</option>
-                            </select>
-                        </div>
-                        <div class='form-group form-check'>
-                            <input type='checkbox' class='form-check-input' id='checkbox'>
-                            <label class='form-check-label' for='checkbox'>Checkbox</label>
+                    </div>
+                    <div class='box_yellow col-md-12 mt-2'>
+                        <h5 class='text-left'>Simple Web Page
+                        <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapseContent2" aria-expanded="false" aria-controls="collapseContent2">
+                            Toggle
+                        </button>
+                            </h5>
+                        <div class="collapse show" id="collapseContent2" data-parent="#accordion">
+                            <div class='form-group'>
+                                <label for='slider4'>Hue Slider 3: <span id='sliderValue5'>90</span></label>
+                                <input type='range' class='form-control-range' id='slider5' min='0' max='360' value='90'>
+                                <div class='color-box' id='colorBox3'></div>
+                            </div>
+                            <div class='form-group'>
+                                <label for='selectBox'>Select Box</label>
+                                <select class='form-control' id='selectBox'>
+                                    <option value='option1'>Option 1</option>
+                                    <option value='option2'>Option 2</option>
+                                    <option value='option3'>Option 3</option>
+                                </select>
+                            </div>
+                            <div class='form-group form-check'>
+                                <input type='checkbox' class='form-check-input' id='checkbox'>
+                                <label class='form-check-label' for='checkbox'>Checkbox</label>
+                            </div>
                         </div>
                     </div>
                     <div class='box_yellow col-md-12 mt-2'>
@@ -102,6 +136,7 @@
         const initialHue3 = parseInt(slider5.value);
         const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);
         document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;
+
 
         function hsbToRgb(h, s, b) {
             h /= 360;

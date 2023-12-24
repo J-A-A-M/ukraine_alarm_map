@@ -1,1 +1,2 @@
+cairosvg==2.7.1
 aiomcache==0.8.1
