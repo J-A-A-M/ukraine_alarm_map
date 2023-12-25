@@ -20,6 +20,7 @@ struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
   char*   softwareversion        = "3.2";
+  String  ha_name                = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
   int     powerpin               = 12;
@@ -175,18 +176,17 @@ bool    initUpdate = false;
 std::vector<String> bin_list;
 
 
-
-String haUptimeString         = "uptime";
-String haWifiSignalString     = "wifi_signal";
-String haFreeMemoryString     = "free_memory";
-String haUsedMemoryString     = "used_memory";
-String haBrightnessString     = "brightness";
-String haMapModeString        = "map_mode";
-String haDisplayModeString    = "display_mode";
-String haMapModeCurrentString = "map_mode_current";
-String haMapApiConnectString  = "map_api_connect";
-String haBrightnessAutoString = "brightness_auto";
-String haAlarmsAutoString     = "alarms_auto";
+String haUptimeString         = settings.ha_name + "_uptime";
+String haWifiSignalString     = settings.ha_name + "_wifi_signal";
+String haFreeMemoryString     = settings.ha_name + "_free_memory";
+String haUsedMemoryString     = settings.ha_name + "_used_memory";
+String haBrightnessString     = settings.ha_name + "_brightness";
+String haMapModeString        = settings.ha_name + "_map_mode";
+String haDisplayModeString    = settings.ha_name + "_display_mode";
+String haMapModeCurrentString = settings.ha_name + "_map_mode_current";
+String haMapApiConnectString  = settings.ha_name + "_map_api_connect";
+String haBrightnessAutoString = settings.ha_name + "_brightness_auto";
+String haAlarmsAutoString     = settings.ha_name + "_alarms_auto";
 
 
 const char* haUptimeChar          = haUptimeString.c_str();
@@ -201,8 +201,9 @@ const char* haMapApiConnectChar   = haMapApiConnectString.c_str();
 const char* haBrightnessAutoChar  = haBrightnessAutoString.c_str();
 const char* haAlarmsAutoChar      = haAlarmsAutoString.c_str();
 
+const char* mac_address         = settings.ha_name.c_str();
 
-HADevice        device(mac, sizeof(mac));
+HADevice        device(mac_address);
 HAMqtt          mqtt(client, device, 12);
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
@@ -211,10 +212,11 @@ HASensorNumber  haUsedMemory(haUsedMemoryChar);
 HANumber        haBrightness(haBrightnessChar);
 HASelect        haMapMode(haMapModeChar);
 HASelect        haDisplayMode(haDisplayModeChar);
+HASelect        haAlarmsAuto(haAlarmsAutoChar);
 HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
-HASwitch        haAlarmsAuto(haAlarmsAutoChar);
+
 
 char* mapModes [] = {
   "Вимкнено",
@@ -464,59 +466,60 @@ void initHA() {
       device.enableSharedAvailability();
 
       haUptime.setIcon("mdi:timer-outline");
-      haUptime.setName(haUptimeChar);
+      haUptime.setName("Uptime");
       haUptime.setUnitOfMeasurement("s");
       haUptime.setDeviceClass("duration");
 
       haWifiSignal.setIcon("mdi:wifi");
-      haWifiSignal.setName(haWifiSignalChar);
+      haWifiSignal.setName("WIFI Signal");
       haWifiSignal.setUnitOfMeasurement("dBm");
       haWifiSignal.setDeviceClass("signal_strength");
 
       haFreeMemory.setIcon("mdi:memory");
-      haFreeMemory.setName(haFreeMemoryChar);
+      haFreeMemory.setName("Free Memory");
       haFreeMemory.setUnitOfMeasurement("kB");
       haFreeMemory.setDeviceClass("data_size");
 
       haUsedMemory.setIcon("mdi:memory");
-      haUsedMemory.setName(haUsedMemoryChar);
+      haUsedMemory.setName("Used Memory");
       haUsedMemory.setUnitOfMeasurement("kB");
       haUsedMemory.setDeviceClass("data_size");
 
       haBrightness.onCommand(onHaBrightnessCommand);
       haBrightness.setIcon("mdi:percent-circle");
-      haBrightness.setName(haBrightnessChar);
+      haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
       haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор");
       haMapMode.onCommand(onHaMapModeCommand);
       haMapMode.setIcon("mdi:map");
-      haMapMode.setName(haMapModeChar);
+      haMapMode.setName("Map Mode");
       haMapMode.setCurrentState(settings.map_mode);
 
       haDisplayMode.setOptions("Вимкнено;Час;Погода;---;---;---;---;---;---;Перемикання");
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
-      haDisplayMode.setName(haDisplayModeChar);
+      haDisplayMode.setName("Display Mode");
       haDisplayMode.setCurrentState(settings.display_mode);
 
+      haAlarmsAuto.setOptions("Вимкнено;Домашній та суміжні;Лише домашній");
+      haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
+      haAlarmsAuto.setIcon("mdi:alert-outline");
+      haAlarmsAuto.setName("Auto Alarm");
+      haAlarmsAuto.setCurrentState(settings.alarms_auto_switch);
+
       haMapModeCurrent.setIcon("mdi:map");
-      haMapModeCurrent.setName(haMapModeCurrentChar);
+      haMapModeCurrent.setName("Current Map Mode");
       haMapModeCurrent.setValue(mapModes[mapMode]);
 
-      haMapApiConnect.setName(haMapApiConnectChar);
+      haMapApiConnect.setName("Connectivity");
       haMapApiConnect.setDeviceClass("connectivity");
       haMapApiConnect.setCurrentState(false);
 
       haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
       haBrightnessAuto.setIcon("mdi:percent-circle-outline");
-      haBrightnessAuto.setName(haBrightnessAutoChar);
+      haBrightnessAuto.setName("Auto Brightness");
       haBrightnessAuto.setCurrentState(settings.brightness_auto);
-
-      haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
-      haAlarmsAuto.setIcon("mdi:alert-outline");
-      haAlarmsAuto.setName(haAlarmsAutoChar);
-      haAlarmsAuto.setCurrentState(settings.alarms_auto_switch);
 
       device.enableLastWill();
       mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
@@ -553,16 +556,26 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender)
 
 }
 
-void onhaAlarmsAutoCommand(bool state, HASwitch* sender)
+void onhaAlarmsAutoCommand(int8_t index, HASelect* sender)
 {
-    settings.alarms_auto_switch = state;
+    switch (index) {
+    case 0:
+        settings.alarms_auto_switch = 0;
+        break;
+    case 1:
+        settings.alarms_auto_switch = 1;
+        break;
+    case 2:
+        settings.alarms_auto_switch = 2;
+        break;
+    default:
+        return;
+    }
     preferences.begin("storage", false);
     preferences.putInt("aas", settings.alarms_auto_switch);
     preferences.end();
-    Serial.println("alarms_auto_switch commited to preferences");
-    Serial.print("alarms_auto_switch: ");
-    Serial.println(settings.alarms_auto_switch);
-    sender->setState(state); // report state back to the Home Assistant
+    Serial.print("alarms_auto_switch commited to preferences: ");Serial.println(settings.alarms_auto_switch);
+    sender->setState(index);
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender)
@@ -758,7 +771,7 @@ void mapModeSwitch() {
   preferences.end();
   if (enableHA) {
     haMapMode.setState(settings.map_mode);
-    haAlarmsAuto.setState(false);
+    haAlarmsAuto.setState(settings.alarms_auto_switch);
   }
   //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
 }
@@ -1716,6 +1729,7 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("alarms_auto_switch", true)){
     if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch){
       settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
+      haAlarmsAuto.setState(settings.alarms_auto_switch);
       preferences.putInt("aas", settings.alarms_auto_switch);
       Serial.println("alarms_auto_switch commited to preferences");
     }

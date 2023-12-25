@@ -1,3 +1,0 @@
-bottle==0.12.23
-pymemcache==3.5.2
-requests==2.31.0
