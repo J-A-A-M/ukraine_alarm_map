@@ -268,6 +268,7 @@ void initSettings(){
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
   settings.bin_name               = preferences.getString("bin", settings.bin_name);
+  settings.identifier             = preferences.getString("id", settings.identifier);
   settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
@@ -1879,6 +1880,9 @@ void tcpConnect(){
     int cycle = 0;
     servicePin(settings.datapin, LOW);
     Serial.println("Connecting to map API...");
+    Serial.print("id: ");
+    Serial.println(settings.identifier);
+
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення map-API.."),0,1);
     const char* local_serverhost = settings.serverhost.c_str();
