@@ -1,14 +1,15 @@
 [![SWUbanner](https://github.com/vshymanskyy/StandWithUkraine/blob/main/badges/StandWithUkraine.svg)](http://stand-with-ukraine.pp.ua/)
 [![SWUbanner](https://github.com/vshymanskyy/StandWithUkraine/blob/main/badges/RussianWarship.svg)](http://stand-with-ukraine.pp.ua/)
 
+Репозиторій містить файли прошивки JAAM. JAAM це прошивка для ESP32, що дозволяє за допомогою розміщений на мапі України адресних світлодіодів відображати таку інформацію: повітряні тривоги, погода, візуальні зображення накшталт прапору України. Крім цього, є окремий диспей, який може відображати потончий час, погоду та сервісні повідомлення
 
-[![SWUbanner](https://github.com/v00g100skr/ukraine_alarm_map/blob/master/img/front-full.png)](https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%9E%D0%BF%D0%B8%D1%81-%D1%84%D1%83%D0%BD%D0%BA%D1%86%D1%96%D0%BE%D0%BD%D0%B0%D0%BB%D1%83)
+<img src="https://github.com/v00g100skr/ukraine_alarm_map/blob/master/img/map-alerts.jpg" width="400"/><img src="https://github.com/v00g100skr/ukraine_alarm_map/blob/master/img/map-weather.jpg" width="400"/><img src="https://github.com/v00g100skr/ukraine_alarm_map/blob/master/img/map-flag.jpg" width="400"/>
+
 
 
 Вітаю Вас в репозіторії проєкту JAAM - Just another alerts map :-)
-***
-**Дякую хлопцям з [smartlight.me](https://smartlight.me/ua/) - без вас цього проекту в залізі не було б. Слава Україні!**
-***
+
+<img src="https://github.com/v00g100skr/ukraine_alarm_map/blob/master/img/front-full.png" width="600"/>
 
 
 [WIKI по прошивці](https://github.com/v00g100skr/ukraine_alarm_map/wiki)
@@ -80,7 +81,6 @@ HA бачить мапу як окремий прилад розумного б�
 [![GitHub version](https://img.shields.io/github/release/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/releases/latest)
 [![GitHub commits](https://img.shields.io/github/commit-activity/t/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/commits/master)
 [![GitHub issues](https://img.shields.io/github/issues/v00g100skr/ukraine_alarm_map.svg)](https://github.com/v00g100skr/ukraine_alarm_map/issues)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/v00g100skr/ukraine_alarm_map/blob/master/LICENSE)
 
 
 [![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://vshymanskyy.github.io/StandWithUkraine)
