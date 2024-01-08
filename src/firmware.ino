@@ -37,6 +37,7 @@ struct Settings{
   int     tcpport                = 12345;
   int     updateport             = 8090;
   String  bin_name               = "3.2.bin";
+  String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
