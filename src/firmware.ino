@@ -19,7 +19,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2.1";
+  char*   softwareversion        = "3.2";
   String  ha_name                = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -36,7 +36,7 @@ struct Settings{
   String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
   int     updateport             = 8090;
-  String  bin_name               = "3.2.1.bin";
+  String  bin_name               = "3.2.bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
@@ -926,8 +926,7 @@ void displayCycle() {
   } else {
     divider = " ";
   }
-
-  if (homeAlertStart > 0) {
+  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
     display.setCursor(0, 0);
     display.clearDisplay();
     display.setTextSize(1);
@@ -939,12 +938,20 @@ void displayCycle() {
     unsigned long hours = minutes / 60;
     seconds %= 60;
     minutes %= 60;
+    String alertTime = "";
     if (hours > 0) {
-      String alertTime = "";
-      DisplayCenter(hours + divider + minutes + divider + seconds,7,2);
-    } else {
-      DisplayCenter(minutes + divider + seconds,7,3);
+      if (hours < 10) alertTime += "0";
+      alertTime += hours;
+      alertTime += divider;
     }
+    if (minutes < 10) alertTime += "0";
+    alertTime += minutes;
+    if (hours == 0) {
+      alertTime += divider;
+      if (seconds < 10) alertTime += "0";
+      alertTime += seconds;
+    }
+    DisplayCenter(alertTime,7,3);
     return;
   }
 
@@ -2272,7 +2279,7 @@ HsbColor processAlarms(int led, int position) {
       hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_brightness_alert_over);
       break;
   case 3:
-      if (position == local_district && settings.home_alert_time == 1 && homeAlertStart == 0){
+      if (position == local_district && homeAlertStart < 1){
         homeAlertStart = timeClient.getEpochTime();
         preferences.begin("storage", false);
         preferences.putInt("has", homeAlertStart);
