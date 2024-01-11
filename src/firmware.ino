@@ -19,7 +19,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2";
+  char*   softwareversion        = "3.2.1";
   String  ha_name                = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -36,7 +36,7 @@ struct Settings{
   String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
   int     updateport             = 8090;
-  String  bin_name               = "3.2.bin";
+  String  bin_name               = "3.2.1.bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
@@ -219,35 +219,37 @@ long    homeAlertStart = 0;
 std::vector<String> bin_list;
 
 
-String haUptimeString         = settings.ha_name + "_uptime";
-String haWifiSignalString     = settings.ha_name + "_wifi_signal";
-String haFreeMemoryString     = settings.ha_name + "_free_memory";
-String haUsedMemoryString     = settings.ha_name + "_used_memory";
-String haBrightnessString     = settings.ha_name + "_brightness";
-String haMapModeString        = settings.ha_name + "_map_mode";
-String haDisplayModeString    = settings.ha_name + "_display_mode";
-String haMapModeCurrentString = settings.ha_name + "_map_mode_current";
-String haMapApiConnectString  = settings.ha_name + "_map_api_connect";
-String haBrightnessAutoString = settings.ha_name + "_brightness_auto";
-String haAlarmsAutoString     = settings.ha_name + "_alarms_auto";
+String haUptimeString             = settings.ha_name + "_uptime";
+String haWifiSignalString         = settings.ha_name + "_wifi_signal";
+String haFreeMemoryString         = settings.ha_name + "_free_memory";
+String haUsedMemoryString         = settings.ha_name + "_used_memory";
+String haBrightnessString         = settings.ha_name + "_brightness";
+String haMapModeString            = settings.ha_name + "_map_mode";
+String haDisplayModeString        = settings.ha_name + "_display_mode";
+String haMapModeCurrentString     = settings.ha_name + "_map_mode_current";
+String haMapApiConnectString      = settings.ha_name + "_map_api_connect";
+String haBrightnessAutoString     = settings.ha_name + "_brightness_auto";
+String haAlarmsAutoString         = settings.ha_name + "_alarms_auto";
+String haShowHomeAlarmTimeString  = settings.ha_name + "_show_home_alarm_time";
 
 
-const char* haUptimeChar          = haUptimeString.c_str();
-const char* haWifiSignalChar      = haWifiSignalString.c_str();
-const char* haFreeMemoryChar      = haFreeMemoryString.c_str();
-const char* haUsedMemoryChar      = haUsedMemoryString.c_str();
-const char* haBrightnessChar      = haBrightnessString.c_str();
-const char* haMapModeChar         = haMapModeString.c_str();
-const char* haDisplayModeChar     = haDisplayModeString.c_str();
-const char* haMapModeCurrentChar  = haMapModeCurrentString.c_str();
-const char* haMapApiConnectChar   = haMapApiConnectString.c_str();
-const char* haBrightnessAutoChar  = haBrightnessAutoString.c_str();
-const char* haAlarmsAutoChar      = haAlarmsAutoString.c_str();
+const char* haUptimeChar              = haUptimeString.c_str();
+const char* haWifiSignalChar          = haWifiSignalString.c_str();
+const char* haFreeMemoryChar          = haFreeMemoryString.c_str();
+const char* haUsedMemoryChar          = haUsedMemoryString.c_str();
+const char* haBrightnessChar          = haBrightnessString.c_str();
+const char* haMapModeChar             = haMapModeString.c_str();
+const char* haDisplayModeChar         = haDisplayModeString.c_str();
+const char* haMapModeCurrentChar      = haMapModeCurrentString.c_str();
+const char* haMapApiConnectChar       = haMapApiConnectString.c_str();
+const char* haBrightnessAutoChar      = haBrightnessAutoString.c_str();
+const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
+const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
 
 const char* mac_address         = settings.ha_name.c_str();
 
 HADevice        device(mac_address);
-HAMqtt          mqtt(client, device, 12);
+HAMqtt          mqtt(client, device, 13);
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
 HASensorNumber  haFreeMemory(haFreeMemoryChar);
@@ -259,6 +261,7 @@ HASelect        haAlarmsAuto(haAlarmsAutoChar);
 HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
+HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeChar);
 
 char* mapModes [] = {
   "Вимкнено",
@@ -566,12 +569,33 @@ void initHA() {
       haBrightnessAuto.setName("Auto Brightness");
       haBrightnessAuto.setCurrentState(settings.brightness_auto);
 
+      haShowHomeAlarmTime.onCommand(onHaShowHomeAlarmTimeCommand);
+      haShowHomeAlarmTime.setIcon("mdi:timer-alert");
+      haShowHomeAlarmTime.setName("Show Home Alert Time");
+      haShowHomeAlarmTime.setCurrentState(settings.home_alert_time);
+
       device.enableLastWill();
       mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
       Serial.print("Home Assistant MQTT connected: ");
       Serial.println(mqtt.isConnected());
     }
   }
+}
+
+void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender)
+{
+    settings.home_alert_time = state;
+    preferences.begin("storage", false);
+    preferences.putInt("hat", settings.home_alert_time);
+    if (settings.home_alert_time == 0) {
+      homeAlertStart = 0;
+      preferences.putInt("has", homeAlertStart);
+    }
+    preferences.end();
+    Serial.println("home_alert_time commited to preferences");
+    Serial.print("home_alert_time: ");
+    Serial.println(settings.home_alert_time);
+    sender->setState(state); // report state back to the Home Assistant
 }
 
 void onhaBrightnessAutoCommand(bool state, HASwitch* sender)
@@ -1095,7 +1119,7 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.brightness_auto == 1) html += " checked";
   html +=">";
   html +="                        <label class='form-check-label' for='checkbox'>";
-  html +="                          Автояскравість (день-нічь по годинам)";
+  html +="                          Автояскравість (день-ніч по годинам)";
   html +="                        </label>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -1703,6 +1727,7 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("home_alert_time", true)){
     if (settings.home_alert_time == 0){
       settings.home_alert_time = 1;
+      haShowHomeAlarmTime.setState(true);
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time enabled to preferences");
     }
@@ -1711,6 +1736,7 @@ void handleSave(AsyncWebServerRequest* request){
       homeAlertStart = 0;
       preferences.putInt("has", homeAlertStart);
       settings.home_alert_time = 0;
+      haShowHomeAlarmTime.setState(false);
       preferences.putInt("bra", settings.home_alert_time);
       Serial.println("home_alert_time disabled to preferences");
     }
