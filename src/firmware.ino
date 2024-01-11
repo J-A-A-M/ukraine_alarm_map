@@ -49,6 +49,7 @@ struct Settings{
   int     brightness_day         = 50;
   int     brightness_night       = 5;
   int     brightness_auto        = 0;
+  int     home_alert_time        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
   int     color_home_district    = 120;
@@ -63,7 +64,19 @@ struct Settings{
   int     alarms_auto_switch     = 1;
   int     home_district          = 7;
   int     kyiv_district_mode     = 1;
+
+  // ------- Map Modes:
+  // -------  0 - Off
+  // -------  1 - Alarms
+  // -------  2 - Weather
+  // -------  3 - UA Flag
   int     map_mode               = 1;
+
+  // ------- Display Modes:
+  // -------  0 - Off
+  // -------  1 - Clock
+  // -------  2 - Home Region Temperature
+  // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
   int     button_mode            = 0;
@@ -135,6 +148,34 @@ int d25[] = {25,6,7,8,19,20,22};
 
 
 int counters[] = {3,5,7,5,4,6,6,6,5,4,5,3,4,4,4,2,5,5,8,8,7,7,9,6,5,7};
+String regions[] = {
+  "Закарпатська обл.",
+  "Івано-Франківська обл.",
+  "Тернопільська обл.",
+  "Львівська обл.",
+  "Волинська обл.",
+  "Рівненська обл.",
+  "Житомирська обл.",
+  "Київська обл.",
+  "Чернігівська обл.",
+  "Сумська обл.",
+  "Харківська обл.",
+  "Луганська обл.",
+  "Донецька обл.",
+  "Запорізька обл.",
+  "Херсонська обл.",
+  "АР Крим",
+  "Одеська обл.",
+  "Миколаївська обл.",
+  "Дніпропетровська обл.",
+  "Полтавська обл.",
+  "Черкаська обл.",
+  "Кіровоградська обл.",
+  "Вінницька обл.",
+  "Хмельницька обл.",
+  "Чернівецька обл.",
+  "Київ"
+};
 
 int* neighboring_districts[] = {
   d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,
@@ -173,6 +214,7 @@ time_t  displayOldTime = 0;
 time_t  tcpLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
+long    homeAlertStart = 0;
 
 std::vector<String> bin_list;
 
@@ -217,7 +259,6 @@ HASelect        haAlarmsAuto(haAlarmsAutoChar);
 HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
-
 
 char* mapModes [] = {
   "Вимкнено",
@@ -277,6 +318,7 @@ void initSettings(){
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
   settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
   settings.brightness_auto        = preferences.getInt("bra", settings.brightness_auto);
+  settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
   settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
   settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
@@ -306,6 +348,7 @@ void initSettings(){
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
+  homeAlertStart                  = preferences.getInt("has", 0);
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
@@ -851,8 +894,35 @@ String utf8cyr(String source) {
 }
 
 void displayCycle() {
-  int hour = timeClient.getHours();
-  int minute = timeClient.getMinutes();
+
+  int even = timeClient.getSeconds() % 2;
+  String divider;
+  if (even == 0) {
+    divider = ":";
+  } else {
+    divider = " ";
+  }
+
+  if (homeAlertStart > 0) {
+    display.setCursor(0, 0);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.println(utf8cyr("Тривога триває:"));
+
+    unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart;
+    unsigned long seconds = timerSeconds;
+    unsigned long minutes = seconds / 60;
+    unsigned long hours = minutes / 60;
+    seconds %= 60;
+    minutes %= 60;
+    if (hours > 0) {
+      String alertTime = "";
+      DisplayCenter(hours + divider + minutes + divider + seconds,7,2);
+    } else {
+      DisplayCenter(minutes + divider + seconds,7,3);
+    }
+    return;
+  }
 
   if (displayMode == 0 || settings.display_mode == 0) {
     //Serial.println("Display mode off");
@@ -861,6 +931,8 @@ void displayCycle() {
   }
   if (displayMode == 1 || settings.display_mode == 1) {
     //Serial.println("Display mode clock");
+    int hour = timeClient.getHours();
+    int minute = timeClient.getMinutes();
     int day = timeClient.getDay();
     String daysOfWeek[] = {"Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота"};
     display.setCursor(0, 0);
@@ -870,7 +942,7 @@ void displayCycle() {
     String time = "";
     if (hour < 10) time += "0";
     time += hour;
-    time += ":";
+    time += divider;
     if (minute < 10) time += "0";
     time += minute;
 
@@ -880,16 +952,18 @@ void displayCycle() {
     //Serial.println("Display mode weather");
     display.setCursor(0, 0);
     display.clearDisplay();
-    String time = "";
+    display.setTextSize(1);
+    display.println(utf8cyr(regions[settings.home_district]));
+    String temp = "";
 
     char roundedTemp[4];
 
     int position = calculateOffset(settings.home_district);
 
     dtostrf(weather_leds[position], 3, 1, roundedTemp);
-    time += roundedTemp;
-    time += " C";
-    DisplayCenter(time,7,3);
+    temp += roundedTemp;
+    temp += " C";
+    DisplayCenter(temp,7,3);
   }
   if (displayMode == 9) {
     time_t displayCurrentTime = timeClient.getEpochTime();
@@ -1254,10 +1328,18 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">Чернігівська область</option>";
   html +="                        </select>";
   html +="                    </div>";
+  html +="                    <div class='form-group form-check'>";
+  html +="                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox2'";
+  if (settings.home_alert_time == 1) html += " checked";
+  html +=">";
+  html +="                        <label class='form-check-label' for='checkbox'>";
+  html +="                          Тривалість тривоги у дом. регіоні";
+  html +="                        </label>";
+  html +="                    </div>";
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>";
   html +="                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>";
-   html +="<option value='0'";
+  html +="<option value='0'";
   if (settings.alarms_notify_mode == 0) html += " selected";
   html +=">Вимкнено</option>";
   html +="<option value='1'";
@@ -1265,7 +1347,7 @@ void handleRoot(AsyncWebServerRequest* request){
   html +=">Колір</option>";
    html +="<option value='2'";
   if (settings.alarms_notify_mode == 2) html += " selected";
-  html +=">Колір+зміна яскравості</option>";
+  html +=">Колір + зміна яскравості</option>";
   html +="                        </select>";
   html +="                    </div>";
   if(settings.legacy){
@@ -1357,11 +1439,11 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                    </div>";
   if(settings.legacy){
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField5'>Керуючій пін лед-стрічкі</label>";
+  html +="                        <label for='inputField5'>Керуючий пін лед-стрічки</label>";
   html +="                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
-  html +="                        <label for='inputField5'>Керуючій пін кнопки</label>";
+  html +="                        <label for='inputField5'>Керуючий пін кнопки</label>";
   html +="                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
   html +="                    </div>";
   }
@@ -1618,6 +1700,21 @@ void handleSave(AsyncWebServerRequest* request){
       Serial.println("brightness_auto disabled to preferences");
     }
   }
+  if (request->hasParam("home_alert_time", true)){
+    if (settings.home_alert_time == 0){
+      settings.home_alert_time = 1;
+      preferences.putInt("hat", settings.home_alert_time);
+      Serial.println("home_alert_time enabled to preferences");
+    }
+  }else{
+    if (settings.home_alert_time == 1){
+      homeAlertStart = 0;
+      preferences.putInt("has", homeAlertStart);
+      settings.home_alert_time = 0;
+      preferences.putInt("bra", settings.home_alert_time);
+      Serial.println("home_alert_time disabled to preferences");
+    }
+  }
   if (request->hasParam("do_update", true)){
     Serial.println("do_update triggered");
     initUpdate = true;
@@ -1725,6 +1822,10 @@ void handleSave(AsyncWebServerRequest* request){
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district){
       settings.home_district = request->getParam("home_district", true)->value().toInt();
       preferences.putInt("hd", settings.home_district);
+      homeAlertStart = 0;
+      preferences.putInt("has", homeAlertStart);
+      settings.home_alert_time = 0;
+      preferences.putInt("bra", settings.home_alert_time);
       Serial.println("home_district commited to preferences");
     }
   }
@@ -2116,11 +2217,11 @@ HsbColor processAlarms(int led, int position) {
   float local_brightness_new_alert = settings.brightness_new_alert/100.0f;
   float local_brightness_alert_over = settings.brightness_alert_over/100.0f;
 
+  int local_district = calculateOffsetDistrict(settings.home_district);
+
   switch (led) {
   case 0:
       int color_switch;
-      int local_district;
-      local_district = calculateOffsetDistrict(settings.home_district);
       if (position == local_district){
         color_switch = settings.color_home_district;
       }else{
@@ -2132,6 +2233,12 @@ HsbColor processAlarms(int led, int position) {
       hue = HsbColor(settings.color_alert/360.0f,1.0,settings.brightness*local_brightness_alert/200.0f);
       break;
   case 2:
+      if (position == local_district){
+        homeAlertStart = 0;
+        preferences.begin("storage", false);
+        preferences.putInt("has", homeAlertStart);
+        preferences.end();
+      }
       local_color = settings.color_alert_over;
       if (settings.alarms_notify_mode == 0){
         local_color = settings.color_clear;
@@ -2139,6 +2246,12 @@ HsbColor processAlarms(int led, int position) {
       hue = HsbColor(local_color/360.0f,1.0,local_brightness*local_brightness_alert_over);
       break;
   case 3:
+      if (position == local_district && settings.home_alert_time == 1 && homeAlertStart == 0){
+        homeAlertStart = timeClient.getEpochTime();
+        preferences.begin("storage", false);
+        preferences.putInt("has", homeAlertStart);
+        preferences.end();
+      }
       local_color = settings.color_new_alert;
       if (settings.alarms_notify_mode == 0){
         local_color = settings.color_alert;
