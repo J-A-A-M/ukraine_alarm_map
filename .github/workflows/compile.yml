@@ -6,6 +6,10 @@
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v2
+          - name: Unzip libraries
+            run: |
+              unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
+              unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
           - name: Compile firmware
             uses: arduino/compile-sketches@v1
             with:
@@ -13,13 +17,12 @@
                 - ${{ github.workspace }}/src/firmware
               fqbn: esp32:esp32:esp32
               libraries: |
-                - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip
-                  destination-name: Adafruit_GFX_Library
+                - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
+                - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
                 - name: Adafruit SSD1306
                   version: 2.5.7
                 - name: home-assistant-integration
                   version: 2.0.0
-                - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master.zip
                 - name: ESP Async WebServer
                   version: 1.2.3
                 - name: NeoPixelBus by Makuna
@@ -30,5 +33,5 @@
                   version: 2.0.16-rc.2
                 - name: AsyncTCP
                   version: 1.1.4
-                -name: ArduinoJson
+                - name: ArduinoJson
                   version: 7.0.1
