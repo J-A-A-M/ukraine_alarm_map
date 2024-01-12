@@ -10,6 +10,7 @@
             run: |
               unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
               unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
+              unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
           - name: Compile firmware
             uses: arduino/compile-sketches@v1
             with:
@@ -19,12 +20,12 @@
               libraries: |
                 - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
                 - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
+                - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
+                  destination-name: ESP_Async_WebServer
                 - name: Adafruit SSD1306
                   version: 2.5.7
                 - name: home-assistant-integration
                   version: 2.0.0
-                - name: ESP Async WebServer
-                  version: 1.2.3
                 - name: NeoPixelBus by Makuna
                   version: 2.7.7
                 - name: NTPClient
