@@ -2,3 +2,4 @@
 /deploy/weather_map.png
 /deploy/shared_data/
 .DS_Store
+.idea/

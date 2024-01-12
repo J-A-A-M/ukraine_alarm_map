@@ -1,0 +1,16 @@
+  on:
+    - pull_request
+    - push
+  jobs:
+    compile_firmware:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v2
+          - name: Compile firmware
+            uses: arduino/compile-sketches@v1
+            with:
+              sketch-paths: |
+                - ${{ github.workspace }}/src/firmware.ino
+              fqbn: esp32:esp32:esp32
+              libraries: |
+                ${{ github.workspace }}/lib
