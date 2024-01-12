@@ -54,6 +54,35 @@ exception_handlers = {
     500: server_error
 }
 
+regions = {
+    "Закарпатська область": {"id": 1},
+    "Івано-Франківська область": {"id": 2},
+    "Тернопільська область": {"id": 3},
+    "Львівська область": {"id": 4},
+    "Волинська область": {"id": 5},
+    "Рівненська область": {"id": 6},
+    "Житомирська область": {"id": 7},
+    "Київська область": {"id": 8},
+    "Чернігівська область": {"id": 9},
+    "Сумська область": {"id": 10},
+    "Харківська область": {"id": 11},
+    "Луганська область": {"id": 12},
+    "Донецька область": {"id": 13},
+    "Запорізька область": {"id": 14},
+    "Херсонська область": {"id": 15},
+    "Автономна Республіка Крим": {"id": 16},
+    "Одеська область": {"id": 17},
+    "Миколаївська область": {"id": 18},
+    "Дніпропетровська область": {"id": 19},
+    "Полтавська область": {"id": 20},
+    "Черкаська область": {"id": 21},
+    "Кіровоградська область": {"id": 22},
+    "Вінницька область": {"id": 23},
+    "Хмельницька область": {"id": 24},
+    "Чернівецька область": {"id": 25},
+    "м. Київ": {"id": 26},
+}
+
 
 class LogUserIPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -309,6 +338,32 @@ async def api_status(request):
         }
     })
 
+async def region_data_v1(request):
+    local_time = get_local_time_formatted()
+    cached = await mc.get(b'alerts')
+    alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+    cached = await mc.get(b'weather')
+    weather_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+
+    region_id = False
+
+    for region, data in regions.items():
+        if data['id'] == int(request.path_params['region']):
+            break
+
+    if region_id:
+        pass
+
+    iso_datetime_str = alerts_cached_data['states'][region]['changed']
+    datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+    datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+    alerts_cached_data['states'][region]['changed'] = datetime_obj_utc.timestamp()
+
+    return JSONResponse({
+        'version': 1,
+        'data': {**alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
+    })
+
 
 async def map(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
@@ -346,6 +401,7 @@ app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception
     Route('/explosives_statuses_v2.json', explosives_v2),
     Route('/tcp_statuses_v1.json', tcp_v1),
     Route('/api_status.json', api_status),
+    Route('/map/region/v1/{region}', region_data_v1),
     Route('/{filename}.png', map),
     Route('/t{token}', stats),
 ])
