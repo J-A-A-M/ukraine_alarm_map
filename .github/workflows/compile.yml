@@ -14,10 +14,17 @@
               fqbn: esp32:esp32:esp32
               libraries: |
                 - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip
+                  destination-name: Adafruit_GFX_Library
                 - source-path: ${{ github.workspace }}/libs/Adafruit_SSD1306-master.zip
+                  destination-name: Adafruit_SSD1306
                 - source-path: ${{ github.workspace }}/libs/arduino-home-assistant-main.zip
                 - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master.zip
+                  destination-name: ArduinoAsync
                 - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip
+                  destination-name: ESPAsyncWebServer
                 - source-path: ${{ github.workspace }}/libs/NeoPixelBus-master.zip
+                  destination-name: NeoPixelBus
                 - source-path: ${{ github.workspace }}/libs/NTPClient-master.zip
+                  destination-name: NTPClient
                 - source-path: ${{ github.workspace }}/libs/WiFiManager-master.zip
+                  destination-name: WiFiManager
