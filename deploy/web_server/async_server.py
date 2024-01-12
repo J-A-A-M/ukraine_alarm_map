@@ -338,8 +338,8 @@ async def api_status(request):
         }
     })
 
+
 async def region_data_v1(request):
-    local_time = get_local_time_formatted()
     cached = await mc.get(b'alerts')
     alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
     cached = await mc.get(b'weather')
