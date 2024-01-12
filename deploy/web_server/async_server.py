@@ -349,7 +349,7 @@ async def region_data_v1(request):
 
     for region, data in regions.items():
         if data['id'] == int(request.path_params['region']):
-            break
+            region_id = int(request.path_params['region'])
 
     if region_id:
         iso_datetime_str = alerts_cached_data['states'][region]['changed']
