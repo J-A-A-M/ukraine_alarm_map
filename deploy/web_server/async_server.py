@@ -361,7 +361,7 @@ async def region_data_v1(request):
 
     return JSONResponse({
         'version': 1,
-        'data': {**alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
+        'data': {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
     })
 
 
