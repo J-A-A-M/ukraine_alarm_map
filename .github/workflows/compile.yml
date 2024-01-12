@@ -10,7 +10,14 @@
             uses: arduino/compile-sketches@v1
             with:
               sketch-paths: |
-                - ${{ github.workspace }}/src/firmware.ino
+                - ${{ github.workspace }}/src/firmware
               fqbn: esp32:esp32:esp32
               libraries: |
-                ${{ github.workspace }}/lib
+                - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip
+                - source-path: ${{ github.workspace }}/libs/Adafruit_SSD1306-master.zip
+                - source-path: ${{ github.workspace }}/libs/arduino-home-assistant-main.zip
+                - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master.zip
+                - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip
+                - source-path: ${{ github.workspace }}/libs/NeoPixelBus-master.zip
+                - source-path: ${{ github.workspace }}/libs/NTPClient-master.zip
+                - source-path: ${{ github.workspace }}/libs/WiFiManager-master.zip
