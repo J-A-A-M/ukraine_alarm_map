@@ -352,17 +352,20 @@ async def region_data_v1(request):
             break
 
     if region_id:
-        pass
+        iso_datetime_str = alerts_cached_data['states'][region]['changed']
+        datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+        datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+        alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
 
-    iso_datetime_str = alerts_cached_data['states'][region]['changed']
-    datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-    datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-    alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
-
-    return JSONResponse({
-        'version': 1,
-        'data': {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
-    })
+        return JSONResponse({
+            'version': 1,
+            'data': {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
+        })
+    else:
+        return JSONResponse({
+            'version': 1,
+            'data': {}
+        })
 
 
 async def map(request):
