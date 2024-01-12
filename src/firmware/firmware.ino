@@ -338,21 +338,21 @@ void timezoneUpdate(){
   int month = 1 + timeInfo->tm_mon;
   int day = timeInfo->tm_mday;
   int hour = timeInfo->tm_hour;
-  int minite = timeInfo->tm_min;
-  int second = timeInfo->tm_sec;
+  int minutes = timeInfo->tm_min;
+  int seconds = timeInfo->tm_sec;
 
   Serial.print("Current date and time: ");
-  Serial.print(1900 + timeInfo->tm_year);
+  Serial.print(year);
   Serial.print("-");
-  Serial.print(1 + timeInfo->tm_mon);
+  Serial.print(month);
   Serial.print("-");
-  Serial.print(timeInfo->tm_mday);
+  Serial.print(day);
   Serial.print(" ");
-  Serial.print(timeInfo->tm_hour);
+  Serial.print(hour);
   Serial.print(":");
-  Serial.print(timeInfo->tm_min);
+  Serial.print(minutes);
   Serial.print(":");
-  Serial.println(timeInfo->tm_sec);
+  Serial.println(seconds);
   Serial.print("isDay: ");
   Serial.println(isDay);
 
@@ -380,6 +380,7 @@ int getLastSunday(int year,int month) {
       return day;
     }
   }
+  return 0;
 }
 
 void initWifi() {
@@ -638,7 +639,7 @@ void initDisplay() {
   display.display();
   display.clearDisplay();
   display.setTextColor(WHITE);
-  int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
+  // int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
@@ -1962,7 +1963,7 @@ void TestParcer(String sensorBuffer, int data_lenght){
 
     sensorBuffer.toCharArray(buffer, sizeof(buffer));
 
-    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
                   &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
                   &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
                   &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
