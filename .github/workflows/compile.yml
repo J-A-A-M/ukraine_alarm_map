@@ -15,16 +15,20 @@
               libraries: |
                 - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip
                   destination-name: Adafruit_GFX_Library
-                - source-path: ${{ github.workspace }}/libs/Adafruit_SSD1306-master.zip
-                  destination-name: Adafruit_SSD1306
-                - source-path: ${{ github.workspace }}/libs/arduino-home-assistant-main.zip
+                - name: Adafruit SSD1306
+                  version: 2.5.7
+                - name: home-assistant-integration
+                  version: 2.0.0
                 - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master.zip
-                  destination-name: ArduinoAsync
-                - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip
-                  destination-name: ESPAsyncWebServer
-                - source-path: ${{ github.workspace }}/libs/NeoPixelBus-master.zip
-                  destination-name: NeoPixelBus
-                - source-path: ${{ github.workspace }}/libs/NTPClient-master.zip
-                  destination-name: NTPClient
+                - name: ESP Async WebServer
+                  version: 1.2.3
+                - name: NeoPixelBus by Makuna
+                  version: 2.7.7
+                - name: NTPClient
+                  version: 3.2.1
                 - name: WiFiManager
                   version: 2.0.16-rc.2
+                - name: AsyncTCP
+                  version: 1.1.4
+                -name: ArduinoJson
+                  version: 7.0.1
