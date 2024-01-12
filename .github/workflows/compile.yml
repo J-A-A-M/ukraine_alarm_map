@@ -26,5 +26,5 @@
                   destination-name: NeoPixelBus
                 - source-path: ${{ github.workspace }}/libs/NTPClient-master.zip
                   destination-name: NTPClient
-                - source-path: ${{ github.workspace }}/libs/WiFiManager-master.zip
-                  destination-name: WiFiManager
+                - name: WiFiManager
+                  version: 2.0.16-rc.2
