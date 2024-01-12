@@ -1744,7 +1744,7 @@ void handleSave(AsyncWebServerRequest* request){
       preferences.putInt("has", homeAlertStart);
       settings.home_alert_time = 0;
       haShowHomeAlarmTime.setState(false);
-      preferences.putInt("bra", settings.home_alert_time);
+      preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time disabled to preferences");
     }
   }
@@ -1858,7 +1858,7 @@ void handleSave(AsyncWebServerRequest* request){
       homeAlertStart = 0;
       preferences.putInt("has", homeAlertStart);
       settings.home_alert_time = 0;
-      preferences.putInt("bra", settings.home_alert_time);
+      preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_district commited to preferences");
     }
   }
