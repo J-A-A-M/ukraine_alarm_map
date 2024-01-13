@@ -19,7 +19,7 @@
 struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
-  char*   softwareversion        = "3.2";
+  char*   softwareversion        = "3.3";
   String  ha_name                = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -64,6 +64,7 @@ struct Settings{
   int     alarms_auto_switch     = 1;
   int     home_district          = 7;
   int     kyiv_district_mode     = 1;
+  int     service_diodes_mode    = 0;
 
   // ------- Map Modes:
   // -------  0 - Off
@@ -280,6 +281,7 @@ void initLegacy(){
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = legacy_flag_leds[i];
     }
+    settings.service_diodes_mode = 0;
   }else{
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
@@ -291,7 +293,7 @@ void initLegacy(){
     pinMode(settings.hapin, OUTPUT);
     pinMode(settings.reservedpin, OUTPUT);
 
-    servicePin(settings.powerpin, HIGH);
+    servicePin(settings.powerpin, HIGH, false);
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
@@ -301,8 +303,11 @@ void initLegacy(){
   pinMode(settings.buttonpin, INPUT);
 }
 
-void servicePin(int pin, uint8_t status){
-  if(!settings.legacy){
+void servicePin(int pin, uint8_t status, bool force){
+  if(!settings.legacy && settings.service_diodes_mode){
+    digitalWrite(pin, status);
+  }
+  if (force){
     digitalWrite(pin, status);
   }
 }
@@ -354,6 +359,7 @@ void initSettings(){
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
+  settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
@@ -445,10 +451,10 @@ void initWifi() {
     wm.setConnectRetries(10);
     display.clearDisplay();
     DisplayCenter(utf8cyr("Пiдключення WIFI.."),0,1);
-    servicePin(settings.wifipin, LOW);
+    servicePin(settings.wifipin, LOW, false);
     if(wm.autoConnect(settings.apssid, settings.appassword)){
         Serial.println("connected...yeey :)");
-        servicePin(settings.wifipin, HIGH);
+        servicePin(settings.wifipin, HIGH, false);
         display.clearDisplay();
         DisplayCenter(utf8cyr("WIFI пiдключeнo!"),0,1);
         wm.setHttpPort(8080);
@@ -729,7 +735,9 @@ void initDisplay() {
 //--Update
 
 std::vector<String> fetchAndParseJSON() {
+  Serial.println("Start fetching bin list");
   String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
+  Serial.println(jsonURLString);
   const char* jsonURL = jsonURLString.c_str();
   http.begin(jsonURL);
   int httpCode = http.GET();
@@ -744,11 +752,15 @@ std::vector<String> fetchAndParseJSON() {
     for (String filename : arr) {
       tempFilenames.push_back(filename);
     }
+    Serial.println("Bin list fetched");
   } else {
     Serial.println("Error on HTTP request");
   }
 
   http.end();
+  for (String& filename : tempFilenames) {
+    Serial.println(filename);
+  }
   return tempFilenames;
 }
 
@@ -773,7 +785,7 @@ void parseHomeDistrictJson() {
   if (httpCode == 200) {
     String payload = http.getString();
     Serial.println("Http Success, payload: " + payload);
-    
+
     DynamicJsonDocument doc(512);
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
@@ -837,6 +849,40 @@ void doUpdate() {
   }
 }
 //--Update end
+
+//--Service
+void checkServicePins() {
+  if(!settings.legacy){
+    if(settings.service_diodes_mode){
+      Serial.println("Dioded enabled");
+      servicePin(settings.powerpin, HIGH, true);
+      if (WiFi.status() != WL_CONNECTED){
+        servicePin(settings.wifipin, LOW, true);
+      }else{
+        servicePin(settings.wifipin, HIGH, true);
+      }
+      if(!mqtt.isConnected()){
+        servicePin(settings.hapin, LOW, true);
+      }else{
+        servicePin(settings.hapin, HIGH, true);
+      }
+      if (!client_tcp.connected() or tcpReconnect) {
+        servicePin(settings.datapin, LOW, true);
+      }else{
+        servicePin(settings.datapin, HIGH, true);
+      }
+    }else{
+      Serial.println("Dioded disables");
+      servicePin(settings.powerpin, LOW, true);
+      servicePin(settings.wifipin, LOW, true);
+      servicePin(settings.hapin, LOW, true);
+      servicePin(settings.datapin, LOW , true);
+    }
+  }
+}
+
+
+//--Service end
 
 //--Button start
 void buttonUpdate() {
@@ -982,7 +1028,7 @@ void displayCycle() {
     unsigned long minutes = seconds / 60;
     unsigned long hours = minutes / 60;
     if (hours > 99) {
-      DisplayCenter("100+ год.",7,2);
+      DisplayCenter("100+ г.",7,2);
       return;
     }
     seconds %= 60;
@@ -1413,7 +1459,7 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.home_alert_time == 1) html += " checked";
   html +=">";
   html +="                        <label class='form-check-label' for='checkbox'>";
-  html +="                          Тривалість тривоги у дом. регіоні";
+  html +="                          Показувати тривалість тривоги у дом. регіоні";
   html +="                        </label>";
   html +="                    </div>";
   html +="                    <div class='form-group'>";
@@ -1456,7 +1502,17 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.alarms_auto_switch == 2) html += " selected";
   html +=">Домашній регіон</option>";
   html +="                        </select>";
-  html +="                      </div>";
+  html +="                    </div>";
+  if(!settings.legacy){
+  html +="                    <div class='form-group form-check'>";
+  html +="                        <input name='service_diodes_mode' type='checkbox' class='form-check-input' id='checkbox4'";
+  if (settings.service_diodes_mode == 1) html += " checked";
+  html +=">";
+  html +="                        <label class='form-check-label' for='checkbox4'>";
+  html +="                          Ввімкнути сервісні діоді на задній частині платі";
+  html +="                        </label>";
+  html +="                    </div>";
+  }
   html +="                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html +="                 </div>";
   html +="              </div>";
@@ -1796,6 +1852,23 @@ void handleSave(AsyncWebServerRequest* request){
       Serial.println("home_alert_time disabled to preferences");
     }
   }
+  if (request->hasParam("service_diodes_mode", true)){
+    if (settings.service_diodes_mode == 0){
+      settings.service_diodes_mode = 1;
+      //haShowHomeAlarmTime.setState(true);
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode enabled to preferences");
+    }
+  }else{
+    if (settings.service_diodes_mode == 1){
+      settings.service_diodes_mode = 0;
+      //haShowHomeAlarmTime.setState(false);
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode disabled to preferences");
+    }
+  }
   if (request->hasParam("do_update", true)){
     Serial.println("do_update triggered");
     initUpdate = true;
@@ -2019,9 +2092,9 @@ void connectStatuses(){
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
     if(mqtt.isConnected()){
-      servicePin(settings.hapin, HIGH);
+      servicePin(settings.hapin, HIGH, false);
     }else{
-      servicePin(settings.hapin, LOW);
+      servicePin(settings.hapin, LOW, false);
     }
     haMapApiConnect.setState(client_tcp.connected(), true);
   }
@@ -2059,7 +2132,7 @@ void tcpConnect(){
   }
   if (!client_tcp.connected() or tcpReconnect) {
     int cycle = 0;
-    servicePin(settings.datapin, LOW);
+    servicePin(settings.datapin, LOW, false);
     Serial.println("Connecting to map API...");
     Serial.print("id: ");
     Serial.println(settings.identifier);
@@ -2083,7 +2156,7 @@ void tcpConnect(){
     client_tcp.print(settings.softwareversion);
     display.clearDisplay();
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
-    servicePin(settings.datapin, HIGH);
+    servicePin(settings.datapin, HIGH, false);
     Serial.println("Connected");
     haMapApiConnect.setState(true);
     tcpLastPingTime = millis();
