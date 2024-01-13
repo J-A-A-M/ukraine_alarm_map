@@ -774,7 +774,7 @@ void parseHomeDistrictJson() {
     String payload = http.getString();
     Serial.println("Http Success, payload: " + payload);
     
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(512);
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
       Serial.println("Deserialization error: ");
