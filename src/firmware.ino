@@ -148,6 +148,7 @@ int d25[] = {25,6,7,8,19,20,22};
 
 
 int counters[] = {3,5,7,5,4,6,6,6,5,4,5,3,4,4,4,2,5,5,8,8,7,7,9,6,5,7};
+
 String regions[] = {
   "Закарпатська обл.",
   "Івано-Франківська обл.",
@@ -215,6 +216,8 @@ time_t  tcpLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
+int     timeOffset = 0;
+long    lastHomeDistrictSync = 0;
 
 std::vector<String> bin_list;
 
@@ -351,7 +354,6 @@ void initSettings(){
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
-  homeAlertStart                  = preferences.getInt("has", 0);
   preferences.end();
   mapMode                         = settings.map_mode;
   displayMode                     = settings.display_mode;
@@ -412,11 +414,12 @@ void timezoneUpdate(){
   Serial.print("isDaylightSaving: ");
   Serial.println(isDaylightSaving);
   if (isDaylightSaving) {
-    timeClient.setTimeOffset(10800);
+    timeOffset = 10800;
   }
   else {
-    timeClient.setTimeOffset(7200);
+    timeOffset = 7200;
   }
+  timeClient.setTimeOffset(timeOffset);
 }
 
 int getLastSunday(int year,int month) {
@@ -587,10 +590,6 @@ void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender)
     settings.home_alert_time = state;
     preferences.begin("storage", false);
     preferences.putInt("hat", settings.home_alert_time);
-    if (settings.home_alert_time == 0) {
-      homeAlertStart = 0;
-      preferences.putInt("has", homeAlertStart);
-    }
     preferences.end();
     Serial.println("home_alert_time commited to preferences");
     Serial.print("home_alert_time: ");
@@ -758,6 +757,46 @@ void doFetchBinList(){
   bin_list = fetchAndParseJSON();
 }
 
+// Home District Json Parsing
+void parseHomeDistrictJson() {
+  // Skip parsing if home alert time is disabled or less then 5 sec from last sync
+  if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
+  // Save sync time
+  lastHomeDistrictSync = timeClient.getEpochTime();
+
+  String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
+  Serial.println("Http request to: " + jsonURLString);
+  const char* jsonURL = jsonURLString.c_str();
+  http.begin(jsonURL);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    Serial.println("Http Success, payload: " + payload);
+    
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      Serial.println("Deserialization error: ");
+      Serial.println(error.f_str());
+      return;
+    }
+    Serial.println("Json parsed!");
+    bool alertNow = doc["data"]["alertnow"];
+    Serial.print("Alert now: ");
+    Serial.println(alertNow);
+    if (alertNow) {
+      homeAlertStart = doc["data"]["changed"];
+      Serial.print("Home Alert Start: ");
+      Serial.println(homeAlertStart);
+    } else {
+      homeAlertStart = 0;
+      Serial.println("Home Alert Start: " + homeAlertStart);
+    }
+  } else {
+    Serial.println("Error on HTTP request:" + httpCode);
+  }
+}
 
 void doUpdate() {
   if (initUpdate){
@@ -927,15 +966,25 @@ void displayCycle() {
     divider = " ";
   }
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
+    int divideBy10 = timeClient.getSeconds() % 10;
+
     display.setCursor(0, 0);
     display.clearDisplay();
     display.setTextSize(1);
-    display.println(utf8cyr("Тривога триває:"));
+    if (divideBy10 < 5) {
+      display.println(utf8cyr("Тривога триває:"));
+    } else {
+      display.println(utf8cyr(regions[settings.home_district]));
+    }
 
-    unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart;
+    unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
     unsigned long seconds = timerSeconds;
     unsigned long minutes = seconds / 60;
     unsigned long hours = minutes / 60;
+    if (hours > 99) {
+      DisplayCenter("100+ год.",7,2);
+      return;
+    }
     seconds %= 60;
     minutes %= 60;
     String alertTime = "";
@@ -1737,11 +1786,10 @@ void handleSave(AsyncWebServerRequest* request){
       haShowHomeAlarmTime.setState(true);
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time enabled to preferences");
+      parseHomeDistrictJson();
     }
   }else{
     if (settings.home_alert_time == 1){
-      homeAlertStart = 0;
-      preferences.putInt("has", homeAlertStart);
       settings.home_alert_time = 0;
       haShowHomeAlarmTime.setState(false);
       preferences.putInt("hat", settings.home_alert_time);
@@ -1856,10 +1904,8 @@ void handleSave(AsyncWebServerRequest* request){
       settings.home_district = request->getParam("home_district", true)->value().toInt();
       preferences.putInt("hd", settings.home_district);
       homeAlertStart = 0;
-      preferences.putInt("has", homeAlertStart);
-      settings.home_alert_time = 0;
-      preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_district commited to preferences");
+      parseHomeDistrictJson();
     }
   }
   if (request->hasParam("alarms_auto_switch", true)){
@@ -2256,6 +2302,7 @@ HsbColor processAlarms(int led, int position) {
   case 0:
       int color_switch;
       if (position == local_district){
+        homeAlertStart = 0;
         color_switch = settings.color_home_district;
       }else{
         color_switch = settings.color_clear;
@@ -2263,14 +2310,14 @@ HsbColor processAlarms(int led, int position) {
       hue = HsbColor(color_switch/360.0f,1.0,settings.brightness*local_brightness_clear/200.0f);
       break;
   case 1:
+      if (position == local_district && homeAlertStart < 1){
+        parseHomeDistrictJson();
+      }
       hue = HsbColor(settings.color_alert/360.0f,1.0,settings.brightness*local_brightness_alert/200.0f);
       break;
   case 2:
       if (position == local_district){
         homeAlertStart = 0;
-        preferences.begin("storage", false);
-        preferences.putInt("has", homeAlertStart);
-        preferences.end();
       }
       local_color = settings.color_alert_over;
       if (settings.alarms_notify_mode == 0){
@@ -2280,10 +2327,7 @@ HsbColor processAlarms(int led, int position) {
       break;
   case 3:
       if (position == local_district && homeAlertStart < 1){
-        homeAlertStart = timeClient.getEpochTime();
-        preferences.begin("storage", false);
-        preferences.putInt("has", homeAlertStart);
-        preferences.end();
+        parseHomeDistrictJson();
       }
       local_color = settings.color_new_alert;
       if (settings.alarms_notify_mode == 0){
@@ -2481,7 +2525,7 @@ void setup() {
   asyncEngine.setInterval(tcpConnect, 1000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
-  asyncEngine.setInterval(displayCycle, 1000);
+  asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(alarmTrigger, 1000);
   asyncEngine.setInterval(WifiReconnect, 5000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
