@@ -456,7 +456,7 @@ void initWifi() {
         Serial.println("connected...yeey :)");
         servicePin(settings.wifipin, HIGH, false);
         display.clearDisplay();
-        DisplayCenter(utf8cyr("WIFI пiдключeнo!"),0,1);
+        DisplayCenter(utf8cyr(WiFi.localIP().toString()),0,1);
         wm.setHttpPort(8080);
         wm.startWebPortal();
         delay(5000);
@@ -818,6 +818,8 @@ void doUpdate() {
     http.begin(firmwareUrl);
     Serial.println(firmwareUrl);
     int httpCode = http.GET();
+    display.clearDisplay();
+    DisplayCenter(utf8cyr("Оновлення.."),0,1);
     if (httpCode == 200) {
       int contentLength = http.getSize();
       bool canBegin = Update.begin(contentLength);
