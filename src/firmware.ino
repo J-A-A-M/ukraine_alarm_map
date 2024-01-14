@@ -2155,7 +2155,11 @@ void tcpConnect(){
         delay(2000);
         cycle += 1;
     }
-    client_tcp.print(settings.softwareversion);
+    String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
+    char charArray[combinedString.length() + 1];
+    combinedString.toCharArray(charArray, sizeof(charArray));
+    Serial.println(charArray);
+    client_tcp.print(charArray);
     display.clearDisplay();
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
     servicePin(settings.datapin, HIGH, false);
