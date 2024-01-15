@@ -746,7 +746,7 @@ std::vector<String> fetchAndParseJSON() {
 
   if (httpCode > 0) {
     String payload = http.getString();
-    DynamicJsonDocument doc(1024);
+    JsonDocument doc;
     deserializeJson(doc, payload);
 
     JsonArray arr = doc.as<JsonArray>();
@@ -787,7 +787,7 @@ void parseHomeDistrictJson() {
     String payload = http.getString();
     Serial.println("Http Success, payload: " + payload);
 
-    DynamicJsonDocument doc(512);
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, payload);
     if (error) {
       Serial.println("Deserialization error: ");
@@ -796,15 +796,12 @@ void parseHomeDistrictJson() {
     }
     Serial.println("Json parsed!");
     bool alertNow = doc["data"]["alertnow"];
-    Serial.print("Alert now: ");
     Serial.println(alertNow);
     if (alertNow) {
       homeAlertStart = doc["data"]["changed"];
-      Serial.print("Home Alert Start: ");
       Serial.println(homeAlertStart);
     } else {
       homeAlertStart = 0;
-      Serial.println("Home Alert Start: " + homeAlertStart);
     }
   } else {
     Serial.println("Error on HTTP request:" + httpCode);
