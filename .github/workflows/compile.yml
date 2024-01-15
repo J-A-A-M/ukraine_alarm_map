@@ -47,5 +47,5 @@
           - name: Upload reports
             uses: actions/upload-artifact@v4
             with:
-              name: sketches-reports
-              path: ${{ github.workspace }}/src/firmware/sketches-reports/**
+              name: firmware-reports
+              path: ${{ github.workspace }}/sketches-reports/**
