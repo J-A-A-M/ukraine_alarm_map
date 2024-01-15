@@ -1102,7 +1102,8 @@ void showTemp() {
   int position = calculateOffset(settings.home_district);
   dtostrf(weather_leds[position], 3, 1, roundedTemp);
   temp += roundedTemp;
-  temp += " C";
+  temp += (char)128;
+  temp += "C";
   DisplayCenter(temp,7,3);
 }
 
