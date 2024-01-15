@@ -38,7 +38,8 @@
                   version: 7.0.1
               enable-deltas-report: true
               enable-warnings-report: true
-              cli-compile-flags: -e
+              cli-compile-flags: |
+                - --export-binaries
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
