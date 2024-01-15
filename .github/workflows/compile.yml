@@ -1,6 +1,7 @@
+  name: 🏗️ Compile Firmware
   on:
     - pull_request
-    - push
+    - workflow_dispatch
   jobs:
     compile_firmware:
         runs-on: ubuntu-latest
