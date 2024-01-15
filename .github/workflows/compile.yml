@@ -36,7 +36,6 @@
                   version: 1.1.4
                 - name: ArduinoJson
                   version: 7.0.1
-              enable-deltas-report: true
               enable-warnings-report: true
               cli-compile-flags: |
                 - --export-binaries
@@ -45,3 +44,8 @@
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin
+          - name: Upload reports
+            uses: actions/upload-artifact@v4
+            with:
+              name: sketches-reports
+              path: ${{ github.workspace }}/src/firmware/sketches-reports/**
