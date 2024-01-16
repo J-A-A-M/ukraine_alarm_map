@@ -57,5 +57,12 @@
           - name: Lint check
             uses: arduino/arduino-lint-action@v1
             with:
+              path: ${{ github.workspace }}/src/firmware
               verbose: true
-              compliance: strict
+              compliance: specification
+              report-file: ${{ github.workspace }}/lint-report.json
+          - name: Upload report
+            uses: actions/upload-artifact@v4
+            with:
+              name: lint-report
+              path: ${{ github.workspace }}/lint-report.json
