@@ -210,15 +210,13 @@ bool    isDaylightSaving = false;
 bool    isDay;
 bool    isPressed = true;
 int     mapMode;
-int     displayMode;
 long    buttonPressStart = 0;
-time_t  displayOldTime = 0;
 time_t  tcpLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
 int     timeOffset = 0;
-long    lastHomeDistrictSync = 0;
+time_t  lastHomeDistrictSync = 0;
 
 std::vector<String> bin_list;
 
@@ -362,7 +360,6 @@ void initSettings(){
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   preferences.end();
   mapMode                         = settings.map_mode;
-  displayMode                     = settings.display_mode;
 }
 
 void initStrip(){
@@ -699,7 +696,6 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
     preferences.begin("storage", false);
     preferences.putInt("dm", settings.display_mode);
     preferences.end();
-    displayMode = settings.display_mode;
     Serial.println("display_mode commited to preferences");
     sender->setState(index);
 }
@@ -940,7 +936,6 @@ void displayModeSwitch() {
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
-  displayMode = settings.display_mode;
   if (enableHA) {
     haDisplayMode.setState(settings.display_mode);
   }
@@ -1003,104 +998,133 @@ String utf8cyr(String source) {
 }
 
 void displayCycle() {
-
-  int even = timeClient.getSeconds() % 2;
-  String divider;
-  if (even == 0) {
-    divider = ":";
-  } else {
-    divider = " ";
-  }
+  // Show Home Alert Time Info if enabled in settings and we have alert start time
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
-    int divideBy10 = timeClient.getSeconds() % 10;
-
-    display.setCursor(0, 0);
-    display.clearDisplay();
-    display.setTextSize(1);
-    if (divideBy10 < 5) {
-      display.println(utf8cyr("Тривога триває:"));
-    } else {
-      display.println(utf8cyr(regions[settings.home_district]));
-    }
-
-    unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
-    unsigned long seconds = timerSeconds;
-    unsigned long minutes = seconds / 60;
-    unsigned long hours = minutes / 60;
-    if (hours > 99) {
-      DisplayCenter("100+ г.",7,2);
-      return;
-    }
-    seconds %= 60;
-    minutes %= 60;
-    String alertTime = "";
-    if (hours > 0) {
-      if (hours < 10) alertTime += "0";
-      alertTime += hours;
-      alertTime += divider;
-    }
-    if (minutes < 10) alertTime += "0";
-    alertTime += minutes;
-    if (hours == 0) {
-      alertTime += divider;
-      if (seconds < 10) alertTime += "0";
-      alertTime += seconds;
-    }
-    DisplayCenter(alertTime,7,3);
+    showHomeAlertInfo();
     return;
   }
+  displayByMode(settings.display_mode);
+}
 
-  if (displayMode == 0 || settings.display_mode == 0) {
-    //Serial.println("Display mode off");
-    display.clearDisplay();
-    display.display();
+void displayByMode(int mode) {
+  switch (mode) {
+    // Display Mode Off
+    case 0:
+      clearDisplay();
+      break;
+    // Display Mode Clock
+    case 1:
+      showClock();
+      break;
+    // Display Mode Temperature
+    case 2:
+      showTemp();
+      break;
+    // Display Mode Switching
+    case 9:
+      displayByMode(calculateCurrentDisplayMode());
+      break;
+    // Unknown Display Mode, clearing display...
+    default:
+      clearDisplay();
+      break;
   }
-  if (displayMode == 1 || settings.display_mode == 1) {
-    //Serial.println("Display mode clock");
-    int hour = timeClient.getHours();
-    int minute = timeClient.getMinutes();
-    int day = timeClient.getDay();
-    String daysOfWeek[] = {"Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота"};
-    display.setCursor(0, 0);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.println(utf8cyr(daysOfWeek[day]));
-    String time = "";
-    if (hour < 10) time += "0";
-    time += hour;
-    time += divider;
-    if (minute < 10) time += "0";
-    time += minute;
+}
 
-    DisplayCenter(time,7,3);
-  }
-  if (displayMode == 2 || settings.display_mode == 2) {
-    //Serial.println("Display mode weather");
-    display.setCursor(0, 0);
-    display.clearDisplay();
-    display.setTextSize(1);
+void clearDisplay() {
+  display.clearDisplay();
+  display.display();
+}
+
+void showHomeAlertInfo() {
+  int toggleTime = 5; // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 2);
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  if (remainder < toggleTime) {
+    display.println(utf8cyr("Тривога триває:"));
+  } else {
     display.println(utf8cyr(regions[settings.home_district]));
-    String temp = "";
-
-    char roundedTemp[4];
-
-    int position = calculateOffset(settings.home_district);
-
-    dtostrf(weather_leds[position], 3, 1, roundedTemp);
-    temp += roundedTemp;
-    temp += " C";
-    DisplayCenter(temp,7,3);
   }
-  if (displayMode == 9) {
-    time_t displayCurrentTime = timeClient.getEpochTime();
-    long displayDiffTime = difftime(displayCurrentTime, displayOldTime);
-    if (displayDiffTime >= settings.display_mode_time){
-      settings.display_mode += 1;
-      if (settings.display_mode > 2) {
-        settings.display_mode = 1;
-      }
-      displayOldTime = timeClient.getEpochTime();
-    }
+  unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
+  unsigned long seconds = timerSeconds;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  if (hours >= 99) {
+    DisplayCenter("99+ год.",7,2);
+    return;
+  }
+  seconds %= 60;
+  minutes %= 60;
+  String divider = getDivider();
+  String alertTime = "";
+  if (hours > 0) {
+    if (hours < 10) alertTime += "0";
+    alertTime += hours;
+    alertTime += divider;
+  }
+  if (minutes < 10) alertTime += "0";
+  alertTime += minutes;
+  if (hours == 0) {
+    alertTime += divider;
+    if (seconds < 10) alertTime += "0";
+    alertTime += seconds;
+  }
+  DisplayCenter(alertTime,7,3);
+}
+
+void showClock() {
+  int hour = timeClient.getHours();
+  int minute = timeClient.getMinutes();
+  int day = timeClient.getDay();
+  String daysOfWeek[] = {"Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота"};
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.println(utf8cyr(daysOfWeek[day]));
+  String time = "";
+  if (hour < 10) time += "0";
+  time += hour;
+  time += getDivider();
+  if (minute < 10) time += "0";
+  time += minute;
+  DisplayCenter(time,7,3);
+}
+
+void showTemp() {
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.println(utf8cyr(regions[settings.home_district]));
+  String temp = "";
+  char roundedTemp[4];
+  int position = calculateOffset(settings.home_district);
+  dtostrf(weather_leds[position], 3, 1, roundedTemp);
+  temp += roundedTemp;
+  temp += (char)128;
+  temp += "C";
+  DisplayCenter(temp,7,3);
+}
+
+int calculateCurrentDisplayMode() {
+  int toggleTime = settings.display_mode_time;
+  int remainder = timeClient.getEpochTime() % (toggleTime * 2);
+  if (remainder < toggleTime) {
+    // Display Mode Clock
+    return 1;
+  } else {
+    // Display Mode Temperature
+    return 2;
+  }
+}
+
+String getDivider() {
+  // Change every second
+  if (timeClient.getSeconds() % 2 == 0) {
+    return ":";
+  } else {
+    return " ";
   }
 }
 //--Display end
@@ -1340,16 +1364,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                        <label for='selectBox5'>Режим дисплея</label>";
   html +="                        <select name='display_mode' class='form-control' id='selectBox5'>";
   html +="<option value='0'";
-  if (displayMode == 0) html += " selected";
+  if (settings.display_mode == 0) html += " selected";
   html +=">Вимкнений</option>";
   html +="<option value='1'";
-  if (displayMode == 1) html += " selected";
+  if (settings.display_mode == 1) html += " selected";
   html +=">Час</option>";
   html +="<option value='2'";
-  if (displayMode == 2) html += " selected";
+  if (settings.display_mode == 2) html += " selected";
   html +=">Погода</option>";
   html +="<option value='9'";
-  if (displayMode == 9) html += " selected";
+  if (settings.display_mode == 9) html += " selected";
   html +=">Перемикання за часом</option>";
   html +="                        </select>";
   html +="                    </div>";
@@ -2005,13 +2029,12 @@ void handleSave(AsyncWebServerRequest* request){
     }
   }
   if (request->hasParam("display_mode", true)){
-    if (request->getParam("display_mode", true)->value().toInt() != displayMode){
+    if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode){
       settings.display_mode = request->getParam("display_mode", true)->value().toInt();
       preferences.putInt("dm", settings.display_mode);
-      displayMode = settings.display_mode;
       haDisplayMode.setState(settings.display_mode);
       Serial.print("display_mode commited to preferences: ");
-      Serial.println(displayMode);
+      Serial.println(settings.display_mode);
     }
   }
   if (request->hasParam("display_mode_time", true)){
