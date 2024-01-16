@@ -14,6 +14,7 @@
 #include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
+#include <esp_system.h>
 
 void(* resetFunc) (void) = 0;
 
@@ -21,7 +22,6 @@ struct Settings{
   char*   apssid                 = "AlarmMap";
   char*   appassword             = "";
   char*   softwareversion        = "3.3";
-  String  ha_name                = "alarmmap";
   int     pixelcount             = 26;
   int     buttontime             = 100;
   int     powerpin               = 12;
@@ -37,7 +37,7 @@ struct Settings{
   String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
   int     updateport             = 8090;
-  String  bin_name               = "3.2.bin";
+  String  bin_name               = "3.3.bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
@@ -286,11 +286,6 @@ const unsigned char trident_small [] PROGMEM = {
 	0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
 };
 
-byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x38, 0x4A}; //default
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x4A}; //big
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x10, 0x4A}; //small
-//byte mac[] = {0x00, 0x10, 0xFA, 0x6E, 0x00, 0x00};
-
 bool    enableHA;
 bool    wifiReconnect = false;
 bool    tcpReconnect = false;
@@ -309,21 +304,26 @@ time_t  lastHomeDistrictSync = 0;
 
 std::vector<String> bin_list;
 
+HADevice        device;
+HAMqtt          mqtt(client, device, 14);
 
-String haUptimeString             = settings.ha_name + "_uptime";
-String haWifiSignalString         = settings.ha_name + "_wifi_signal";
-String haFreeMemoryString         = settings.ha_name + "_free_memory";
-String haUsedMemoryString         = settings.ha_name + "_used_memory";
-String haBrightnessString         = settings.ha_name + "_brightness";
-String haMapModeString            = settings.ha_name + "_map_mode";
-String haDisplayModeString        = settings.ha_name + "_display_mode";
-String haMapModeCurrentString     = settings.ha_name + "_map_mode_current";
-String haMapApiConnectString      = settings.ha_name + "_map_api_connect";
-String haBrightnessAutoString     = settings.ha_name + "_brightness_auto";
-String haAlarmsAutoString         = settings.ha_name + "_alarms_auto";
-String haShowHomeAlarmTimeString  = settings.ha_name + "_show_home_alarm_time";
-String haRebootString             = settings.ha_name + "_reboot";
+uint64_t chipid = ESP.getEfuseMac();
+String chipID1 = String((uint32_t)(chipid >> 32), HEX);
+String chipID2 = String((uint32_t)chipid, HEX);
 
+String haUptimeString             = chipID1 + chipID2 + "_uptime";
+String haWifiSignalString         = chipID1 + chipID2 + "_wifi_signal";
+String haFreeMemoryString         = chipID1 + chipID2 + "_free_memory";
+String haUsedMemoryString         = chipID1 + chipID2 + "_used_memory";
+String haBrightnessString         = chipID1 + chipID2 + "_brightness";
+String haMapModeString            = chipID1 + chipID2 + "_map_mode";
+String haDisplayModeString        = chipID1 + chipID2 + "_display_mode";
+String haMapModeCurrentString     = chipID1 + chipID2 + "_map_mode_current";
+String haMapApiConnectString      = chipID1 + chipID2 + "_map_api_connect";
+String haBrightnessAutoString     = chipID1 + chipID2 + "_brightness_auto";
+String haAlarmsAutoString         = chipID1 + chipID2 + "_alarms_auto";
+String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
+String haRebootString             = chipID1 + chipID2 + "_reboot";
 
 const char* haUptimeChar              = haUptimeString.c_str();
 const char* haWifiSignalChar          = haWifiSignalString.c_str();
@@ -339,10 +339,6 @@ const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
 const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
 const char* haRebootChar              = haRebootString.c_str();
 
-const char* mac_address         = settings.ha_name.c_str();
-
-HADevice        device(mac_address);
-HAMqtt          mqtt(client, device, 14);
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
 HASensorNumber  haFreeMemory(haFreeMemoryChar);
@@ -606,6 +602,9 @@ void initHA() {
     }
 
     if (enableHA) {
+      byte mac[6];
+      WiFi.macAddress(mac);
+      device.setUniqueId(mac, sizeof(mac));
       device.setName(deviceName);
       device.setSoftwareVersion(settings.softwareversion);
       device.setManufacturer("v00g100skr");
@@ -2216,7 +2215,9 @@ void tcpConnect(){
         Serial.println("Failed");
         display.clearDisplay();
         DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
-        haMapApiConnect.setState(false);
+        if (enableHA) {
+          haMapApiConnect.setState(false);
+        }
         tcpReconnect = true;
         if (cycle > 30){
           mapReconnect();
@@ -2232,8 +2233,10 @@ void tcpConnect(){
     display.clearDisplay();
     DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
     servicePin(settings.datapin, HIGH, false);
-    Serial.println("Connected");
-    haMapApiConnect.setState(true);
+    Serial.println("TCP connected");
+    if (enableHA) {
+      haMapApiConnect.setState(true);
+    }
     tcpLastPingTime = millis();
     tcpReconnect = false;
   }
@@ -2666,6 +2669,10 @@ void setup() {
   initDisplay();
   initWifi();
   initTime();
+
+  Serial.print("ESP32 Chip ID: ");
+  Serial.print(chipID1);
+  Serial.println(chipID2);
 
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(tcpProcess, 10);
