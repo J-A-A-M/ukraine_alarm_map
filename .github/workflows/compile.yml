@@ -17,7 +17,6 @@
             with:
               sketch-paths: |
                 - ${{ github.workspace }}/src/firmware
-              verbose: true
               fqbn: esp32:esp32:esp32
               libraries: |
                 - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
@@ -58,6 +57,5 @@
           - name: Lint check
             uses: arduino/arduino-lint-action@v1
             with:
-              path: ${{ github.workspace }}/src/firmware
               verbose: true
               compliance: strict
