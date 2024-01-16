@@ -1051,8 +1051,8 @@ void showHomeAlertInfo() {
   unsigned long seconds = timerSeconds;
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
-  if (hours > 99) {
-    DisplayCenter("100+ год.",7,2);
+  if (hours >= 99) {
+    DisplayCenter("99+ год.",7,2);
     return;
   }
   seconds %= 60;
