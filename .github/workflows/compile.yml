@@ -1,4 +1,4 @@
-  name: 🏗️ Compile Firmware
+  name: 🏗️ Compile Firmware + Lint Check
   on:
     - pull_request
     - workflow_dispatch
@@ -17,6 +17,7 @@
             with:
               sketch-paths: |
                 - ${{ github.workspace }}/src/firmware
+              verbose: true
               fqbn: esp32:esp32:esp32
               libraries: |
                 - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
@@ -50,3 +51,13 @@
             with:
               name: firmware-reports
               path: ${{ github.workspace }}/sketches-reports/**
+    lint_check:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Lint check
+            uses: arduino/arduino-lint-action@v1
+            with:
+              path: ${{ github.workspace }}/src/firmware
+              verbose: true
+              compliance: strict
