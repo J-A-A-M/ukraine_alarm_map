@@ -18,8 +18,7 @@
 
 
 struct Settings{
-  char*   apssid                 = "AlarmMap";
-  char*   appassword             = "";
+  char*   apssid                 = "JAAM";
   char*   softwareversion        = "3.3";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -440,17 +439,28 @@ void initWifi() {
     wm.setHostname(settings.broadcastname);
     wm.setTitle(settings.devicename);
     wm.setConfigPortalBlocking(true);
-    wm.setConfigPortalTimeout(120);
     wm.setConnectTimeout(3);
     wm.setConnectRetries(10);
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пiдключення WIFI.."),0,1);
+    wm.setAPCallback(apCallback);
     servicePin(settings.wifipin, LOW, false);
-    if(wm.autoConnect(settings.apssid, settings.appassword)){
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.println(utf8cyr("Підключення до:"));
+    DisplayCenter(utf8cyr(wm.getWiFiSSID(true)),3,1);
+    String apssid = "";
+    apssid += settings.apssid;
+    apssid += "_";
+    apssid += chipID1;
+    apssid += chipID2;
+    if(wm.autoConnect(apssid.c_str())) {
         Serial.println("connected...yeey :)");
         servicePin(settings.wifipin, HIGH, false);
         display.clearDisplay();
-        DisplayCenter(utf8cyr(WiFi.localIP().toString()),0,1);
+        display.setCursor(0, 0);
+        display.setTextSize(1);
+        display.println(utf8cyr("IP адреса мапи:"));
+        DisplayCenter(utf8cyr(WiFi.localIP().toString()),3,1);
         wm.setHttpPort(8080);
         wm.startWebPortal();
         delay(5000);
@@ -460,14 +470,36 @@ void initWifi() {
         initBroadcast();
         tcpConnect();
         doFetchBinList();
-    }
-    else {
+    } else {
         Serial.println("Reboot");
         display.clearDisplay();
         DisplayCenter(utf8cyr("Пepeзaвaнтaжeння"),0,1);
         delay(5000);
         ESP.restart();
     }
+}
+
+void apCallback(WiFiManager *wifiManager) {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  display.println(utf8cyr("Підключіться до WiFi:"));
+  DisplayCenter(utf8cyr(wifiManager->getConfigPortalSSID()),3,1);
+  WiFi.onEvent(wifiEvents);
+}
+
+static void wifiEvents(WiFiEvent_t event) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextSize(1);
+      display.println(utf8cyr("Введіть у браузері:"));
+      DisplayCenter(utf8cyr(WiFi.softAPIP().toString()),3,1);
+      WiFi.removeEvent(wifiEvents);
+    default:
+      break;
+  }
 }
 
 void initBroadcast() {
@@ -2647,7 +2679,6 @@ void setup() {
 }
 
 void loop() {
-  wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
   if(enableHA){
