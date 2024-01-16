@@ -1,0 +1,68 @@
+  name: 🏗️ Compile Firmware + Lint Check
+  on:
+    - pull_request
+    - workflow_dispatch
+  jobs:
+    compile_firmware:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Unzip libraries
+            run: |
+              unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
+              unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
+              unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
+          - name: Compile firmware
+            uses: arduino/compile-sketches@v1
+            with:
+              sketch-paths: |
+                - ${{ github.workspace }}/src/firmware
+              fqbn: esp32:esp32:esp32
+              libraries: |
+                - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
+                - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
+                - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
+                  destination-name: ESP_Async_WebServer
+                - name: Adafruit SSD1306
+                  version: 2.5.7
+                - name: home-assistant-integration
+                  version: 2.0.0
+                - name: NeoPixelBus by Makuna
+                  version: 2.7.7
+                - name: NTPClient
+                  version: 3.2.1
+                - name: WiFiManager
+                  version: 2.0.16-rc.2
+                - name: AsyncTCP
+                  version: 1.1.4
+                - name: ArduinoJson
+                  version: 7.0.1
+              enable-warnings-report: true
+              cli-compile-flags: |
+                - --export-binaries
+          - name: Upload firmware
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware.bin
+              path: ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin
+          - name: Upload reports
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware-reports
+              path: ${{ github.workspace }}/sketches-reports/**
+    lint_check:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Lint check
+            uses: arduino/arduino-lint-action@v1
+            with:
+              path: ${{ github.workspace }}/src/firmware
+              verbose: true
+              compliance: specification
+              report-file: ${{ github.workspace }}/lint-report.json
+          - name: Upload report
+            uses: actions/upload-artifact@v4
+            with:
+              name: lint-report
+              path: ${{ github.workspace }}/lint-report.json
