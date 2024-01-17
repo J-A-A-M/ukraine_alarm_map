@@ -54,7 +54,9 @@ async def handle_client(reader, writer, shared_data):
         writer.software = 'unknown'
 
     shared_data.clients[f'{client_ip}_{client_port}'] = {
-        'software': writer.software
+        'software': writer.software,
+        'city': response.city,
+        'region': response.region
     }
 
     logging.debug(f"Received data from {client_ip}:{client_port}: {data_from_client}")

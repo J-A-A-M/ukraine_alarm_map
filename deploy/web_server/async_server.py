@@ -379,7 +379,7 @@ async def stats(request):
         map_clients_data = json.loads(map_clients.decode('utf-8')) if map_clients else {}
         return JSONResponse ({
             'map': {
-                client: data.get('software') for client, data in map_clients_data.items()
+                client: f'{data.get("software")}:{data.get("region")}{data.get("city")}' for client, data in map_clients_data.items()
             },
             'api': {
                 ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
