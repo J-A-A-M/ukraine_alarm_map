@@ -348,7 +348,6 @@ bool    wifiReconnect = false;
 bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
-bool    isDay;
 bool    isPressed = true;
 int     mapMode;
 long    buttonPressStart = 0;
@@ -555,8 +554,6 @@ void timezoneUpdate(){
   Serial.print(minutes);
   Serial.print(":");
   Serial.println(seconds);
-  Serial.print("isDay: ");
-  Serial.println(isDay);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -790,9 +787,11 @@ void initHA() {
 
 void mqttConnected() {
   Serial.println("Home Assistant MQTT connected!");
-  // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-  haMapModeCurrent.setValue(mapModes[mapMode]);
-  haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+  if (enableHA) {
+    // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
+    haMapModeCurrent.setValue(mapModes[mapMode]);
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+  }
 }
 
 void onHaRebootCommand(HAButton* sender) {
@@ -2302,14 +2301,13 @@ void connectStatuses(){
 
 void timeUpdate() {
   timeClient.update();
-  int currentHour = timeClient.getHours();
-  isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
 }
 
 void autoBrightnessUpdate() {
   if (settings.brightness_auto == 1) {
-    int currentBrightness = 0;
-    currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
+    int currentHour = timeClient.getHours();
+    bool isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
+    int currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
     if (currentBrightness != settings.brightness) {
       settings.brightness = currentBrightness;
       if (enableHA) {
@@ -2775,7 +2773,7 @@ void alarmTrigger(){
         currentMapMode = 1;
     }
   }
-  if (mapMode != currentMapMode){
+  if (mapMode != currentMapMode && enableHA){
     haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
   mapMode = currentMapMode;
