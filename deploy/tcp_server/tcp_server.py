@@ -27,7 +27,7 @@ async def handle_client(reader, writer, shared_data):
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     data_from_client = False
 
-    client_ip = "85.209.47.112" #writer.get_extra_info('peername')[0]
+    client_ip = writer.get_extra_info('peername')[0]
     client_port = writer.get_extra_info('peername')[1]
 
     if client_ip in shared_data.blocked_ips:
