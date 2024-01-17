@@ -7,7 +7,7 @@
     SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
   jobs:
     compile_firmware:
-        runs-on: macos-latest
+        runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
           - name: Unzip libraries
@@ -45,6 +45,7 @@
               sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
               cli-compile-flags: |
                 - --export-binaries
+              github-token: ${{ secrets.GITHUB_TOKEN }}
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
@@ -71,7 +72,6 @@
             with:
               name: lint-report
               path: ${{ github.workspace }}/lint-report.json
-
     report:
       needs: compile_firmware # Wait for the compile job to finish to get the data for the report
       if: github.event_name == 'pull_request' # Only run the job when the workflow is triggered by a pull request
