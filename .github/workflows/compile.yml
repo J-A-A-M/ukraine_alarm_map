@@ -7,7 +7,7 @@
     SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
   jobs:
     compile_firmware:
-        runs-on: ubuntu-latest
+        runs-on: macos-latest
         steps:
           - uses: actions/checkout@v4
           - name: Unzip libraries
@@ -18,7 +18,6 @@
           - name: Compile firmware
             uses: arduino/compile-sketches@v1
             with:
-              cli-version: 0.35.0
               sketch-paths: |
                 - ${{ github.workspace }}/src/firmware
               fqbn: esp32:esp32:esp32
