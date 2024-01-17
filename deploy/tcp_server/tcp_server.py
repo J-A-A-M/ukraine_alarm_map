@@ -2,6 +2,7 @@ import json
 import os
 import asyncio
 import logging
+import requests
 from aiomcache import Client
 
 from datetime import datetime
@@ -14,60 +15,41 @@ memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 tcp_port = os.environ.get('TCP_PORT') or 12345
 
 
-regions = [
-  "Закарпатська область",
-  "Івано-Франківська область",
-  "Тернопільська область",
-  "Львівська область",
-  "Волинська область",
-  "Рівненська область",
-  "Житомирська область",
-  "Київська область",
-  "Чернігівська область",
-  "Сумська область",
-  "Харківська область",
-  "Луганська область",
-  "Донецька область",
-  "Запорізька область",
-  "Херсонська область",
-  "Автономна Республіка Крим",
-  "Одеська область",
-  "Миколаївська область",
-  "Дніпропетровська область",
-  "Полтавська область",
-  "Черкаська область",
-  "Кіровоградська область",
-  "Вінницька область",
-  "Хмельницька область",
-  "Чернівецька область",
-  "м. Київ",
-]
-
-
 class SharedData:
     def __init__(self):
         self.data = "Initial data"
         self.clients = {}
+        self.blocked_ips = []
 
 
 async def handle_client(reader, writer, shared_data):
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     data_from_client = False
+
+    client_ip = writer.get_extra_info('peername')[0]
+    client_port = writer.get_extra_info('peername')[1]
+
+    if client_ip in shared_data.blocked_ips:
+        logger.info(f"Blocked IP {client_ip} attempted to connect.")
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    response = requests.get(f'https://ipapi.co/{client_ip}/country/')
+
+    if response != 'UA':
+        shared_data.blocked_ips.append(client_ip)
+        writer.close()
+        await writer.wait_closed()
+        return
+
     try:
         data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
         data_from_client = data_from_client.decode()
-        if len(data_from_client) > 20:
-            if not writer.is_closing():
-                writer.close()
-            await writer.wait_closed()
         writer.software = data_from_client
 
     except asyncio.exceptions.TimeoutError as e:
         writer.software = 'unknown'
-
-
-    client_ip = writer.get_extra_info('peername')[0]
-    client_port = writer.get_extra_info('peername')[1]
 
     shared_data.clients[f'{client_ip}_{client_port}'] = {
         'software': writer.software
@@ -105,8 +87,7 @@ async def handle_client(reader, writer, shared_data):
     finally:
         logger.info(f"Client from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} disconnected")
         del shared_data.clients[f'{client_ip}_{client_port}']
-        if not writer.is_closing():
-            writer.close()
+        writer.close()
         await writer.wait_closed()
 
 
@@ -131,6 +112,7 @@ async def print_clients(shared_data, mc):
         try:
             await asyncio.sleep(60)
             logger.debug(f"Print clients: {len(shared_data.clients)}")
+            logger.debug(f"Print blocked: {shared_data.blocked_ips}")
 
             await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
 
