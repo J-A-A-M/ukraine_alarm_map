@@ -16,9 +16,7 @@
 #include <ArduinoJson.h>
 #include <esp_system.h>
 
-void(* resetFunc) (void) = 0;
-
-struct Settings{
+struct Settings {
   char*   apssid                 = "JAAM";
   char*   softwareversion        = "3.3";
   int     pixelcount             = 26;
@@ -268,6 +266,66 @@ int alphabetDistrictToNum(int alphabet) {
   }
 }
 
+int numDistrictToAlphabet(int num) {
+  switch (num) {
+    case 0:
+      return 6;
+    case 1:
+      return 8;
+    case 2:
+      return 19;
+    case 3:
+      return 13;
+    case 4:
+      return 2;
+    case 5:
+      return 17;
+    case 6:
+      return 5;
+    case 7:
+      return 9;
+    case 8:
+      return 25;
+    case 9:
+      return 18;
+    case 10:
+      return 20;
+    case 11:
+      return 12;
+    case 12:
+      return 4;
+    case 13:
+      return 7;
+    case 14:
+      return 21;
+    case 15:
+      return 0;
+    case 16:
+      return 15;
+    case 17:
+      return 14;
+    case 18:
+      return 3;
+    case 19:
+      return 16;
+    case 20:
+      return 23;
+    case 21:
+      return 11;
+    case 22:
+      return 1;
+    case 23:
+      return 22;
+    case 24:
+      return 24;
+    case 25:
+      return 10;
+    default:
+      // return Київ by default
+      return 10;
+  }
+}
+
 int* neighboring_districts[] = {
   d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,
   d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,
@@ -304,7 +362,7 @@ time_t  lastHomeDistrictSync = 0;
 std::vector<String> bin_list;
 
 HADevice        device;
-HAMqtt          mqtt(client, device, 14);
+HAMqtt          mqtt(client, device, 16);
 
 uint64_t chipid = ESP.getEfuseMac();
 String chipID1 = String((uint32_t)(chipid >> 32), HEX);
@@ -323,6 +381,8 @@ String haBrightnessAutoString     = chipID1 + chipID2 + "_brightness_auto";
 String haAlarmsAutoString         = chipID1 + chipID2 + "_alarms_auto";
 String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
 String haRebootString             = chipID1 + chipID2 + "_reboot";
+String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
+String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
 
 const char* haUptimeChar              = haUptimeString.c_str();
 const char* haWifiSignalChar          = haWifiSignalString.c_str();
@@ -337,6 +397,8 @@ const char* haBrightnessAutoChar      = haBrightnessAutoString.c_str();
 const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
 const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
 const char* haRebootChar              = haRebootString.c_str();
+const char* haCpuTempChar             = haCpuTempString.c_str();
+const char* haHomeDistrictChar        = haHomeDistrictString.c_str();
 
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
@@ -351,6 +413,8 @@ HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
 HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeChar);
 HAButton        haReboot(haRebootChar);
+HASensorNumber  haCpuTemp(haCpuTempChar, HASensorNumber::PrecisionP1);
+HASensor        haHomeDistrict(haHomeDistrictChar);
 
 char* mapModes [] = {
   "Вимкнено",
@@ -360,14 +424,14 @@ char* mapModes [] = {
 };
 
 //--Init start
-void initLegacy(){
+void initLegacy() {
   if (settings.legacy) {
     offset = 0;
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = legacy_flag_leds[i];
     }
     settings.service_diodes_mode = 0;
-  }else{
+  } else {
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
     }
@@ -688,7 +752,6 @@ void initHA() {
 
       haMapModeCurrent.setIcon("mdi:map");
       haMapModeCurrent.setName("Current Map Mode");
-      haMapModeCurrent.setValue(mapModes[mapMode]);
 
       haMapApiConnect.setName("Connectivity");
       haMapApiConnect.setDeviceClass("connectivity");
@@ -708,16 +771,29 @@ void initHA() {
       haReboot.setName("Reboot");
       haReboot.setDeviceClass("restart");
 
+      haCpuTemp.setIcon("mdi:chip");
+      haCpuTemp.setName("CPU Temperature");
+      haCpuTemp.setDeviceClass("temperature");
+      haCpuTemp.setUnitOfMeasurement("°C");
+      haCpuTemp.setCurrentValue(temperatureRead());
+
+      haHomeDistrict.setIcon("mdi:home-map-marker");
+      haHomeDistrict.setName("Home District");
+
       device.enableLastWill();
       mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
       Serial.print("Home Assistant MQTT connected: ");
       Serial.println(mqtt.isConnected());
+
+      // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
+      haMapModeCurrent.setValue(mapModes[mapMode]);
+      haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
     }
   }
 }
 
 void onHaRebootCommand(HAButton* sender) {
-  resetFunc();
+  ESP.restart();
 }
 
 void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender)
@@ -2086,6 +2162,9 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("home_district", true)){
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district){
       settings.home_district = request->getParam("home_district", true)->value().toInt();
+      if (enableHA) {
+        haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+      }
       preferences.putInt("hd", settings.home_district);
       homeAlertStart = 0;
       Serial.println("home_district commited to preferences");
@@ -2191,12 +2270,14 @@ void uptime() {
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
+  float cpuTemp       = temperatureRead();
 
-  if(enableHA){
+  if(enableHA) {
     haUptime.setValue(uptimeValue);
     haWifiSignal.setValue(rssi);
     haFreeMemory.setValue(freeHeapSize);
     haUsedMemory.setValue(usedHeapSize);
+    haCpuTemp.setValue(cpuTemp);
   }
   Serial.println(uptimeValue);
 }
@@ -2737,6 +2818,7 @@ void setup() {
 }
 
 void loop() {
+  wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
   if(enableHA){
