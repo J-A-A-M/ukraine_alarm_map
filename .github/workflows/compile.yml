@@ -16,7 +16,7 @@
               unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
               unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
           - name: Compile firmware
-            uses: arduino/compile-sketches@v1
+            uses: arduino/compile-sketches@cfa7a3476e7c82d045eb4a8554e36a526021db61
             with:
               sketch-paths: |
                 - ${{ github.workspace }}/src/firmware
