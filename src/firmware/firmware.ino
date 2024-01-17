@@ -16,8 +16,7 @@
 #include <ArduinoJson.h>
 #include <esp_system.h>
 
-
-struct Settings{
+struct Settings {
   char*   apssid                 = "JAAM";
   char*   softwareversion        = "3.3";
   int     pixelcount             = 26;
@@ -75,7 +74,7 @@ struct Settings{
   // ------- Display Modes:
   // -------  0 - Off
   // -------  1 - Clock
-  // -------  2 - Home Region Temperature
+  // -------  2 - Home District Temperature
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -149,7 +148,7 @@ int d25[] = {25,6,7,8,19,20,22};
 
 int counters[] = {3,5,7,5,4,6,6,6,5,4,5,3,4,4,4,2,5,5,8,8,7,7,9,6,5,7};
 
-String regions[] = {
+String districts[] = {
   "Закарпатська обл.",
   "Івано-Франківська обл.",
   "Тернопільська обл.",
@@ -178,12 +177,160 @@ String regions[] = {
   "Київ"
 };
 
+String districtsAlphabetical[] = {
+  "АР Крим",
+  "Вінницька область",
+  "Волинська область",
+  "Дніпропетровська область",
+  "Донецька область",
+  "Житомирська область",
+  "Закарпатська область",
+  "Запорізька область",
+  "Івано-Франківська область",
+  "Київська область",
+  "Київ",
+  "Кіровоградська область",
+  "Луганська область",
+  "Львівська область",
+  "Миколаївська область",
+  "Одеська область",
+  "Полтавська область",
+  "Рівненська область",
+  "Сумська область",
+  "Тернопільська область",
+  "Харківська область",
+  "Херсонська область",
+  "Хмельницька область",
+  "Черкаська область",
+  "Чернівецька область",
+  "Чернігівська область"
+};
+
+int alphabetDistrictToNum(int alphabet) {
+  switch (alphabet) {
+    case 0:
+      return 15;
+    case 1:
+      return 22;
+    case 2:
+      return 4;
+    case 3:
+      return 18;
+    case 4:
+      return 12;
+    case 5:
+      return 6;
+    case 6:
+      return 0;
+    case 7:
+      return 13;
+    case 8:
+      return 1;
+    case 9:
+      return 7;
+    case 10:
+      return 25;
+    case 11:
+      return 21;
+    case 12:
+      return 11;
+    case 13:
+      return 3;
+    case 14:
+      return 17;
+    case 15:
+      return 16;
+    case 16:
+      return 19;
+    case 17:
+      return 5;
+    case 18:
+      return 9;
+    case 19:
+      return 2;
+    case 20:
+      return 10;
+    case 21:
+      return 14;
+    case 22:
+      return 23;
+    case 23:
+      return 20;
+    case 24:
+      return 24;
+    case 25:
+      return 8;
+    default:
+      // return Київ by default
+      return 25;
+  }
+}
+
+int numDistrictToAlphabet(int num) {
+  switch (num) {
+    case 0:
+      return 6;
+    case 1:
+      return 8;
+    case 2:
+      return 19;
+    case 3:
+      return 13;
+    case 4:
+      return 2;
+    case 5:
+      return 17;
+    case 6:
+      return 5;
+    case 7:
+      return 9;
+    case 8:
+      return 25;
+    case 9:
+      return 18;
+    case 10:
+      return 20;
+    case 11:
+      return 12;
+    case 12:
+      return 4;
+    case 13:
+      return 7;
+    case 14:
+      return 21;
+    case 15:
+      return 0;
+    case 16:
+      return 15;
+    case 17:
+      return 14;
+    case 18:
+      return 3;
+    case 19:
+      return 16;
+    case 20:
+      return 23;
+    case 21:
+      return 11;
+    case 22:
+      return 1;
+    case 23:
+      return 22;
+    case 24:
+      return 24;
+    case 25:
+      return 10;
+    default:
+      // return Київ by default
+      return 10;
+  }
+}
+
 int* neighboring_districts[] = {
   d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,
   d10,d11,d12,d13,d14,d15,d16,d17,d18,d19,
   d20,d21,d22,d23,d24,d25
 };
-
 
 const unsigned char trident_small [] PROGMEM = {
 	0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
@@ -201,7 +348,6 @@ bool    wifiReconnect = false;
 bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
-bool    isDay;
 bool    isPressed = true;
 int     mapMode;
 long    buttonPressStart = 0;
@@ -215,7 +361,7 @@ time_t  lastHomeDistrictSync = 0;
 std::vector<String> bin_list;
 
 HADevice        device;
-HAMqtt          mqtt(client, device, 13);
+HAMqtt          mqtt(client, device, 16);
 
 uint64_t chipid = ESP.getEfuseMac();
 String chipID1 = String((uint32_t)(chipid >> 32), HEX);
@@ -233,6 +379,9 @@ String haMapApiConnectString      = chipID1 + chipID2 + "_map_api_connect";
 String haBrightnessAutoString     = chipID1 + chipID2 + "_brightness_auto";
 String haAlarmsAutoString         = chipID1 + chipID2 + "_alarms_auto";
 String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
+String haRebootString             = chipID1 + chipID2 + "_reboot";
+String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
+String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
 
 const char* haUptimeChar              = haUptimeString.c_str();
 const char* haWifiSignalChar          = haWifiSignalString.c_str();
@@ -246,6 +395,9 @@ const char* haMapApiConnectChar       = haMapApiConnectString.c_str();
 const char* haBrightnessAutoChar      = haBrightnessAutoString.c_str();
 const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
 const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
+const char* haRebootChar              = haRebootString.c_str();
+const char* haCpuTempChar             = haCpuTempString.c_str();
+const char* haHomeDistrictChar        = haHomeDistrictString.c_str();
 
 HASensorNumber  haUptime(haUptimeChar);
 HASensorNumber  haWifiSignal(haWifiSignalChar);
@@ -259,6 +411,9 @@ HASensor        haMapModeCurrent(haMapModeCurrentChar);
 HABinarySensor  haMapApiConnect(haMapApiConnectChar);
 HASwitch        haBrightnessAuto(haBrightnessAutoChar);
 HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeChar);
+HAButton        haReboot(haRebootChar);
+HASensorNumber  haCpuTemp(haCpuTempChar, HASensorNumber::PrecisionP1);
+HASensor        haHomeDistrict(haHomeDistrictChar);
 
 char* mapModes [] = {
   "Вимкнено",
@@ -268,14 +423,14 @@ char* mapModes [] = {
 };
 
 //--Init start
-void initLegacy(){
+void initLegacy() {
   if (settings.legacy) {
     offset = 0;
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = legacy_flag_leds[i];
     }
     settings.service_diodes_mode = 0;
-  }else{
+  } else {
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
     }
@@ -399,8 +554,6 @@ void timezoneUpdate(){
   Serial.print(minutes);
   Serial.print(":");
   Serial.println(seconds);
-  Serial.print("isDay: ");
-  Serial.println(isDay);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -572,7 +725,7 @@ void initHA() {
       haUsedMemory.setDeviceClass("data_size");
 
       haBrightness.onCommand(onHaBrightnessCommand);
-      haBrightness.setIcon("mdi:percent-circle");
+      haBrightness.setIcon("mdi:brightness-percent");
       haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
@@ -582,11 +735,11 @@ void initHA() {
       haMapMode.setName("Map Mode");
       haMapMode.setCurrentState(settings.map_mode);
 
-      haDisplayMode.setOptions("Вимкнено;Час;Погода;---;---;---;---;---;---;Перемикання");
+      haDisplayMode.setOptions("Вимкнено;Час;Погода;Перемикання");
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
       haDisplayMode.setName("Display Mode");
-      haDisplayMode.setCurrentState(settings.display_mode);
+      haDisplayMode.setCurrentState(getHaDisplayMode(settings.display_mode));
 
       haAlarmsAuto.setOptions("Вимкнено;Домашній та суміжні;Лише домашній");
       haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
@@ -596,14 +749,13 @@ void initHA() {
 
       haMapModeCurrent.setIcon("mdi:map");
       haMapModeCurrent.setName("Current Map Mode");
-      haMapModeCurrent.setValue(mapModes[mapMode]);
 
       haMapApiConnect.setName("Connectivity");
       haMapApiConnect.setDeviceClass("connectivity");
       haMapApiConnect.setCurrentState(false);
 
       haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
-      haBrightnessAuto.setIcon("mdi:percent-circle-outline");
+      haBrightnessAuto.setIcon("mdi:brightness-auto");
       haBrightnessAuto.setName("Auto Brightness");
       haBrightnessAuto.setCurrentState(settings.brightness_auto);
 
@@ -612,12 +764,38 @@ void initHA() {
       haShowHomeAlarmTime.setName("Show Home Alert Time");
       haShowHomeAlarmTime.setCurrentState(settings.home_alert_time);
 
+      haReboot.onCommand(onHaRebootCommand);
+      haReboot.setName("Reboot");
+      haReboot.setDeviceClass("restart");
+
+      haCpuTemp.setIcon("mdi:chip");
+      haCpuTemp.setName("CPU Temperature");
+      haCpuTemp.setDeviceClass("temperature");
+      haCpuTemp.setUnitOfMeasurement("°C");
+      haCpuTemp.setCurrentValue(temperatureRead());
+
+      haHomeDistrict.setIcon("mdi:home-map-marker");
+      haHomeDistrict.setName("Home District");
+
       device.enableLastWill();
-      mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
-      Serial.print("Home Assistant MQTT connected: ");
-      Serial.println(mqtt.isConnected());
+      mqtt.onConnected(mqttConnected);
+      mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
+
     }
   }
+}
+
+void mqttConnected() {
+  Serial.println("Home Assistant MQTT connected!");
+  if (enableHA) {
+    // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
+    haMapModeCurrent.setValue(mapModes[mapMode]);
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+  }
+}
+
+void onHaRebootCommand(HAButton* sender) {
+  ESP.restart();
 }
 
 void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender)
@@ -677,7 +855,8 @@ void onhaAlarmsAutoCommand(int8_t index, HASelect* sender)
     preferences.begin("storage", false);
     preferences.putInt("aas", settings.alarms_auto_switch);
     preferences.end();
-    Serial.print("alarms_auto_switch commited to preferences: ");Serial.println(settings.alarms_auto_switch);
+    Serial.print("alarms_auto_switch commited to preferences: ");
+    Serial.println(settings.alarms_auto_switch);
     sender->setState(index);
 }
 
@@ -718,7 +897,7 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
     case 2:
         settings.display_mode = 2;
         break;
-    case 9:
+    case 3:
         settings.display_mode = 9;
         break;
     default:
@@ -729,6 +908,21 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender)
     preferences.end();
     Serial.println("display_mode commited to preferences");
     sender->setState(index);
+}
+
+int getHaDisplayMode(int displayMode) {
+  switch(displayMode) {
+    case 0:
+      // passthrough
+    case 1:
+      // passthrough
+    case 2:
+      return displayMode;
+    case 9:
+      return 3;
+    default:
+      return 0;
+  }
 }
 
 void initDisplay() {
@@ -968,7 +1162,7 @@ void displayModeSwitch() {
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
   if (enableHA) {
-    haDisplayMode.setState(settings.display_mode);
+    haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
   }
   //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
@@ -1076,7 +1270,7 @@ void showHomeAlertInfo() {
   if (remainder < toggleTime) {
     display.println(utf8cyr("Тривога триває:"));
   } else {
-    display.println(utf8cyr(regions[settings.home_district]));
+    display.println(utf8cyr(districts[settings.home_district]));
   }
   unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
   unsigned long seconds = timerSeconds;
@@ -1127,7 +1321,7 @@ void showTemp() {
   display.setCursor(0, 0);
   display.clearDisplay();
   display.setTextSize(1);
-  display.println(utf8cyr(regions[settings.home_district]));
+  display.println(utf8cyr(districts[settings.home_district]));
   String temp = "";
   char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
@@ -1429,84 +1623,16 @@ void handleRoot(AsyncWebServerRequest* request){
   html +="                    <div class='form-group'>";
   html +="                        <label for='selectBox3'>Домашній регіон</label>";
   html +="                        <select name='home_district' class='form-control' id='selectBox3'>";
-  html +="<option value='15'";
-  if (settings.home_district == 15) html += " selected";
-  html +=">АР Крим</option>";
-  html +="<option value='22'";
-  if (settings.home_district == 22) html += " selected";
-  html +=">Вінницька область</option>";
-  html +="<option value='4'";
-  if (settings.home_district == 4) html += " selected";
-  html +=">Волинська область</option>";
-  html +="<option value='18'";
-  if (settings.home_district == 18) html += " selected";
-  html +=">Дніпропетровська область</option>";
-  html +="<option value='12'";
-  if (settings.home_district == 12) html += " selected";
-  html +=">Донецька область</option>";
-  html +="<option value='6'";
-  if (settings.home_district == 6) html += " selected";
-  html +=">Житомирська область</option>";
-  html +="<option value='0'";
-  if (settings.home_district == 0) html += " selected";
-  html +=">Закарпатська область</option>";
-  html +="<option value='13'";
-  if (settings.home_district == 13) html += " selected";
-  html +=">Запорізька область</option>";
-  html +="<option value='1'";
-  if (settings.home_district == 1) html += " selected";
-  html +=">Івано-Франківська область</option>";
-  html +="<option value='7'";
-  if (settings.home_district == 7) html += " selected";
-  html +=">Київська область</option>";
-  html +="<option value='25'";
-  if (settings.home_district == 25) html += " selected";
-  html +=">Київ</option>";
-  html +="<option value='21'";
-  if (settings.home_district == 21) html += " selected";
-  html +=">Кіровоградська область</option>";
-  html +="<option value='11'";
-  if (settings.home_district == 11) html += " selected";
-  html +=">Луганська область</option>";
-  html +="<option value='3'";
-  if (settings.home_district == 3) html += " selected";
-  html +=">Львівська область</option>";
-  html +="<option value='17'";
-  if (settings.home_district == 17) html += " selected";
-  html +=">Миколаївська область</option>";
-  html +="<option value='16'";
-  if (settings.home_district == 16) html += " selected";
-  html +=">Одеська область</option>";
-  html +="<option value='19'";
-  if (settings.home_district == 19) html += " selected";
-  html +=">Полтавська область</option>";
-  html +="<option value='5'";
-  if (settings.home_district == 5) html += " selected";
-  html +=">Рівненська область</option>";
-  html +="<option value='9'";
-  if (settings.home_district == 9) html += " selected";
-  html +=">Сумська область</option>";
-  html +="<option value='2'";
-  if (settings.home_district == 2) html += " selected";
-  html +=">Тернопільська область</option>";
-  html +="<option value='10'";
-  if (settings.home_district == 10) html += " selected";
-  html +=">Харківська область</option>";
-  html +="<option value='14'";
-  if (settings.home_district == 14) html += " selected";
-  html +=">Херсонська область</option>";
-  html +="<option value='23'";
-  if (settings.home_district == 23) html += " selected";
-  html +=">Хмельницька область</option>";
-  html +="<option value='20'";
-  if (settings.home_district == 20) html += " selected";
-  html +=">Черкаська область</option>";
-  html +="<option value='24'";
-  if (settings.home_district == 24) html += " selected";
-  html +=">Чернівецька область</option>";
-  html +="<option value='8'";
-  if (settings.home_district == 8) html += " selected";
-  html +=">Чернігівська область</option>";
+  for (int alphabet = 0; alphabet < 26; alphabet++) {
+    int num = alphabetDistrictToNum(alphabet);
+    html += "<option value='";
+    html += num;
+    html += "'";
+    if (settings.home_district == num) html += " selected";
+    html += ">";
+    html += districtsAlphabetical[alphabet];
+    html += "</option>";
+  }
   html +="                        </select>";
   html +="                    </div>";
   html +="                    <div class='form-group form-check'>";
@@ -1564,7 +1690,7 @@ void handleRoot(AsyncWebServerRequest* request){
   if (settings.service_diodes_mode == 1) html += " checked";
   html +=">";
   html +="                        <label class='form-check-label' for='checkbox4'>";
-  html +="                          Ввімкнути сервісні діоді на задній частині платі";
+  html +="                          Ввімкнути сервісні діоди на задній частині плати";
   html +="                        </label>";
   html +="                    </div>";
   }
@@ -2038,6 +2164,9 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("home_district", true)){
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district){
       settings.home_district = request->getParam("home_district", true)->value().toInt();
+      if (enableHA) {
+        haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+      }
       preferences.putInt("hd", settings.home_district);
       homeAlertStart = 0;
       Serial.println("home_district commited to preferences");
@@ -2076,7 +2205,7 @@ void handleSave(AsyncWebServerRequest* request){
       settings.display_mode = request->getParam("display_mode", true)->value().toInt();
       preferences.putInt("dm", settings.display_mode);
       if(enableHA){
-        haDisplayMode.setState(settings.display_mode);
+        haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
       }
       Serial.print("display_mode commited to preferences: ");
       Serial.println(settings.display_mode);
@@ -2143,12 +2272,14 @@ void uptime() {
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
+  float cpuTemp       = temperatureRead();
 
-  if(enableHA){
+  if(enableHA) {
     haUptime.setValue(uptimeValue);
     haWifiSignal.setValue(rssi);
     haFreeMemory.setValue(freeHeapSize);
     haUsedMemory.setValue(usedHeapSize);
+    haCpuTemp.setValue(cpuTemp);
   }
   Serial.println(uptimeValue);
 }
@@ -2170,14 +2301,13 @@ void connectStatuses(){
 
 void timeUpdate() {
   timeClient.update();
-  int currentHour = timeClient.getHours();
-  isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
 }
 
 void autoBrightnessUpdate() {
   if (settings.brightness_auto == 1) {
-    int currentBrightness = 0;
-    currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
+    int currentHour = timeClient.getHours();
+    bool isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
+    int currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
     if (currentBrightness != settings.brightness) {
       settings.brightness = currentBrightness;
       if (enableHA) {
@@ -2643,7 +2773,7 @@ void alarmTrigger(){
         currentMapMode = 1;
     }
   }
-  if (mapMode != currentMapMode){
+  if (mapMode != currentMapMode && enableHA){
     haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
   mapMode = currentMapMode;
@@ -2668,15 +2798,11 @@ void setup() {
   initWifi();
   initTime();
 
-  uint64_t chipid = ESP.getEfuseMac();
-  String chipID1 = String((uint32_t)(chipid >> 32), HEX);
-  String chipID2 = String((uint32_t)chipid, HEX);
-
   Serial.print("ESP32 Chip ID: ");
   Serial.print(chipID1);
   Serial.println(chipID2);
 
-  asyncEngine.setInterval(uptime, 60000);
+  asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
   asyncEngine.setInterval(tcpConnect, 1000);
@@ -2693,6 +2819,7 @@ void setup() {
 }
 
 void loop() {
+  wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
   if(enableHA){
