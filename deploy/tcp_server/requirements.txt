@@ -1,1 +1,2 @@
-aiomcache==0.8.1
+aiomcache==0.8.
+requests==2.31.0
