@@ -781,15 +781,18 @@ void initHA() {
       haHomeDistrict.setName("Home District");
 
       device.enableLastWill();
-      mqtt.begin(brokerAddr,settings.ha_mqttport,mqttUser,mqttPassword);
-      Serial.print("Home Assistant MQTT connected: ");
-      Serial.println(mqtt.isConnected());
+      mqtt.onConnected(mqttConnected);
+      mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
 
-      // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-      haMapModeCurrent.setValue(mapModes[mapMode]);
-      haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
     }
   }
+}
+
+void mqttConnected() {
+  Serial.println("Home Assistant MQTT connected!");
+  // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
+  haMapModeCurrent.setValue(mapModes[mapMode]);
+  haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
 }
 
 void onHaRebootCommand(HAButton* sender) {
