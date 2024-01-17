@@ -4,6 +4,7 @@ import asyncio
 import logging
 import requests
 from aiomcache import Client
+from ip2geotools.databases.noncommercial import DbIpCity
 
 from datetime import datetime
 from time import time
@@ -26,7 +27,7 @@ async def handle_client(reader, writer, shared_data):
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     data_from_client = False
 
-    client_ip = writer.get_extra_info('peername')[0]
+    client_ip = "85.209.47.112" #writer.get_extra_info('peername')[0]
     client_port = writer.get_extra_info('peername')[1]
 
     if client_ip in shared_data.blocked_ips:
@@ -35,9 +36,10 @@ async def handle_client(reader, writer, shared_data):
         await writer.wait_closed()
         return
 
-    response = requests.get(f'https://ipapi.co/{client_ip}/country/')
+    response = DbIpCity.get(client_ip, api_key='free')
 
-    if response != 'UA':
+    if response.country != 'UA':
+        logger.info(f"Block IP {client_ip} from {response.country}.")
         shared_data.blocked_ips.append(client_ip)
         writer.close()
         await writer.wait_closed()

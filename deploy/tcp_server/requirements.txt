@@ -1,2 +1,2 @@
-aiomcache==0.8.
-requests==2.31.0
+aiomcache==0.8.1
+ip2geotools==0.1.6
