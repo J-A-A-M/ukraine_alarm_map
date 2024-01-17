@@ -19,8 +19,7 @@
 void(* resetFunc) (void) = 0;
 
 struct Settings{
-  char*   apssid                 = "AlarmMap";
-  char*   appassword             = "";
+  char*   apssid                 = "JAAM";
   char*   softwareversion        = "3.3";
   int     pixelcount             = 26;
   int     buttontime             = 100;
@@ -532,17 +531,28 @@ void initWifi() {
     wm.setHostname(settings.broadcastname);
     wm.setTitle(settings.devicename);
     wm.setConfigPortalBlocking(true);
-    wm.setConfigPortalTimeout(120);
     wm.setConnectTimeout(3);
     wm.setConnectRetries(10);
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пiдключення WIFI.."),0,1);
+    wm.setAPCallback(apCallback);
     servicePin(settings.wifipin, LOW, false);
-    if(wm.autoConnect(settings.apssid, settings.appassword)){
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.println(utf8cyr("Підключення до:"));
+    DisplayCenter(utf8cyr(wm.getWiFiSSID(true)),3,1);
+    String apssid = "";
+    apssid += settings.apssid;
+    apssid += "_";
+    apssid += chipID1;
+    apssid += chipID2;
+    if(wm.autoConnect(apssid.c_str())) {
         Serial.println("connected...yeey :)");
         servicePin(settings.wifipin, HIGH, false);
         display.clearDisplay();
-        DisplayCenter(utf8cyr(WiFi.localIP().toString()),0,1);
+        display.setCursor(0, 0);
+        display.setTextSize(1);
+        display.println(utf8cyr("IP адреса мапи:"));
+        DisplayCenter(utf8cyr(WiFi.localIP().toString()),3,1);
         wm.setHttpPort(8080);
         wm.startWebPortal();
         delay(5000);
@@ -552,14 +562,36 @@ void initWifi() {
         initBroadcast();
         tcpConnect();
         doFetchBinList();
-    }
-    else {
+    } else {
         Serial.println("Reboot");
         display.clearDisplay();
         DisplayCenter(utf8cyr("Пepeзaвaнтaжeння"),0,1);
         delay(5000);
         ESP.restart();
     }
+}
+
+void apCallback(WiFiManager *wifiManager) {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.setTextSize(1);
+  display.println(utf8cyr("Підключіться до WiFi:"));
+  DisplayCenter(utf8cyr(wifiManager->getConfigPortalSSID()),3,1);
+  WiFi.onEvent(wifiEvents);
+}
+
+static void wifiEvents(WiFiEvent_t event) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.setTextSize(1);
+      display.println(utf8cyr("Введіть у браузері:"));
+      DisplayCenter(utf8cyr(WiFi.softAPIP().toString()),3,1);
+      WiFi.removeEvent(wifiEvents);
+    default:
+      break;
+  }
 }
 
 void initBroadcast() {
@@ -1888,21 +1920,27 @@ void handleSave(AsyncWebServerRequest* request){
       disableBrightnessAuto = true;
       settings.brightness = request->getParam("brightness", true)->value().toInt();
       preferences.putInt("brightness", settings.brightness);
-      haBrightness.setState(settings.brightness);
+      if(enableHA){
+        haBrightness.setState(settings.brightness);
+      }
       Serial.println("brightness commited to preferences");
     }
   }
   if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto){
     if (settings.brightness_auto == 0){
       settings.brightness_auto = 1;
-      haBrightnessAuto.setState(true);
+      if(enableHA){
+        haBrightnessAuto.setState(true);
+      }
       preferences.putInt("bra", settings.brightness_auto);
       Serial.println("brightness_auto enabled to preferences");
     }
   }else{
     if (settings.brightness_auto == 1){
       settings.brightness_auto = 0;
-      haBrightnessAuto.setState(false);
+      if(enableHA){
+        haBrightnessAuto.setState(false);
+      }
       preferences.putInt("bra", settings.brightness_auto);
       Serial.println("brightness_auto disabled to preferences");
     }
@@ -1910,7 +1948,9 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("home_alert_time", true)){
     if (settings.home_alert_time == 0){
       settings.home_alert_time = 1;
-      haShowHomeAlarmTime.setState(true);
+      if(enableHA){
+        haShowHomeAlarmTime.setState(true);
+      }
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time enabled to preferences");
       parseHomeDistrictJson();
@@ -1918,7 +1958,9 @@ void handleSave(AsyncWebServerRequest* request){
   }else{
     if (settings.home_alert_time == 1){
       settings.home_alert_time = 0;
-      haShowHomeAlarmTime.setState(false);
+      if(enableHA){
+        haShowHomeAlarmTime.setState(false);
+      }
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time disabled to preferences");
     }
@@ -1926,7 +1968,6 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("service_diodes_mode", true)){
     if (settings.service_diodes_mode == 0){
       settings.service_diodes_mode = 1;
-      //haShowHomeAlarmTime.setState(true);
       preferences.putInt("sdm", settings.service_diodes_mode);
       checkServicePins();
       Serial.println("service_diodes_mode enabled to preferences");
@@ -1934,7 +1975,6 @@ void handleSave(AsyncWebServerRequest* request){
   }else{
     if (settings.service_diodes_mode == 1){
       settings.service_diodes_mode = 0;
-      //haShowHomeAlarmTime.setState(false);
       preferences.putInt("sdm", settings.service_diodes_mode);
       checkServicePins();
       Serial.println("service_diodes_mode disabled to preferences");
@@ -2055,7 +2095,9 @@ void handleSave(AsyncWebServerRequest* request){
   if (request->hasParam("alarms_auto_switch", true)){
     if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch){
       settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
-      haAlarmsAuto.setState(settings.alarms_auto_switch);
+      if(enableHA){
+        haAlarmsAuto.setState(settings.alarms_auto_switch);
+      }
       preferences.putInt("aas", settings.alarms_auto_switch);
       Serial.println("alarms_auto_switch commited to preferences");
     }
@@ -2071,7 +2113,9 @@ void handleSave(AsyncWebServerRequest* request){
     if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode){
       settings.map_mode = request->getParam("map_mode", true)->value().toInt();
       preferences.putInt("mapmode", settings.map_mode);
-      haMapMode.setState(settings.map_mode);
+      if(enableHA){
+        haMapMode.setState(settings.map_mode);
+      }
       Serial.println("map_mode commited to preferences");
     }
   }
@@ -2079,7 +2123,9 @@ void handleSave(AsyncWebServerRequest* request){
     if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode){
       settings.display_mode = request->getParam("display_mode", true)->value().toInt();
       preferences.putInt("dm", settings.display_mode);
-      haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
+      if(enableHA){
+        haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
+      }
       Serial.print("display_mode commited to preferences: ");
       Serial.println(settings.display_mode);
     }
@@ -2691,7 +2737,6 @@ void setup() {
 }
 
 void loop() {
-  wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
   if(enableHA){
