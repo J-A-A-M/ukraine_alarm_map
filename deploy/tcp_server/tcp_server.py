@@ -56,9 +56,15 @@ async def handle_client(reader, writer, shared_data):
     try:
         data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
         data_from_client = data_from_client.decode()
+        if len(data_from_client) > 20:
+            if not writer.is_closing():
+                writer.close()
+            await writer.wait_closed()
         writer.software = data_from_client
+
     except asyncio.exceptions.TimeoutError as e:
         writer.software = 'unknown'
+
 
     client_ip = writer.get_extra_info('peername')[0]
     client_port = writer.get_extra_info('peername')[1]
