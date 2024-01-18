@@ -10,10 +10,6 @@ on:
           description: 'Release title'
           required: true
           type: string
-        release-notes:
-          description: 'Release notes'
-          required: true
-          type: string
 jobs:
   release_firmware:
     if: ${{ github.ref_name == 'master' }}
@@ -42,17 +38,16 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: ${{ github.workspace }}/bin/${{ github.event.inputs.release-version }}.bin
-          name: ${{ github.event.inputs.release-version }} ${{ github.event.inputs.release-title }}
+          name: "${{ github.event.inputs.release-version }}: ${{ github.event.inputs.release-title }}"
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ github.event.inputs.release-version }}
-          body: ${{ github.event.inputs.release-notes }}
+          generateReleaseNotes: true
           allowUpdates: true
-      - name: Create Sync PR
-        uses: peter-evans/create-pull-request@v3
+      - name: Merge master -> develop
+        uses: devmasx/merge-branch@master
         with:
-          title: "Sync release ${{ github.event.inputs.release-version }} to develop"
-          body: "Sync ${{ github.event.inputs.release-version }} to develop"
-          branch: "develop"
-          base: "master"
-          labels: "sync"
+          type: now
+          target_branch: develop
+          message: Sync Release ${{ github.event.inputs.release-version }} to develop
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
