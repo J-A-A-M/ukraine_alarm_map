@@ -43,7 +43,7 @@ jobs:
         with:
           artifacts: ${{ github.workspace }}/bin/${{ github.event.inputs.release-version }}.bin
           name: ${{ github.event.inputs.release-version }} ${{ github.event.inputs.release-title }}
-          commit: ${{ commit_changes.outputs.commit_hash }}
+          commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ github.event.inputs.release-version }}
           body: ${{ github.event.inputs.release-notes }}
           allowUpdates: true
