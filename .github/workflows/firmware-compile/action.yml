@@ -2,18 +2,19 @@ name: 'Firmware Compile Action'
 description: 'Unzip libraries and compile firmware'
 inputs:
   enable-warnings-report:
-    type: string
+    description: 'Enable warnings report'
     default: 'false'
   enable-deltas-report:
-    type: string
+    description: 'Enable deltas report'
     default: 'false'
   sketches-report-path:
-    type: string
+    description: 'Sketches report path'
     default: 'sketches-reports'
 runs:
   using: 'composite'
   steps:
     - name: Unzip libraries
+      shell: bash
       run: |
         unzip -q libs/Adafruit_GFX_Library.zip -d libs/
         unzip -q libs/ArduinoAsync-master.zip -d libs/
