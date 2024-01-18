@@ -44,8 +44,8 @@ runs:
             version: 1.1.4
           - name: ArduinoJson
             version: 7.0.1
-        enable-warnings-report: ${{ github.event.inputs.enable-warnings-report }}
-        enable-deltas-report: ${{ github.event.inputs.enable-deltas-report }}
-        sketches-report-path: ${{ github.event.inputs.sketches-report-path }}
+        enable-warnings-report: ${{ inputs.enable-warnings-report }}
+        enable-deltas-report: ${{ inputs.enable-deltas-report }}
+        sketches-report-path: ${{ inputs.sketches-report-path }}
         cli-compile-flags: |
           - --export-binaries
