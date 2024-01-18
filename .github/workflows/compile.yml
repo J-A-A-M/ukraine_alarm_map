@@ -11,7 +11,7 @@
         steps:
           - uses: actions/checkout@v4
           - name: Compile firmware
-            uses: ./.github/workflows/composite/firmware-compile.yml
+            uses: ./.github/workflows/firmware-compile
             with:
               enable-warnings-report: true
               enable-deltas-report: ${{ github.event_name == 'pull_request' }}
