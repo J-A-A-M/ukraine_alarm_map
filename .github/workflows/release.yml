@@ -48,6 +48,7 @@ jobs:
         with:
           type: now
           target_branch: develop
+          head_to_merge: ${{ steps.commit_changes.outputs.commit_hash }}
           message: Sync Release ${{ github.event.inputs.release-version }} to develop
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
