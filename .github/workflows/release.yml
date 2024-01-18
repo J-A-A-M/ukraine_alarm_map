@@ -3,17 +3,23 @@ on:
   workflow_dispatch:
     inputs:
         release-version:
-            description: 'Release version'
-            required: true
-            type: string
+          description: 'Release version'
+          required: true
+          type: string
+        release-title:
+          description: 'Release title'
+          required: true
+          type: string
         release-notes:
-            description: 'Release notes'
-            required: true
-            type: string
+          description: 'Release notes'
+          required: true
+          type: string
 jobs:
   release_firmware:
     if: ${{ github.ref_name == 'master' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,10 +30,29 @@ jobs:
         uses: ./.github/workflows/firmware-compile
       - name: Copy release files to bin folder
         run: |
-          cp ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ github.event.inputs.release-version }}.bin
-          cp ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ github.event.inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
       - name: Commit changes
+        id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update firmware version to ${{ github.event.inputs.release-version }}"
+          commit_message: "Release ${{ github.event.inputs.release-version }}"
           file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: ${{ github.workspace }}/bin/${{ github.event.inputs.release-version }}.bin
+          name: ${{ github.event.inputs.release-version }} ${{ github.event.inputs.release-title }}
+          commit: ${{ commit_changes.outputs.commit_hash }}
+          tag: ${{ github.event.inputs.release-version }}
+          body: ${{ github.event.inputs.release-notes }}
+          allowUpdates: true
+      - name: Create Sync PR
+        uses: peter-evans/create-pull-request@v3
+        with:
+          title: "Sync release ${{ github.event.inputs.release-version }} to develop"
+          body: "Sync ${{ github.event.inputs.release-version }} to develop"
+          branch: "develop"
+          base: "master"
+          labels: "sync"
+
