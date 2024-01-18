@@ -1,0 +1,34 @@
+name: 🚀 Release Firmware
+on:
+  workflow_dispatch:
+    inputs:
+        release-version:
+            description: 'Release version'
+            required: true
+            type: string
+        release-notes:
+            description: 'Release notes'
+            required: true
+            type: string
+jobs:
+  release_firmware:
+    if: ${{ github.ref_name == 'master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i "s/String VERSION = \".*\";/String VERSION = \"${{ github.event.inputs.release-version }}\";/" src/firmware/firmware.ino
+      - name: Compile firmware
+        uses: ./.github/workflows/composite/firmware-compile.yml
+      - name: Copy release files to bin folder
+        run: |
+          cp src/firmware/build/esp32.esp32.esp32/firmware.ino.bin bin/${{ github.event.inputs.release-version }}.bin
+          cp src/firmware/build/esp32.esp32.esp32/firmware.ino.bin bin/latest.bin
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update firmware version to ${{ github.event.inputs.release-version }}"
+          file_pattern: src/firmware/firmware.ino bin/
+        

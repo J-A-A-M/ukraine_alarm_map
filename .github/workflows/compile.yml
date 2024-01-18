@@ -10,41 +10,12 @@
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
-          - name: Unzip libraries
-            run: |
-              unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
-              unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
-              unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
           - name: Compile firmware
-            uses: arduino/compile-sketches@v1
+            uses: ./.github/workflows/composite/firmware-compile.yml
             with:
-              sketch-paths: |
-                - ${{ github.workspace }}/src/firmware
-              fqbn: esp32:esp32:esp32
-              libraries: |
-                - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
-                - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-                - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
-                  destination-name: ESP_Async_WebServer
-                - name: Adafruit SSD1306
-                  version: 2.5.7
-                - name: home-assistant-integration
-                  version: 2.0.0
-                - name: NeoPixelBus by Makuna
-                  version: 2.7.7
-                - name: NTPClient
-                  version: 3.2.1
-                - name: WiFiManager
-                  version: 2.0.16-rc.2
-                - name: AsyncTCP
-                  version: 1.1.4
-                - name: ArduinoJson
-                  version: 7.0.1
               enable-warnings-report: true
               enable-deltas-report: ${{ github.event_name == 'pull_request' }}
               sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
-              cli-compile-flags: |
-                - --export-binaries
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:

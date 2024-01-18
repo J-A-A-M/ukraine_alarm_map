@@ -1,0 +1,50 @@
+name: 'Firmware Compile Action'
+description: 'Unzip libraries and compile firmware'
+inputs:
+  enable-warnings-report:
+    type: string
+    default: 'false'
+  enable-deltas-report:
+    type: string
+    default: 'false'
+  sketches-report-path:
+    type: string
+    default: 'sketches-reports'
+runs:
+  using: 'composite'
+  steps:
+    - name: Unzip libraries
+      run: |
+        unzip -q libs/Adafruit_GFX_Library.zip -d libs/
+        unzip -q libs/ArduinoAsync-master.zip -d libs/
+        unzip -q libs/ESPAsyncWebServer-master.zip -d libs/
+    - name: Compile firmware
+      uses: arduino/compile-sketches@v1
+      with:
+        sketch-paths: |
+          - src/firmware
+        fqbn: esp32:esp32:esp32
+        libraries: |
+          - source-path: libs/Adafruit_GFX_Library
+          - source-path: libs/ArduinoAsync-master
+          - source-path: libs/ESPAsyncWebServer-master
+            destination-name: ESP_Async_WebServer
+          - name: Adafruit SSD1306
+            version: 2.5.7
+          - name: home-assistant-integration
+            version: 2.0.0
+          - name: NeoPixelBus by Makuna
+            version: 2.7.7
+          - name: NTPClient
+            version: 3.2.1
+          - name: WiFiManager
+            version: 2.0.16-rc.2
+           - name: AsyncTCP
+            version: 1.1.4
+          - name: ArduinoJson
+            version: 7.0.1
+        enable-warnings-report: ${{ github.event.inputs.enable-warnings-report }}
+        enable-deltas-report: ${{ github.event.inputs.enable-deltas-report }}
+        sketches-report-path: ${{ github.event.inputs.sketches-report-path }}
+        cli-compile-flags: |
+          - --export-binaries
