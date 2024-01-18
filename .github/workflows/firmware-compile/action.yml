@@ -16,9 +16,9 @@ runs:
     - name: Unzip libraries
       shell: bash
       run: |
-        unzip -q libs/Adafruit_GFX_Library.zip -d libs/
-        unzip -q libs/ArduinoAsync-master.zip -d libs/
-        unzip -q libs/ESPAsyncWebServer-master.zip -d libs/
+        unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
+        unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
+        unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
     - name: Compile firmware
       uses: arduino/compile-sketches@v1
       with:
@@ -26,9 +26,9 @@ runs:
           - src/firmware
         fqbn: esp32:esp32:esp32
         libraries: |
-          - source-path: libs/Adafruit_GFX_Library
-          - source-path: libs/ArduinoAsync-master
-          - source-path: libs/ESPAsyncWebServer-master
+          - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
+          - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
+          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
             destination-name: ESP_Async_WebServer
           - name: Adafruit SSD1306
             version: 2.5.7
