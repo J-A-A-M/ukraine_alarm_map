@@ -31,4 +31,3 @@ jobs:
         with:
           commit_message: "Update firmware version to ${{ github.event.inputs.release-version }}"
           file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/
-        

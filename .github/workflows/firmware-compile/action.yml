@@ -23,7 +23,7 @@ runs:
       uses: arduino/compile-sketches@v1
       with:
         sketch-paths: |
-          - src/firmware
+          - ${{ github.workspace }}/src/firmware
         fqbn: esp32:esp32:esp32
         libraries: |
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
