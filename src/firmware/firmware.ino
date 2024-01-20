@@ -66,6 +66,7 @@ struct Settings {
   int     kyiv_district_mode     = 1;
   int     service_diodes_mode    = 0;
   int     sdm_auto               = 0;
+  int     new_fw_notification    = 1;
 
   // ------- Map Modes:
   // -------  0 - Off
@@ -92,6 +93,15 @@ struct Settings {
 };
 
 Settings settings;
+
+struct Firmware {
+  int major = 0;
+  int minor = 0;
+  int patch = 0;
+};
+
+Firmware currentFirmware;
+Firmware latestFirmware;
 
 Preferences       preferences;
 WiFiManager       wm;
@@ -513,7 +523,16 @@ void initSettings() {
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
+  settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
   preferences.end();
+
+  currentFirmware = parseFirmwareVersion(VERSION);
+  Serial.print("Current firmware version: ");
+  Serial.print(currentFirmware.major);
+  Serial.print(".");
+  Serial.print(currentFirmware.minor);
+  Serial.print(".");
+  Serial.println(currentFirmware.patch);
 }
 
 void initStrip() {
@@ -993,6 +1012,36 @@ std::vector<String> fetchAndParseJSON() {
 void doFetchBinList() {
   Serial.println("DoFetchBinList");
   bin_list = fetchAndParseJSON();
+  saveLatestFirmware();
+}
+
+void saveLatestFirmware() {
+  Firmware firmware;
+  for (String& filename : bin_list) {
+    if (filename.startsWith("latest")) continue;
+    Firmware parsedFirmware = parseFirmwareVersion(filename);
+    if (firstIsNewer(parsedFirmware, firmware)) {
+      firmware = parsedFirmware;
+    }
+  }
+  latestFirmware = firmware;
+  Serial.print("Latest firmware version: ");
+  Serial.print(latestFirmware.major);
+  Serial.print(".");
+  Serial.print(latestFirmware.minor);
+  Serial.print(".");
+  Serial.println(latestFirmware.patch);
+}
+
+bool firstIsNewer(Firmware first, Firmware second) {
+  if (first.major > second.major) return true;
+  if (first.major == second.major) {
+    if (first.minor > second.minor) return true;
+    if (first.minor == second.minor) {
+      if (first.patch > second.patch) return true;
+    }
+  }
+  return false;
 }
 
 // Home District Json Parsing
@@ -1183,7 +1232,7 @@ void displayModeSwitch() {
   displayCycle();
   //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
-//--Button start
+//--Button end
 
 //--Display start
 void DisplayCenter(String text, int bound, int text_size) {
@@ -1245,6 +1294,11 @@ void displayCycle() {
   // Show Home Alert Time Info if enabled in settings and we have alert start time
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
     showHomeAlertInfo();
+    return;
+  }
+  // Show New Firmware Notification if enabled in settings and New firmware available
+  if (settings.new_fw_notification == 1 && firstIsNewer(latestFirmware, currentFirmware)) {
+    showNewFirmwareNotification();
     return;
   }
   displayByMode(settings.display_mode);
@@ -1318,6 +1372,29 @@ void showHomeAlertInfo() {
   DisplayCenter(alertTime, 7, 3);
 }
 
+void showNewFirmwareNotification() {
+  int toggleTime = 5;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 2);
+  display.setCursor(0, 0);
+  display.clearDisplay();
+  display.setTextSize(1);
+  if (remainder < toggleTime) {
+    display.println(utf8cyr("Доступне оновлення:"));
+    String version = "v";
+    version += latestFirmware.major;
+    version += ".";
+    version += latestFirmware.minor;
+    if (latestFirmware.patch > 0) {
+      version +=  ".";
+      version += latestFirmware.patch;
+    }
+    DisplayCenter(version, 7, 3);
+  } else {
+    display.println(utf8cyr("Введіть у браузері:"));
+    DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
+  }
+}
+
 void showClock() {
   int hour = timeClient.getHours();
   int minute = timeClient.getMinutes();
@@ -1372,6 +1449,36 @@ String getDivider() {
   }
 }
 //--Display end
+
+Firmware parseFirmwareVersion(String version) {
+
+  String parts[4];
+  int count = 0;
+
+  while (version.length() > 0) {
+    int index = version.indexOf('.');
+    if (index == -1) {
+      // No dot found 
+      parts[count++] = version;
+      break;
+    } else {
+      parts[count++] = version.substring(0, index);
+      version = version.substring(index+1);
+    }
+  }
+
+  Firmware firmware;
+
+  firmware.major = atoi(parts[0].c_str());
+  firmware.minor = atoi(parts[1].c_str());
+  if (parts[2] == "bin" || parts[2] == NULL) {
+    firmware.patch = 0;
+  } else {
+    firmware.patch = atoi(parts[2].c_str());
+  }
+  return firmware;
+
+}
 
 //--Web server start
 void setupRouting() {
@@ -1485,19 +1592,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='brightness_auto' type='checkbox' class='form-check-input' id='checkbox2'";
+  html += "                        <input name='brightness_auto' type='checkbox' class='form-check-input' id='checkbox1'";
   if (settings.brightness_auto == 1) html += " checked";
   html += ">";
-  html += "                        <label class='form-check-label' for='checkbox2'>";
-  html += "                          Міняти яскравість (день-ніч по годинам)";
+  html += "                        <label class='form-check-label' for='checkbox1'>";
+  html += "                          Змінювати яскравість (день-ніч по годинам)";
   html += "                        </label>";
   html += "                    </div>";
   if (!settings.legacy) {
     html += "                  <div class='form-group form-check'>";
-    html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox3'";
+    html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox2'";
     if (settings.sdm_auto  == 1) html += " checked";
     html += ">";
-    html += "                      <label class='form-check-label' for='checkbox3'>";
+    html += "                      <label class='form-check-label' for='checkbox2'>";
     html += "                        Вимикати сервісні діоди в нічний час";
     html += "                      </label>";
     html += "                  </div>";
@@ -1668,10 +1775,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox2'";
+  html += "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox3'";
   if (settings.home_alert_time == 1) html += " checked";
   html += ">";
-  html += "                        <label class='form-check-label' for='checkbox'>";
+  html += "                        <label class='form-check-label' for='checkbox3'>";
   html += "                          Показувати тривалість тривоги у дом. регіоні";
   html += "                        </label>";
   html += "                    </div>";
@@ -1806,6 +1913,14 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
+  html += "                    <div class='form-group form-check'>";
+  html += "                        <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
+  if (settings.new_fw_notification == 1) html += " checked";
+  html += ">";
+  html += "                        <label class='form-check-label' for='checkbox5'>";
+  html += "                          Сповіщення про нові прошивки на екрані";
+  html += "                        </label>";
+  html += "                    </div>";
   html += "                        <label for='selectBox9'>Файл прошивки</label>";
   html += "                        <select name='bin_name' class='form-control' id='selectBox9'>";
   for (String& filename : bin_list) {
@@ -1816,8 +1931,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='do_update' type='checkbox' class='form-check-input' id='checkbox3'>";
-  html += "                        <label class='form-check-label' for='checkbox3'>";
+  html += "                        <input name='do_update' type='checkbox' class='form-check-input' id='checkbox6'>";
+  html += "                        <label class='form-check-label' for='checkbox6'>";
   html += "                          Оновлення";
   html += "                        </label>";
   html += "                    </div>";
@@ -2116,6 +2231,19 @@ void handleSave(AsyncWebServerRequest* request) {
       }
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time disabled to preferences");
+    }
+  }
+  if (request->hasParam("new_fw_notification", true)) {
+    if (settings.new_fw_notification == 0) {
+      settings.new_fw_notification = 1;
+      preferences.putInt("nfwn", settings.new_fw_notification);
+      Serial.println("new_fw_notification enabled to preferences");
+    }
+  } else {
+    if (settings.new_fw_notification == 1) {
+      settings.new_fw_notification = 0;
+      preferences.putInt("nfwn", settings.new_fw_notification);
+      Serial.println("new_fw_notification disabled to preferences");
     }
   }
   if (request->hasParam("do_update", true)) {
