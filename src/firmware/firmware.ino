@@ -65,6 +65,7 @@ struct Settings {
   int     home_district          = 7;
   int     kyiv_district_mode     = 1;
   int     service_diodes_mode    = 0;
+  int     sdm_auto               = 0;
 
   // ------- Map Modes:
   // -------  0 - Off
@@ -509,6 +510,7 @@ void initSettings() {
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
+  settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   preferences.end();
 }
 
@@ -810,6 +812,11 @@ void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
 void onhaBrightnessAutoCommand(bool state, HASwitch* sender) {
   settings.brightness_auto = state;
   preferences.begin("storage", false);
+  if (state == false) {
+    settings.brightness = settings.brightness_day;
+    preferences.putInt("brightness", settings.brightness);
+    haBrightness.setState(settings.brightness);
+  }
   preferences.putInt("bra", settings.brightness_auto);
   preferences.end();
   Serial.println("brightness_auto commited to preferences");
@@ -1476,10 +1483,20 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input name='brightness_auto' type='checkbox' class='form-check-input' id='checkbox2'";
   if (settings.brightness_auto == 1) html += " checked";
   html += ">";
-  html += "                        <label class='form-check-label' for='checkbox'>";
-  html += "                          Автояскравість (день-ніч по годинам)";
+  html += "                        <label class='form-check-label' for='checkbox2'>";
+  html += "                          Міняти яскравість (день-ніч по годинам)";
   html += "                        </label>";
   html += "                    </div>";
+  if (!settings.legacy) {
+    html += "                  <div class='form-group form-check'>";
+    html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox3'";
+    if (settings.sdm_auto  == 1) html += " checked";
+    html += ">";
+    html += "                      <label class='form-check-label' for='checkbox3'>";
+    html += "                        Вимикати сервісні діоди в нічний час";
+    html += "                      </label>";
+    html += "                  </div>";
+  }
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
@@ -2023,11 +2040,54 @@ void handleSave(AsyncWebServerRequest* request) {
   } else {
     if (settings.brightness_auto == 1) {
       settings.brightness_auto = 0;
+      settings.brightness = settings.brightness_day;
       if (enableHA) {
         haBrightnessAuto.setState(false);
+        haBrightness.setState(settings.brightness);
       }
       preferences.putInt("bra", settings.brightness_auto);
+      preferences.putInt("brightness", settings.brightness);
       Serial.println("brightness_auto disabled to preferences");
+    }
+  }
+  if (request->hasParam("service_diodes_mode", true)) {
+    if (settings.service_diodes_mode == 0) {
+      settings.service_diodes_mode = 1;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode enabled to preferences");
+    }
+  } else {
+    if (settings.service_diodes_mode == 1) {
+      settings.service_diodes_mode = 0;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode disabled to preferences");
+    }
+  }
+  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
+    if (settings.sdm_auto == 0) {
+      settings.sdm_auto = 1;
+      settings.service_diodes_mode = 0;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(true);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto enabled to preferences");
+    }
+  } else {
+    if (settings.sdm_auto == 1) {
+      settings.sdm_auto = 0;
+      settings.service_diodes_mode = 1;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(false);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto disabled to preferences");
     }
   }
   if (request->hasParam("home_alert_time", true)) {
@@ -2048,21 +2108,6 @@ void handleSave(AsyncWebServerRequest* request) {
       }
       preferences.putInt("hat", settings.home_alert_time);
       Serial.println("home_alert_time disabled to preferences");
-    }
-  }
-  if (request->hasParam("service_diodes_mode", true)) {
-    if (settings.service_diodes_mode == 0) {
-      settings.service_diodes_mode = 1;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode enabled to preferences");
-    }
-  } else {
-    if (settings.service_diodes_mode == 1) {
-      settings.service_diodes_mode = 0;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode disabled to preferences");
     }
   }
   if (request->hasParam("do_update", true)) {
@@ -2317,6 +2362,14 @@ void autoBrightnessUpdate() {
     int currentHour = timeClient.getHours();
     bool isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
     int currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
+    if (!isDay && settings.sdm_auto && settings.service_diodes_mode != 0) {
+      settings.service_diodes_mode = 0;
+      checkServicePins();
+    }
+    if (isDay && settings.sdm_auto && settings.service_diodes_mode != 1) {
+      settings.service_diodes_mode = 1;
+      checkServicePins();
+    }
     if (currentBrightness != settings.brightness) {
       settings.brightness = currentBrightness;
       if (enableHA) {
