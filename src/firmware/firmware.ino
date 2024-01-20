@@ -1227,7 +1227,7 @@ void displayModeSwitch() {
   displayCycle();
   //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
-//--Button ebd
+//--Button end
 
 //--Display start
 void DisplayCenter(String text, int bound, int text_size) {
