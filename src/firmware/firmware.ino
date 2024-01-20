@@ -351,7 +351,6 @@ bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
-int     mapMode;
 long    buttonPressStart = 0;
 time_t  tcpLastPingTime = 0;
 int     offset = 9;
@@ -511,7 +510,6 @@ void initSettings() {
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   preferences.end();
-  mapMode                         = settings.map_mode;
 }
 
 void initStrip() {
@@ -789,7 +787,7 @@ void mqttConnected() {
   Serial.println("Home Assistant MQTT connected!");
   if (enableHA) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent.setValue(mapModes[mapMode]);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
   }
 }
@@ -876,6 +874,7 @@ void onHaMapModeCommand(int8_t index, HASelect* sender) {
   preferences.putInt("mapmode", settings.map_mode);
   preferences.end();
   Serial.println("map_mode commited to preferences");
+  haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   sender->setState(index);
 }
 
@@ -1122,13 +1121,9 @@ void buttonUpdate() {
 }
 
 void mapModeSwitch() {
-  if (mapMode == settings.map_mode) {
-    settings.map_mode += 1;
-    if (settings.map_mode > 3) {
-      settings.map_mode = 0;
-    }
-  } else {
-    settings.map_mode = 2;
+  settings.map_mode += 1;
+  if (settings.map_mode > 3) {
+    settings.map_mode = 0;
   }
   settings.alarms_auto_switch = 0;
 
@@ -1140,15 +1135,29 @@ void mapModeSwitch() {
   preferences.end();
   if (enableHA) {
     haMapMode.setState(settings.map_mode);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
     haAlarmsAuto.setState(settings.alarms_auto_switch);
   }
+  // update to selected mapMode
+  mapCycle();
   //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
 }
 
 void displayModeSwitch() {
-  settings.display_mode += 1;
-  if (settings.display_mode > 2) {
-    settings.display_mode = 0;
+  switch (settings.display_mode) {
+    case 0:
+      // passthrough
+    case 1:
+      settings.display_mode += 1;
+      break;
+    case 2:
+      settings.display_mode = 9;
+      break;
+    case 9:
+     // passthrough
+    default:
+      settings.display_mode = 0;
+      break;
   }
   Serial.print("display_mode: ");
   Serial.println(settings.display_mode);
@@ -1158,6 +1167,8 @@ void displayModeSwitch() {
   if (enableHA) {
     haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
   }
+  // update to selected displayMode
+  displayCycle();
   //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
 //--Button start
@@ -1390,10 +1401,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                <div class='box_yellow col-md-12 mt-2'>";
-  if (mapMode == 1) {
+  if (settings.map_mode == 1) {
     html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
   }
-  if (mapMode == 2) {
+  if (settings.map_mode == 2) {
     html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
   }
   html += "                </div>";
@@ -2162,6 +2173,7 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.home_district = request->getParam("home_district", true)->value().toInt();
       if (enableHA) {
         haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
       }
       preferences.putInt("hd", settings.home_district);
       homeAlertStart = 0;
@@ -2192,6 +2204,7 @@ void handleSave(AsyncWebServerRequest* request) {
       preferences.putInt("mapmode", settings.map_mode);
       if (enableHA) {
         haMapMode.setState(settings.map_mode);
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
       }
       Serial.println("map_mode commited to preferences");
     }
@@ -2642,7 +2655,8 @@ void mapReconnect() {
 }
 
 void mapCycle() {
-  switch (mapMode) {
+  int currentMapMode = getCurrentMapMode();
+  switch (currentMapMode) {
     case 0:
       mapOff();
       break;
@@ -2750,7 +2764,7 @@ void mapFlag() {
   strip->Show();
 }
 
-void alarmTrigger() {
+int getCurrentMapMode() {
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
   //Serial.print("position ");Serial.println(settings.home_district);
@@ -2767,10 +2781,10 @@ void alarmTrigger() {
         currentMapMode = 1;
       }
   }
-  if (mapMode != currentMapMode && enableHA) {
+  if (settings.map_mode != currentMapMode && enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
-  mapMode = currentMapMode;
+  return currentMapMode;
 }
 //--Map processing end
 
@@ -2803,10 +2817,8 @@ void setup() {
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(alarmTrigger, 1000);
   asyncEngine.setInterval(WifiReconnect, 5000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
-  asyncEngine.setInterval(buttonUpdate, 100);
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 10000);
   asyncEngine.setInterval(doFetchBinList, 600000);
@@ -2816,6 +2828,7 @@ void loop() {
   wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
+  buttonUpdate();
   if (enableHA) {
     mqtt.loop();
   }
