@@ -352,7 +352,6 @@ bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
 long    buttonPressStart = 0;
-//int     mapMode;
 time_t  tcpLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
