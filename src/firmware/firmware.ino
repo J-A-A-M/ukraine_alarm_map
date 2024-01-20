@@ -875,6 +875,7 @@ void onHaMapModeCommand(int8_t index, HASelect* sender) {
   preferences.putInt("mapmode", settings.map_mode);
   preferences.end();
   Serial.println("map_mode commited to preferences");
+  haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   sender->setState(index);
 }
 
@@ -1135,6 +1136,7 @@ void mapModeSwitch() {
   preferences.end();
   if (enableHA) {
     haMapMode.setState(settings.map_mode);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
     haAlarmsAuto.setState(settings.alarms_auto_switch);
   }
   // update to selected mapMode
@@ -2172,6 +2174,7 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.home_district = request->getParam("home_district", true)->value().toInt();
       if (enableHA) {
         haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
       }
       preferences.putInt("hd", settings.home_district);
       homeAlertStart = 0;
@@ -2202,6 +2205,7 @@ void handleSave(AsyncWebServerRequest* request) {
       preferences.putInt("mapmode", settings.map_mode);
       if (enableHA) {
         haMapMode.setState(settings.map_mode);
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
       }
       Serial.println("map_mode commited to preferences");
     }
