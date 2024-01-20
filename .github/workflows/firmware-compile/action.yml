@@ -1,0 +1,51 @@
+name: 'Firmware Compile Action'
+description: 'Unzip libraries and compile firmware'
+inputs:
+  enable-warnings-report:
+    description: 'Enable warnings report'
+    default: 'false'
+  enable-deltas-report:
+    description: 'Enable deltas report'
+    default: 'false'
+  sketches-report-path:
+    description: 'Sketches report path'
+    default: 'sketches-reports'
+runs:
+  using: 'composite'
+  steps:
+    - name: Unzip libraries
+      shell: bash
+      run: |
+        unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
+        unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
+        unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
+    - name: Compile firmware
+      uses: arduino/compile-sketches@v1
+      with:
+        sketch-paths: |
+          - ${{ github.workspace }}/src/firmware
+        fqbn: esp32:esp32:esp32
+        libraries: |
+          - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
+          - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
+          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
+            destination-name: ESP_Async_WebServer
+          - name: Adafruit SSD1306
+            version: 2.5.7
+          - name: home-assistant-integration
+            version: 2.0.0
+          - name: NeoPixelBus by Makuna
+            version: 2.7.7
+          - name: NTPClient
+            version: 3.2.1
+          - name: WiFiManager
+            version: 2.0.16-rc.2
+          - name: AsyncTCP
+            version: 1.1.4
+          - name: ArduinoJson
+            version: 7.0.1
+        enable-warnings-report: ${{ inputs.enable-warnings-report }}
+        enable-deltas-report: ${{ inputs.enable-deltas-report }}
+        sketches-report-path: ${{ inputs.sketches-report-path }}
+        cli-compile-flags: |
+          - --export-binaries

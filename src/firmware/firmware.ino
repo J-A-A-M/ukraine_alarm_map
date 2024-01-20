@@ -16,16 +16,18 @@
 #include <ArduinoJson.h>
 #include <esp_system.h>
 
+String VERSION = "3.3";
+
 struct Settings {
-  char*   apssid                 = "JAAM";
-  char*   softwareversion        = "3.3";
-  int     pixelcount             = 26;
-  int     buttontime             = 100;
-  int     powerpin               = 12;
-  int     wifipin                = 14;
-  int     datapin                = 25;
-  int     hapin                  = 26;
-  int     reservedpin            = 27;
+  char*         apssid                 = "JAAM";
+  const char*   softwareversion        = VERSION.c_str();
+  int           pixelcount             = 26;
+  int           buttontime             = 100;
+  int           powerpin               = 12;
+  int           wifipin                = 14;
+  int           datapin                = 25;
+  int           hapin                  = 26;
+  int           reservedpin            = 27;
 
   // ------- web config start
   String  devicename             = "Alarm Map";
@@ -34,7 +36,7 @@ struct Settings {
   String  serverhost             = "alerts.net.ua";
   int     tcpport                = 12345;
   int     updateport             = 8090;
-  String  bin_name               = "3.3.bin";
+  String  bin_name               = VERSION + ".bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
