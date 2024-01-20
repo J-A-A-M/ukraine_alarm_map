@@ -78,6 +78,7 @@ struct Settings {
   // -------  0 - Off
   // -------  1 - Clock
   // -------  2 - Home District Temperature
+  // -------  3 - Random colors
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -421,7 +422,8 @@ char* mapModes [] = {
   "Вимкнено",
   "Tpивoгa",
   "Погода",
-  "Прапор"
+  "Прапор",
+  "Випадкові кольори"
 };
 
 //--Init start
@@ -730,7 +732,7 @@ void initHA() {
       haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
-      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор");
+      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор;Випадкові кольори");
       haMapMode.onCommand(onHaMapModeCommand);
       haMapMode.setIcon("mdi:map");
       haMapMode.setName("Map Mode");
@@ -873,6 +875,9 @@ void onHaMapModeCommand(int8_t index, HASelect* sender) {
       break;
     case 3:
       settings.map_mode = 3;
+      break;
+    case 4:
+      settings.map_mode = 4;
       break;
     default:
       return;
@@ -1129,7 +1134,7 @@ void buttonUpdate() {
 
 void mapModeSwitch() {
   settings.map_mode += 1;
-  if (settings.map_mode > 3) {
+  if (settings.map_mode > 4) {
     settings.map_mode = 0;
   }
   settings.alarms_auto_switch = 0;
@@ -1607,6 +1612,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<option value='3'";
   if (settings.map_mode == 3) html += " selected";
   html += ">Прапор</option>";
+  html += "<option value='4'";
+  if (settings.map_mode == 4) html += " selected";
+  html += ">Випадкові кольори</option>";
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
@@ -2722,6 +2730,9 @@ void mapCycle() {
     case 3:
       mapFlag();
       break;
+    case 4:
+      mapRandom();
+      break;
   }
   blink = !blink;
 }
@@ -2814,6 +2825,13 @@ void mapFlag() {
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.brightness / 200.0f));
   }
+  strip->Show();
+}
+
+void mapRandom() {
+  int randomLed = random(26);
+  int randomColor = random(360);
+  strip->SetPixelColor(randomLed, HsbColor(randomColor / 360.0f, 1.0, settings.brightness / 200.0f));
   strip->Show();
 }
 
