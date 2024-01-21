@@ -409,12 +409,6 @@ async def stats(request):
     else:
         return JSONResponse({})
 
-    [
-        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....},
-        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....},
-        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....}
-    ]
-
 middleware = [Middleware(LogUserIPMiddleware)]
 app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
     Route('/', main),
