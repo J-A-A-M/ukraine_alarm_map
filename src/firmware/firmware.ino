@@ -370,6 +370,7 @@ bool    initUpdate = false;
 long    homeAlertStart = 0;
 int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
+bool    fwUpdateAvailable = false;
 
 std::vector<String> bin_list;
 
@@ -1013,6 +1014,7 @@ void doFetchBinList() {
   Serial.println("DoFetchBinList");
   bin_list = fetchAndParseJSON();
   saveLatestFirmware();
+  fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
 }
 
 void saveLatestFirmware() {
@@ -1085,43 +1087,47 @@ void parseHomeDistrictJson() {
 void doUpdate() {
   if (initUpdate) {
     initUpdate = false;
-    String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + settings.bin_name + "";
-    const char* firmwareUrl = firmwareUrlString.c_str();
-    http.begin(firmwareUrl);
-    Serial.println(firmwareUrl);
-    int httpCode = http.GET();
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Оновлення.."), 0, 1);
-    if (httpCode == 200) {
-      int contentLength = http.getSize();
-      bool canBegin = Update.begin(contentLength);
-      if (canBegin) {
-        size_t written = Update.writeStream(http.getStream());
-        if (written == contentLength) {
-          Serial.println("Written : " + String(written) + " successfully");
+    downloadAndUpdateFw(settings.bin_name);
+  }
+}
+
+void downloadAndUpdateFw(String binFileName) {
+  String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + binFileName + "";
+  const char* firmwareUrl = firmwareUrlString.c_str();
+  http.begin(firmwareUrl);
+  Serial.println(firmwareUrl);
+  int httpCode = http.GET();
+  display.clearDisplay();
+  DisplayCenter(utf8cyr("Оновлення.."), 0, 1);
+  if (httpCode == 200) {
+    int contentLength = http.getSize();
+    bool canBegin = Update.begin(contentLength);
+    if (canBegin) {
+      size_t written = Update.writeStream(http.getStream());
+      if (written == contentLength) {
+        Serial.println("Written : " + String(written) + " successfully");
+      } else {
+        Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
+      }
+      if (Update.end()) {
+        Serial.println("OTA done!");
+        if (Update.isFinished()) {
+          Serial.println("Update successfully completed. Rebooting.");
+          ESP.restart();
         } else {
-          Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
-        }
-        if (Update.end()) {
-          Serial.println("OTA done!");
-          if (Update.isFinished()) {
-            Serial.println("Update successfully completed. Rebooting.");
-            ESP.restart();
-          } else {
-            Serial.println("Update not finished? Something went wrong!");
-          }
-        } else {
-          Serial.println("Error Occurred. Error #: " + String(Update.getError()));
+          Serial.println("Update not finished? Something went wrong!");
         }
       } else {
-        Serial.println("Not enough space to begin OTA");
+        Serial.println("Error Occurred. Error #: " + String(Update.getError()));
       }
     } else {
-      Serial.print("Error on HTTP request: ");
-      Serial.println(httpCode);
+      Serial.println("Not enough space to begin OTA");
     }
-    http.end();
+  } else {
+    Serial.print("Error on HTTP request: ");
+    Serial.println(httpCode);
   }
+  http.end();
 }
 //--Update end
 
@@ -1159,6 +1165,8 @@ void checkServicePins() {
 
 //--Service end
 
+// for display chars testing purposes
+// int startSymbol = 0;
 //--Button start
 void buttonUpdate() {
   if (digitalRead(settings.buttonpin) == HIGH) {
@@ -1168,10 +1176,13 @@ void buttonUpdate() {
       Serial.print("button_mode: ");
       Serial.println(settings.button_mode);
       isPressed = true;
-      if (settings.button_mode == 1) {
+      // for display chars testing purposes
+      // startSymbol ++;
+      if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0) {
+        downloadAndUpdateFw("latest.bin");
+      } else if (settings.button_mode == 1) {
         mapModeSwitch();
-      }
-      if (settings.button_mode == 2) {
+      } else if (settings.button_mode == 2) {
         displayModeSwitch();
       }
     }
@@ -1291,13 +1302,22 @@ String utf8cyr(String source) {
 }
 
 void displayCycle() {
+  // for display chars testing purposes
+  // display.clearDisplay();
+  // String str = "";
+  // str += startSymbol;
+  // str += "-";
+  // str += (char) startSymbol;
+  // DisplayCenter(str, 7, 2);
+  // return;
+
   // Show Home Alert Time Info if enabled in settings and we have alert start time
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
     showHomeAlertInfo();
     return;
   }
   // Show New Firmware Notification if enabled in settings and New firmware available
-  if (settings.new_fw_notification == 1 && firstIsNewer(latestFirmware, currentFirmware)) {
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
     showNewFirmwareNotification();
     return;
   }
@@ -1389,9 +1409,14 @@ void showNewFirmwareNotification() {
       version += latestFirmware.patch;
     }
     DisplayCenter(version, 7, 3);
-  } else {
+  } else if (settings.button_mode == 0) {
     display.println(utf8cyr("Введіть у браузері:"));
     DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
+  } else {
+    display.println(utf8cyr("Для оновлення"));
+    String text = "натисніть кнопку ";
+    text += (char) 24;
+    DisplayCenter(utf8cyr(text), 3, 1);
   }
 }
 
@@ -2975,6 +3000,7 @@ int getCurrentMapMode() {
           currentMapMode = 1;
         }
       }
+      break;
     case 2:
       if (alarm_leds[calculateOffset(position)] != 0) {
         currentMapMode = 1;
