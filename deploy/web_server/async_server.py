@@ -377,10 +377,25 @@ async def stats(request):
     if request.path_params["token"] == data_token:
         map_clients = await mc.get(b'map_clients')
         map_clients_data = json.loads(map_clients.decode('utf-8')) if map_clients else {}
+
+        google = []
+        for client, data in map_clients_data.items():
+            client_ip, client_port = client.split("_")
+            version, id = data.get("software").split("_")
+            google.append({
+                'ip': client_ip,
+                'port': client_port,
+                'version': version,
+                'id': id,
+                'district': data.get("region"),
+                'city':data.get("city")
+            })
         return JSONResponse ({
+
             'map': {
                 client: f'{data.get("software")}:{data.get("region")}:{data.get("city")}' for client, data in map_clients_data.items()
             },
+            'google': google,
             'api': {
                 ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
             },
@@ -393,6 +408,12 @@ async def stats(request):
         })
     else:
         return JSONResponse({})
+
+    [
+        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....},
+        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....},
+        {ip: 192.168.21.34, port: 63749, version: "3.3", id: "github", district: Kyiv City....}
+    ]
 
 middleware = [Middleware(LogUserIPMiddleware)]
 app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
