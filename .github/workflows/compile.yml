@@ -1,0 +1,61 @@
+  name: 🏗️ Compile Firmware + Lint Check
+  on:
+    - pull_request
+    - workflow_dispatch
+  env:
+    SKETCHES_REPORTS_PATH: sketches-reports
+    SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
+  jobs:
+    compile_firmware:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Compile firmware
+            uses: ./.github/workflows/firmware-compile
+            with:
+              enable-warnings-report: true
+              sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+          - name: Upload firmware
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware.bin
+              path: ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin
+          - name: Upload reports
+            uses: actions/upload-artifact@v4
+            with:
+              name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+              path: ${{ env.SKETCHES_REPORTS_PATH }}
+    lint_check:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Lint check
+            uses: arduino/arduino-lint-action@v1
+            with:
+              path: ${{ github.workspace }}/src/firmware
+              verbose: true
+              compliance: specification
+              report-file: ${{ github.workspace }}/lint-report.json
+          - name: Upload lint report
+            uses: actions/upload-artifact@v4
+            with:
+              name: lint-report
+              path: ${{ github.workspace }}/lint-report.json
+    compile_updater:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Compile updater
+          uses: arduino/compile-sketches@v1
+          with:
+            sketch-paths: |
+              - ${{ github.workspace }}/src/updater
+            fqbn: esp32:esp32:esp32
+            enable-warnings-report: true
+            cli-compile-flags: |
+              - --export-binaries
+        - name: Upload updater
+          uses: actions/upload-artifact@v4
+          with:
+            name: updater.bin
+            path: ${{ github.workspace }}/src/updater/build/esp32.esp32.esp32/updater.ino.bin
