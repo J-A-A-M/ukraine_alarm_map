@@ -35,7 +35,7 @@ runs:
           - name: home-assistant-integration
             version: 2.0.0
           - name: NeoPixelBus by Makuna
-            version: 2.7.7
+            version: 2.7.8
           - name: NTPClient
             version: 3.2.1
           - name: WiFiManager
@@ -43,7 +43,7 @@ runs:
           - name: AsyncTCP
             version: 1.1.4
           - name: ArduinoJson
-            version: 7.0.1
+            version: 7.0.2
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
         enable-deltas-report: ${{ inputs.enable-deltas-report }}
         sketches-report-path: ${{ inputs.sketches-report-path }}
