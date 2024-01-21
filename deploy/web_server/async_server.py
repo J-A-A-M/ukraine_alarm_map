@@ -381,7 +381,7 @@ async def stats(request):
         google = []
         for client, data in map_clients_data.items():
             client_ip, client_port = client.split("_")
-            version, id = data.get("software").split("_")
+            version, id = data.get("software").split("_") if data.get("software") != 'unknown' else 'unknown','unknown'
             google.append({
                 'ip': client_ip,
                 'port': client_port,
