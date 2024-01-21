@@ -3000,6 +3000,7 @@ int getCurrentMapMode() {
           currentMapMode = 1;
         }
       }
+      break;
     case 2:
       if (alarm_leds[calculateOffset(position)] != 0) {
         currentMapMode = 1;
