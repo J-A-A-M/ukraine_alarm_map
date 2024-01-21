@@ -381,12 +381,18 @@ async def stats(request):
         google = []
         for client, data in map_clients_data.items():
             client_ip, client_port = client.split("_")
-            version, id = data.get("software").split("_") if data.get("software") != 'unknown' else 'unknown','unknown'
+            match data.get("software"):
+                case '3.2':
+                    version, plate_id = '3.2', 'unknown'
+                case 'unknown':
+                    version, plate_id = 'unknown', 'unknown'
+                case _:
+                    version, plate_id = data.get("software").split("_")
             google.append({
                 'ip': client_ip,
                 'port': client_port,
                 'version': version,
-                'id': id,
+                'id': plate_id,
                 'district': data.get("region"),
                 'city':data.get("city")
             })
