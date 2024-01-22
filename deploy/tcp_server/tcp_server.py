@@ -36,14 +36,14 @@ async def handle_client(reader, writer, shared_data):
         await writer.wait_closed()
         return
 
-    response = DbIpCity.get(client_ip, api_key='free')
-
-    if response.country != 'UA':
-        logger.info(f"Block IP {client_ip} from {response.country}.")
-        shared_data.blocked_ips.append(client_ip)
-        writer.close()
-        await writer.wait_closed()
-        return
+    # response = DbIpCity.get(client_ip, api_key='free')
+    #
+    # if response.country != 'UA':
+    #     logger.info(f"Block IP {client_ip} from {response.country}.")
+    #     shared_data.blocked_ips.append(client_ip)
+    #     writer.close()
+    #     await writer.wait_closed()
+    #     return
 
     try:
         data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
