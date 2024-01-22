@@ -386,6 +386,8 @@ async def stats(request):
                     version, plate_id = '3.2', 'unknown'
                 case 'unknown':
                     version, plate_id = 'unknown', 'unknown'
+                case software if software.startswith('map'):
+                    version, plate_id = software, 'unknown'
                 case _:
                     version, plate_id = data.get("software").split("_")
             google.append({
