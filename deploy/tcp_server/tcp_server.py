@@ -2,10 +2,8 @@ import json
 import os
 import asyncio
 import logging
-import requests
 from aiomcache import Client
-from ip2geotools.databases.noncommercial import DbIpCity
-
+from geoip2 import database
 from datetime import datetime
 from time import time
 
@@ -23,7 +21,7 @@ class SharedData:
         self.blocked_ips = []
 
 
-async def handle_client(reader, writer, shared_data):
+async def handle_client(reader, writer, shared_data, geo):
     logger.info(f"New client connected from {writer.get_extra_info('peername')}")
     data_from_client = False
 
@@ -36,14 +34,14 @@ async def handle_client(reader, writer, shared_data):
         await writer.wait_closed()
         return
 
-    # response = DbIpCity.get(client_ip, api_key='free')
-    #
-    # if response.country != 'UA':
-    #     logger.info(f"Block IP {client_ip} from {response.country}.")
-    #     shared_data.blocked_ips.append(client_ip)
-    #     writer.close()
-    #     await writer.wait_closed()
-    #     return
+    response = geo.city('193.53.89.36')
+
+    if response.country.iso_code != 'UA':
+        logger.info(f"Block IP {client_ip} from {response.country.name}.")
+        shared_data.blocked_ips.append(client_ip)
+        writer.close()
+        await writer.wait_closed()
+        return
 
     try:
         data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
@@ -55,9 +53,11 @@ async def handle_client(reader, writer, shared_data):
 
     shared_data.clients[f'{client_ip}_{client_port}'] = {
         'software': writer.software,
-        'city': '',#response.city,
-        'region': '', #response.region
+        'city': response.city.name or 'unknown',
+        'region': response.subdivisions.most_specific.name or 'unknown'
     }
+
+    logging.info(shared_data.clients[f'{client_ip}_{client_port}'] )
 
     logging.debug(f"Received data from {client_ip}:{client_port}: {data_from_client}")
     writer.data_sent = shared_data.data
@@ -152,12 +152,13 @@ async def get_data_from_memcached(mc):
 async def main():
     shared_data = SharedData()
     mc = Client(memcached_host, 11211)
+    geo = database.Reader('GeoLite2-City.mmdb')
 
     updater_task = asyncio.create_task(update_shared_data(shared_data,mc))
     log_task = asyncio.create_task(print_clients(shared_data, mc))
 
     server = await asyncio.start_server(
-        lambda r, w: handle_client(r, w, shared_data), '0.0.0.0', tcp_port
+        lambda r, w: handle_client(r, w, shared_data, geo), '0.0.0.0', tcp_port
     )
 
     try:
