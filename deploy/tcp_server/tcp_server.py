@@ -34,7 +34,7 @@ async def handle_client(reader, writer, shared_data, geo):
         await writer.wait_closed()
         return
 
-    response = geo.city('193.53.89.36')
+    response = geo.city(client_ip)
 
     if response.country.iso_code != 'UA':
         logger.info(f"Block IP {client_ip} from {response.country.name}.")
