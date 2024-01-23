@@ -1180,8 +1180,6 @@ void mapModeSwitch() {
     settings.map_mode = 0;
   }
   saveMapMode();
-  // update to selected mapMode
-  mapCycle();
 }
 
 void saveMapMode() {
@@ -1196,6 +1194,8 @@ void saveMapMode() {
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
   }
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
+  // update to selected mapMode
+  mapCycle();
 }
 
 void displayModeSwitch() {
@@ -1215,8 +1215,6 @@ void displayModeSwitch() {
       break;
   }
   saveDisplayMode();
-  // update to selected displayMode
-  displayCycle();
 }
 
 void saveDisplayMode() {
@@ -1230,6 +1228,8 @@ void saveDisplayMode() {
     haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
   }
   showServiceMessage(displayModes[getHaDisplayMode(settings.display_mode)], "Режим дисплея:", 1000);
+  // update to selected displayMode
+  displayCycle();
 }
 //--Button end
 
