@@ -669,7 +669,7 @@ void apCallback(WiFiManager* wifiManager) {
   display.setCursor(0, 0);
   display.setTextSize(1);
   display.println(utf8cyr("Підключіться до WiFi:"));
-  DisplayCenter(wifiManager->getConfigPortalSSID(), 3, 1);
+  DisplayCenter(wifiManager->getConfigPortalSSID(), 7, 1);
   WiFi.onEvent(wifiEvents);
 }
 
@@ -680,7 +680,7 @@ static void wifiEvents(WiFiEvent_t event) {
       display.setCursor(0, 0);
       display.setTextSize(1);
       display.println(utf8cyr("Введіть у браузері:"));
-      DisplayCenter(WiFi.softAPIP().toString(), 3, 1);
+      DisplayCenter(WiFi.softAPIP().toString(), 7, 1);
       WiFi.removeEvent(wifiEvents);
     default:
       break;
@@ -1415,7 +1415,7 @@ void displayServiceMessage(ServiceMessage message) {
     display.setCursor(0, 0);
     display.setTextSize(1);
     display.println(utf8cyr(message.title));
-    bound = 3;
+    bound = 7;
   }
 
   DisplayCenter(message.message, bound, message.textSize);
@@ -1478,12 +1478,12 @@ void showNewFirmwareNotification() {
     DisplayCenter(version, 7, 3);
   } else if (settings.button_mode == 0) {
     display.println(utf8cyr("Введіть у браузері:"));
-    DisplayCenter(WiFi.localIP().toString(), 3, 1);
+    DisplayCenter(WiFi.localIP().toString(), 7, 1);
   } else {
     display.println(utf8cyr("Для оновлення"));
     String text = "натисніть кнопку ";
     text += (char)24;
-    DisplayCenter(text, 3, 1);
+    DisplayCenter(text, 7, 1);
   }
 }
 
