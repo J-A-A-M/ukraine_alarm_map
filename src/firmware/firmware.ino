@@ -454,6 +454,12 @@ std::vector<String> displayModes = {
   "Перемикання"
 };
 
+std::vector<String> autoAlarms = {
+  "Вимкнено",
+  "Домашній та суміжні",
+  "Лише домашній"
+};
+
 //--Init start
 void initLegacy() {
   if (settings.legacy) {
@@ -760,19 +766,19 @@ void initHA() {
       haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
-      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор;Випадкові кольори");
+      haMapMode.setOptions(getHaOptions(mapModes).c_str());
       haMapMode.onCommand(onHaMapModeCommand);
       haMapMode.setIcon("mdi:map");
       haMapMode.setName("Map Mode");
       haMapMode.setCurrentState(settings.map_mode);
 
-      haDisplayMode.setOptions("Вимкнено;Годинник;Погода;Перемикання");
+      haDisplayMode.setOptions(getHaOptions(displayModes).c_str());
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
       haDisplayMode.setName("Display Mode");
       haDisplayMode.setCurrentState(getHaDisplayMode(settings.display_mode));
 
-      haAlarmsAuto.setOptions("Вимкнено;Домашній та суміжні;Лише домашній");
+      haAlarmsAuto.setOptions(getHaOptions(autoAlarms).c_str());
       haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
       haAlarmsAuto.setIcon("mdi:alert-outline");
       haAlarmsAuto.setName("Auto Alarm");
@@ -822,6 +828,17 @@ void mqttConnected() {
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
   }
+}
+
+String getHaOptions(std::vector<String> list) {
+  String result;
+  for (String option : list) {
+    if (list[0] != option) {
+      result += ";";
+    }
+    result += option;
+  }
+  return result;
 }
 
 void onHaRebootCommand(HAButton* sender) {
@@ -1896,15 +1913,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
-  html += "<option value='0'";
-  if (settings.alarms_auto_switch == 0) html += " selected";
-  html += ">Вимкнено</option>";
-  html += "<option value='1'";
-  if (settings.alarms_auto_switch == 1) html += " selected";
-  html += ">Домашній регіон + суміжні регіони</option>";
-  html += "<option value='2'";
-  if (settings.alarms_auto_switch == 2) html += " selected";
-  html += ">Домашній регіон</option>";
+  for (int i = 0; i < autoAlarms.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.alarms_auto_switch == i) html += " selected";
+    html += ">";
+    html += autoAlarms[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   if (!settings.legacy) {
