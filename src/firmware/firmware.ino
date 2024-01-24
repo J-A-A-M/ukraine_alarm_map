@@ -494,7 +494,6 @@ void initSettings() {
   settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
-  settings.bin_name               = preferences.getString("bin", settings.bin_name);
   settings.identifier             = preferences.getString("id", settings.identifier);
   settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
@@ -1599,6 +1598,7 @@ void setupRouting() {
   Serial.println("Init WebServer");
   webserver.on("/", HTTP_GET, handleRoot);
   webserver.on("/save", HTTP_POST, handleSave);
+  webserver.on("/update", HTTP_POST, handleUpdate);
   webserver.begin();
   Serial.println("Webportal running");
 }
@@ -1625,7 +1625,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    </style>";
   html += "</head>";
   html += "<body>";
-  html += "    <form action='/save' method='POST'>";
   html += "    <div class='container mt-3'  id='accordion'>";
   html += "        <h2 class='text-center'>" + settings.devicedescription + " ";
   html += settings.softwareversion;
@@ -1682,6 +1681,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+  html += "        <form action='/save' method='POST'>";
   html += "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1745,6 +1745,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/save' method='POST'>";
   html += "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1779,6 +1781,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/save' method='POST'>";
   html += "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1796,6 +1800,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/save' method='POST'>";
   html += "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1945,6 +1951,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/save' method='POST'>";
   html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -2015,36 +2023,36 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
   html += "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
+  html += "                       <form action='/save' method='POST'>";
+  html += "                          <div class='form-group form-check'>";
+  html += "                              <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
   if (settings.new_fw_notification == 1) html += " checked";
   html += ">";
-  html += "                        <label class='form-check-label' for='checkbox5'>";
-  html += "                          Сповіщення про нові прошивки на екрані";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                        <label for='selectBox9'>Файл прошивки</label>";
-  html += "                        <select name='bin_name' class='form-control' id='selectBox9'>";
+  html += "                              <label class='form-check-label' for='checkbox5'>";
+  html += "                                  Сповіщення про нові прошивки на екрані";
+  html += "                              </label>";
+  html += "                          </div>";
+  html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html += "                       </form>";
+  html += "                       <form action='/update' method='POST'>";
+  html += "                          <div class='form-group'>";
+  html += "                              <label for='selectBox9'>Файл прошивки</label>";
+  html += "                              <select name='bin_name' class='form-control' id='selectBox9'>";
   for (String& filename : bin_list) {
     html += "<option value='" + filename + "'";
     if (settings.bin_name == filename) html += " selected";
     html += ">" + filename + "</option>";
   }
-  html += "                        </select>";
+  html += "                              </select>";
+  html += "                          </div>";
+  html += "                          <button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>";
+  html += "                       </form>";
   html += "                    </div>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='do_update' type='checkbox' class='form-check-input' id='checkbox6'>";
-  html += "                        <label class='form-check-label' for='checkbox6'>";
-  html += "                          Оновлення";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
@@ -2133,6 +2141,14 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</body>";
   html += "</html>";
   request->send(200, "text/html", html);
+}
+
+void handleUpdate(AsyncWebServerRequest* request) {
+  Serial.println("do_update triggered");
+  initUpdate = true;
+  if (request->hasParam("bin_name", true)) {
+    settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
+  }
 }
 
 void handleSave(AsyncWebServerRequest* request) {
@@ -2351,18 +2367,6 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.new_fw_notification = 0;
       preferences.putInt("nfwn", settings.new_fw_notification);
       Serial.println("new_fw_notification disabled to preferences");
-    }
-  }
-  if (request->hasParam("do_update", true)) {
-    Serial.println("do_update triggered");
-    initUpdate = true;
-  }
-  if (request->hasParam("bin_name", true)) {
-    String local_bin_name = String(settings.bin_name);
-    if (request->getParam("bin_name", true)->value() != local_bin_name) {
-      settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
-      preferences.putString("bin", request->getParam("bin_name", true)->value());
-      Serial.println("bin_name commited to preferences");
     }
   }
   if (request->hasParam("brightness_day", true)) {
@@ -3108,7 +3112,7 @@ void setup() {
   asyncEngine.setInterval(WifiReconnect, 5000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
-  asyncEngine.setInterval(doUpdate, 10000);
+  asyncEngine.setInterval(doUpdate, 5000);
   asyncEngine.setInterval(doFetchBinList, 600000);
 }
 
