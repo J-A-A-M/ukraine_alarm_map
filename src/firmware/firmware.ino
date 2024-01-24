@@ -172,9 +172,9 @@ int d25[] = { 25, 6, 7, 8, 19, 20, 22 };
 
 int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 7 };
 
-String districts[] = {
+std::vector<String> districts = {
   "Закарпатська обл.",
-  "Івано-Франківська обл.",
+  "Ів.-Франківська обл.",
   "Тернопільська обл.",
   "Львівська обл.",
   "Волинська обл.",
@@ -201,7 +201,7 @@ String districts[] = {
   "Київ"
 };
 
-String districtsAlphabetical[] = {
+std::vector<String> districtsAlphabetical = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -886,19 +886,7 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender) {
 }
 
 void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.alarms_auto_switch = 0;
-      break;
-    case 1:
-      settings.alarms_auto_switch = 1;
-      break;
-    case 2:
-      settings.alarms_auto_switch = 2;
-      break;
-    default:
-      return;
-  }
+  settings.alarms_auto_switch = index;
   preferences.begin("storage", false);
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
@@ -1249,6 +1237,22 @@ void saveDisplayMode() {
   displayCycle();
 }
 //--Button end
+
+void saveHomeDistrict() {
+  Serial.print("home_district changed to: ");
+  Serial.println(settings.home_district);
+  preferences.begin("storage", false);
+  preferences.putInt("hd", settings.home_district);
+  preferences.end();
+  Serial.print("home_district commited to preferences");
+  if (enableHA) {
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+  }
+  homeAlertStart = 0;
+  parseHomeDistrictJson();
+  showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
+}
 
 //--Display start
 void DisplayCenter(String text, int bound, int text_size) {
@@ -1863,7 +1867,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox3'>Домашній регіон</label>";
   html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < 26; alphabet++) {
+  for (int alphabet = 0; alphabet < districtsAlphabetical.size(); alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
     html += "<option value='";
     html += num;
@@ -2453,14 +2457,7 @@ void handleSave(AsyncWebServerRequest* request) {
   if (request->hasParam("home_district", true)) {
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
       settings.home_district = request->getParam("home_district", true)->value().toInt();
-      if (enableHA) {
-        haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
-      }
-      preferences.putInt("hd", settings.home_district);
-      homeAlertStart = 0;
-      Serial.println("home_district commited to preferences");
-      parseHomeDistrictJson();
+      saveHomeDistrict();
     }
   }
   if (request->hasParam("alarms_auto_switch", true)) {
