@@ -644,7 +644,7 @@ void initWifi() {
     delay(1000);
     setupRouting();
     initHA();
-    ArduinoOTA.begin();
+    initUpdates();
     initBroadcast();
     tcpConnect();
     doFetchBinList();
@@ -678,6 +678,30 @@ static void wifiEvents(WiFiEvent_t event) {
     default:
       break;
   }
+}
+
+void initUpdates() {
+    ArduinoOTA.onStart(showUpdateStart);
+    ArduinoOTA.onEnd(showUpdateEnd);
+    ArduinoOTA.onProgress(showUpdateProgress);
+    ArduinoOTA.begin();
+    Update.onProgress(showUpdateProgress);
+}
+
+void showUpdateProgress(size_t progress, size_t total) {
+  String progressText = "Оновлення: ";
+  progressText += progress / (total / 100);
+  progressText += "%";
+  Serial.println(progressText);
+  showServiceMessage(progressText);
+}
+
+void showUpdateStart() {
+  showServiceMessage("Оновлення..");
+}
+
+void showUpdateEnd() {
+  showServiceMessage("Перезавантаження..");
 }
 
 void initBroadcast() {
@@ -837,7 +861,7 @@ String getHaOptions(std::vector<String> list) {
 }
 
 void onHaButtonClicked(HAButton* sender) {
-  if (sender == &haReboot){
+  if (sender == &haReboot) {
     ESP.restart();
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
@@ -1090,7 +1114,7 @@ void downloadAndUpdateFw(String binFileName) {
     int contentLength = http.getSize();
     bool canBegin = Update.begin(contentLength);
     if (canBegin) {
-      showServiceMessage("Оновлення..");
+      showUpdateStart();
       size_t written = Update.writeStream(http.getStream());
       if (written == contentLength) {
         Serial.println("Written : " + String(written) + " successfully");
@@ -1100,6 +1124,7 @@ void downloadAndUpdateFw(String binFileName) {
       if (Update.end()) {
         Serial.println("OTA done!");
         if (Update.isFinished()) {
+          showUpdateEnd();
           Serial.println("Update successfully completed. Rebooting.");
           ESP.restart();
         } else {
@@ -2149,6 +2174,7 @@ void handleUpdate(AsyncWebServerRequest* request) {
   if (request->hasParam("bin_name", true)) {
     settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
   }
+  request->redirect("/");
 }
 
 void handleSave(AsyncWebServerRequest* request) {
