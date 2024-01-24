@@ -406,38 +406,26 @@ String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
 String haRebootString             = chipID1 + chipID2 + "_reboot";
 String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
 String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
+String haToggleMapModeString      = chipID1 + chipID2 + "_toggle_map_mode";
+String haToggleDisplayModeString  = chipID1 + chipID2 + "_toggle_display_mode";
 
-const char* haUptimeChar              = haUptimeString.c_str();
-const char* haWifiSignalChar          = haWifiSignalString.c_str();
-const char* haFreeMemoryChar          = haFreeMemoryString.c_str();
-const char* haUsedMemoryChar          = haUsedMemoryString.c_str();
-const char* haBrightnessChar          = haBrightnessString.c_str();
-const char* haMapModeChar             = haMapModeString.c_str();
-const char* haDisplayModeChar         = haDisplayModeString.c_str();
-const char* haMapModeCurrentChar      = haMapModeCurrentString.c_str();
-const char* haMapApiConnectChar       = haMapApiConnectString.c_str();
-const char* haBrightnessAutoChar      = haBrightnessAutoString.c_str();
-const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
-const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
-const char* haRebootChar              = haRebootString.c_str();
-const char* haCpuTempChar             = haCpuTempString.c_str();
-const char* haHomeDistrictChar        = haHomeDistrictString.c_str();
-
-HASensorNumber  haUptime(haUptimeChar);
-HASensorNumber  haWifiSignal(haWifiSignalChar);
-HASensorNumber  haFreeMemory(haFreeMemoryChar);
-HASensorNumber  haUsedMemory(haUsedMemoryChar);
-HANumber        haBrightness(haBrightnessChar);
-HASelect        haMapMode(haMapModeChar);
-HASelect        haDisplayMode(haDisplayModeChar);
-HASelect        haAlarmsAuto(haAlarmsAutoChar);
-HASensor        haMapModeCurrent(haMapModeCurrentChar);
-HABinarySensor  haMapApiConnect(haMapApiConnectChar);
-HASwitch        haBrightnessAuto(haBrightnessAutoChar);
-HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeChar);
-HAButton        haReboot(haRebootChar);
-HASensorNumber  haCpuTemp(haCpuTempChar, HASensorNumber::PrecisionP1);
-HASensor        haHomeDistrict(haHomeDistrictChar);
+HASensorNumber  haUptime(haUptimeString.c_str());
+HASensorNumber  haWifiSignal(haWifiSignalString.c_str());
+HASensorNumber  haFreeMemory(haFreeMemoryString.c_str());
+HASensorNumber  haUsedMemory(haUsedMemoryString.c_str());
+HANumber        haBrightness(haBrightnessString.c_str());
+HASelect        haMapMode(haMapModeString.c_str());
+HASelect        haDisplayMode(haDisplayModeString.c_str());
+HASelect        haAlarmsAuto(haAlarmsAutoString.c_str());
+HASensor        haMapModeCurrent(haMapModeCurrentString.c_str());
+HABinarySensor  haMapApiConnect(haMapApiConnectString.c_str());
+HASwitch        haBrightnessAuto(haBrightnessAutoString.c_str());
+HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeString.c_str());
+HAButton        haReboot(haRebootString.c_str());
+HAButton        haToggleMapMode(haToggleMapModeString.c_str());
+HAButton        haToggleDisplayMode(haToggleDisplayModeString.c_str());
+HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
+HASensor        haHomeDistrict(haHomeDistrictString.c_str());
 
 std::vector<String> mapModes = {
   "Вимкнено",
@@ -801,9 +789,17 @@ void initHA() {
       haShowHomeAlarmTime.setName("Show Home Alert Time");
       haShowHomeAlarmTime.setCurrentState(settings.home_alert_time);
 
-      haReboot.onCommand(onHaRebootCommand);
+      haReboot.onCommand(onHaButtonClicked);
       haReboot.setName("Reboot");
       haReboot.setDeviceClass("restart");
+
+      haToggleMapMode.onCommand(onHaButtonClicked);
+      haToggleMapMode.setName("Toggle Map Mode");
+      haToggleMapMode.setIcon("mdi:map-plus");
+
+      haToggleDisplayMode.onCommand(onHaButtonClicked);
+      haToggleDisplayMode.setName("Toggle Display Mode");
+      haToggleDisplayMode.setIcon("mdi:card-plus");
 
       haCpuTemp.setIcon("mdi:chip");
       haCpuTemp.setName("CPU Temperature");
@@ -841,8 +837,14 @@ String getHaOptions(std::vector<String> list) {
   return result;
 }
 
-void onHaRebootCommand(HAButton* sender) {
-  ESP.restart();
+void onHaButtonClicked(HAButton* sender) {
+  if (sender == &haReboot){
+    ESP.restart();
+  } else if (sender == &haToggleMapMode) {
+    mapModeSwitch();
+  } else if (sender == &haToggleDisplayMode) {
+    displayModeSwitch();
+  }
 }
 
 void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
