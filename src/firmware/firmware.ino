@@ -1637,6 +1637,15 @@ void handleRoot(AsyncWebServerRequest* request) {
     case 2:
       html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
       break;
+    case 3:
+      html += "                <img class='full-screen-img' src='http://alerts.net.ua/flag_map.png'>";
+      break;
+    case 4:
+      html += "                <img class='full-screen-img' src='http://alerts.net.ua/random_map.png'>";
+      break;
+    case 0:
+      html += "                <img class='full-screen-img' src='http://alerts.net.ua/off_map.png'>";
+      break;
     default:
       html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
   }
