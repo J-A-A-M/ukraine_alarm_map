@@ -73,13 +73,13 @@ struct Settings {
   // -------  1 - Alarms
   // -------  2 - Weather
   // -------  3 - UA Flag
+  // -------  4 - Random colors
   int     map_mode               = 1;
 
   // ------- Display Modes:
   // -------  0 - Off
   // -------  1 - Clock
   // -------  2 - Home District Temperature
-  // -------  3 - Random colors
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -114,6 +114,16 @@ AsyncWebServer    webserver(80);
 NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+
+struct ServiceMessage {
+  String title;
+  String message;
+  int textSize;
+  long endTime;
+  bool expired;
+};
+
+ServiceMessage serviceMessage;
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
@@ -162,9 +172,9 @@ int d25[] = { 25, 6, 7, 8, 19, 20, 22 };
 
 int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 7 };
 
-String districts[] = {
+std::vector<String> districts = {
   "Закарпатська обл.",
-  "Івано-Франківська обл.",
+  "Ів.-Франківська обл.",
   "Тернопільська обл.",
   "Львівська обл.",
   "Волинська обл.",
@@ -191,7 +201,7 @@ String districts[] = {
   "Київ"
 };
 
-String districtsAlphabetical[] = {
+std::vector<String> districtsAlphabetical = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -429,12 +439,25 @@ HAButton        haReboot(haRebootChar);
 HASensorNumber  haCpuTemp(haCpuTempChar, HASensorNumber::PrecisionP1);
 HASensor        haHomeDistrict(haHomeDistrictChar);
 
-char* mapModes [] = {
+std::vector<String> mapModes = {
   "Вимкнено",
   "Tpивoгa",
   "Погода",
   "Прапор",
   "Випадкові кольори"
+};
+
+std::vector<String> displayModes = {
+  "Вимкнено",
+  "Годинник",
+  "Погода",
+  "Перемикання"
+};
+
+std::vector<String> autoAlarms = {
+  "Вимкнено",
+  "Домашній та суміжні",
+  "Лише домашній"
 };
 
 //--Init start
@@ -619,11 +642,7 @@ void initWifi() {
   wm.setConnectRetries(10);
   wm.setAPCallback(apCallback);
   servicePin(settings.wifipin, LOW, false);
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.println(utf8cyr("Підключення до:"));
-  DisplayCenter(utf8cyr(wm.getWiFiSSID(true)), 3, 1);
+  showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
   String apssid = "";
   apssid += settings.apssid;
   apssid += "_";
@@ -632,24 +651,20 @@ void initWifi() {
   if (wm.autoConnect(apssid.c_str())) {
     Serial.println("connected...yeey :)");
     servicePin(settings.wifipin, HIGH, false);
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.println(utf8cyr("IP-адреса мапи:"));
-    DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
+    showServiceMessage("Підключено до WiFi!", 1000);
     wm.setHttpPort(8080);
     wm.startWebPortal();
-    delay(5000);
+    delay(1000);
     setupRouting();
     initHA();
     ArduinoOTA.begin();
     initBroadcast();
     tcpConnect();
     doFetchBinList();
+    showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
   } else {
     Serial.println("Reboot");
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пepeзaвaнтaжeння"), 0, 1);
+    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
     delay(5000);
     ESP.restart();
   }
@@ -660,7 +675,7 @@ void apCallback(WiFiManager* wifiManager) {
   display.setCursor(0, 0);
   display.setTextSize(1);
   display.println(utf8cyr("Підключіться до WiFi:"));
-  DisplayCenter(utf8cyr(wifiManager->getConfigPortalSSID()), 3, 1);
+  DisplayCenter(wifiManager->getConfigPortalSSID(), 7, 1);
   WiFi.onEvent(wifiEvents);
 }
 
@@ -671,7 +686,7 @@ static void wifiEvents(WiFiEvent_t event) {
       display.setCursor(0, 0);
       display.setTextSize(1);
       display.println(utf8cyr("Введіть у браузері:"));
-      DisplayCenter(utf8cyr(WiFi.softAPIP().toString()), 3, 1);
+      DisplayCenter(WiFi.softAPIP().toString(), 7, 1);
       WiFi.removeEvent(wifiEvents);
     default:
       break;
@@ -683,8 +698,7 @@ void initBroadcast() {
 
   if (!MDNS.begin(settings.broadcastname)) {
     Serial.println("Error setting up mDNS responder");
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Помилка mDNS"), 0, 1);
+    showServiceMessage("Помилка mDNS");
     while (1) {
       delay(1000);
     }
@@ -752,19 +766,19 @@ void initHA() {
       haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
-      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор;Випадкові кольори");
+      haMapMode.setOptions(getHaOptions(mapModes).c_str());
       haMapMode.onCommand(onHaMapModeCommand);
       haMapMode.setIcon("mdi:map");
       haMapMode.setName("Map Mode");
       haMapMode.setCurrentState(settings.map_mode);
 
-      haDisplayMode.setOptions("Вимкнено;Час;Погода;Перемикання");
+      haDisplayMode.setOptions(getHaOptions(displayModes).c_str());
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
       haDisplayMode.setName("Display Mode");
       haDisplayMode.setCurrentState(getHaDisplayMode(settings.display_mode));
 
-      haAlarmsAuto.setOptions("Вимкнено;Домашній та суміжні;Лише домашній");
+      haAlarmsAuto.setOptions(getHaOptions(autoAlarms).c_str());
       haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
       haAlarmsAuto.setIcon("mdi:alert-outline");
       haAlarmsAuto.setName("Auto Alarm");
@@ -811,9 +825,20 @@ void mqttConnected() {
   Serial.println("Home Assistant MQTT connected!");
   if (enableHA) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
   }
+}
+
+String getHaOptions(std::vector<String> list) {
+  String result;
+  for (String option : list) {
+    if (list[0] != option) {
+      result += ";";
+    }
+    result += option;
+  }
+  return result;
 }
 
 void onHaRebootCommand(HAButton* sender) {
@@ -861,19 +886,7 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender) {
 }
 
 void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.alarms_auto_switch = 0;
-      break;
-    case 1:
-      settings.alarms_auto_switch = 1;
-      break;
-    case 2:
-      settings.alarms_auto_switch = 2;
-      break;
-    default:
-      return;
-  }
+  settings.alarms_auto_switch = index;
   preferences.begin("storage", false);
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
@@ -883,55 +896,15 @@ void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.map_mode = 0;
-      break;
-    case 1:
-      settings.map_mode = 1;
-      break;
-    case 2:
-      settings.map_mode = 2;
-      break;
-    case 3:
-      settings.map_mode = 3;
-      break;
-    case 4:
-      settings.map_mode = 4;
-      break;
-    default:
-      return;
-  }
-  preferences.begin("storage", false);
-  preferences.putInt("mapmode", settings.map_mode);
-  preferences.end();
-  Serial.println("map_mode commited to preferences");
-  haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-  sender->setState(index);
+  settings.map_mode = index;
+  saveMapMode();
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.display_mode = 0;
-      break;
-    case 1:
-      settings.display_mode = 1;
-      break;
-    case 2:
-      settings.display_mode = 2;
-      break;
-    case 3:
-      settings.display_mode = 9;
-      break;
-    default:
-      return;
-  }
-  preferences.begin("storage", false);
-  preferences.putInt("dm", settings.display_mode);
-  preferences.end();
-  Serial.println("display_mode commited to preferences");
-  sender->setState(index);
+  settings.display_mode = getRealDisplayMode(index);
+  saveDisplayMode();
+  // update to selected displayMode
+  displayCycle();
 }
 
 int getHaDisplayMode(int displayMode) {
@@ -944,6 +917,21 @@ int getHaDisplayMode(int displayMode) {
       return displayMode;
     case 9:
       return 3;
+    default:
+      return 0;
+  }
+}
+
+int getRealDisplayMode(int displayMode) {
+  switch (displayMode) {
+    case 0:
+      // passthrough
+    case 1:
+      // passthrough
+    case 2:
+      return displayMode;
+    case 3:
+      return 9;
     default:
       return 0;
   }
@@ -1097,12 +1085,11 @@ void downloadAndUpdateFw(String binFileName) {
   http.begin(firmwareUrl);
   Serial.println(firmwareUrl);
   int httpCode = http.GET();
-  display.clearDisplay();
-  DisplayCenter(utf8cyr("Оновлення.."), 0, 1);
   if (httpCode == 200) {
     int contentLength = http.getSize();
     bool canBegin = Update.begin(contentLength);
     if (canBegin) {
+      showServiceMessage("Оновлення..");
       size_t written = Update.writeStream(http.getStream());
       if (written == contentLength) {
         Serial.println("Written : " + String(written) + " successfully");
@@ -1197,22 +1184,23 @@ void mapModeSwitch() {
   if (settings.map_mode > 4) {
     settings.map_mode = 0;
   }
-  settings.alarms_auto_switch = 0;
+  saveMapMode();
+}
 
-  Serial.print("map_mode: ");
+void saveMapMode() {
+  Serial.print("map_mode changed to: ");
   Serial.println(settings.map_mode);
   preferences.begin("storage", false);
   preferences.putInt("mapmode", settings.map_mode);
-  preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
+  Serial.println("map_mode commited to preferences");
   if (enableHA) {
     haMapMode.setState(settings.map_mode);
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-    haAlarmsAuto.setState(settings.alarms_auto_switch);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
   }
+  showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
-  //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
 }
 
 void displayModeSwitch() {
@@ -1226,24 +1214,45 @@ void displayModeSwitch() {
       settings.display_mode = 9;
       break;
     case 9:
-     // passthrough
+      // passthrough
     default:
       settings.display_mode = 0;
       break;
   }
-  Serial.print("display_mode: ");
+  saveDisplayMode();
+}
+
+void saveDisplayMode() {
+  Serial.print("display_mode changed to: ");
   Serial.println(settings.display_mode);
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
+  Serial.println("display_mode commited to preferences");
   if (enableHA) {
     haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
   }
+  showServiceMessage(displayModes[getHaDisplayMode(settings.display_mode)], "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
-  //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
 //--Button end
+
+void saveHomeDistrict() {
+  Serial.print("home_district changed to: ");
+  Serial.println(settings.home_district);
+  preferences.begin("storage", false);
+  preferences.putInt("hd", settings.home_district);
+  preferences.end();
+  Serial.print("home_district commited to preferences");
+  if (enableHA) {
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+  }
+  homeAlertStart = 0;
+  parseHomeDistrictJson();
+  showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
+}
 
 //--Display start
 void DisplayCenter(String text, int bound, int text_size) {
@@ -1251,12 +1260,41 @@ void DisplayCenter(String text, int bound, int text_size) {
   int16_t y;
   uint16_t width;
   uint16_t height;
+  String utf8Text = utf8cyr(text);
   display.setCursor(0, 0);
   display.setTextSize(text_size);
-  display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
   display.setCursor(((settings.display_width - width) / 2), ((settings.display_height - height) / 2) + bound);
-  display.println(utf8cyr(text));
+  display.println(utf8Text);
   display.display();
+}
+
+int getTextSizeToFitDisplay(String text) {
+  int16_t x;
+  int16_t y;
+  uint16_t textWidth;
+  uint16_t height;
+
+  display.setTextWrap(false);
+  String utf8Text = utf8cyr(text);
+  display.setCursor(0, 0);
+  display.setTextSize(3);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  if (display.width() >= textWidth) {
+    display.setTextWrap(true);
+    return 3;
+  }
+
+  display.setTextSize(2);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  display.setTextWrap(true);
+  if (display.width() >= textWidth) {
+    return 2;
+  } else {
+    return 1;
+  }
 }
 
 String utf8cyr(String source) {
@@ -1301,6 +1339,33 @@ String utf8cyr(String source) {
   return target;
 }
 
+void showServiceMessage(String message) {
+  showServiceMessage(message, "");
+}
+
+void showServiceMessage(String message, int duration) {
+  showServiceMessage(message, "", duration);
+}
+
+void showServiceMessage(String message, String title) {
+  showServiceMessage(message, title, 2000);
+}
+
+void showServiceMessage(String message, String title, int duration) {
+  serviceMessage.title = title;
+  serviceMessage.message = message;
+  serviceMessage.textSize = getTextSizeToFitDisplay(message);
+  serviceMessage.endTime = millis() + duration;
+  serviceMessage.expired = false;
+  displayCycle();
+}
+
+void serviceMessageUpdate() {
+  if (!serviceMessage.expired && millis() > serviceMessage.endTime) {
+    serviceMessage.expired = true;
+  }
+}
+
 void displayCycle() {
   // for display chars testing purposes
   // display.clearDisplay();
@@ -1310,6 +1375,15 @@ void displayCycle() {
   // str += (char) startSymbol;
   // DisplayCenter(str, 7, 2);
   // return;
+
+  // update service message expiration
+  serviceMessageUpdate();
+
+  // Show service message if not expired
+  if (!serviceMessage.expired) {
+    displayServiceMessage(serviceMessage);
+    return;
+  }
 
   // Show Home Alert Time Info if enabled in settings and we have alert start time
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
@@ -1321,6 +1395,7 @@ void displayCycle() {
     showNewFirmwareNotification();
     return;
   }
+
   displayByMode(settings.display_mode);
 }
 
@@ -1352,6 +1427,19 @@ void displayByMode(int mode) {
 void clearDisplay() {
   display.clearDisplay();
   display.display();
+}
+
+void displayServiceMessage(ServiceMessage message) {
+  display.clearDisplay();
+  int bound = 0;
+  if (message.title.length() > 0) {
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.println(utf8cyr(message.title));
+    bound = 7;
+  }
+
+  DisplayCenter(message.message, bound, message.textSize);
 }
 
 void showHomeAlertInfo() {
@@ -1405,18 +1493,18 @@ void showNewFirmwareNotification() {
     version += ".";
     version += latestFirmware.minor;
     if (latestFirmware.patch > 0) {
-      version +=  ".";
+      version += ".";
       version += latestFirmware.patch;
     }
     DisplayCenter(version, 7, 3);
   } else if (settings.button_mode == 0) {
     display.println(utf8cyr("Введіть у браузері:"));
-    DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
+    DisplayCenter(WiFi.localIP().toString(), 7, 1);
   } else {
     display.println(utf8cyr("Для оновлення"));
     String text = "натисніть кнопку ";
-    text += (char) 24;
-    DisplayCenter(utf8cyr(text), 3, 1);
+    text += (char)24;
+    DisplayCenter(text, 7, 1);
   }
 }
 
@@ -1483,12 +1571,12 @@ Firmware parseFirmwareVersion(String version) {
   while (version.length() > 0) {
     int index = version.indexOf('.');
     if (index == -1) {
-      // No dot found 
+      // No dot found
       parts[count++] = version;
       break;
     } else {
       parts[count++] = version.substring(0, index);
-      version = version.substring(index+1);
+      version = version.substring(index + 1);
     }
   }
 
@@ -1502,7 +1590,6 @@ Firmware parseFirmwareVersion(String version) {
     firmware.patch = atoi(parts[2].c_str());
   }
   return firmware;
-
 }
 
 //--Web server start
@@ -1545,11 +1632,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                <div class='box_yellow col-md-12 mt-2'>";
-  if (settings.map_mode == 1) {
-    html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
-  }
-  if (settings.map_mode == 2) {
-    html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
+  switch (getCurrentMapMode()) {
+    case 2:
+      html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
+      break;
+    default:
+      html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
   }
   html += "                </div>";
   html += "              </div>";
@@ -1627,7 +1715,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (!settings.legacy) {
     html += "                  <div class='form-group form-check'>";
     html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox2'";
-    if (settings.sdm_auto  == 1) html += " checked";
+    if (settings.sdm_auto == 1) html += " checked";
     html += ">";
     html += "                      <label class='form-check-label' for='checkbox2'>";
     html += "                        Вимикати сервісні діоди в нічний час";
@@ -1732,38 +1820,30 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox2'>Режим мапи</label>";
   html += "                        <select name='map_mode' class='form-control' id='selectBox2'>";
-  html += "<option value='0'";
-  if (settings.map_mode == 0) html += " selected";
-  html += ">Вимкнена</option>";
-  html += "<option value='1'";
-  if (settings.map_mode == 1) html += " selected";
-  html += ">Тривоги</option>";
-  html += "<option value='2'";
-  if (settings.map_mode == 2) html += " selected";
-  html += ">Погода</option>";
-  html += "<option value='3'";
-  if (settings.map_mode == 3) html += " selected";
-  html += ">Прапор</option>";
-  html += "<option value='4'";
-  if (settings.map_mode == 4) html += " selected";
-  html += ">Випадкові кольори</option>";
+  for (int i = 0; i < mapModes.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.map_mode == i) html += " selected";
+    html += ">";
+    html += mapModes[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
   html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
-  html += "<option value='0'";
-  if (settings.display_mode == 0) html += " selected";
-  html += ">Вимкнений</option>";
-  html += "<option value='1'";
-  if (settings.display_mode == 1) html += " selected";
-  html += ">Час</option>";
-  html += "<option value='2'";
-  if (settings.display_mode == 2) html += " selected";
-  html += ">Погода</option>";
-  html += "<option value='9'";
-  if (settings.display_mode == 9) html += " selected";
-  html += ">Перемикання за часом</option>";
+  for (int i = 0; i < displayModes.size(); i++) {
+    int num = getRealDisplayMode(i);
+    html += "<option value='";
+    html += num;
+    html += "'";
+    if (settings.display_mode == num) html += " selected";
+    html += ">";
+    html += displayModes[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
@@ -1787,7 +1867,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox3'>Домашній регіон</label>";
   html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < 26; alphabet++) {
+  for (int alphabet = 0; alphabet < districtsAlphabetical.size(); alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
     html += "<option value='";
     html += num;
@@ -1837,15 +1917,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
-  html += "<option value='0'";
-  if (settings.alarms_auto_switch == 0) html += " selected";
-  html += ">Вимкнено</option>";
-  html += "<option value='1'";
-  if (settings.alarms_auto_switch == 1) html += " selected";
-  html += ">Домашній регіон + суміжні регіони</option>";
-  html += "<option value='2'";
-  if (settings.alarms_auto_switch == 2) html += " selected";
-  html += ">Домашній регіон</option>";
+  for (int i = 0; i < autoAlarms.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.alarms_auto_switch == i) html += " selected";
+    html += ">";
+    html += autoAlarms[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   if (!settings.legacy) {
@@ -2377,14 +2457,7 @@ void handleSave(AsyncWebServerRequest* request) {
   if (request->hasParam("home_district", true)) {
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
       settings.home_district = request->getParam("home_district", true)->value().toInt();
-      if (enableHA) {
-        haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-      }
-      preferences.putInt("hd", settings.home_district);
-      homeAlertStart = 0;
-      Serial.println("home_district commited to preferences");
-      parseHomeDistrictJson();
+      saveHomeDistrict();
     }
   }
   if (request->hasParam("alarms_auto_switch", true)) {
@@ -2407,23 +2480,15 @@ void handleSave(AsyncWebServerRequest* request) {
   if (request->hasParam("map_mode", true)) {
     if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
       settings.map_mode = request->getParam("map_mode", true)->value().toInt();
-      preferences.putInt("mapmode", settings.map_mode);
-      if (enableHA) {
-        haMapMode.setState(settings.map_mode);
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-      }
-      Serial.println("map_mode commited to preferences");
+      saveMapMode();
     }
   }
   if (request->hasParam("display_mode", true)) {
     if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
       settings.display_mode = request->getParam("display_mode", true)->value().toInt();
-      preferences.putInt("dm", settings.display_mode);
-      if (enableHA) {
-        haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
-      }
-      Serial.print("display_mode commited to preferences: ");
-      Serial.println(settings.display_mode);
+      saveDisplayMode();
+      // update to selected displayMode
+      displayCycle();
     }
   }
   if (request->hasParam("display_mode_time", true)) {
@@ -2557,14 +2622,11 @@ void tcpConnect() {
     Serial.println("Connecting to map API...");
     Serial.print("id: ");
     Serial.println(settings.identifier);
-
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пiдключення map-API.."), 0, 1);
+    showServiceMessage("Пiдключення map-API..", 5000);
     const char* local_serverhost = settings.serverhost.c_str();
     while (!client_tcp.connect(local_serverhost, settings.tcpport)) {
       Serial.println("Failed");
-      display.clearDisplay();
-      DisplayCenter(utf8cyr("map-API нeдocтyпнe"), 0, 1);
+      showServiceMessage("map-API нeдocтyпнe", 5000);
       if (enableHA) {
         haMapApiConnect.setState(false);
       }
@@ -2580,8 +2642,7 @@ void tcpConnect() {
     combinedString.toCharArray(charArray, sizeof(charArray));
     Serial.println(charArray);
     client_tcp.print(charArray);
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("map-API пiдключeнo"), 0, 1);
+    showServiceMessage("map-API пiдключeнo", 5000);
     servicePin(settings.datapin, HIGH, false);
     Serial.println("TCP connected");
     if (enableHA) {
@@ -3007,7 +3068,7 @@ int getCurrentMapMode() {
       }
   }
   if (settings.map_mode != currentMapMode && enableHA) {
-    haMapModeCurrent.setValue(mapModes[currentMapMode]);
+    haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
   return currentMapMode;
 }
