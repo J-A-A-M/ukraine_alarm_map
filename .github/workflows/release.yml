@@ -60,5 +60,6 @@ jobs:
           password: ${{ secrets.SERVER_SSH_PASSWORD }}
           script: |
             cd /root/ukraine_alarm_map/deploy/
+            git checkout master
             bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin'
 
