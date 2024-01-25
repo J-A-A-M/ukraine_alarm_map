@@ -429,7 +429,7 @@ HASensor        haHomeDistrict(haHomeDistrictString.c_str());
 
 std::vector<String> mapModes = {
   "Вимкнено",
-  "Tpивoгa",
+  "Тривога",
   "Погода",
   "Прапор",
   "Випадкові кольори"
@@ -1633,22 +1633,24 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                <div class='box_yellow col-md-12 mt-2'>";
+  html += "                <img class='full-screen-img' src='http://alerts.net.ua/";
   switch (getCurrentMapMode()) {
+    case 0:
+      html += "off_map.png";
+      break;
     case 2:
-      html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
+      html += "weather_map.png";
       break;
     case 3:
-      html += "                <img class='full-screen-img' src='http://alerts.net.ua/flag_map.png'>";
+      html += "flag_map.png";
       break;
     case 4:
-      html += "                <img class='full-screen-img' src='http://alerts.net.ua/random_map.png'>";
-      break;
-    case 0:
-      html += "                <img class='full-screen-img' src='http://alerts.net.ua/off_map.png'>";
+      html += "random_map.png";
       break;
     default:
-      html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
+      html += "alerts_map.png";
   }
+  html += "'>";
   html += "                </div>";
   html += "              </div>";
   html += "            </div>";
