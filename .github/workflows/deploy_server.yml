@@ -45,7 +45,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy TCP Sockets
-            if: ${{ inputs.redeploy_tcp_sockets == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_tcp_sockets || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -56,7 +56,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_tcp_server.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Update Server (bin list)
-            if: ${{ inputs.redeploy_update_server == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_update_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -67,7 +67,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin'
           - name: Redeploy Web Server
-            if: ${{ inputs.redeploy_web_server == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -78,7 +78,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -p 80 -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Alerts
-            if: ${{ inputs.redeploy_alerts == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -89,7 +89,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Weather
-            if: ${{ inputs.redeploy_weather == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_weather || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -100,7 +100,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Updater
-            if: ${{ inputs.redeploy_updater == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_updater || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -111,7 +111,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_updater.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Svg Generator
-            if: ${{ inputs.redeploy_svg_generator == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_svg_generator || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
@@ -122,7 +122,7 @@ jobs:
                 git checkout ${{ github.ref_name }}
                 bash redeploy_svg_generator.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Explosions
-            if: ${{ inputs.redeploy_explosions == 'true' || inputs.redeploy_all == 'true' }}
+            if: ${{ inputs.redeploy_explosions || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
