@@ -684,6 +684,7 @@ void initUpdates() {
     ArduinoOTA.onStart(showUpdateStart);
     ArduinoOTA.onEnd(showUpdateEnd);
     ArduinoOTA.onProgress(showUpdateProgress);
+    ArduinoOTA.onError(showOtaErrorMessage);
     ArduinoOTA.begin();
     Update.onProgress(showUpdateProgress);
 }
@@ -702,6 +703,10 @@ void showUpdateStart() {
 
 void showUpdateEnd() {
   showServiceMessage("Перезавантаження..");
+}
+
+void showOtaErrorMessage(ota_error_t error) {
+  showServiceMessage("Щось пішло не так", "Помилка оновлення:");
 }
 
 void initBroadcast() {
@@ -1128,15 +1133,19 @@ void downloadAndUpdateFw(String binFileName) {
           Serial.println("Update successfully completed. Rebooting.");
           ESP.restart();
         } else {
+          showServiceMessage("Не завершене", "Помилка оновлення:");
           Serial.println("Update not finished? Something went wrong!");
         }
       } else {
+        showServiceMessage(String(Update.getError()), "Помилка оновлення:");
         Serial.println("Error Occurred. Error #: " + String(Update.getError()));
       }
     } else {
+      showServiceMessage("Замало місця", "Помилка оновлення:");
       Serial.println("Not enough space to begin OTA");
     }
   } else {
+    showServiceMessage("Прошивка не доступна", "Помилка оновлення:");
     Serial.print("Error on HTTP request: ");
     Serial.println(httpCode);
   }
@@ -2674,8 +2683,9 @@ void tcpConnect() {
     combinedString.toCharArray(charArray, sizeof(charArray));
     Serial.println(charArray);
     client_tcp.print(charArray);
-    showServiceMessage("map-API пiдключeнo", 5000);
+    showServiceMessage("map-API пiдключeнo", 1000);
     servicePin(settings.datapin, HIGH, false);
+    delay(1000);
     Serial.println("TCP connected");
     if (enableHA) {
       haMapApiConnect.setState(true);
