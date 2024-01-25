@@ -644,7 +644,7 @@ void initWifi() {
     delay(1000);
     setupRouting();
     initHA();
-    ArduinoOTA.begin();
+    initUpdates();
     initBroadcast();
     tcpConnect();
     doFetchBinList();
@@ -678,6 +678,35 @@ static void wifiEvents(WiFiEvent_t event) {
     default:
       break;
   }
+}
+
+void initUpdates() {
+    ArduinoOTA.onStart(showUpdateStart);
+    ArduinoOTA.onEnd(showUpdateEnd);
+    ArduinoOTA.onProgress(showUpdateProgress);
+    ArduinoOTA.onError(showOtaErrorMessage);
+    ArduinoOTA.begin();
+    Update.onProgress(showUpdateProgress);
+}
+
+void showUpdateProgress(size_t progress, size_t total) {
+  String progressText = "Оновлення: ";
+  progressText += progress / (total / 100);
+  progressText += "%";
+  Serial.println(progressText);
+  showServiceMessage(progressText);
+}
+
+void showUpdateStart() {
+  showServiceMessage("Оновлення..");
+}
+
+void showUpdateEnd() {
+  showServiceMessage("Перезавантаження..");
+}
+
+void showOtaErrorMessage(ota_error_t error) {
+  showServiceMessage("Щось пішло не так", "Помилка оновлення:");
 }
 
 void initBroadcast() {
@@ -837,7 +866,7 @@ String getHaOptions(std::vector<String> list) {
 }
 
 void onHaButtonClicked(HAButton* sender) {
-  if (sender == &haReboot){
+  if (sender == &haReboot) {
     ESP.restart();
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
@@ -1090,7 +1119,7 @@ void downloadAndUpdateFw(String binFileName) {
     int contentLength = http.getSize();
     bool canBegin = Update.begin(contentLength);
     if (canBegin) {
-      showServiceMessage("Оновлення..");
+      showUpdateStart();
       size_t written = Update.writeStream(http.getStream());
       if (written == contentLength) {
         Serial.println("Written : " + String(written) + " successfully");
@@ -1100,18 +1129,23 @@ void downloadAndUpdateFw(String binFileName) {
       if (Update.end()) {
         Serial.println("OTA done!");
         if (Update.isFinished()) {
+          showUpdateEnd();
           Serial.println("Update successfully completed. Rebooting.");
           ESP.restart();
         } else {
+          showServiceMessage("Не завершене", "Помилка оновлення:");
           Serial.println("Update not finished? Something went wrong!");
         }
       } else {
+        showServiceMessage(String(Update.getError()), "Помилка оновлення:");
         Serial.println("Error Occurred. Error #: " + String(Update.getError()));
       }
     } else {
+      showServiceMessage("Замало місця", "Помилка оновлення:");
       Serial.println("Not enough space to begin OTA");
     }
   } else {
+    showServiceMessage("Прошивка не доступна", "Помилка оновлення:");
     Serial.print("Error on HTTP request: ");
     Serial.println(httpCode);
   }
@@ -2149,6 +2183,7 @@ void handleUpdate(AsyncWebServerRequest* request) {
   if (request->hasParam("bin_name", true)) {
     settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
   }
+  request->redirect("/");
 }
 
 void handleSave(AsyncWebServerRequest* request) {
@@ -2648,8 +2683,9 @@ void tcpConnect() {
     combinedString.toCharArray(charArray, sizeof(charArray));
     Serial.println(charArray);
     client_tcp.print(charArray);
-    showServiceMessage("map-API пiдключeнo", 5000);
+    showServiceMessage("map-API пiдключeнo", 1000);
     servicePin(settings.datapin, HIGH, false);
+    delay(1000);
     Serial.println("TCP connected");
     if (enableHA) {
       haMapApiConnect.setState(true);
