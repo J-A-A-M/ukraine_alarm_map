@@ -109,9 +109,7 @@ using namespace websockets;
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
-WiFiClient        client_tcp;
 WebsocketsClient  client_websocket;
-WiFiClient        client_update;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
@@ -375,7 +373,6 @@ const unsigned char trident_small[] PROGMEM = {
 
 bool    enableHA;
 bool    wifiReconnect = false;
-bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
@@ -456,20 +453,38 @@ std::vector<String> autoAlarms = {
 
 
 void onMessageCallback(WebsocketsMessage message) {
-    Serial.print(F("Got Message: "));
-    Serial.println(message.data());
-    TestParcer(message.data(), message.data().length());
+  Serial.print(F("Got Message: "));
+  Serial.println(message.data());
+  JsonDocument data = parseJson(message.data());
+  String payload = data["payload"];
+  if (payload == "ping") {
+    Serial.println("Heartbeat from server");
+    tcpLastPingTime = millis();
+  }
+  if (payload == "alerts") {
+    Serial.println("Successfully parsed alerts data!");
+    for (int i = 0; i < 26; ++i) {
+      alarm_leds[calculateOffset(i)] = data["alerts"][i];
+    }
+  }
+  if (payload == "weather") {
+    for (int i = 0; i < 26; ++i) {
+      weather_leds[calculateOffset(i)] = data["weather"][i];
+    }
+  }
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
     if(event == WebsocketsEvent::ConnectionOpened) {
-        Serial.println(F("Connnection Opened"));
+        Serial.println(F("connnection opened"));
+        servicePin(settings.datapin, HIGH, false);
     } else if(event == WebsocketsEvent::ConnectionClosed) {
-        Serial.println(F("Connnection Closed"));
+        Serial.println(F("connnection closed"));
+        servicePin(settings.datapin, LOW, false);
     } else if(event == WebsocketsEvent::GotPing) {
-        Serial.println(F("Got a Ping!"));
+        Serial.println(F("websocket ping"));
     } else if(event == WebsocketsEvent::GotPong) {
-        Serial.println(F("Got a Pong!"));
+        Serial.println(F("websocket pong"));
     }
 }
 
@@ -478,7 +493,7 @@ void SocketConnect() {
   client_websocket.onEvent(onEventsCallback);
   
   client_websocket.connect(websocket_server);
-  String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
+  String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
   char charArray[combinedString.length() + 1];
   combinedString.toCharArray(charArray, sizeof(charArray));
   Serial.println(F(charArray));
@@ -693,10 +708,9 @@ void initWifi() {
   initHA();
   initUpdates();
   initBroadcast();
-  SocketConnect();
-  //tcpConnect();
   doFetchBinList();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
+  SocketConnect();
 }
 
 void apCallback(WiFiManager* wifiManager) {
@@ -891,6 +905,7 @@ void initHA() {
       device.enableLastWill();
       mqtt.onConnected(mqttConnected);
       mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
+      servicePin(settings.hapin, HIGH, false);
     }
   }
 }
@@ -1114,6 +1129,18 @@ bool firstIsNewer(Firmware first, Firmware second) {
   return false;
 }
 
+JsonDocument parseJson(String payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.println("Deserialization error: ");
+    Serial.println(error.f_str());
+    return doc;
+  } else {
+    return doc;
+  }
+}
+
 // Home District Json Parsing
 void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
@@ -1207,7 +1234,7 @@ void downloadAndUpdateFw(String binFileName) {
 void checkServicePins() {
   if (!settings.legacy) {
     if (settings.service_diodes_mode) {
-      Serial.println("Dioded enabled");
+      //Serial.println("Dioded enabled");
       servicePin(settings.powerpin, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(settings.wifipin, LOW, true);
@@ -1219,13 +1246,13 @@ void checkServicePins() {
       } else {
         servicePin(settings.hapin, HIGH, true);
       }
-      if (!client_tcp.connected() or tcpReconnect) {
+      if (!client_websocket.available()) {
         servicePin(settings.datapin, LOW, true);
       } else {
         servicePin(settings.datapin, HIGH, true);
       }
     } else {
-      Serial.println("Dioded disables");
+      //Serial.println("Dioded disables");
       servicePin(settings.powerpin, LOW, true);
       servicePin(settings.wifipin, LOW, true);
       servicePin(settings.hapin, LOW, true);
@@ -2668,7 +2695,7 @@ void uptime() {
 
 void connectStatuses() {
   Serial.print("Map API connected: ");
-  Serial.println(client_tcp.connected());
+  Serial.println(client_websocket.available());
   if (enableHA) {
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
@@ -2677,7 +2704,7 @@ void connectStatuses() {
     } else {
       servicePin(settings.hapin, LOW, false);
     }
-    haMapApiConnect.setState(client_tcp.connected(), true);
+    haMapApiConnect.setState(client_websocket.available(), true);
   }
 }
 
@@ -2713,53 +2740,9 @@ void autoBrightnessUpdate() {
 }
 //--Service messages end
 
-//--TCP process start
-void TestParcer(String sensorBuffer, int data_lenght) {
-  if (sensorBuffer == "p") {
-    Serial.println("TCP PING SUCCESS!");
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
-  } else {
-    long values[26];
-    float sensorValues[26];
+//--Websocket process start
 
-    char buffer[data_lenght];
-
-    sensorBuffer.toCharArray(buffer, sizeof(buffer));
-
-    int n = sscanf(buffer, "alerts: %ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
-                   &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
-                   &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
-                   &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
-                   &sensorValues[0], &sensorValues[1], &sensorValues[2], &sensorValues[3], &sensorValues[4], &sensorValues[5], &sensorValues[6], &sensorValues[7],
-                   &sensorValues[8], &sensorValues[9], &sensorValues[10], &sensorValues[11], &sensorValues[12], &sensorValues[13], &sensorValues[14],
-                   &sensorValues[15], &sensorValues[16], &sensorValues[17], &sensorValues[18], &sensorValues[19], &sensorValues[20], &sensorValues[21],
-                   &sensorValues[22], &sensorValues[23], &sensorValues[24], &sensorValues[25]);
-
-    if (n == 52) {
-      Serial.println("Successfully parsed sensor data!");
-      for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = values[i];
-        Serial.print("Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(values[i]);
-      }
-      for (int i = 0; i < 26; ++i) {
-        weather_leds[calculateOffset(i)] = sensorValues[i];
-        Serial.print("Sensor Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(sensorValues[i], 1);
-      }
-    } else {
-      Serial.print("Error parsing sensor buffer, could only decode ");
-      Serial.print(n);
-      Serial.println(" parameter(s).");
-    }
-  }
-}
-//--TCP process end
+//--Websocket process end
 
 //--Map processing start
 int calculateOffset(int initial_position) {
@@ -2776,7 +2759,6 @@ int calculateOffset(int initial_position) {
 }
 
 int calculateOffsetDistrict(int initial_position) {
-  //Serial.print("initial_position");Serial.println(initial_position);
   int position;
   if (initial_position == 25) {
     position = 25;
@@ -2786,7 +2768,6 @@ int calculateOffsetDistrict(int initial_position) {
       position -= 25;
     }
   }
-  //Serial.print("position");Serial.println(position);
   if (settings.kyiv_district_mode == 2) {
     if (position == 25) {
       return 7 + offset;
@@ -2795,11 +2776,9 @@ int calculateOffsetDistrict(int initial_position) {
   if (settings.kyiv_district_mode == 3) {
 
     if (position == 25) {
-      //Serial.print("position8+");Serial.println(8+offset);
       return 8 + offset;
     }
     if (position > 7 + offset) {
-      //Serial.print("position+");Serial.println(position + 1);
       return position + 1;
     }
   }
