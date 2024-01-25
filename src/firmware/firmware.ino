@@ -628,6 +628,7 @@ void initWifi() {
   wm.setConnectTimeout(3);
   wm.setConnectRetries(10);
   wm.setAPCallback(apCallback);
+  wm.setSaveConfigCallback(saveConfigCallback);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
   String apssid = "";
@@ -635,26 +636,26 @@ void initWifi() {
   apssid += "_";
   apssid += chipID1;
   apssid += chipID2;
-  if (wm.autoConnect(apssid.c_str())) {
-    Serial.println("connected...yeey :)");
-    servicePin(settings.wifipin, HIGH, false);
-    showServiceMessage("Підключено до WiFi!", 1000);
-    wm.setHttpPort(8080);
-    wm.startWebPortal();
-    delay(1000);
-    setupRouting();
-    initHA();
-    initUpdates();
-    initBroadcast();
-    tcpConnect();
-    doFetchBinList();
-    showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
-  } else {
-    Serial.println("Reboot");
-    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
-    delay(5000);
-    ESP.restart();
+  if (!wm.autoConnect(apssid.c_str())) {
+      Serial.println("Reboot");
+      showServiceMessage("Пepeзaвaнтaжeння...", 5000);
+      delay(5000);
+      ESP.restart();
   }
+  // Connected to WiFi
+  Serial.println("connected...yeey :)");
+  servicePin(settings.wifipin, HIGH, false);
+  showServiceMessage("Підключено до WiFi!", 1000);
+  wm.setHttpPort(8080);
+  wm.startWebPortal();
+  delay(1000);
+  setupRouting();
+  initHA();
+  initUpdates();
+  initBroadcast();
+  tcpConnect();
+  doFetchBinList();
+  showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
 
 void apCallback(WiFiManager* wifiManager) {
@@ -664,6 +665,14 @@ void apCallback(WiFiManager* wifiManager) {
   display.println(utf8cyr("Підключіться до WiFi:"));
   DisplayCenter(wifiManager->getConfigPortalSSID(), 7, 1);
   WiFi.onEvent(wifiEvents);
+}
+
+void saveConfigCallback() {
+  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:", 2000);
+  delay(2000);
+  showServiceMessage("Перезавантаження..", 1000);
+  delay(1000);
+  ESP.restart();
 }
 
 static void wifiEvents(WiFiEvent_t event) {
