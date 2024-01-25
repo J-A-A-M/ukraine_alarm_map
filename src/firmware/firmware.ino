@@ -15,6 +15,7 @@
 #include <vector>
 #include <ArduinoJson.h>
 #include <esp_system.h>
+#include <ArduinoWebsockets.h>
 
 String VERSION = "3.4";
 
@@ -103,10 +104,13 @@ struct Firmware {
 Firmware currentFirmware;
 Firmware latestFirmware;
 
+using namespace websockets;
+
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WiFiClient        client_tcp;
+WebsocketsClient  client_websocket;
 WiFiClient        client_update;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
@@ -114,6 +118,8 @@ AsyncWebServer    webserver(80);
 NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+
+const char* websocket_server = "ws://10.2.0.106:1234/alerts"; 
 
 struct ServiceMessage {
   String title;
@@ -448,6 +454,40 @@ std::vector<String> autoAlarms = {
   "Лише домашній"
 };
 
+
+void onMessageCallback(WebsocketsMessage message) {
+    Serial.print(F("Got Message: "));
+    Serial.println(message.data());
+    TestParcer(message.data(), message.data().length());
+}
+
+void onEventsCallback(WebsocketsEvent event, String data) {
+    if(event == WebsocketsEvent::ConnectionOpened) {
+        Serial.println(F("Connnection Opened"));
+    } else if(event == WebsocketsEvent::ConnectionClosed) {
+        Serial.println(F("Connnection Closed"));
+    } else if(event == WebsocketsEvent::GotPing) {
+        Serial.println(F("Got a Ping!"));
+    } else if(event == WebsocketsEvent::GotPong) {
+        Serial.println(F("Got a Pong!"));
+    }
+}
+
+void SocketConnect() {
+  client_websocket.onMessage(onMessageCallback);
+  client_websocket.onEvent(onEventsCallback);
+  
+  client_websocket.connect(websocket_server);
+  String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
+  char charArray[combinedString.length() + 1];
+  combinedString.toCharArray(charArray, sizeof(charArray));
+  Serial.println(F(charArray));
+  client_websocket.send(charArray);
+  client_websocket.ping();
+}
+
+
+
 //--Init start
 void initLegacy() {
   if (settings.legacy) {
@@ -487,7 +527,7 @@ void servicePin(int pin, uint8_t status, bool force) {
 }
 
 void initSettings() {
-  Serial.println("Init settings");
+  Serial.println(F("Init settings"));
   preferences.begin("storage", false);
 
   settings.devicename             = preferences.getString("dn", settings.devicename);
@@ -538,25 +578,25 @@ void initSettings() {
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
+  Serial.print(F("Current firmware version: "));
   Serial.print(currentFirmware.major);
-  Serial.print(".");
+  Serial.print(F("."));
   Serial.print(currentFirmware.minor);
-  Serial.print(".");
+  Serial.print(F("."));
   Serial.println(currentFirmware.patch);
 }
 
 void initStrip() {
-  Serial.print("pixelpin: ");
+  Serial.print(F("pixelpin: "));
   Serial.println(settings.pixelpin);
   strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.pixelcount, settings.pixelpin);
-  Serial.println("Init leds");
+  Serial.println(F("Init leds"));
   strip->Begin();
   mapFlag();
 }
 
 void initTime() {
-  Serial.println("Init time");
+  Serial.println(F("Init time"));
   timeClient.begin();
   timezoneUpdate();
   tcpLastPingTime = millis();
@@ -653,7 +693,8 @@ void initWifi() {
   initHA();
   initUpdates();
   initBroadcast();
-  tcpConnect();
+  SocketConnect();
+  //tcpConnect();
   doFetchBinList();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
@@ -2673,85 +2714,6 @@ void autoBrightnessUpdate() {
 //--Service messages end
 
 //--TCP process start
-void tcpConnect() {
-  if (millis() - tcpLastPingTime > 60000) {
-    tcpReconnect = true;
-  }
-  if (!client_tcp.connected() or tcpReconnect) {
-    int cycle = 0;
-    servicePin(settings.datapin, LOW, false);
-    Serial.println("Connecting to map API...");
-    Serial.print("id: ");
-    Serial.println(settings.identifier);
-    showServiceMessage("Пiдключення map-API..", 5000);
-    const char* local_serverhost = settings.serverhost.c_str();
-    while (!client_tcp.connect(local_serverhost, settings.tcpport)) {
-      Serial.println("Failed");
-      showServiceMessage("map-API нeдocтyпнe", 5000);
-      if (enableHA) {
-        haMapApiConnect.setState(false);
-      }
-      tcpReconnect = true;
-      if (cycle > 30) {
-        mapReconnect();
-      }
-      delay(2000);
-      cycle += 1;
-    }
-    String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
-    char charArray[combinedString.length() + 1];
-    combinedString.toCharArray(charArray, sizeof(charArray));
-    Serial.println(charArray);
-    client_tcp.print(charArray);
-    showServiceMessage("map-API пiдключeнo", 1000);
-    servicePin(settings.datapin, HIGH, false);
-    delay(1000);
-    Serial.println("TCP connected");
-    if (enableHA) {
-      haMapApiConnect.setState(true);
-    }
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
-  }
-}
-
-// void tcpReconnect(){
-//   if (millis() - tcpLastPingTime > 30000){
-//     tcpReconnect = true;
-//   }
-//   if (!client_tcp.connected() or tcpReconnect) {
-//     Serial.print("Reconnecting to map API: ");
-//     display.clearDisplay();
-//     DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
-//     if (!client_tcp.connect(settings.serverhost, settings.tcpport))
-//     {
-//       Serial.println("Failed");
-//       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
-//       haMapApiConnect.setState(false);
-//     }else{
-//       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
-//       Serial.println("Connected");
-//       haMapApiConnect.setState(true);
-//     }
-//   }
-// }
-
-void tcpProcess() {
-  String data;
-  while (client_tcp.available() > 0) {
-    data += (char)client_tcp.read();
-  }
-  if (data.length()) {
-    Serial.print("New data: ");
-    Serial.print(data.length());
-    Serial.print(" : ");
-    Serial.println(data);
-    TestParcer(data, data.length());
-  }
-}
-
 void TestParcer(String sensorBuffer, int data_lenght) {
   if (sensorBuffer == "p") {
     Serial.println("TCP PING SUCCESS!");
@@ -2765,7 +2727,7 @@ void TestParcer(String sensorBuffer, int data_lenght) {
 
     sensorBuffer.toCharArray(buffer, sizeof(buffer));
 
-    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+    int n = sscanf(buffer, "alerts: %ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
                    &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
                    &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
                    &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
@@ -2797,62 +2759,6 @@ void TestParcer(String sensorBuffer, int data_lenght) {
     }
   }
 }
-
-// void parseString(String str, int data_lenght) {
-//   if (str == "p"){
-//     Serial.println("TCP PING SUCCESS");
-//     tcpLastPingTime = millis();
-//     tcpReconnect = false;
-//   }else{
-//     int colonIndex = str.indexOf(":");
-//     String firstPart = str.substring(0, colonIndex);
-//     String secondPart = str.substring(colonIndex + 1);
-
-//     int firstArraySize = countOccurrences(firstPart, ',') + 1;
-//     int firstArray[firstArraySize];
-//     extractAlarms(firstPart, firstArraySize);
-
-//     int secondArraySize = countOccurrences(secondPart, ',') + 1;
-//     int secondArray[secondArraySize];
-//     extractWeather(secondPart, secondArraySize);
-//   }
-// }
-
-// int countOccurrences(String str, char target) {
-//   int count = 0;
-//   for (int i = 0; i < str.length(); i++) {
-//     if (str.charAt(i) == target) {
-//       count++;
-//     }
-//   }
-//   return count;
-// }
-
-// void extractAlarms(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   while (token != NULL && index < size) {
-//     alarm_leds[calculateOffset(index)] = atoi(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//   }
-// }
-
-// void extractWeather(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   //Serial.print("weather");
-//   while (token != NULL && index < size) {
-//     weather_leds[calculateOffset(index)] = atof(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//     //Serial.print(weather_leds[position]);
-//     //Serial.print(" ");
-//   }
-//   //Serial.println(" ");
-// }
-
-
 //--TCP process end
 
 //--Map processing start
@@ -3159,9 +3065,7 @@ void setup() {
   Serial.println(chipID2);
 
   asyncEngine.setInterval(uptime, 5000);
-  asyncEngine.setInterval(tcpProcess, 10);
   asyncEngine.setInterval(connectStatuses, 10000);
-  asyncEngine.setInterval(tcpConnect, 1000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
@@ -3179,5 +3083,11 @@ void loop() {
   buttonUpdate();
   if (enableHA) {
     mqtt.loop();
+  }
+  client_websocket.poll();
+  if (!client_websocket.available()){
+    Serial.println("Reconnecting...");
+    delay(10000);
+    SocketConnect();
   }
 }
