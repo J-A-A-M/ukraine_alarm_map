@@ -26,10 +26,6 @@ on:
         type: boolean
         default: false
         description: Alerts
-      polling-interval:
-        type: number
-        default: 2
-        description: Polling interval (seconds)
       redeploy_weather:
         type: boolean
         default: false
@@ -159,4 +155,4 @@ jobs:
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
                 git checkout ${{ github.ref_name }}
-                bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p ${{ inputs.polling-interval }} -m ${{ secrets.MEMCACHED_HOST }}
+                bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.MEMCACHED_HOST }}
