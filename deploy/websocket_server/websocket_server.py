@@ -86,13 +86,10 @@ async def echo(websocket, path):
                         header, data = split_message(message)
                         match header:
                             case 'district':
-                                logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 await websocket.send(f"district callback: {data}")
                             case 'firmware':
-                                logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 client['software'] = data
                             case 'bins':
-                                logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                                 await websocket.send(payload)
                             case _:
