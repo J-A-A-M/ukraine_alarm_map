@@ -6,7 +6,7 @@ import json
 from aiomcache import Client
 from functools import partial
 
-debug_level = os.environ.get('DEBUG_LEVEL') or 'DEBUG'
+debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 1234
 
 logging.basicConfig(level=debug_level,
@@ -88,7 +88,6 @@ async def echo(websocket, path):
                             case 'district':
                                 logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 await websocket.send(f"district callback: {data}")
-                                logger.info(f"{client_ip}_{client_port}: {header} {data}")
                             case 'firmware':
                                 logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 client['software'] = data
@@ -96,7 +95,6 @@ async def echo(websocket, path):
                                 logger.info(f"{client_ip}_{client_port}: {header} {data}")
                                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                                 await websocket.send(payload)
-                                logger.info(f"{client_ip}_{client_port}: {header} {data}")
                             case _:
                                 logger.info(f"{client_ip}_{client_port}: unknown data request")
             except websockets.exceptions.ConnectionClosedError as e:
