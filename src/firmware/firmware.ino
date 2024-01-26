@@ -80,6 +80,7 @@ struct Settings {
   // -------  0 - Off
   // -------  1 - Clock
   // -------  2 - Home District Temperature
+  // -------  3 - Tech info
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -381,6 +382,9 @@ long    homeAlertStart = 0;
 int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
+int     rssi;
+bool    apiConnected;
+bool    haConnected;
 
 std::vector<String> bin_list;
 
@@ -439,6 +443,7 @@ std::vector<String> displayModes = {
   "Вимкнено",
   "Годинник",
   "Погода",
+  "Технічна інформація",
   "Перемикання"
 };
 
@@ -616,6 +621,18 @@ int getLastSunday(int year, int month) {
   return 0;
 }
 
+void displayMessage(String message, int messageTextSize, String title = "") {
+  display.clearDisplay();
+  int bound = 0;
+  if (title.length() > 0) {
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.println(utf8cyr(title));
+    bound = 7;
+  }
+  displayCenter(message, bound, messageTextSize);
+}
+
 void initWifi() {
   Serial.println("Init Wifi");
   WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
@@ -659,11 +676,9 @@ void initWifi() {
 }
 
 void apCallback(WiFiManager* wifiManager) {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.println(utf8cyr("Підключіться до WiFi:"));
-  DisplayCenter(wifiManager->getConfigPortalSSID(), 7, 1);
+  String title = "Підключіться до WiFi:";
+  String message = wifiManager->getConfigPortalSSID();
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
   WiFi.onEvent(wifiEvents);
 }
 
@@ -678,12 +693,9 @@ void saveConfigCallback() {
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextSize(1);
-      display.println(utf8cyr("Введіть у браузері:"));
-      DisplayCenter(WiFi.softAPIP().toString(), 7, 1);
+      displayMessage(WiFi.softAPIP().toString(), getTextSizeToFitDisplay(WiFi.softAPIP().toString()), "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
+      break;
     default:
       break;
   }
@@ -856,6 +868,8 @@ void initHA() {
 
 void mqttConnected() {
   Serial.println("Home Assistant MQTT connected!");
+  haConnected = true;
+  servicePin(settings.hapin, HIGH, false);
   if (enableHA) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
@@ -953,9 +967,11 @@ int getHaDisplayMode(int displayMode) {
     case 1:
       // passthrough
     case 2:
+      // passthrough
+    case 3:
       return displayMode;
     case 9:
-      return 3;
+      return 4;
     default:
       return 0;
   }
@@ -968,8 +984,10 @@ int getRealDisplayMode(int displayMode) {
     case 1:
       // passthrough
     case 2:
-      return displayMode;
+      // passthrough
     case 3:
+      return displayMode;
+    case 4:
       return 9;
     default:
       return 0;
@@ -1252,9 +1270,11 @@ void displayModeSwitch() {
     case 0:
       // passthrough
     case 1:
+      // passthrough
+    case 2:
       settings.display_mode += 1;
       break;
-    case 2:
+    case 3:
       settings.display_mode = 9;
       break;
     case 9:
@@ -1299,7 +1319,7 @@ void saveHomeDistrict() {
 }
 
 //--Display start
-void DisplayCenter(String text, int bound, int text_size) {
+void displayCenter(String text, int bound, int text_size) {
   int16_t x;
   int16_t y;
   uint16_t width;
@@ -1457,6 +1477,9 @@ void displayByMode(int mode) {
     case 2:
       showTemp();
       break;
+    case 3:
+      showTechInfo();
+      break;
     // Display Mode Switching
     case 9:
       displayByMode(calculateCurrentDisplayMode());
@@ -1474,82 +1497,44 @@ void clearDisplay() {
 }
 
 void displayServiceMessage(ServiceMessage message) {
-  display.clearDisplay();
-  int bound = 0;
-  if (message.title.length() > 0) {
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.println(utf8cyr(message.title));
-    bound = 7;
-  }
-
-  DisplayCenter(message.message, bound, message.textSize);
+  displayMessage(message.message, message.textSize, message.title);
 }
 
 void showHomeAlertInfo() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
+  String title;
   if (remainder < toggleTime) {
-    display.println(utf8cyr("Тривога триває:"));
+    title = "Тривога триває:";
   } else {
-    display.println(utf8cyr(districts[settings.home_district]));
+    title = districts[settings.home_district];
   }
-  unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
-  unsigned long seconds = timerSeconds;
-  unsigned long minutes = seconds / 60;
-  unsigned long hours = minutes / 60;
-  if (hours >= 99) {
-    DisplayCenter("99+ год.", 7, 2);
-    return;
-  }
-  seconds %= 60;
-  minutes %= 60;
-  String divider = getDivider();
-  String alertTime = "";
-  if (hours > 0) {
-    if (hours < 10) alertTime += "0";
-    alertTime += hours;
-    alertTime += divider;
-  }
-  if (minutes < 10) alertTime += "0";
-  alertTime += minutes;
-  if (hours == 0) {
-    alertTime += divider;
-    if (seconds < 10) alertTime += "0";
-    alertTime += seconds;
-  }
-  DisplayCenter(alertTime, 7, 3);
+  String message = getStringFromTimer(timeClient.getEpochTime() - homeAlertStart - timeOffset);
+
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
 void showNewFirmwareNotification() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
+  String title;
+  String message;
   if (remainder < toggleTime) {
-    display.println(utf8cyr("Доступне оновлення:"));
-    String version = "v";
-    version += latestFirmware.major;
-    version += ".";
-    version += latestFirmware.minor;
+    title = "Доступне оновлення:";
+    message = (String) "v" + latestFirmware.major + "." + latestFirmware.minor;
     if (latestFirmware.patch > 0) {
-      version += ".";
-      version += latestFirmware.patch;
+      message += ".";
+      message += latestFirmware.patch;
     }
-    DisplayCenter(version, 7, 3);
   } else if (settings.button_mode == 0) {
-    display.println(utf8cyr("Введіть у браузері:"));
-    DisplayCenter(WiFi.localIP().toString(), 7, 1);
+    title = "Введіть у браузері:";
+    message = WiFi.localIP().toString();
   } else {
-    display.println(utf8cyr("Для оновлення"));
-    String text = "натисніть кнопку ";
-    text += (char)24;
-    DisplayCenter(text, 7, 1);
+    title = "Для оновлення";
+    message = (String) "натисніть кнопку " + (char)24;
   }
+  
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
 void showClock() {
@@ -1557,32 +1542,80 @@ void showClock() {
   int minute = timeClient.getMinutes();
   int day = timeClient.getDay();
   String daysOfWeek[] = { "Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота" };
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.println(utf8cyr(daysOfWeek[day]));
   String time = "";
   if (hour < 10) time += "0";
   time += hour;
   time += getDivider();
   if (minute < 10) time += "0";
   time += minute;
-  DisplayCenter(time, 7, 3);
+  displayMessage(time, getTextSizeToFitDisplay(time), daysOfWeek[day]);
 }
 
 void showTemp() {
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.println(utf8cyr(districts[settings.home_district]));
-  String temp = "";
   char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
   dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  temp += roundedTemp;
-  temp += (char)128;
-  temp += "C";
-  DisplayCenter(temp, 7, 3);
+  String temp = (String)"" + roundedTemp + (char)128 + "C";
+  displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
+}
+
+void showTechInfo() {
+  int toggleTime = 3;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 5);
+  String title;
+  String message;
+  // IP address
+  if (remainder < toggleTime) {
+    title = "IP-адреса мапи:";
+    message = WiFi.localIP().toString();
+  // Wifi Signal level
+  } else if (remainder < toggleTime * 2) {
+    title = "Сигнал WiFi:";
+    message += rssi;
+    message += " dBm";
+  // Uptime
+  } else if (remainder < toggleTime * 3) {
+    title = "Час роботи:";
+    message = getStringFromTimer(millis() / 1000);
+  // map-API status
+  } else if (remainder < toggleTime * 4) {
+    title = "Статус map-API:";
+    message = apiConnected ? "Підключено" : "Відключено";
+  // HA Status 
+  } else {
+    title = "Home Assistant:";
+    message = haConnected ? "Підключено" : "Відключено";
+  }
+
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
+}
+
+String getStringFromTimer(long timerSeconds) {
+  String message;
+  unsigned long seconds = timerSeconds;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  if (hours >= 99) {
+   return "99+ год.";
+  } else {
+    String message;
+    seconds %= 60;
+    minutes %= 60;
+    String divider = getDivider();
+    if (hours > 0) {
+      if (hours < 10) message += "0";
+      message += hours;
+      message += divider;
+    }
+    if (minutes < 10) message += "0";
+    message += minutes;
+    if (hours == 0) {
+      message += divider;
+      if (seconds < 10) message += "0";
+      message += seconds;
+    }
+    return message;
+  }
 }
 
 int calculateCurrentDisplayMode() {
@@ -2607,13 +2640,12 @@ void handleSave(AsyncWebServerRequest* request) {
 //--Service messages start
 void uptime() {
   int     uptimeValue = millis() / 1000;
-  int32_t number      = WiFi.RSSI();
-  int     rssi        = 0 - number;
-
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
   float cpuTemp       = temperatureRead();
+            
+  rssi = WiFi.RSSI();
 
   if (enableHA) {
     haUptime.setValue(uptimeValue);
@@ -2627,16 +2659,19 @@ void uptime() {
 
 void connectStatuses() {
   Serial.print("Map API connected: ");
-  Serial.println(client_tcp.connected());
+  apiConnected = client_tcp.connected();
+  Serial.println(apiConnected);
+  haConnected = false;
   if (enableHA) {
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
     if (mqtt.isConnected()) {
+      haConnected = true;
       servicePin(settings.hapin, HIGH, false);
     } else {
       servicePin(settings.hapin, LOW, false);
     }
-    haMapApiConnect.setState(client_tcp.connected(), true);
+    haMapApiConnect.setState(apiConnected, true);
   }
 }
 
@@ -2688,6 +2723,7 @@ void tcpConnect() {
     while (!client_tcp.connect(local_serverhost, settings.tcpport)) {
       Serial.println("Failed");
       showServiceMessage("map-API нeдocтyпнe", 5000);
+      apiConnected = false;
       if (enableHA) {
         haMapApiConnect.setState(false);
       }
@@ -2705,6 +2741,7 @@ void tcpConnect() {
     client_tcp.print(charArray);
     showServiceMessage("map-API пiдключeнo", 1000);
     servicePin(settings.datapin, HIGH, false);
+    apiConnected = true;
     delay(1000);
     Serial.println("TCP connected");
     if (enableHA) {
@@ -2722,16 +2759,16 @@ void tcpConnect() {
 //   if (!client_tcp.connected() or tcpReconnect) {
 //     Serial.print("Reconnecting to map API: ");
 //     display.clearDisplay();
-//     DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
+//     displayCenter(utf8cyr("Підключення map-API.."),0,1);
 //     if (!client_tcp.connect(settings.serverhost, settings.tcpport))
 //     {
 //       Serial.println("Failed");
 //       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
+//       displayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
 //       haMapApiConnect.setState(false);
 //     }else{
 //       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
+//       displayCenter(utf8cyr("map-API пiдключeнo"),0,1);
 //       Serial.println("Connected");
 //       haMapApiConnect.setState(true);
 //     }
