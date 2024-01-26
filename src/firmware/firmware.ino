@@ -116,8 +116,7 @@ NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
-//const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
-const char* websocket_server = "ws://10.2.0.106:1234/alerts"; 
+const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
 
 struct ServiceMessage {
   String title;
