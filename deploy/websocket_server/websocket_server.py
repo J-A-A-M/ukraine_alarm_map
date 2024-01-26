@@ -10,7 +10,7 @@ debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 1234
 
 logging.basicConfig(level=debug_level,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s %(levelname)s : %(message)s')
 logger = logging.getLogger(__name__)
 
 
