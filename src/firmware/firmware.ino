@@ -645,21 +645,22 @@ void initWifi() {
       showServiceMessage("Пepeзaвaнтaжeння...", 5000);
       delay(5000);
       ESP.restart();
+      return;
   }
   // Connected to WiFi
   Serial.println("connected...yeey :)");
   servicePin(settings.wifipin, HIGH, false);
-  showServiceMessage("Підключено до WiFi!", 1000);
+  showServiceMessage("Підключено до WiFi!");
   wm.setHttpPort(8080);
   wm.startWebPortal();
-  delay(1000);
+  delay(5000);
   setupRouting();
   initHA();
   initUpdates();
   initBroadcast();
+  socketConnect();
   doFetchBinList();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
-  SocketConnect();
 }
 
 void apCallback(WiFiManager* wifiManager) {
@@ -672,7 +673,7 @@ void apCallback(WiFiManager* wifiManager) {
 }
 
 void saveConfigCallback() {
-  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:", 2000);
+  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
   delay(2000);
   showServiceMessage("Перезавантаження..", 1000);
   delay(1000);
@@ -1016,8 +1017,7 @@ std::vector<String> fetchAndParseJSON() {
   Serial.println("Start fetching bin list");
   String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
   Serial.println(jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
+  http.begin(jsonURLString.c_str());
   int httpCode = http.GET();
   std::vector<String> tempFilenames;
 
@@ -2696,8 +2696,7 @@ void websocketProcess() {
     if (millis() - websocketLastPingTime > settings.ws_alert_time) {
       mapReconnect();
     }
-    SocketConnect();
-    delay(2000);
+    socketConnect();
   }
 }
 
@@ -2725,35 +2724,40 @@ void onMessageCallback(WebsocketsMessage message) {
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
-    if(event == WebsocketsEvent::ConnectionOpened) {
+    if (event == WebsocketsEvent::ConnectionOpened) {
         Serial.println("connnection opened");
         servicePin(settings.datapin, HIGH, false);
         websocketLastPingTime = millis();
-    } else if(event == WebsocketsEvent::ConnectionClosed) {
+    } else if (event == WebsocketsEvent::ConnectionClosed) {
         Serial.println("connnection closed");
         servicePin(settings.datapin, LOW, false);
-    } else if(event == WebsocketsEvent::GotPing) {
+    } else if (event == WebsocketsEvent::GotPing) {
         Serial.println("websocket ping");
+        client_websocket.pong();
+        Serial.println("answered pong");
         websocketLastPingTime = millis();
-    } else if(event == WebsocketsEvent::GotPong) {
+    } else if (event == WebsocketsEvent::GotPong) {
         Serial.println("websocket pong");
     }
 }
 
-void SocketConnect() {
+void socketConnect() {
+  Serial.println("connection start...");
+  showServiceMessage("підключення..", "Сервер даних");
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
+  long startTime = millis();
   client_websocket.connect(websocket_server);
-  if (client_websocket.available()){
+  if (client_websocket.available()) {
+    Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
-    char charArray[combinedString.length() + 1];
-    combinedString.toCharArray(charArray, sizeof(charArray));
-    Serial.println(charArray);
-    client_websocket.send(charArray);
+    Serial.println(combinedString.c_str());
+    client_websocket.send(combinedString.c_str());
     client_websocket.ping();
-    showServiceMessage("підключений","Сервер даних", 2000);
+    showServiceMessage("підключено!", "Сервер даних");
+    delay(1000);
   } else {
-    showServiceMessage("недоступний", "Сервер даних", 2000);
+    showServiceMessage("недоступний", "Сервер даних", 5000);
   }
 }
 //--Websocket process end
