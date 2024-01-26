@@ -87,11 +87,14 @@ async def echo(websocket, path):
                         match header:
                             case 'district':
                                 await websocket.send(f"district callback: {data}")
+                                logger.info(f"{client_ip}_{client_port}: district {data} ")
                             case 'firmware':
                                 client['software'] = data
+                                logger.info(f"{client_ip}_{client_port}: software saved")
                             case 'bins':
                                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                                 await websocket.send(payload)
+                                logger.info(f"{client_ip}_{client_port}: new bins")
                             case _:
                                 logger.info(f"{client_ip}_{client_port}: unknown data request")
             except websockets.exceptions.ConnectionClosedError as e:
