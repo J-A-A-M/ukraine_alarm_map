@@ -116,7 +116,8 @@ NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
-const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
+//const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
+const char* websocket_server = "ws://10.2.0.106:1234/alerts"; 
 
 struct ServiceMessage {
   String title;
@@ -1044,9 +1045,8 @@ std::vector<String> fetchAndParseJSON() {
 
 void doFetchBinList() {
   Serial.println("DoFetchBinList");
-  bin_list = fetchAndParseJSON();
-  saveLatestFirmware();
-  fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
+  client_websocket.send("bins");
+  
 }
 
 void saveLatestFirmware() {
@@ -2697,6 +2697,7 @@ void websocketProcess() {
       mapReconnect();
     }
     socketConnect();
+    delay(3000);
   }
 }
 
@@ -2720,6 +2721,17 @@ void onMessageCallback(WebsocketsMessage message) {
     for (int i = 0; i < 26; ++i) {
       weather_leds[calculateOffset(i)] = data["weather"][i];
     }
+  }
+  if (payload == "bins") {
+    Serial.println("Successfully parsed bins list");
+    std::vector<String> tempFilenames;
+    JsonArray arr = data["bins"].as<JsonArray>();
+    for (String filename : arr) {
+      tempFilenames.push_back(filename);
+    }
+    bin_list = tempFilenames;
+    saveLatestFirmware();
+    fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
   }
 }
 
@@ -2757,7 +2769,7 @@ void socketConnect() {
     showServiceMessage("підключено!", "Сервер даних");
     delay(1000);
   } else {
-    showServiceMessage("недоступний", "Сервер даних", 5000);
+    showServiceMessage("недоступний", "Сервер даних", 3000);
   }
 }
 //--Websocket process end
@@ -3066,11 +3078,11 @@ void setup() {
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(WifiReconnect, 5000);
+  asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 5000);
-  asyncEngine.setInterval(doFetchBinList, 600000);
+  asyncEngine.setInterval(doFetchBinList, 60000);
   asyncEngine.setInterval(websocketProcess, 1000);
 }
 
