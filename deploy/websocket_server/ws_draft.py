@@ -29,7 +29,7 @@ async def send_ping(websocket):
     try:
         # The pong message is awaited to ensure the client is responsive
         pong_waiter = await websocket.ping()
-        await asyncio.wait_for(pong_waiter, timeout=20)
+        await asyncio.wait_for(pong_waiter, timeout=30)
         return True
     except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosedError):
         # Handle timeout or disconnection here
@@ -43,7 +43,7 @@ async def ping_client(websocket, client):
             client['connected'] = False
             logger.debug(f"break")
             break
-        await asyncio.sleep(10)  # Ping interval
+        await asyncio.sleep(5)  # Ping interval
 
 
 
@@ -98,14 +98,8 @@ async def alerts_data(websocket, client, shared_data):
                 logger.info(f"{client_ip}_{client_port}: new data")
                 client['data'] = shared_data.data
             await asyncio.sleep(1)
-        except websockets.exceptions.ConnectionClosedError as e:
-            if e.reason == 'keepalive ping timeout':
-                logger.error(f"{client_ip}_{client_port}: Connection closed due to keepalive ping timeout")
-            else:
-                logger.error(f"{client_ip}_{client_port}: Connection closed with error - {e}")
-            break
-        except Exception as e:
-            logger.error(f"Error in client_logic for {client_ip}_{client_port}: {e}")
+        except websockets.exceptions.ConnectionClosedError:
+            logger.debug(f"{client_ip}_{client_port}: data stopped")
             break
 
 
@@ -128,8 +122,8 @@ async def echo(shared_data, websocket, path):
         'region': 'response.subdivisions.most_specific.name' or 'unknown'
     }
 
-    #heartbeat_task = asyncio.create_task(heartbeat(websocket, client))
-    heartbeat_task = asyncio.create_task(ping_client(websocket, client))
+    heartbeat_task = asyncio.create_task(heartbeat(websocket, client))
+    #heartbeat_task = asyncio.create_task(ping_client(websocket, client))
     messages_task = asyncio.create_task(messages(websocket, client))
     data_task = asyncio.create_task(alerts_data(websocket, client, shared_data))
 
@@ -174,11 +168,12 @@ async def update_shared_data(shared_data, mc):
 async def print_clients(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(60)
-            logger.debug(f"Clients:")
+
+            logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
-                logger.debug(client)
+                logger.info(client)
             await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
+            await asyncio.sleep(10)
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
@@ -194,7 +189,7 @@ async def get_data_from_memcached(mc):
 
     return tcp_cached_data
 
-start_server = websockets.serve(partial(echo, shared_data), "0.0.0.0", 1234, ping_interval=None)
+start_server = websockets.serve(partial(echo, shared_data), "0.0.0.0", 1234)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 update_shared_data_coroutine = partial(update_shared_data, shared_data, mc)()

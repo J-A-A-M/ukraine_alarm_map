@@ -1,6 +1,5 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
-#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <async.h>
@@ -9,7 +8,6 @@
 #include <NTPClient.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
-#include <Wire.h>
 #include <HTTPClient.h>
 #include <Update.h>
 #include <vector>
@@ -90,6 +88,7 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
+  int     ws_alert_time          = 120000;    
   // ------- web config end
 };
 
@@ -377,7 +376,7 @@ bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
 long    buttonPressStart = 0;
-time_t  tcpLastPingTime = 0;
+time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
@@ -451,58 +450,6 @@ std::vector<String> autoAlarms = {
   "Лише домашній"
 };
 
-
-void onMessageCallback(WebsocketsMessage message) {
-  Serial.print(F("Got Message: "));
-  Serial.println(message.data());
-  JsonDocument data = parseJson(message.data());
-  String payload = data["payload"];
-  if (payload == "ping") {
-    Serial.println("Heartbeat from server");
-    tcpLastPingTime = millis();
-  }
-  if (payload == "alerts") {
-    Serial.println("Successfully parsed alerts data!");
-    for (int i = 0; i < 26; ++i) {
-      alarm_leds[calculateOffset(i)] = data["alerts"][i];
-    }
-  }
-  if (payload == "weather") {
-    for (int i = 0; i < 26; ++i) {
-      weather_leds[calculateOffset(i)] = data["weather"][i];
-    }
-  }
-}
-
-void onEventsCallback(WebsocketsEvent event, String data) {
-    if(event == WebsocketsEvent::ConnectionOpened) {
-        Serial.println(F("connnection opened"));
-        servicePin(settings.datapin, HIGH, false);
-    } else if(event == WebsocketsEvent::ConnectionClosed) {
-        Serial.println(F("connnection closed"));
-        servicePin(settings.datapin, LOW, false);
-    } else if(event == WebsocketsEvent::GotPing) {
-        Serial.println(F("websocket ping"));
-    } else if(event == WebsocketsEvent::GotPong) {
-        Serial.println(F("websocket pong"));
-    }
-}
-
-void SocketConnect() {
-  client_websocket.onMessage(onMessageCallback);
-  client_websocket.onEvent(onEventsCallback);
-  
-  client_websocket.connect(websocket_server);
-  String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
-  char charArray[combinedString.length() + 1];
-  combinedString.toCharArray(charArray, sizeof(charArray));
-  Serial.println(F(charArray));
-  client_websocket.send(charArray);
-  client_websocket.ping();
-}
-
-
-
 //--Init start
 void initLegacy() {
   if (settings.legacy) {
@@ -542,7 +489,7 @@ void servicePin(int pin, uint8_t status, bool force) {
 }
 
 void initSettings() {
-  Serial.println(F("Init settings"));
+  Serial.println("Init settings");
   preferences.begin("storage", false);
 
   settings.devicename             = preferences.getString("dn", settings.devicename);
@@ -590,31 +537,33 @@ void initSettings() {
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
+  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print(F("Current firmware version: "));
+  Serial.print("Current firmware version: ");
   Serial.print(currentFirmware.major);
-  Serial.print(F("."));
+  Serial.print(".");
   Serial.print(currentFirmware.minor);
-  Serial.print(F("."));
+  Serial.print(".");
   Serial.println(currentFirmware.patch);
 }
 
 void initStrip() {
-  Serial.print(F("pixelpin: "));
+  Serial.print("pixelpin: ");
   Serial.println(settings.pixelpin);
   strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.pixelcount, settings.pixelpin);
-  Serial.println(F("Init leds"));
+  Serial.println("Init leds");
   strip->Begin();
   mapFlag();
 }
 
 void initTime() {
-  Serial.println(F("Init time"));
+  Serial.println("Init time");
   timeClient.begin();
   timezoneUpdate();
-  tcpLastPingTime = millis();
+  websocketLastPingTime = millis();
 }
 
 void timezoneUpdate() {
@@ -2690,7 +2639,7 @@ void uptime() {
     haUsedMemory.setValue(usedHeapSize);
     haCpuTemp.setValue(cpuTemp);
   }
-  Serial.println(uptimeValue);
+  //Serial.println(uptimeValue);
 }
 
 void connectStatuses() {
@@ -2741,7 +2690,72 @@ void autoBrightnessUpdate() {
 //--Service messages end
 
 //--Websocket process start
+void websocketProcess() {
+  while (!client_websocket.available()){
+    Serial.println("Reconnecting...");
+    if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+      mapReconnect();
+    }
+    SocketConnect();
+    delay(2000);
+  }
+}
 
+void onMessageCallback(WebsocketsMessage message) {
+  Serial.print("Got Message: ");
+  Serial.println(message.data());
+  JsonDocument data = parseJson(message.data());
+  String payload = data["payload"];
+  if (payload == "ping") {
+    Serial.println("Heartbeat from server");
+    websocketLastPingTime = millis();
+  }
+  if (payload == "alerts") {
+    Serial.println("Successfully parsed alerts data");
+    for (int i = 0; i < 26; ++i) {
+      alarm_leds[calculateOffset(i)] = data["alerts"][i];
+    }
+  }
+  if (payload == "weather") {
+    Serial.println("Successfully parsed weather data");
+    for (int i = 0; i < 26; ++i) {
+      weather_leds[calculateOffset(i)] = data["weather"][i];
+    }
+  }
+}
+
+void onEventsCallback(WebsocketsEvent event, String data) {
+    if(event == WebsocketsEvent::ConnectionOpened) {
+        Serial.println("connnection opened");
+        servicePin(settings.datapin, HIGH, false);
+        websocketLastPingTime = millis();
+    } else if(event == WebsocketsEvent::ConnectionClosed) {
+        Serial.println("connnection closed");
+        servicePin(settings.datapin, LOW, false);
+    } else if(event == WebsocketsEvent::GotPing) {
+        Serial.println("websocket ping");
+        websocketLastPingTime = millis();
+    } else if(event == WebsocketsEvent::GotPong) {
+        Serial.println("websocket pong");
+    }
+}
+
+void SocketConnect() {
+  client_websocket.onMessage(onMessageCallback);
+  client_websocket.onEvent(onEventsCallback);
+  client_websocket.connect(websocket_server);
+  if (client_websocket.available()){
+    String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
+    char charArray[combinedString.length() + 1];
+    combinedString.toCharArray(charArray, sizeof(charArray));
+    Serial.println(charArray);
+    client_websocket.send(charArray);
+    client_websocket.ping();
+    showServiceMessage("підключений","Сервер даних", 2000);
+  } else {
+    showServiceMessage("недоступний", "Сервер даних", 2000);
+  }
+}
 //--Websocket process end
 
 //--Map processing start
@@ -3044,7 +3058,7 @@ void setup() {
   Serial.println(chipID2);
 
   asyncEngine.setInterval(uptime, 5000);
-  asyncEngine.setInterval(connectStatuses, 10000);
+  asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
@@ -3053,6 +3067,7 @@ void setup() {
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 5000);
   asyncEngine.setInterval(doFetchBinList, 600000);
+  asyncEngine.setInterval(websocketProcess, 1000);
 }
 
 void loop() {
@@ -3064,9 +3079,4 @@ void loop() {
     mqtt.loop();
   }
   client_websocket.poll();
-  if (!client_websocket.available()){
-    Serial.println("Reconnecting...");
-    delay(10000);
-    SocketConnect();
-  }
 }
