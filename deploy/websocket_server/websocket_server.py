@@ -40,17 +40,17 @@ async def alerts_data(websocket, client, shared_data):
                 alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts)])
                 payload = '{"payload":"alerts","alerts":%s}' % alerts
                 await websocket.send(payload)
-                logger.info(f"{client_ip}_{client_port}: new alerts")
+                logger.info(f"{client_ip}_{client_port} <<< new alerts")
                 client['alerts'] = shared_data.alerts
             if client['weather'] != shared_data.weather:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
-                logger.info(f"{client_ip}_{client_port}: new weather")
+                logger.info(f"{client_ip}_{client_port} <<< new weather")
                 client['weather'] = shared_data.weather
             await asyncio.sleep(1)
         except websockets.exceptions.ConnectionClosedError:
-            logger.debug(f"{client_ip}_{client_port}: data stopped")
+            logger.debug(f"{client_ip}_{client_port} !!! data stopped")
             break
         except Exception as e:
             logger.debug(f"{client_ip}_{client_port}: {e}")
@@ -58,7 +58,7 @@ async def alerts_data(websocket, client, shared_data):
 
 async def echo(websocket, path):
     client_ip, client_port = websocket.remote_address
-    logger.info(f"{client_ip}_{client_port}: new client")
+    logger.info(f"{client_ip}_{client_port} >>> new client")
 
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
@@ -75,7 +75,7 @@ async def echo(websocket, path):
             try:
                 while True:
                     async for message in websocket:
-                        logger.info(f"{client_ip}_{client_port}: {message}")
+                        logger.info(f"{client_ip}_{client_port} >>> {message}")
 
                         def split_message(message):
                             parts = message.split(':', 1)  # Split at most into 2 parts
@@ -87,16 +87,16 @@ async def echo(websocket, path):
                         match header:
                             case 'district':
                                 await websocket.send(f"district callback: {data}")
-                                logger.info(f"{client_ip}_{client_port}: district {data} ")
+                                logger.info(f"{client_ip}_{client_port} <<< district {data} ")
                             case 'firmware':
                                 client['software'] = data
-                                logger.info(f"{client_ip}_{client_port}: software saved")
+                                logger.info(f"{client_ip}_{client_port} >>> software saved")
                             case 'bins':
                                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                                 await websocket.send(payload)
-                                logger.info(f"{client_ip}_{client_port}: new bins")
+                                logger.info(f"{client_ip}_{client_port} <<< new bins")
                             case _:
-                                logger.info(f"{client_ip}_{client_port}: unknown data request")
+                                logger.info(f"{client_ip}_{client_port} !!! unknown data request")
             except websockets.exceptions.ConnectionClosedError as e:
                 logger.error(f"Connection closed with error - {e}")
             except Exception as e:
@@ -107,8 +107,8 @@ async def echo(websocket, path):
                 try:
                     await data_task
                 except asyncio.CancelledError:
-                    logger.info(f"{client_ip}_{client_port}: tasks cancelled")
-                logger.info(f"{client_ip}_{client_port}: end")
+                    logger.info(f"{client_ip}_{client_port} !!! tasks cancelled")
+                logger.info(f"{client_ip}_{client_port} !!! end")
         case _:
             return
 
@@ -142,7 +142,7 @@ async def update_shared_data(shared_data, mc):
 async def print_clients(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(60)
+            await asyncio.sleep(600)
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
