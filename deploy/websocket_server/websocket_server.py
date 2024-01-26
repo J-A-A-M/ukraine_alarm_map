@@ -116,7 +116,7 @@ async def print_clients(shared_data, mc):
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
-            await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
+            #await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
