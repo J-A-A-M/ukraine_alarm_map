@@ -175,7 +175,6 @@ async def district_data_v1(district_id):
 
 async def update_shared_data(shared_data, mc):
     while True:
-        await asyncio.sleep(1)
         logger.debug("memcache check")
         alerts, weather, bins, alerts_full, weather_full = await get_data_from_memcached(mc)
         try:
@@ -211,6 +210,7 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"weather_full updated")
         except Exception as e:
             logger.error(f"error in weather_full: {e}")
+        await asyncio.sleep(1)
 
 
 async def print_clients(shared_data, mc):
