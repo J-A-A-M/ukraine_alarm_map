@@ -8,6 +8,7 @@ from functools import partial
 
 debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 1234
+ping_interval = os.environ.get('PING_INTERVAL') or 20
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
@@ -173,7 +174,7 @@ async def get_data_from_memcached(mc):
     return alerts_cached_data, weather_cached_data, bins_cached_data
 
 
-start_server = websockets.serve(echo, "0.0.0.0", websocket_port)
+start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 
