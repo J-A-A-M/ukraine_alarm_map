@@ -165,11 +165,11 @@ async def district_data_v1(district_id):
     iso_datetime_str = alerts_cached_data[region]['changed']
     datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
     datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-    alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
+    alerts_cached_data[region]['changed'] = int(datetime_obj_utc.timestamp())
 
     return {
         "payload": "district",
-        "district": {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
+        "district": {**{'name': region}, **alerts_cached_data[region], **weather_cached_data[region]}
     }
 
 
