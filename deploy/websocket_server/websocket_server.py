@@ -8,7 +8,7 @@ from functools import partial
 
 debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 1234
-ping_interval = os.environ.get('PING_INTERVAL') or 20
+ping_interval = int(os.environ.get('PING_INTERVAL')) or 20
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
