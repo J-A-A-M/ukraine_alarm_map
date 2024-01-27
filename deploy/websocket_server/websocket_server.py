@@ -162,7 +162,7 @@ async def district_data_v1(district_id):
         if data['id'] == district_id:
             break
 
-    iso_datetime_str = alerts_cached_data['states'][region]['changed']
+    iso_datetime_str = alerts_cached_data[region]['changed']
     datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
     datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
     alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
@@ -247,12 +247,12 @@ async def get_data_from_memcached(mc):
         bins_cached_data = '[]'
 
     if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode('utf-8'))
+        alerts_full_cached_data = json.loads(alerts_full_cached.decode('utf-8'))['states']
     else:
         alerts_full_cached_data = {}
 
     if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode('utf-8'))
+        weather_full_cached_data = json.loads(weather_full_cached.decode('utf-8'))['states']
     else:
         weather_full_cached_data = {}
 
