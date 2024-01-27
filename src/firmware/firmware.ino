@@ -117,7 +117,7 @@ NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
-const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
+const char* websocket_server = "ws://10.2.0.106:8430/data_v1"; 
 
 struct ServiceMessage {
   String title;
@@ -676,7 +676,6 @@ void initWifi() {
   initUpdates();
   initBroadcast();
   socketConnect();
-  doFetchBinList();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
 
@@ -1059,12 +1058,6 @@ std::vector<String> fetchAndParseJSON() {
   return tempFilenames;
 }
 
-void doFetchBinList() {
-  Serial.println("DoFetchBinList");
-  client_websocket.send("bins");
-  
-}
-
 void saveLatestFirmware() {
   Firmware firmware;
   for (String& filename : bin_list) {
@@ -1111,37 +1104,41 @@ void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
   if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
+
   lastHomeDistrictSync = timeClient.getEpochTime();
+  String combinedString = "district:" + String(settings.home_district);
+  Serial.println(combinedString.c_str());
+  client_websocket.send(combinedString.c_str());
 
-  String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
-  Serial.println("Http request to: " + jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
-  int httpCode = http.GET();
+  // String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
+  // Serial.println("Http request to: " + jsonURLString);
+  // const char* jsonURL = jsonURLString.c_str();
+  // http.begin(jsonURL);
+  // int httpCode = http.GET();
 
-  if (httpCode == 200) {
-    String payload = http.getString();
-    Serial.println("Http Success, payload: " + payload);
+  // if (httpCode == 200) {
+  //   String payload = http.getString();
+  //   Serial.println("Http Success, payload: " + payload);
 
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-      Serial.println("Deserialization error: ");
-      Serial.println(error.f_str());
-      return;
-    }
-    Serial.println("Json parsed!");
-    bool alertNow = doc["data"]["alertnow"];
-    Serial.println(alertNow);
-    if (alertNow) {
-      homeAlertStart = doc["data"]["changed"];
-      Serial.println(homeAlertStart);
-    } else {
-      homeAlertStart = 0;
-    }
-  } else {
-    Serial.println("Error on HTTP request:" + httpCode);
-  }
+  //   JsonDocument doc;
+  //   DeserializationError error = deserializeJson(doc, payload);
+  //   if (error) {
+  //     Serial.println("Deserialization error: ");
+  //     Serial.println(error.f_str());
+  //     return;
+  //   }
+  //   Serial.println("Json parsed!");
+  //   bool alertNow = doc["data"]["alertnow"];
+  //   Serial.println(alertNow);
+  //   if (alertNow) {
+  //     homeAlertStart = doc["data"]["changed"];
+  //     Serial.println(homeAlertStart);
+  //   } else {
+  //     homeAlertStart = 0;
+  //   }
+  // } else {
+  //   Serial.println("Error on HTTP request:" + httpCode);
+  // }
 }
 
 void doUpdate() {
@@ -2766,6 +2763,19 @@ void onMessageCallback(WebsocketsMessage message) {
     saveLatestFirmware();
     fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
   }
+  if (payload == "district") {
+    Serial.println("Successfully parsed district data");
+    bool alertNow = data["district"]["alertnow"];
+    Serial.println(alertNow);
+    if (alertNow) {
+      homeAlertStart = data["district"]["changed"];
+      Serial.println(homeAlertStart);
+    } else {
+      homeAlertStart = 0;
+    }
+  }
+
+
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
@@ -2800,6 +2810,9 @@ void socketConnect() {
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
     Serial.println(combinedString.c_str());
     client_websocket.send(combinedString.c_str());
+    String chipId = "chip_id:" + chipID1 + chipID2;
+    Serial.println(chipId.c_str());
+    client_websocket.send(chipId.c_str());
     client_websocket.ping();
     showServiceMessage("підключено!", "Сервер даних");
     delay(1000);
@@ -3104,10 +3117,6 @@ void setup() {
   initWifi();
   initTime();
 
-  Serial.print("ESP32 Chip ID: ");
-  Serial.print(chipID1);
-  Serial.println(chipID2);
-
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
@@ -3117,7 +3126,6 @@ void setup() {
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 5000);
-  asyncEngine.setInterval(doFetchBinList, 60000);
   asyncEngine.setInterval(websocketProcess, 1000);
 }
 
