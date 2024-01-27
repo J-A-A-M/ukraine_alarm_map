@@ -110,7 +110,7 @@ async def echo(websocket, path):
     }
 
     match path:
-        case "/data_v1":
+        case "/alerts":
             data_task = asyncio.create_task(alerts_data(websocket, client, shared_data))
             try:
                 while True:
