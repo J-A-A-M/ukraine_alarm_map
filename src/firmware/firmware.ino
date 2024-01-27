@@ -18,7 +18,7 @@
 String VERSION = "3.4";
 
 struct Settings {
-  char*         apssid                 = "JAAM";
+  String        apssid                 = "JAAM";
   const char*   softwareversion        = VERSION.c_str();
   int           pixelcount             = 26;
   int           buttontime             = 100;
@@ -66,6 +66,11 @@ struct Settings {
   int     service_diodes_mode    = 0;
   int     sdm_auto               = 0;
   int     new_fw_notification    = 1;
+  int     ha_light_brightness    = 128;
+  int     ha_light_r             = 215;
+  int     ha_light_g             = 7;
+  int     ha_light_b             = 255;
+
 
   // ------- Map Modes:
   // -------  0 - Off
@@ -73,6 +78,7 @@ struct Settings {
   // -------  2 - Weather
   // -------  3 - UA Flag
   // -------  4 - Random colors
+  // -------  5 - Lamp
   int     map_mode               = 1;
 
   // ------- Display Modes:
@@ -387,11 +393,12 @@ bool    fwUpdateAvailable = false;
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
+int     prevMapMode = 1;
 
 std::vector<String> bin_list;
 
 HADevice        device;
-HAMqtt          mqtt(client, device, 16);
+HAMqtt          mqtt(client, device, 19);
 
 uint64_t chipid = ESP.getEfuseMac();
 String chipID1 = String((uint32_t)(chipid >> 32), HEX);
@@ -414,6 +421,7 @@ String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
 String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
 String haToggleMapModeString      = chipID1 + chipID2 + "_toggle_map_mode";
 String haToggleDisplayModeString  = chipID1 + chipID2 + "_toggle_display_mode";
+String haLightString              = chipID1 + chipID2 + "_light";
 
 HASensorNumber  haUptime(haUptimeString.c_str());
 HASensorNumber  haWifiSignal(haWifiSignalString.c_str());
@@ -432,13 +440,15 @@ HAButton        haToggleMapMode(haToggleMapModeString.c_str());
 HAButton        haToggleDisplayMode(haToggleDisplayModeString.c_str());
 HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
 HASensor        haHomeDistrict(haHomeDistrictString.c_str());
+HALight         haLight(haLightString.c_str(), HALight::BrightnessFeature | HALight::RGBFeature);
 
 std::vector<String> mapModes = {
   "Вимкнено",
   "Тривога",
   "Погода",
   "Прапор",
-  "Випадкові кольори"
+  "Випадкові кольори",
+  "Лампа"
 };
 
 std::vector<String> displayModes = {
@@ -543,16 +553,15 @@ void initSettings() {
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
   settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
+  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
+  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
+  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
   
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
-  Serial.print(currentFirmware.major);
-  Serial.print(".");
-  Serial.print(currentFirmware.minor);
-  Serial.print(".");
-  Serial.println(currentFirmware.patch);
+  Serial.println((String) "Current firmware version: " + currentFirmware.major + "." + currentFirmware.minor + "." + currentFirmware.patch);
 }
 
 void initStrip() {
@@ -585,18 +594,7 @@ void timezoneUpdate() {
   int minutes = timeInfo->tm_min;
   int seconds = timeInfo->tm_sec;
 
-  Serial.print("Current date and time: ");
-  Serial.print(year);
-  Serial.print("-");
-  Serial.print(month);
-  Serial.print("-");
-  Serial.print(day);
-  Serial.print(" ");
-  Serial.print(hour);
-  Serial.print(":");
-  Serial.print(minutes);
-  Serial.print(":");
-  Serial.println(seconds);
+  Serial.println((String) "Current date and time: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes + ":" + seconds);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -605,8 +603,7 @@ void timezoneUpdate() {
       (month == 10 && day == getLastSunday(year,10) and hour <3)) {
     isDaylightSaving = true;
   }
-  Serial.print("isDaylightSaving: ");
-  Serial.println(isDaylightSaving);
+  Serial.println((String) "isDaylightSaving: " + isDaylightSaving);
   if (isDaylightSaving) {
     timeOffset = 10800;
   } else {
@@ -652,11 +649,7 @@ void initWifi() {
   wm.setSaveConfigCallback(saveConfigCallback);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = "";
-  apssid += settings.apssid;
-  apssid += "_";
-  apssid += chipID1;
-  apssid += chipID2;
+  String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
       Serial.println("Reboot");
       showServiceMessage("Пepeзaвaнтaжeння...", 5000);
@@ -864,6 +857,15 @@ void initHA() {
       haHomeDistrict.setIcon("mdi:home-map-marker");
       haHomeDistrict.setName("Home District");
 
+      haLight.setIcon("mdi:led-strip-variant");
+      haLight.setName("Lamp");
+      haLight.setCurrentState(settings.map_mode == 5);
+      haLight.setCurrentBrightness(settings.ha_light_brightness);
+      haLight.setCurrentRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
+      haLight.onStateCommand(onHaLightState);
+      haLight.onBrightnessCommand(onHaLightBrightness);
+      haLight.onRGBColorCommand(onHaLightRGBColor);
+
       device.enableLastWill();
       mqtt.onConnected(mqttConnected);
       mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
@@ -891,6 +893,41 @@ String getHaOptions(std::vector<String> list) {
     result += option;
   }
   return result;
+}
+
+void onHaLightState(bool state, HALight* sender) {
+  if (settings.map_mode == 5 && state) return;
+  int newMapMode = state ? 5 : prevMapMode;
+  saveMapMode(newMapMode);
+}
+
+void onHaLightBrightness(uint8_t brightness, HALight* sender) {
+  if (settings.ha_light_brightness == brightness) return;
+  settings.ha_light_brightness = brightness;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lbri", settings.ha_light_brightness);
+  preferences.end();
+  Serial.println("ha_light_brightness commited to preferences");
+  Serial.print("ha_light_brightness: ");
+  Serial.println(settings.ha_light_brightness);
+  sender->setBrightness(brightness);  // report state back to
+  mapCycle();
+}
+
+void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
+  settings.ha_light_r = rgb.red;
+  settings.ha_light_g = rgb.green;
+  settings.ha_light_b = rgb.blue;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lr", settings.ha_light_r);
+  preferences.putInt("ha_lg", settings.ha_light_g);
+  preferences.putInt("ha_lb", settings.ha_light_b);
+  preferences.end();
+  Serial.println("ha_light_rgb commited to preferences");
+  Serial.print("ha_light_rgb: ");
+  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
+  sender->setRGBColor(rgb);  // report state back to
+  mapCycle();
 }
 
 void onHaButtonClicked(HAButton* sender) {
@@ -954,15 +991,12 @@ void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender) {
-  settings.map_mode = index;
-  saveMapMode();
+  saveMapMode(index);
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  settings.display_mode = getRealDisplayMode(index);
-  saveDisplayMode();
-  // update to selected displayMode
-  displayCycle();
+  int newDisplayMode = getRealDisplayMode(index);
+  saveDisplayMode(newDisplayMode);
 }
 
 int getHaDisplayMode(int displayMode) {
@@ -1257,14 +1291,20 @@ void buttonUpdate() {
 }
 
 void mapModeSwitch() {
-  settings.map_mode += 1;
-  if (settings.map_mode > 4) {
-    settings.map_mode = 0;
+  int newMapMode = settings.map_mode + 1;
+  if (newMapMode > 5) {
+    newMapMode = 0;
   }
-  saveMapMode();
+  saveMapMode(newMapMode);
 }
 
-void saveMapMode() {
+void saveMapMode(int newMapMode) {
+  if (newMapMode == settings.map_mode) return;
+  
+  if (newMapMode == 5) {
+    prevMapMode = settings.map_mode;
+  }
+  settings.map_mode = newMapMode;
   Serial.print("map_mode changed to: ");
   Serial.println(settings.map_mode);
   preferences.begin("storage", false);
@@ -1272,6 +1312,7 @@ void saveMapMode() {
   preferences.end();
   Serial.println("map_mode commited to preferences");
   if (enableHA) {
+    haLight.setState(settings.map_mode == 5);
     haMapMode.setState(settings.map_mode);
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
   }
@@ -1281,27 +1322,30 @@ void saveMapMode() {
 }
 
 void displayModeSwitch() {
+  int newDisplayMode;
   switch (settings.display_mode) {
     case 0:
       // passthrough
     case 1:
       // passthrough
     case 2:
-      settings.display_mode += 1;
+      newDisplayMode = settings.display_mode + 1;
       break;
     case 3:
-      settings.display_mode = 9;
+      newDisplayMode = 9;
       break;
     case 9:
       // passthrough
     default:
-      settings.display_mode = 0;
+      newDisplayMode = 0;
       break;
   }
-  saveDisplayMode();
+  saveDisplayMode(newDisplayMode);
 }
 
-void saveDisplayMode() {
+void saveDisplayMode(int newDisplayMode) {
+  if (newDisplayMode == settings.display_mode) return;
+  settings.display_mode = newDisplayMode;
   Serial.print("display_mode changed to: ");
   Serial.println(settings.display_mode);
   preferences.begin("storage", false);
@@ -2588,16 +2632,14 @@ void handleSave(AsyncWebServerRequest* request) {
   }
   if (request->hasParam("map_mode", true)) {
     if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
-      settings.map_mode = request->getParam("map_mode", true)->value().toInt();
-      saveMapMode();
+      int newMapMode = request->getParam("map_mode", true)->value().toInt();
+      saveMapMode(newMapMode);
     }
   }
   if (request->hasParam("display_mode", true)) {
     if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
-      settings.display_mode = request->getParam("display_mode", true)->value().toInt();
-      saveDisplayMode();
-      // update to selected displayMode
-      displayCycle();
+      int newDisplayMode = request->getParam("display_mode", true)->value().toInt();
+      saveDisplayMode(newDisplayMode);
     }
   }
   if (request->hasParam("display_mode_time", true)) {
@@ -2959,6 +3001,8 @@ void mapCycle() {
     case 4:
       mapRandom();
       break;
+    case 5:
+      mapLamp();
   }
   blink = !blink;
 }
@@ -2966,6 +3010,13 @@ void mapCycle() {
 void mapOff() {
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HslColor(0.0, 0.0, 0.0));
+  }
+  strip->Show();
+}
+
+void mapLamp() {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(settings.ha_light_brightness));
   }
   strip->Show();
 }
