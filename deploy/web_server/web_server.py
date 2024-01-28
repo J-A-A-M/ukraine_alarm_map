@@ -1,66 +1,127 @@
-from bottle import route, run, static_file, error, response, request, abort, hook
-import json
 import os
-import logging
+import json
+import uvicorn
 import time
-from pymemcache.client.base import Client as MemcacheClient
+import logging
+
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse, FileResponse, HTMLResponse
+from starlette.routing import Route
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException
+from starlette.requests import Request
+
+from aiomcache import Client
+
 from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
+debug = os.environ.get('DEBUG', False)
+
+memcached_host = os.environ.get('MEMCACHED_HOST', 'localhost')
+memcached_port = int(os.environ.get('MEMCACHED_PORT', 11211))
+
 shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
-web_port = int(os.environ.get('WEB_PORT', 8080))
-debug = os.environ.get('DEBUG', True)
+
 data_token = os.environ.get('DATA_TOKEN') or None
 
-mc = MemcacheClient((memcached_host, 11211))
+mc = Client(memcached_host, memcached_port)
 
 api_clients = {}
 image_clients = {}
 web_clients = {}
 
-anti_restrict = [
-    '127.0.0.1',
-    '185.253.219.32'
-]
+
+HTML_404_PAGE = '''page not found'''
+HTML_500_PAGE = '''request error'''
 
 
-def api_decorator(timer=1, clients={}):
-    def decorator(route_function):
-        def wrapper(*args, **kwargs):
-            client_ip = request.remote_addr
-            last_visit_time = clients.get(client_ip)
-
-            if last_visit_time is not None and (time.time() - float(last_visit_time)) < timer and client_ip not in anti_restrict:
-                visit_time = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-                logger.debug(f'Rejected request from IP: {client_ip} - Too soon since the last visit.')
-                abort(429, f'Bro, slow down! \nYour last visit was too recent.\n'
-                           f'Visit time is {int((time.time() - float(last_visit_time)))} seconds ago\n'
-                           f'Cache time is {timer} seconds\n'
-                           f'{visit_time}')
-
-            clients[client_ip] = request.start_time
-            return route_function(*args, **kwargs)
-        return wrapper
-    return decorator
-
-@hook('before_request')
-def before_request():
-    request.start_time = time.time()
+async def not_found(request: Request, exc: HTTPException):
+    logger.debug(f'Request time: {exc.args}')
+    return HTMLResponse(content=HTML_404_PAGE)
 
 
-@hook('after_request')
-def after_request():
-    elapsed_time = time.time() - request.start_time
-    logger.debug(f'Execution time: {elapsed_time:.6f} seconds')
+async def server_error(request: Request, exc: HTTPException):
+    logger.debug(f'Request time: {exc.args}')
+    return HTMLResponse(content=HTML_500_PAGE)
 
 
-@route('/')
-@api_decorator(timer=1, clients=web_clients)
-def hello():
-    return '''
+exception_handlers = {
+    404: not_found,
+    500: server_error
+}
+
+regions = {
+    "Закарпатська область": {"id": 0},
+    "Івано-Франківська область": {"id": 1},
+    "Тернопільська область": {"id": 2},
+    "Львівська область": {"id": 3},
+    "Волинська область": {"id": 4},
+    "Рівненська область": {"id": 5},
+    "Житомирська область": {"id": 6},
+    "Київська область": {"id": 7},
+    "Чернігівська область": {"id": 8},
+    "Сумська область": {"id": 9},
+    "Харківська область": {"id": 10},
+    "Луганська область": {"id": 11},
+    "Донецька область": {"id": 12},
+    "Запорізька область": {"id": 12},
+    "Херсонська область": {"id": 14},
+    "Автономна Республіка Крим": {"id": 15},
+    "Одеська область": {"id": 16},
+    "Миколаївська область": {"id": 17},
+    "Дніпропетровська область": {"id": 18},
+    "Полтавська область": {"id": 19},
+    "Черкаська область": {"id": 20},
+    "Кіровоградська область": {"id": 21},
+    "Вінницька область": {"id": 22},
+    "Хмельницька область": {"id": 23},
+    "Чернівецька область": {"id": 24},
+    "м. Київ": {"id": 25},
+}
+
+
+class LogUserIPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        start_time = time.time()
+        client_ip = request.client.host
+        client_path = request.url.path
+
+        match client_path:
+            case '/':
+                web_clients[client_ip] = [start_time, client_path]
+            case '/alerts_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/alerts_statuses_v2.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/alerts_statuses_v3.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/weather_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/explosives_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/explosives_statuses_v2.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/tcp_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/api_status.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/alerts_map.png':
+                image_clients[client_ip] = [start_time, client_path]
+            case '/weather_map.png':
+                image_clients[client_ip] = [start_time, client_path]
+
+        response = await call_next(request)
+        elapsed_time = time.time() - start_time
+        logger.debug(f'Request time: {elapsed_time}')
+        return response
+
+
+async def main(request):
+    response = '''
     <!DOCTYPE html>
     <html lang='en'>
     <head>
@@ -72,7 +133,6 @@ def hello():
             body { background-color: #4396ff; }
             .container { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
             label { font-weight: bold; }
-            #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }
             .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }
             .full-screen-img {width: 100%;height: 100%;object-fit: cover;}
         </style>
@@ -89,10 +149,10 @@ def hello():
                 <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
                     <ul>
-                        <li><a href="/alerts_statuses_v1.json">Тривоги (класична схема)</a></li>
-                        <li><a href="/weather_statuses_v1.json">Погода</a></li>
-                        <li><a href="/explosives_statuses_v1.json">Вибухи (інформація з СМІ)</a></li>
-                        <li><a href="/tcp_statuses_v1.json">Дані TCP</a></li>
+                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
+                        <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
+                        <li>Вибухи: (інформація з СМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
+                        <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
@@ -122,85 +182,121 @@ def hello():
     </body>
     </html>
     '''
+    return HTMLResponse(response)
 
 
-@route('/alerts_statuses_v1.json')
-@api_decorator(timer=3, clients=api_clients)
-def server_static():
-    cached = mc.get('alerts')
-    cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached_data['version'] = 1
-    for state, data in cached_data['states'].items():
-        data['enabled'] = data['alertnow']
-        data['type'] = 'state'
-        match data['alertnow']:
-            case True:
-                data['enabled_at'] = data['changed']
-                data['disabled_at'] = None
-            case False:
-                data['disabled_at'] = data['changed']
-                data['enabled_at'] = None
-        data.pop('changed')
-        data.pop('alertnow')
+async def alerts_v1(request):
+    try:
+        cached = await mc.get(b'alerts')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 1
+            for state, data in cached_data['states'].items():
+                data['enabled'] = data['alertnow']
+                data['type'] = 'state'
+                match data['alertnow']:
+                    case True:
+                        data['enabled_at'] = data['changed']
+                        data['disabled_at'] = None
+                    case False:
+                        data['disabled_at'] = data['changed']
+                        data['enabled_at'] = None
+                data.pop('changed')
+                data.pop('alertnow')
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
 
-    response.content_type = 'application/json; charset=utf-8'
-    return cached_data
-
-
-@route('/alerts_statuses_v2.json')
-@api_decorator(timer=3, clients=api_clients)
-def server_static():
-
-    cached = mc.get('alerts')
-    cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    response.content_type = 'application/json; charset=utf-8'
-    return cached_data
+    return JSONResponse(cached_data)
 
 
-@route('/weather_statuses_v1.json')
-@api_decorator(timer=3, clients=api_clients)
-def server_static():
-    cached = mc.get('weather')
-    cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    response.content_type = 'application/json; charset=utf-8'
-    return cached_data
+async def alerts_v2(request):
+    try:
+        cached = await mc.get(b'alerts')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
 
 
-@route('/explosives_statuses_v1.json')
-@api_decorator(timer=3, clients=api_clients)
-def server_static():
-    cached = mc.get('explosions')
-    cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    response.content_type = 'application/json; charset=utf-8'
-    return cached_data
+async def alerts_v3(request):
+    try:
+        cached = await mc.get(b'alerts')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 3
+            new_data = {}
+            for state, data in cached_data['states'].items():
+                new_data[state] = data['alertnow']
+            cached_data['states'] = new_data
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
 
 
-@route('/tcp_statuses_v1.json')
-@api_decorator(timer=1, clients=api_clients)
-def server_static():
-    cached = mc.get('tcp')
-    cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    response.content_type = 'application/json; charset=utf-8'
-    return {'tcp_stored_data': cached_data}
+async def weather_v1(request):
+    try:
+        cached = await mc.get(b'weather')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
 
 
-@route('/t<token>')
-def server_static(token):
-    if token == data_token:
-        response.content_type = 'application/json; charset=utf-8'
-        return {
-            'api': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in api_clients.items()
-            },
-            'img': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in image_clients.items()
-            },
-            'web': {
-                ip: int(time.time() - float(last_visit_time)) for ip, last_visit_time in web_clients.items()
-            },
-        }
-    else:
-        abort(404, "Bro, nothing here.\nGet back on track!")
+async def explosives_v1(request):
+    try:
+        cached = await mc.get(b'explosions')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
+
+
+async def explosives_v2(request):
+    try:
+        cached = await mc.get(b'explosions')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 2
+            new_data = {}
+            for state, data in cached_data['states'].items():
+                new_data[state] = data['changed']
+            cached_data['states'] = new_data
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
+
+
+async def tcp_v1(request):
+    try:
+        cached = await mc.get(b'tcp')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse({'tcp_stored_data': cached_data})
 
 
 def get_local_time_formatted():
@@ -219,42 +315,124 @@ def calculate_time_difference(timestamp1, timestamp2):
     return abs(time_difference)
 
 
-@route('/api_status.json')
-@api_decorator(timer=3, clients=api_clients)
-def server_static():
+async def api_status(request):
     local_time = get_local_time_formatted()
-    cached = mc.get('alerts')
+    cached = await mc.get(b'alerts')
     alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached = mc.get('weather')
+    cached = await mc.get(b'weather')
     weather_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached = mc.get('explosions')
+    cached = await mc.get(b'explosions')
     etryvoga_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
 
     alert_time_diff = calculate_time_difference(alerts_cached_data['info']['last_update'], local_time)
     weather_time_diff = calculate_time_difference(weather_cached_data['info']['last_update'], local_time)
     etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data['info']['last_update'], local_time)
 
-    response.content_type = 'application/json; charset=utf-8'
-    return {
+    return JSONResponse({
         'version': 1,
         'desc': 'Час в секундах з моменту останнього оновлення',
         'data': {
             'alert_last_changed': alert_time_diff,
             'weather_last_changed': weather_time_diff,
-            'etryvoga_last_changed': etryvoga_time_diff
+            'explosions_last_changed': etryvoga_time_diff
         }
-    }
+    })
 
 
-@route('/<filename>.png')
-@api_decorator(timer=1, clients=image_clients)
-def server_static(filename):
-    return static_file(f'{filename}.png', root=shared_path)
+async def region_data_v1(request):
+    cached = await mc.get(b'alerts')
+    alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+    cached = await mc.get(b'weather')
+    weather_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+
+    region_id = False
+
+    for region, data in regions.items():
+        if data['id'] == int(request.path_params['region']):
+            region_id = int(request.path_params['region'])
+            break
+
+    if region_id:
+        iso_datetime_str = alerts_cached_data['states'][region]['changed']
+        datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+        datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+        alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
+
+        return JSONResponse({
+            'version': 1,
+            'data': {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
+        })
+    else:
+        return JSONResponse({
+            'version': 1,
+            'data': {}
+        })
 
 
-@route('<path:re:.*>')
-def catch_all(path):
-    abort(404, "Bro, nothing here.\nGet back on track!")
+async def map(request):
+    return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
 
-run(host='0.0.0.0', port=web_port, debug=debug)
+async def stats(request):
+    if request.path_params["token"] == data_token:
+        map_clients = await mc.get(b'map_clients')
+        map_clients_data = json.loads(map_clients.decode('utf-8')) if map_clients else {}
+
+        google = []
+        for client, data in map_clients_data.items():
+            client_ip, client_port = client.split("_")
+            match data.get("software"):
+                case '3.2':
+                    version, plate_id = '3.2', 'unknown'
+                case 'unknown':
+                    version, plate_id = 'unknown', 'unknown'
+                case software if software.startswith('map'):
+                    version1, version2, plate_id = data.get("software").split("_")
+                    version = f'{version1}_{version2}'
+                case _:
+                    version, plate_id = data.get("software").split("_")
+            google.append({
+                'ip': client_ip,
+                'port': client_port,
+                'version': version,
+                'id': plate_id,
+                'district': data.get("region"),
+                'city':data.get("city")
+            })
+        return JSONResponse ({
+
+            'map': {
+                client: f'{data.get("software")}:{data.get("region")}:{data.get("city")}' for client, data in map_clients_data.items()
+            },
+            'google': google,
+            'api': {
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
+            },
+            'img': {
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in image_clients.items()
+            },
+            'web': {
+                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in web_clients.items()
+            },
+        })
+    else:
+        return JSONResponse({})
+
+middleware = [Middleware(LogUserIPMiddleware)]
+app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
+    Route('/', main),
+    Route('/alerts_statuses_v1.json', alerts_v1),
+    Route('/alerts_statuses_v2.json', alerts_v2),
+    Route('/alerts_statuses_v3.json', alerts_v3),
+    Route('/weather_statuses_v1.json', weather_v1),
+    Route('/explosives_statuses_v1.json', explosives_v1),
+    Route('/explosives_statuses_v2.json', explosives_v2),
+    Route('/tcp_statuses_v1.json', tcp_v1),
+    Route('/api_status.json', api_status),
+    Route('/map/region/v1/{region}', region_data_v1),
+    Route('/{filename}.png', map),
+    Route('/t{token}', stats),
+])
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)

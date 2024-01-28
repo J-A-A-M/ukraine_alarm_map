@@ -65,8 +65,6 @@ async def update_cache():
     mc = Client(memcached_host, 11211)
     filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
     await mc.set(b"bins", json.dumps(filenames).encode('utf-8'))
-    bins_cached = await mc.get(b"bins")
-    pass
 
 
 app = Starlette(debug=debug, exception_handlers=exception_handlers, routes=[
@@ -74,9 +72,6 @@ app = Starlette(debug=debug, exception_handlers=exception_handlers, routes=[
     Route('/list', list),
     Route('/{filename}.bin', update),
 ])
-
-
-
 
 
 if __name__ == "__main__":
