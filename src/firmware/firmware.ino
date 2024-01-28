@@ -571,6 +571,10 @@ void initTime() {
 
 void timezoneUpdate() {
   timeClient.update();
+  if (!timeClient.isTimeSet()) {
+     Serial.println("Time not set. Force update");
+    timeClient.forceUpdate();
+  }
 
   time_t rawTime = timeClient.getEpochTime();
   struct tm* timeInfo;
