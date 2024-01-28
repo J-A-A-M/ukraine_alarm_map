@@ -140,6 +140,15 @@ async def generate_off():
     await asyncio.sleep(loop_time)
 
 
+async def generate_lamp():
+    flag_svg_data = {}
+    for index, color in enumerate(legacy_flag_leds):
+        flag_svg_data[regions[index]] = 'F4E98C'
+    file_path = os.path.join(shared_path, 'lamp_map.png')
+    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    await asyncio.sleep(loop_time)
+
+
 async def generate_random():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
