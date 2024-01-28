@@ -2377,8 +2377,8 @@ void handleSave(AsyncWebServerRequest* request) {
   if (request->hasParam("websocket_port", true)) {
     if (request->getParam("websocket_port", true)->value().toInt() != settings.websocket_port) {
       reboot = true;
-      settings.websocket_port = request->getParam("wsp", true)->value().toInt();
-      preferences.putInt("websocket_port", settings.websocket_port);
+      settings.websocket_port = request->getParam("websocket_port", true)->value().toInt();
+      preferences.putInt("wsp", settings.websocket_port);
       Serial.println("websocket_port commited to preferences");
     }
   }

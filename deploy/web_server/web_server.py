@@ -392,6 +392,7 @@ async def dataparcer(clients, connection_type):
             'port': client_port,
             'version': version,
             'id': plate_id,
+            'chip_id': data.get("chip_id"),
             'district': data.get("region"),
             'city': data.get("city"),
             'connection': connection_type
@@ -407,7 +408,6 @@ async def stats(request):
         websocket_clients = await mc.get(b'websocket_clients')
         websocket_clients_data = json.loads(websocket_clients.decode('utf-8')) if websocket_clients else {}
 
-        google = []
         tcp_clients = await dataparcer(tcp_clients_data, 'tcp')
         websocket_clients = await dataparcer(websocket_clients_data, 'websockets')
 
@@ -416,9 +416,9 @@ async def stats(request):
         return JSONResponse ({
 
             'map': {
-                client: f'{data.get("firmware")}:{data.get("region")}:{data.get("city")}' for client, data in map_clients_data.items()
+                f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}' for data in map_clients_data
             },
-            'google': google,
+            'google': map_clients_data,
             'api': {
                 ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
             },
