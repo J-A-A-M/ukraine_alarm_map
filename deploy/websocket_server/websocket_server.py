@@ -5,6 +5,7 @@ import os
 import json
 import random
 from aiomcache import Client
+from geoip2 import database
 from functools import partial
 from datetime import datetime, timezone
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 mc = Client(memcached_host, 11211)
+geo = database.Reader('GeoLite2-City.mmdb')
 
 class SharedData:
     def __init__(self):
@@ -99,14 +101,25 @@ async def echo(websocket, path):
     client_ip, client_port = websocket.remote_address
     logger.info(f"{client_ip}_{client_port} >>> new client")
 
+    if client_ip in shared_data.blocked_ips:
+        logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+        return
+
+    response = geo.city(client_ip)
+
+    if response.country.iso_code != 'UA':
+        shared_data.blocked_ips.append(client_ip)
+        logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+        return
+
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
         'weather': '[]',
         'bins': '[]',
         'firmware': 'unknown',
         'chip_id': 'unknown',
-        'city': 'unknown',
-        'region': 'unknown'
+        'city': response.city.name or 'unknown',
+        'region': response.subdivisions.most_specific.name or 'unknown'
     }
 
     match path:
