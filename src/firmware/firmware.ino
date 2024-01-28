@@ -2342,28 +2342,29 @@ void handleRoot(AsyncWebServerRequest* request) {
 }
 
 HALight::RGBColor hue2rgb(int hue) {
-	float r, g, b;
-	
-	float h = hue / 360.0;
-	float s = 1.0;
-	float v = 1.0;
-	
-	int i = floor(h * 6);
-	float f = h * 6 - i;
-	float p = v * (1 - s);
-	float q = v * (1 - f * s);
-	float t = v * (1 - (1 - f) * s);
-	
-	switch (i % 6) {
-		case 0: r = v, g = t, b = p; break;
-		case 1: r = q, g = v, b = p; break;
-		case 2: r = p, g = v, b = t; break;
-		case 3: r = p, g = q, b = v; break;
-		case 4: r = t, g = p, b = v; break;
-		case 5: r = v, g = p, b = q; break;
-	}
-	
-	return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
+  float r, g, b;
+
+  float h = hue / 360.0;
+  float s = 1.0;
+  float v = 1.0;
+
+  int i = floor(h * 6);
+  float f = h * 6 - i;
+  float p = v * (1 - s);
+  float q = v * (1 - f * s);
+  float t = v * (1 - (1 - f) * s);
+
+  switch (i % 6) {
+    case 0: r = v, g = t, b = p; break;
+    case 1: r = q, g = v, b = p; break;
+    case 2: r = p, g = v, b = t; break;
+    case 3: r = p, g = q, b = v; break;
+    case 4: r = t, g = p, b = v; break;
+    case 5: r = v, g = p, b = q; break;
+    default: r = 1.0, g = 1.0, b = 1.0; break;
+  }
+
+  return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
 }
 
 void handleUpdate(AsyncWebServerRequest* request) {
