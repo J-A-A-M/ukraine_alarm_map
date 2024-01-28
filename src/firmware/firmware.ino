@@ -18,7 +18,7 @@
 String VERSION = "3.4";
 
 struct Settings {
-  char*         apssid                 = "JAAM";
+  String        apssid                 = "JAAM";
   const char*   softwareversion        = VERSION.c_str();
   int           pixelcount             = 26;
   int           buttontime             = 100;
@@ -66,6 +66,11 @@ struct Settings {
   int     service_diodes_mode    = 0;
   int     sdm_auto               = 0;
   int     new_fw_notification    = 1;
+  int     ha_light_brightness    = 50;
+  int     ha_light_r             = 215;
+  int     ha_light_g             = 7;
+  int     ha_light_b             = 255;
+
 
   // ------- Map Modes:
   // -------  0 - Off
@@ -73,6 +78,7 @@ struct Settings {
   // -------  2 - Weather
   // -------  3 - UA Flag
   // -------  4 - Random colors
+  // -------  5 - Lamp
   int     map_mode               = 1;
 
   // ------- Display Modes:
@@ -385,11 +391,12 @@ bool    fwUpdateAvailable = false;
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
+int     prevMapMode = 1;
 
 std::vector<String> bin_list;
 
 HADevice        device;
-HAMqtt          mqtt(client, device, 16);
+HAMqtt          mqtt(client, device, 19);
 
 uint64_t chipid = ESP.getEfuseMac();
 String chipID1 = String((uint32_t)(chipid >> 32), HEX);
@@ -412,6 +419,7 @@ String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
 String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
 String haToggleMapModeString      = chipID1 + chipID2 + "_toggle_map_mode";
 String haToggleDisplayModeString  = chipID1 + chipID2 + "_toggle_display_mode";
+String haLightString              = chipID1 + chipID2 + "_light";
 
 HASensorNumber  haUptime(haUptimeString.c_str());
 HASensorNumber  haWifiSignal(haWifiSignalString.c_str());
@@ -430,13 +438,15 @@ HAButton        haToggleMapMode(haToggleMapModeString.c_str());
 HAButton        haToggleDisplayMode(haToggleDisplayModeString.c_str());
 HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
 HASensor        haHomeDistrict(haHomeDistrictString.c_str());
+HALight         haLight(haLightString.c_str(), HALight::BrightnessFeature | HALight::RGBFeature);
 
 std::vector<String> mapModes = {
   "Вимкнено",
   "Тривога",
   "Погода",
   "Прапор",
-  "Випадкові кольори"
+  "Випадкові кольори",
+  "Лампа"
 };
 
 std::vector<String> displayModes = {
@@ -541,16 +551,15 @@ void initSettings() {
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
   settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
+  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
+  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
+  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
   
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
-  Serial.print(currentFirmware.major);
-  Serial.print(".");
-  Serial.print(currentFirmware.minor);
-  Serial.print(".");
-  Serial.println(currentFirmware.patch);
+  Serial.println((String) "Current firmware version: " + currentFirmware.major + "." + currentFirmware.minor + "." + currentFirmware.patch);
 }
 
 void initStrip() {
@@ -583,18 +592,7 @@ void timezoneUpdate() {
   int minutes = timeInfo->tm_min;
   int seconds = timeInfo->tm_sec;
 
-  Serial.print("Current date and time: ");
-  Serial.print(year);
-  Serial.print("-");
-  Serial.print(month);
-  Serial.print("-");
-  Serial.print(day);
-  Serial.print(" ");
-  Serial.print(hour);
-  Serial.print(":");
-  Serial.print(minutes);
-  Serial.print(":");
-  Serial.println(seconds);
+  Serial.println((String) "Current date and time: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes + ":" + seconds);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -603,8 +601,7 @@ void timezoneUpdate() {
       (month == 10 && day == getLastSunday(year,10) and hour <3)) {
     isDaylightSaving = true;
   }
-  Serial.print("isDaylightSaving: ");
-  Serial.println(isDaylightSaving);
+  Serial.println((String) "isDaylightSaving: " + isDaylightSaving);
   if (isDaylightSaving) {
     timeOffset = 10800;
   } else {
@@ -650,11 +647,7 @@ void initWifi() {
   wm.setSaveConfigCallback(saveConfigCallback);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = "";
-  apssid += settings.apssid;
-  apssid += "_";
-  apssid += chipID1;
-  apssid += chipID2;
+  String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
       Serial.println("Reboot");
       showServiceMessage("Пepeзaвaнтaжeння...", 5000);
@@ -861,6 +854,16 @@ void initHA() {
       haHomeDistrict.setIcon("mdi:home-map-marker");
       haHomeDistrict.setName("Home District");
 
+      haLight.setIcon("mdi:led-strip-variant");
+      haLight.setName("Lamp");
+      haLight.setBrightnessScale(100);
+      haLight.setCurrentState(settings.map_mode == 5);
+      haLight.setCurrentBrightness(settings.ha_light_brightness);
+      haLight.setCurrentRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
+      haLight.onStateCommand(onHaLightState);
+      haLight.onBrightnessCommand(onHaLightBrightness);
+      haLight.onRGBColorCommand(onHaLightRGBColor);
+
       device.enableLastWill();
       mqtt.onConnected(mqttConnected);
       mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
@@ -888,6 +891,20 @@ String getHaOptions(std::vector<String> list) {
     result += option;
   }
   return result;
+}
+
+void onHaLightState(bool state, HALight* sender) {
+  if (settings.map_mode == 5 && state) return;
+  int newMapMode = state ? 5 : prevMapMode;
+  saveMapMode(newMapMode);
+}
+
+void onHaLightBrightness(uint8_t brightness, HALight* sender) {
+  saveHaLightBrightness(brightness);
+}
+
+void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
+  saveHaLightRgb(rgb);
 }
 
 void onHaButtonClicked(HAButton* sender) {
@@ -951,15 +968,12 @@ void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender) {
-  settings.map_mode = index;
-  saveMapMode();
+  saveMapMode(index);
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  settings.display_mode = getRealDisplayMode(index);
-  saveDisplayMode();
-  // update to selected displayMode
-  displayCycle();
+  int newDisplayMode = getRealDisplayMode(index);
+  saveDisplayMode(newDisplayMode);
 }
 
 int getHaDisplayMode(int displayMode) {
@@ -1191,14 +1205,20 @@ void buttonUpdate() {
 }
 
 void mapModeSwitch() {
-  settings.map_mode += 1;
-  if (settings.map_mode > 4) {
-    settings.map_mode = 0;
+  int newMapMode = settings.map_mode + 1;
+  if (newMapMode > 5) {
+    newMapMode = 0;
   }
-  saveMapMode();
+  saveMapMode(newMapMode);
 }
 
-void saveMapMode() {
+void saveMapMode(int newMapMode) {
+  if (newMapMode == settings.map_mode) return;
+  
+  if (newMapMode == 5) {
+    prevMapMode = settings.map_mode;
+  }
+  settings.map_mode = newMapMode;
   Serial.print("map_mode changed to: ");
   Serial.println(settings.map_mode);
   preferences.begin("storage", false);
@@ -1206,6 +1226,7 @@ void saveMapMode() {
   preferences.end();
   Serial.println("map_mode commited to preferences");
   if (enableHA) {
+    haLight.setState(settings.map_mode == 5);
     haMapMode.setState(settings.map_mode);
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
   }
@@ -1214,28 +1235,64 @@ void saveMapMode() {
   mapCycle();
 }
 
+void saveHaLightBrightness(int newBrightness) {
+  if (settings.ha_light_brightness == newBrightness) return;
+  settings.ha_light_brightness = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lbri", settings.ha_light_brightness);
+  preferences.end();
+  Serial.println("ha_light_brightness commited to preferences");
+  Serial.print("ha_light_brightness: ");
+  Serial.println(settings.ha_light_brightness);
+  if (enableHA) {
+    haLight.setBrightness(newBrightness);
+  }
+  mapCycle();
+}
+
+void saveHaLightRgb(HALight::RGBColor newRgb) {
+  settings.ha_light_r = newRgb.red;
+  settings.ha_light_g = newRgb.green;
+  settings.ha_light_b = newRgb.blue;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lr", settings.ha_light_r);
+  preferences.putInt("ha_lg", settings.ha_light_g);
+  preferences.putInt("ha_lb", settings.ha_light_b);
+  preferences.end();
+  Serial.println("ha_light_rgb commited to preferences");
+  Serial.print("ha_light_rgb: ");
+  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
+  if (enableHA) {
+    haLight.setRGBColor(newRgb);
+  }
+  mapCycle();
+}
+
 void displayModeSwitch() {
+  int newDisplayMode;
   switch (settings.display_mode) {
     case 0:
       // passthrough
     case 1:
       // passthrough
     case 2:
-      settings.display_mode += 1;
+      newDisplayMode = settings.display_mode + 1;
       break;
     case 3:
-      settings.display_mode = 9;
+      newDisplayMode = 9;
       break;
     case 9:
       // passthrough
     default:
-      settings.display_mode = 0;
+      newDisplayMode = 0;
       break;
   }
-  saveDisplayMode();
+  saveDisplayMode(newDisplayMode);
 }
 
-void saveDisplayMode() {
+void saveDisplayMode(int newDisplayMode) {
+  if (newDisplayMode == settings.display_mode) return;
+  settings.display_mode = newDisplayMode;
   Serial.print("display_mode changed to: ");
   Serial.println(settings.display_mode);
   preferences.begin("storage", false);
@@ -1672,6 +1729,9 @@ void handleRoot(AsyncWebServerRequest* request) {
     case 4:
       html += "random_map.png";
       break;
+    case 5:
+      html += "lamp_map.png";
+      break;
     default:
       html += "alerts_map.png";
   }
@@ -1874,6 +1934,15 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "</option>";
   }
   html += "                        </select>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                       <label for='slider19'>Колір режиму \"Лампа\": <span id='sliderValue19'>0</span></label><br/>";
+  html += "                       <div class='color-box' id='colorBox17'></div>";
+  html += "                       <input type='range' name='color_lamp' class='form-control-range' id='slider19' min='0' max='360' value='0'>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
+  html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
@@ -2098,7 +2167,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2130,6 +2199,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        const initialHue5 = parseInt(slider7.value);";
   html += "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
   html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
+  html += "";
+  html += "        const initialRgbColor6 = { r: " + String(settings.ha_light_r) + ", g: " + String(settings.ha_light_g) + ", b: " + String(settings.ha_light_b) + " };";
+  html += "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
+  html += "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
+  html += "        document.getElementById('slider19').value = initialHue6;";
+  html += "        document.getElementById('sliderValue19').textContent = initialHue6;";
   html += "";
   html += "        function hsbToRgb(h, s, b) {";
   html += "            h /= 360;";
@@ -2164,6 +2239,30 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            };";
   html += "        }";
   html += "";
+  html += "        function rgbToHue(r, g, b) {";
+  html += "            var h;";
+  html += "            r /= 255, g /= 255, b /= 255;";
+  html += "            var max = Math.max(r, g, b), min = Math.min(r, g, b);";
+  html += "            if (max-min == 0) {";
+  html += "                return 0;";
+  html += "            }";
+  html += "            if (max == r) {";
+  html += "                h = (g-b)/(max-min);";
+  html += "            }";
+  html += "            else if (max == g) {";
+  html += "                h = 2 +(b-r)/(max-min);";
+  html += "            }";
+  html += "            else if (max == b) {";
+  html += "                h = 4 + (r-g)/(max-min);";
+  html += "            }";
+  html += "            h = h*60;";
+  html += "            h %= 360;";
+  html += "            if (h < 0) {";
+  html += "                h += 360;";
+  html += "            }";
+  html += "            return Math.round(h);";
+  html += "        }";
+  html += "";
   html += "        sliders.slice(1).forEach((slider, index) => {";
   html += "            const sliderElem = document.getElementById(slider);";
   html += "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));";
@@ -2177,6 +2276,32 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</body>";
   html += "</html>";
   request->send(200, "text/html", html);
+}
+
+HALight::RGBColor hue2rgb(int hue) {
+  float r, g, b;
+
+  float h = hue / 360.0;
+  float s = 1.0;
+  float v = 1.0;
+
+  int i = floor(h * 6);
+  float f = h * 6 - i;
+  float p = v * (1 - s);
+  float q = v * (1 - f * s);
+  float t = v * (1 - (1 - f) * s);
+
+  switch (i % 6) {
+    case 0: r = v, g = t, b = p; break;
+    case 1: r = q, g = v, b = p; break;
+    case 2: r = p, g = v, b = t; break;
+    case 3: r = p, g = q, b = v; break;
+    case 4: r = t, g = p, b = v; break;
+    case 5: r = v, g = p, b = q; break;
+    default: r = 1.0, g = 1.0, b = 1.0; break;
+  }
+
+  return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
 }
 
 void handleUpdate(AsyncWebServerRequest* request) {
@@ -2522,16 +2647,25 @@ void handleSave(AsyncWebServerRequest* request) {
   }
   if (request->hasParam("map_mode", true)) {
     if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
-      settings.map_mode = request->getParam("map_mode", true)->value().toInt();
-      saveMapMode();
+      int newMapMode = request->getParam("map_mode", true)->value().toInt();
+      saveMapMode(newMapMode);
     }
+  }
+  if (request->hasParam("brightness_lamp", true)) {
+    int selectedBrightness = request->getParam("brightness_lamp", true)->value().toInt();
+    if (selectedBrightness != settings.ha_light_brightness) {
+      saveHaLightBrightness(selectedBrightness);
+    }
+  }
+  if (request->hasParam("color_lamp", true)) {
+    int selectedHue = request->getParam("color_lamp", true)->value().toInt();
+    HALight::RGBColor rgb = hue2rgb(selectedHue);
+    saveHaLightRgb(rgb);
   }
   if (request->hasParam("display_mode", true)) {
     if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
-      settings.display_mode = request->getParam("display_mode", true)->value().toInt();
-      saveDisplayMode();
-      // update to selected displayMode
-      displayCycle();
+      int newDisplayMode = request->getParam("display_mode", true)->value().toInt();
+      saveDisplayMode(newDisplayMode);
     }
   }
   if (request->hasParam("display_mode_time", true)) {
@@ -2911,6 +3045,8 @@ void mapCycle() {
     case 4:
       mapRandom();
       break;
+    case 5:
+      mapLamp();
   }
   blink = !blink;
 }
@@ -2918,6 +3054,13 @@ void mapCycle() {
 void mapOff() {
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HslColor(0.0, 0.0, 0.0));
+  }
+  strip->Show();
+}
+
+void mapLamp() {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(settings.ha_light_brightness));
   }
   strip->Show();
 }
