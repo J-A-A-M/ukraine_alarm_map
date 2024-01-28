@@ -33,7 +33,7 @@ struct Settings {
   String  devicedescription      = "Alarm Map Informer";
   String  broadcastname          = "alarmmap";
   String  serverhost             = "alerts.net.ua";
-  int     tcpport                = 12345;
+  int     websocket_port         = 38440;
   int     updateport             = 8090;
   String  bin_name               = VERSION + ".bin";
   String  identifier             = "github";
@@ -122,8 +122,6 @@ AsyncWebServer    webserver(80);
 NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
-
-const char* websocket_server = "ws://alerts.net.ua:1234/alerts"; 
 
 struct ServiceMessage {
   String title;
@@ -512,7 +510,7 @@ void initSettings() {
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
   settings.identifier             = preferences.getString("id", settings.identifier);
-  settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
+  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
@@ -1042,36 +1040,6 @@ void initDisplay() {
 //--Init end
 
 //--Update
-
-std::vector<String> fetchAndParseJSON() {
-  Serial.println("Start fetching bin list");
-  String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
-  Serial.println(jsonURLString);
-  http.begin(jsonURLString.c_str());
-  int httpCode = http.GET();
-  std::vector<String> tempFilenames;
-
-  if (httpCode > 0) {
-    String payload = http.getString();
-    JsonDocument doc;
-    deserializeJson(doc, payload);
-
-    JsonArray arr = doc.as<JsonArray>();
-    for (String filename : arr) {
-      tempFilenames.push_back(filename);
-    }
-    Serial.println("Bin list fetched");
-  } else {
-    Serial.println("Error on HTTP request");
-  }
-
-  http.end();
-  for (String& filename : tempFilenames) {
-    Serial.println(filename);
-  }
-  return tempFilenames;
-}
-
 void saveLatestFirmware() {
   Firmware firmware;
   for (String& filename : bin_list) {
@@ -1118,41 +1086,10 @@ void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
   if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
-
   lastHomeDistrictSync = timeClient.getEpochTime();
   String combinedString = "district:" + String(settings.home_district);
   Serial.println(combinedString.c_str());
   client_websocket.send(combinedString.c_str());
-
-  // String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
-  // Serial.println("Http request to: " + jsonURLString);
-  // const char* jsonURL = jsonURLString.c_str();
-  // http.begin(jsonURL);
-  // int httpCode = http.GET();
-
-  // if (httpCode == 200) {
-  //   String payload = http.getString();
-  //   Serial.println("Http Success, payload: " + payload);
-
-  //   JsonDocument doc;
-  //   DeserializationError error = deserializeJson(doc, payload);
-  //   if (error) {
-  //     Serial.println("Deserialization error: ");
-  //     Serial.println(error.f_str());
-  //     return;
-  //   }
-  //   Serial.println("Json parsed!");
-  //   bool alertNow = doc["data"]["alertnow"];
-  //   Serial.println(alertNow);
-  //   if (alertNow) {
-  //     homeAlertStart = doc["data"]["changed"];
-  //     Serial.println(homeAlertStart);
-  //   } else {
-  //     homeAlertStart = 0;
-  //   }
-  // } else {
-  //   Serial.println("Error on HTTP request:" + httpCode);
-  // }
 }
 
 void doUpdate() {
@@ -2157,8 +2094,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField8'>Порт TCP сервера даних</label>";
-  html += "                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
+  html += "                        <label for='inputField8'>Порт WebSockets</label>";
+  html += "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='" + String(settings.websocket_port) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField8'>Порт сервера прошивок</label>";
@@ -2437,12 +2374,12 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("serverhost commited to preferences");
     }
   }
-  if (request->hasParam("tcpport", true)) {
-    if (request->getParam("tcpport", true)->value().toInt() != settings.tcpport) {
+  if (request->hasParam("websocket_port", true)) {
+    if (request->getParam("websocket_port", true)->value().toInt() != settings.websocket_port) {
       reboot = true;
-      settings.tcpport = request->getParam("tcpport", true)->value().toInt();
-      preferences.putInt("tcpport", settings.tcpport);
-      Serial.println("tcpport commited to preferences");
+      settings.websocket_port = request->getParam("wsp", true)->value().toInt();
+      preferences.putInt("websocket_port", settings.websocket_port);
+      Serial.println("websocket_port commited to preferences");
     }
   }
   if (request->hasParam("updateport", true)) {
@@ -2938,7 +2875,9 @@ void socketConnect() {
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
-  client_websocket.connect(websocket_server);
+  String webSocketUrl = "ws://" + String(settings.serverhost) + ":" + String(settings.websocket_port) + "/data_v1";
+  Serial.println(webSocketUrl);
+  client_websocket.connect(webSocketUrl.c_str());
   if (client_websocket.available()) {
     Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;

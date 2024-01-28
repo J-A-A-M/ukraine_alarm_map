@@ -3,13 +3,16 @@ import websockets
 import logging
 import os
 import json
+import random
 from aiomcache import Client
 from functools import partial
 from datetime import datetime, timezone
 
 debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
-websocket_port = os.environ.get('WEBSOCKET_PORT') or 1234
+websocket_port = os.environ.get('WEBSOCKET_PORT') or 38440
 ping_interval = int(os.environ.get('PING_INTERVAL', 60))
+memcache_fetch_interval = int(os.environ.get('MEMCACHE_FETCH_INTERVAL', 1))
+random_mode = os.environ.get('RANDOM_MODE') or False
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
@@ -65,8 +68,6 @@ regions = {
 async def alerts_data(websocket, client, shared_data):
     client_ip, client_port = websocket.remote_address
     while True:
-        if not client['connected']:
-            break
         try:
             logger.debug(f"{client_ip}_{client_port}: check")
             if client['alerts'] != shared_data.alerts:
@@ -86,12 +87,12 @@ async def alerts_data(websocket, client, shared_data):
                 await websocket.send(payload)
                 logger.info(f"{client_ip}_{client_port} <<< new bins")
                 client['bins'] = shared_data.bins
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
-            logger.debug(f"{client_ip}_{client_port} !!! data stopped")
+            logger.warning(f"{client_ip}_{client_port} !!! data stopped")
             break
         except Exception as e:
-            logger.debug(f"{client_ip}_{client_port}: {e}")
+            logger.warning(f"{client_ip}_{client_port}: {e}")
 
 
 async def echo(websocket, path):
@@ -102,7 +103,6 @@ async def echo(websocket, path):
         'alerts': '[]',
         'weather': '[]',
         'bins': '[]',
-        'connected': True,
         'firmware': 'unknown',
         'chip_id': 'unknown',
         'city': 'unknown',
@@ -110,7 +110,7 @@ async def echo(websocket, path):
     }
 
     match path:
-        case "/alerts":
+        case "/data_v1":
             data_task = asyncio.create_task(alerts_data(websocket, client, shared_data))
             try:
                 while True:
@@ -132,7 +132,7 @@ async def echo(websocket, path):
                                 logger.info(f"{client_ip}_{client_port} <<< district {payload} ")
                             case 'firmware':
                                 client['firmware'] = data
-                                logger.info(f"{client_ip}_{client_port} >>> firmware saved")
+                                logger.warning(f"{client_ip}_{client_port} >>> firmware saved")
                             case 'chip_id':
                                 client['chip_id'] = data
                                 logger.info(f"{client_ip}_{client_port} >>> chip_id saved")
@@ -210,16 +210,17 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"weather_full updated")
         except Exception as e:
             logger.error(f"error in weather_full: {e}")
-        await asyncio.sleep(1)
+        await asyncio.sleep(memcache_fetch_interval)
 
 
 async def print_clients(shared_data, mc):
     while True:
         try:
-            await asyncio.sleep(600)
+            await asyncio.sleep(60)
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
+            await mc.set(b"websocket_clients", json.dumps(shared_data.clients).encode('utf-8'))
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
 
@@ -231,10 +232,16 @@ async def get_data_from_memcached(mc):
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
 
-    if alerts_cached:
-        alerts_cached_data = alerts_cached.decode('utf-8')
+    if random_mode:
+        values = [0] * 25
+        position = random.randint(0, 25)
+        values.insert(position, 1)
+        alerts_cached_data = json.dumps(values[:26])
     else:
-        alerts_cached_data = '[]'
+        if alerts_cached:
+            alerts_cached_data = alerts_cached.decode('utf-8')
+        else:
+            alerts_cached_data = '[]'
 
     if weather_cached:
         weather_cached_data = weather_cached.decode('utf-8')
@@ -257,7 +264,6 @@ async def get_data_from_memcached(mc):
         weather_full_cached_data = {}
 
     return alerts_cached_data, weather_cached_data, bins_cached_data, alerts_full_cached_data, weather_full_cached_data
-
 
 
 start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
