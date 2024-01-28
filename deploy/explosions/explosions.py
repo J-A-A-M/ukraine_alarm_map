@@ -96,6 +96,7 @@ async def explosions_data(mc):
                 logging.error(f"Request failed with status code: {response.status_code}")
     except Exception as e:
         logging.error(f"Request failed with status code: {e.message}")
+        await asyncio.sleep(etryvoga_loop_time)
 
 
 async def main():
