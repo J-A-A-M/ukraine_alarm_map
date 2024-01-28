@@ -2,9 +2,9 @@
 
 # Default values
 MEMCACHED_HOST=""
-WEBSOCKET_PORT=1234
+WEBSOCKET_PORT=38440
 DEBUG_LEVEL="INFO"
-PING_INTERVAL=20
+PING_INTERVAL=60
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
