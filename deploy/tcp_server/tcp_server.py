@@ -46,13 +46,13 @@ async def handle_client(reader, writer, shared_data, geo):
     try:
         data_from_client = await asyncio.wait_for(reader.read(100), timeout=2.0)
         data_from_client = data_from_client.decode()
-        writer.software = data_from_client
+        writer.firmware = data_from_client
 
     except asyncio.exceptions.TimeoutError as e:
-        writer.software = 'unknown'
+        writer.firmware = 'unknown'
 
     shared_data.clients[f'{client_ip}_{client_port}'] = {
-        'software': writer.software,
+        'firmware': writer.firmware,
         'city': response.city.name or 'unknown',
         'region': response.subdivisions.most_specific.name or 'unknown'
     }
@@ -71,10 +71,10 @@ async def handle_client(reader, writer, shared_data, geo):
             current_timestamp = int(time())
             if (current_timestamp - writer.last_ping) > 1:
                 ping_data = "p"
-                logger.info(f"Client {client_ip}:{client_port} ({writer.software}) ping")
+                logger.info(f"Client {client_ip}:{client_port} ({writer.firmware}) ping")
                 writer.last_ping = current_timestamp
                 writer.write(ping_data.encode())
-                shared_data.clients[f'{client_ip}_{client_port}']['lasp_ping'] = current_timestamp
+                shared_data.clients[f'{client_ip}_{client_port}']['last_ping'] = current_timestamp
                 await writer.drain()
                 await asyncio.sleep(1)
 
@@ -82,7 +82,7 @@ async def handle_client(reader, writer, shared_data, geo):
                 writer.write(shared_data.data.encode())
                 logger.info(f"Data changed. Broadcasting to {client_ip}:{client_port}")
                 writer.data_sent = shared_data.data
-                shared_data.clients[f'{client_ip}_{client_port}']['lasp_data'] = current_timestamp
+                shared_data.clients[f'{client_ip}_{client_port}']['last_data'] = current_timestamp
                 await writer.drain()
 
     except asyncio.CancelledError:
@@ -118,10 +118,10 @@ async def print_clients(shared_data, mc):
             logger.debug(f"Print clients: {len(shared_data.clients)}")
             logger.debug(f"Print blocked: {shared_data.blocked_ips}")
 
-            await mc.set(b"map_clients", json.dumps(shared_data.clients).encode('utf-8'))
+            await mc.set(b"tcp_clients", json.dumps(shared_data.clients).encode('utf-8'))
 
             for client, data in shared_data.clients.items():
-                logger.info(f"{client}: {data['software']}")
+                logger.info(f"{client}: {data['firmware']}")
 
 
         except Exception as e:

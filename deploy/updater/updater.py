@@ -59,16 +59,25 @@ async def update_data(mc):
     try:
         await asyncio.sleep(loop_time)
         tcp_cached = await mc.get(b"tcp")
+        alerts_cached = await mc.get(b"alerts_websocket_v1")
+        weather_cached = await mc.get(b"weather_websocket_v1")
+        alerts_data = await mc.get(b'alerts')
+        weather_data = await mc.get(b'weather')
 
         if tcp_cached:
             tcp_cached_data = json.loads(tcp_cached.decode('utf-8'))
         else:
             tcp_cached_data = {}
+        if alerts_cached:
+            alerts_cached_data = json.loads(alerts_cached.decode('utf-8'))
+        else:
+            alerts_cached_data = []
+        if weather_cached:
+            weather_cached_data = json.loads(weather_cached.decode('utf-8'))
+        else:
+            weather_cached_data = []
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        alerts_data = await mc.get(b'alerts')
-        weather_data = await mc.get(b'weather')
 
         alerts_data = json.loads(alerts_data.decode('utf-8')) if alerts_data else "No data from Memcached"
         weather_data = json.loads(weather_data.decode('utf-8')) if weather_data else "No data from Memcached"
@@ -114,7 +123,21 @@ async def update_data(mc):
             await mc.set(b"tcp", json.dumps(tcp_data).encode('utf-8'))
             logging.debug("tcp data stored")
         else:
-            logging.debug("data not changed")
+            logging.debug("tcp data not changed")
+
+        if alerts_cached_data != alerts:
+            logging.debug("store alerts: %s" % current_datetime)
+            await mc.set(b"alerts_websocket_v1", json.dumps(alerts).encode('utf-8'))
+            logging.debug("alerts stored")
+        else:
+            logging.debug("alerts not changed")
+
+        if weather_cached_data != weather:
+            logging.debug("store weather: %s" % current_datetime)
+            await mc.set(b"weather_websocket_v1", json.dumps(weather).encode('utf-8'))
+            logging.debug("weather stored")
+        else:
+            logging.debug("weather not changed")
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
         raise

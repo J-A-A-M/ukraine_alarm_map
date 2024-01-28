@@ -1,6 +1,5 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
-#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <async.h>
@@ -9,12 +8,12 @@
 #include <NTPClient.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
-#include <Wire.h>
 #include <HTTPClient.h>
 #include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
 #include <esp_system.h>
+#include <ArduinoWebsockets.h>
 
 String VERSION = "3.4";
 
@@ -34,7 +33,7 @@ struct Settings {
   String  devicedescription      = "Alarm Map Informer";
   String  broadcastname          = "alarmmap";
   String  serverhost             = "alerts.net.ua";
-  int     tcpport                = 12345;
+  int     websocket_port         = 38440;
   int     updateport             = 8090;
   String  bin_name               = VERSION + ".bin";
   String  identifier             = "github";
@@ -90,6 +89,7 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
+  int     ws_alert_time          = 120000;    
   // ------- web config end
 };
 
@@ -104,11 +104,12 @@ struct Firmware {
 Firmware currentFirmware;
 Firmware latestFirmware;
 
+using namespace websockets;
+
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
-WiFiClient        client_tcp;
-WiFiClient        client_update;
+WebsocketsClient  client_websocket;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
@@ -370,12 +371,11 @@ const unsigned char trident_small[] PROGMEM = {
 
 bool    enableHA;
 bool    wifiReconnect = false;
-bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
 long    buttonPressStart = 0;
-time_t  tcpLastPingTime = 0;
+time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
@@ -500,7 +500,7 @@ void initSettings() {
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
   settings.identifier             = preferences.getString("id", settings.identifier);
-  settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
+  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
@@ -540,6 +540,8 @@ void initSettings() {
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
+  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
@@ -564,7 +566,7 @@ void initTime() {
   Serial.println("Init time");
   timeClient.begin();
   timezoneUpdate();
-  tcpLastPingTime = millis();
+  websocketLastPingTime = millis();
 }
 
 void timezoneUpdate() {
@@ -658,20 +660,20 @@ void initWifi() {
       showServiceMessage("Пepeзaвaнтaжeння...", 5000);
       delay(5000);
       ESP.restart();
+      return;
   }
   // Connected to WiFi
   Serial.println("connected...yeey :)");
   servicePin(settings.wifipin, HIGH, false);
-  showServiceMessage("Підключено до WiFi!", 1000);
+  showServiceMessage("Підключено до WiFi!");
   wm.setHttpPort(8080);
   wm.startWebPortal();
-  delay(1000);
+  delay(5000);
   setupRouting();
   initHA();
   initUpdates();
   initBroadcast();
-  tcpConnect();
-  doFetchBinList();
+  socketConnect();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
 
@@ -683,7 +685,7 @@ void apCallback(WiFiManager* wifiManager) {
 }
 
 void saveConfigCallback() {
-  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:", 2000);
+  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
   delay(2000);
   showServiceMessage("Перезавантаження..", 1000);
   delay(1000);
@@ -1024,44 +1026,6 @@ void initDisplay() {
 //--Init end
 
 //--Update
-
-std::vector<String> fetchAndParseJSON() {
-  Serial.println("Start fetching bin list");
-  String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
-  Serial.println(jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
-  int httpCode = http.GET();
-  std::vector<String> tempFilenames;
-
-  if (httpCode > 0) {
-    String payload = http.getString();
-    JsonDocument doc;
-    deserializeJson(doc, payload);
-
-    JsonArray arr = doc.as<JsonArray>();
-    for (String filename : arr) {
-      tempFilenames.push_back(filename);
-    }
-    Serial.println("Bin list fetched");
-  } else {
-    Serial.println("Error on HTTP request");
-  }
-
-  http.end();
-  for (String& filename : tempFilenames) {
-    Serial.println(filename);
-  }
-  return tempFilenames;
-}
-
-void doFetchBinList() {
-  Serial.println("DoFetchBinList");
-  bin_list = fetchAndParseJSON();
-  saveLatestFirmware();
-  fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
-}
-
 void saveLatestFirmware() {
   Firmware firmware;
   for (String& filename : bin_list) {
@@ -1091,42 +1055,27 @@ bool firstIsNewer(Firmware first, Firmware second) {
   return false;
 }
 
+JsonDocument parseJson(String payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.println("Deserialization error: ");
+    Serial.println(error.f_str());
+    return doc;
+  } else {
+    return doc;
+  }
+}
+
 // Home District Json Parsing
 void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
   if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
   lastHomeDistrictSync = timeClient.getEpochTime();
-
-  String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
-  Serial.println("Http request to: " + jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
-  int httpCode = http.GET();
-
-  if (httpCode == 200) {
-    String payload = http.getString();
-    Serial.println("Http Success, payload: " + payload);
-
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-      Serial.println("Deserialization error: ");
-      Serial.println(error.f_str());
-      return;
-    }
-    Serial.println("Json parsed!");
-    bool alertNow = doc["data"]["alertnow"];
-    Serial.println(alertNow);
-    if (alertNow) {
-      homeAlertStart = doc["data"]["changed"];
-      Serial.println(homeAlertStart);
-    } else {
-      homeAlertStart = 0;
-    }
-  } else {
-    Serial.println("Error on HTTP request:" + httpCode);
-  }
+  String combinedString = "district:" + String(settings.home_district);
+  Serial.println(combinedString.c_str());
+  client_websocket.send(combinedString.c_str());
 }
 
 void doUpdate() {
@@ -1184,7 +1133,7 @@ void downloadAndUpdateFw(String binFileName) {
 void checkServicePins() {
   if (!settings.legacy) {
     if (settings.service_diodes_mode) {
-      Serial.println("Dioded enabled");
+      //Serial.println("Dioded enabled");
       servicePin(settings.powerpin, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(settings.wifipin, LOW, true);
@@ -1196,13 +1145,13 @@ void checkServicePins() {
       } else {
         servicePin(settings.hapin, HIGH, true);
       }
-      if (!client_tcp.connected() or tcpReconnect) {
+      if (!client_websocket.available()) {
         servicePin(settings.datapin, LOW, true);
       } else {
         servicePin(settings.datapin, HIGH, true);
       }
     } else {
-      Serial.println("Dioded disables");
+      //Serial.println("Dioded disables");
       servicePin(settings.powerpin, LOW, true);
       servicePin(settings.wifipin, LOW, true);
       servicePin(settings.hapin, LOW, true);
@@ -2076,8 +2025,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField8'>Порт TCP сервера даних</label>";
-  html += "                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
+  html += "                        <label for='inputField8'>Порт WebSockets</label>";
+  html += "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='" + String(settings.websocket_port) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField8'>Порт сервера прошивок</label>";
@@ -2300,12 +2249,12 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("serverhost commited to preferences");
     }
   }
-  if (request->hasParam("tcpport", true)) {
-    if (request->getParam("tcpport", true)->value().toInt() != settings.tcpport) {
+  if (request->hasParam("websocket_port", true)) {
+    if (request->getParam("websocket_port", true)->value().toInt() != settings.websocket_port) {
       reboot = true;
-      settings.tcpport = request->getParam("tcpport", true)->value().toInt();
-      preferences.putInt("tcpport", settings.tcpport);
-      Serial.println("tcpport commited to preferences");
+      settings.websocket_port = request->getParam("wsp", true)->value().toInt();
+      preferences.putInt("websocket_port", settings.websocket_port);
+      Serial.println("websocket_port commited to preferences");
     }
   }
   if (request->hasParam("updateport", true)) {
@@ -2654,12 +2603,12 @@ void uptime() {
     haUsedMemory.setValue(usedHeapSize);
     haCpuTemp.setValue(cpuTemp);
   }
-  Serial.println(uptimeValue);
+  //Serial.println(uptimeValue);
 }
 
 void connectStatuses() {
   Serial.print("Map API connected: ");
-  apiConnected = client_tcp.connected();
+  apiConnected = client_websocket.available();
   Serial.println(apiConnected);
   haConnected = false;
   if (enableHA) {
@@ -2707,190 +2656,110 @@ void autoBrightnessUpdate() {
 }
 //--Service messages end
 
-//--TCP process start
-void tcpConnect() {
-  if (millis() - tcpLastPingTime > 60000) {
-    tcpReconnect = true;
-  }
-  if (!client_tcp.connected() or tcpReconnect) {
-    int cycle = 0;
-    servicePin(settings.datapin, LOW, false);
-    Serial.println("Connecting to map API...");
-    Serial.print("id: ");
-    Serial.println(settings.identifier);
-    showServiceMessage("Пiдключення map-API..", 5000);
-    const char* local_serverhost = settings.serverhost.c_str();
-    while (!client_tcp.connect(local_serverhost, settings.tcpport)) {
-      Serial.println("Failed");
-      showServiceMessage("map-API нeдocтyпнe", 5000);
-      apiConnected = false;
-      if (enableHA) {
-        haMapApiConnect.setState(false);
-      }
-      tcpReconnect = true;
-      if (cycle > 30) {
-        mapReconnect();
-      }
-      delay(2000);
-      cycle += 1;
+//--Websocket process start
+void websocketProcess() {
+  while (!client_websocket.available()){
+    Serial.println("Reconnecting...");
+    if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+      mapReconnect();
     }
-    String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
-    char charArray[combinedString.length() + 1];
-    combinedString.toCharArray(charArray, sizeof(charArray));
-    Serial.println(charArray);
-    client_tcp.print(charArray);
-    showServiceMessage("map-API пiдключeнo", 1000);
-    servicePin(settings.datapin, HIGH, false);
-    apiConnected = true;
-    delay(1000);
-    Serial.println("TCP connected");
-    if (enableHA) {
-      haMapApiConnect.setState(true);
-    }
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
+    socketConnect();
+    delay(3000);
   }
 }
 
-// void tcpReconnect(){
-//   if (millis() - tcpLastPingTime > 30000){
-//     tcpReconnect = true;
-//   }
-//   if (!client_tcp.connected() or tcpReconnect) {
-//     Serial.print("Reconnecting to map API: ");
-//     display.clearDisplay();
-//     displayCenter(utf8cyr("Підключення map-API.."),0,1);
-//     if (!client_tcp.connect(settings.serverhost, settings.tcpport))
-//     {
-//       Serial.println("Failed");
-//       display.clearDisplay();
-//       displayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
-//       haMapApiConnect.setState(false);
-//     }else{
-//       display.clearDisplay();
-//       displayCenter(utf8cyr("map-API пiдключeнo"),0,1);
-//       Serial.println("Connected");
-//       haMapApiConnect.setState(true);
-//     }
-//   }
-// }
-
-void tcpProcess() {
-  String data;
-  while (client_tcp.available() > 0) {
-    data += (char)client_tcp.read();
+void onMessageCallback(WebsocketsMessage message) {
+  Serial.print("Got Message: ");
+  Serial.println(message.data());
+  JsonDocument data = parseJson(message.data());
+  String payload = data["payload"];
+  if (payload == "ping") {
+    Serial.println("Heartbeat from server");
+    websocketLastPingTime = millis();
   }
-  if (data.length()) {
-    Serial.print("New data: ");
-    Serial.print(data.length());
-    Serial.print(" : ");
-    Serial.println(data);
-    TestParcer(data, data.length());
+  if (payload == "alerts") {
+    Serial.println("Successfully parsed alerts data");
+    for (int i = 0; i < 26; ++i) {
+      alarm_leds[calculateOffset(i)] = data["alerts"][i];
+    }
   }
-}
-
-void TestParcer(String sensorBuffer, int data_lenght) {
-  if (sensorBuffer == "p") {
-    Serial.println("TCP PING SUCCESS!");
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
-  } else {
-    long values[26];
-    float sensorValues[26];
-
-    char buffer[data_lenght];
-
-    sensorBuffer.toCharArray(buffer, sizeof(buffer));
-
-    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
-                   &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
-                   &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
-                   &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
-                   &sensorValues[0], &sensorValues[1], &sensorValues[2], &sensorValues[3], &sensorValues[4], &sensorValues[5], &sensorValues[6], &sensorValues[7],
-                   &sensorValues[8], &sensorValues[9], &sensorValues[10], &sensorValues[11], &sensorValues[12], &sensorValues[13], &sensorValues[14],
-                   &sensorValues[15], &sensorValues[16], &sensorValues[17], &sensorValues[18], &sensorValues[19], &sensorValues[20], &sensorValues[21],
-                   &sensorValues[22], &sensorValues[23], &sensorValues[24], &sensorValues[25]);
-
-    if (n == 52) {
-      Serial.println("Successfully parsed sensor data!");
-      for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = values[i];
-        Serial.print("Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(values[i]);
-      }
-      for (int i = 0; i < 26; ++i) {
-        weather_leds[calculateOffset(i)] = sensorValues[i];
-        Serial.print("Sensor Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(sensorValues[i], 1);
-      }
+  if (payload == "weather") {
+    Serial.println("Successfully parsed weather data");
+    for (int i = 0; i < 26; ++i) {
+      weather_leds[calculateOffset(i)] = data["weather"][i];
+    }
+  }
+  if (payload == "bins") {
+    Serial.println("Successfully parsed bins list");
+    std::vector<String> tempFilenames;
+    JsonArray arr = data["bins"].as<JsonArray>();
+    for (String filename : arr) {
+      tempFilenames.push_back(filename);
+    }
+    bin_list = tempFilenames;
+    saveLatestFirmware();
+    fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
+  }
+  if (payload == "district") {
+    Serial.println("Successfully parsed district data");
+    bool alertNow = data["district"]["alertnow"];
+    Serial.println(alertNow);
+    if (alertNow) {
+      homeAlertStart = data["district"]["changed"];
+      Serial.println(homeAlertStart);
     } else {
-      Serial.print("Error parsing sensor buffer, could only decode ");
-      Serial.print(n);
-      Serial.println(" parameter(s).");
+      homeAlertStart = 0;
     }
   }
+
+
 }
 
-// void parseString(String str, int data_lenght) {
-//   if (str == "p"){
-//     Serial.println("TCP PING SUCCESS");
-//     tcpLastPingTime = millis();
-//     tcpReconnect = false;
-//   }else{
-//     int colonIndex = str.indexOf(":");
-//     String firstPart = str.substring(0, colonIndex);
-//     String secondPart = str.substring(colonIndex + 1);
+void onEventsCallback(WebsocketsEvent event, String data) {
+    if (event == WebsocketsEvent::ConnectionOpened) {
+        apiConnected = true;
+        Serial.println("connnection opened");
+        servicePin(settings.datapin, HIGH, false);
+        websocketLastPingTime = millis();
+    } else if (event == WebsocketsEvent::ConnectionClosed) {
+        apiConnected = false;
+        Serial.println("connnection closed");
+        servicePin(settings.datapin, LOW, false);
+    } else if (event == WebsocketsEvent::GotPing) {
+        Serial.println("websocket ping");
+        client_websocket.pong();
+        Serial.println("answered pong");
+        websocketLastPingTime = millis();
+    } else if (event == WebsocketsEvent::GotPong) {
+        Serial.println("websocket pong");
+    }
+}
 
-//     int firstArraySize = countOccurrences(firstPart, ',') + 1;
-//     int firstArray[firstArraySize];
-//     extractAlarms(firstPart, firstArraySize);
-
-//     int secondArraySize = countOccurrences(secondPart, ',') + 1;
-//     int secondArray[secondArraySize];
-//     extractWeather(secondPart, secondArraySize);
-//   }
-// }
-
-// int countOccurrences(String str, char target) {
-//   int count = 0;
-//   for (int i = 0; i < str.length(); i++) {
-//     if (str.charAt(i) == target) {
-//       count++;
-//     }
-//   }
-//   return count;
-// }
-
-// void extractAlarms(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   while (token != NULL && index < size) {
-//     alarm_leds[calculateOffset(index)] = atoi(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//   }
-// }
-
-// void extractWeather(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   //Serial.print("weather");
-//   while (token != NULL && index < size) {
-//     weather_leds[calculateOffset(index)] = atof(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//     //Serial.print(weather_leds[position]);
-//     //Serial.print(" ");
-//   }
-//   //Serial.println(" ");
-// }
-
-
-//--TCP process end
+void socketConnect() {
+  Serial.println("connection start...");
+  showServiceMessage("підключення..", "Сервер даних");
+  client_websocket.onMessage(onMessageCallback);
+  client_websocket.onEvent(onEventsCallback);
+  long startTime = millis();
+  String webSocketUrl = "ws://" + String(settings.serverhost) + ":" + String(settings.websocket_port) + "/data_v1";
+  Serial.println(webSocketUrl);
+  client_websocket.connect(webSocketUrl.c_str());
+  if (client_websocket.available()) {
+    Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
+    String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
+    Serial.println(combinedString.c_str());
+    client_websocket.send(combinedString.c_str());
+    String chipId = "chip_id:" + chipID1 + chipID2;
+    Serial.println(chipId.c_str());
+    client_websocket.send(chipId.c_str());
+    client_websocket.ping();
+    showServiceMessage("підключено!", "Сервер даних");
+    delay(1000);
+  } else {
+    showServiceMessage("недоступний", "Сервер даних", 3000);
+  }
+}
+//--Websocket process end
 
 //--Map processing start
 int calculateOffset(int initial_position) {
@@ -2907,7 +2776,6 @@ int calculateOffset(int initial_position) {
 }
 
 int calculateOffsetDistrict(int initial_position) {
-  //Serial.print("initial_position");Serial.println(initial_position);
   int position;
   if (initial_position == 25) {
     position = 25;
@@ -2917,7 +2785,6 @@ int calculateOffsetDistrict(int initial_position) {
       position -= 25;
     }
   }
-  //Serial.print("position");Serial.println(position);
   if (settings.kyiv_district_mode == 2) {
     if (position == 25) {
       return 7 + offset;
@@ -2926,11 +2793,9 @@ int calculateOffsetDistrict(int initial_position) {
   if (settings.kyiv_district_mode == 3) {
 
     if (position == 25) {
-      //Serial.print("position8+");Serial.println(8+offset);
       return 8 + offset;
     }
     if (position > 7 + offset) {
-      //Serial.print("position+");Serial.println(position + 1);
       return position + 1;
     }
   }
@@ -3191,22 +3056,16 @@ void setup() {
   initWifi();
   initTime();
 
-  Serial.print("ESP32 Chip ID: ");
-  Serial.print(chipID1);
-  Serial.println(chipID2);
-
   asyncEngine.setInterval(uptime, 5000);
-  asyncEngine.setInterval(tcpProcess, 10);
-  asyncEngine.setInterval(connectStatuses, 10000);
-  asyncEngine.setInterval(tcpConnect, 1000);
+  asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(WifiReconnect, 5000);
+  asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 5000);
-  asyncEngine.setInterval(doFetchBinList, 600000);
+  asyncEngine.setInterval(websocketProcess, 1000);
 }
 
 void loop() {
@@ -3217,4 +3076,5 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
+  client_websocket.poll();
 }

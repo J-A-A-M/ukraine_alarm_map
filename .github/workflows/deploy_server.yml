@@ -10,6 +10,10 @@ on:
         type: boolean
         default: false
         description: TCP Sockets
+      redeploy_web_sockets:
+        type: boolean
+        default: false
+        description: WebSockets
       redeploy_update_server:
         type: boolean
         default: false
@@ -22,10 +26,6 @@ on:
         type: boolean
         default: false
         description: Alerts
-      polling-interval:
-        type: number
-        default: 2
-        description: Polling interval (seconds)
       redeploy_weather:
         type: boolean
         default: false
@@ -60,6 +60,18 @@ jobs:
                 git fetch --all
                 git checkout ${{ github.ref_name }}
                 bash redeploy_tcp_server.sh -m ${{ secrets.MEMCACHED_HOST }}
+          - name: Redeploy WebSockets
+            if: ${{ inputs.redeploy_web_sockets || inputs.redeploy_all }}
+            uses: appleboy/ssh-action@v1.0.3
+            with:
+              host: ${{ secrets.SERVER_IP }}
+              username: ${{ secrets.SERVER_SSH_USER }}
+              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git checkout ${{ github.ref_name }}
+                bash redeploy_websocket_server.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Update Server (bin list)
             if: ${{ inputs.redeploy_update_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
@@ -71,7 +83,7 @@ jobs:
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
                 git checkout ${{ github.ref_name }}
-                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin'
+                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
@@ -84,18 +96,6 @@ jobs:
                 git fetch --all
                 git checkout ${{ github.ref_name }}
                 bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -p 80 -m ${{ secrets.MEMCACHED_HOST }}
-          - name: Redeploy Alerts
-            if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
-            uses: appleboy/ssh-action@v1.0.3
-            with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git checkout ${{ github.ref_name }}
-                bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p ${{ inputs.polling-interval }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Weather
             if: ${{ inputs.redeploy_weather || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
@@ -144,3 +144,15 @@ jobs:
                 git fetch --all
                 git checkout ${{ github.ref_name }}
                 bash redeploy_explosions.sh -e ${{ secrets.ETRYVOGA_HOST }} -m ${{ secrets.MEMCACHED_HOST }}
+          - name: Redeploy Alerts
+            if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
+            uses: appleboy/ssh-action@v1.0.3
+            with:
+              host: ${{ secrets.SERVER_IP }}
+              username: ${{ secrets.SERVER_SSH_USER }}
+              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git checkout ${{ github.ref_name }}
+                bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.MEMCACHED_HOST }}
