@@ -373,36 +373,50 @@ async def map(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
 
+async def dataparcer(clients, connection_type):
+    google = []
+    for client, data in clients.items():
+        client_ip, client_port = client.split("_")
+        match data.get("firmware"):
+            case '3.2':
+                version, plate_id = '3.2', 'unknown'
+            case 'unknown':
+                version, plate_id = 'unknown', 'unknown'
+            case firmware if firmware.startswith('map'):
+                version1, version2, plate_id = data.get("firmware").split("_")
+                version = f'{version1}_{version2}'
+            case _:
+                version, plate_id = data.get("firmware").split("_")
+        google.append({
+            'ip': client_ip,
+            'port': client_port,
+            'version': version,
+            'id': plate_id,
+            'district': data.get("region"),
+            'city': data.get("city"),
+            'connection': connection_type
+        })
+    return google
+
+
 async def stats(request):
     if request.path_params["token"] == data_token:
-        map_clients = await mc.get(b'map_clients')
-        map_clients_data = json.loads(map_clients.decode('utf-8')) if map_clients else {}
+        tcp_clients = await mc.get(b'tcp_clients')
+        tcp_clients_data = json.loads(tcp_clients.decode('utf-8')) if tcp_clients else {}
+
+        websocket_clients = await mc.get(b'websocket_clients')
+        websocket_clients_data = json.loads(websocket_clients.decode('utf-8')) if websocket_clients else {}
 
         google = []
-        for client, data in map_clients_data.items():
-            client_ip, client_port = client.split("_")
-            match data.get("software"):
-                case '3.2':
-                    version, plate_id = '3.2', 'unknown'
-                case 'unknown':
-                    version, plate_id = 'unknown', 'unknown'
-                case software if software.startswith('map'):
-                    version1, version2, plate_id = data.get("software").split("_")
-                    version = f'{version1}_{version2}'
-                case _:
-                    version, plate_id = data.get("software").split("_")
-            google.append({
-                'ip': client_ip,
-                'port': client_port,
-                'version': version,
-                'id': plate_id,
-                'district': data.get("region"),
-                'city':data.get("city")
-            })
+        tcp_clients = await dataparcer(tcp_clients_data, 'tcp')
+        websocket_clients = await dataparcer(websocket_clients_data, 'websockets')
+
+        map_clients_data = tcp_clients + websocket_clients
+
         return JSONResponse ({
 
             'map': {
-                client: f'{data.get("software")}:{data.get("region")}:{data.get("city")}' for client, data in map_clients_data.items()
+                client: f'{data.get("firmware")}:{data.get("region")}:{data.get("city")}' for client, data in map_clients_data.items()
             },
             'google': google,
             'api': {
