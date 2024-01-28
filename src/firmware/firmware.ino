@@ -66,7 +66,7 @@ struct Settings {
   int     service_diodes_mode    = 0;
   int     sdm_auto               = 0;
   int     new_fw_notification    = 1;
-  int     ha_light_brightness    = 128;
+  int     ha_light_brightness    = 50;
   int     ha_light_r             = 215;
   int     ha_light_g             = 7;
   int     ha_light_b             = 255;
@@ -858,6 +858,7 @@ void initHA() {
 
       haLight.setIcon("mdi:led-strip-variant");
       haLight.setName("Lamp");
+      haLight.setBrightnessScale(100);
       haLight.setCurrentState(settings.map_mode == 5);
       haLight.setCurrentBrightness(settings.ha_light_brightness);
       haLight.setCurrentRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
@@ -901,32 +902,11 @@ void onHaLightState(bool state, HALight* sender) {
 }
 
 void onHaLightBrightness(uint8_t brightness, HALight* sender) {
-  if (settings.ha_light_brightness == brightness) return;
-  settings.ha_light_brightness = brightness;
-  preferences.begin("storage", false);
-  preferences.putInt("ha_lbri", settings.ha_light_brightness);
-  preferences.end();
-  Serial.println("ha_light_brightness commited to preferences");
-  Serial.print("ha_light_brightness: ");
-  Serial.println(settings.ha_light_brightness);
-  sender->setBrightness(brightness);  // report state back to
-  mapCycle();
+  saveHaLightBrightness(brightness);
 }
 
 void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
-  settings.ha_light_r = rgb.red;
-  settings.ha_light_g = rgb.green;
-  settings.ha_light_b = rgb.blue;
-  preferences.begin("storage", false);
-  preferences.putInt("ha_lr", settings.ha_light_r);
-  preferences.putInt("ha_lg", settings.ha_light_g);
-  preferences.putInt("ha_lb", settings.ha_light_b);
-  preferences.end();
-  Serial.println("ha_light_rgb commited to preferences");
-  Serial.print("ha_light_rgb: ");
-  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
-  sender->setRGBColor(rgb);  // report state back to
-  mapCycle();
+  saveHaLightRgb(rgb);
 }
 
 void onHaButtonClicked(HAButton* sender) {
@@ -1315,6 +1295,39 @@ void saveMapMode(int newMapMode) {
   }
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
+  mapCycle();
+}
+
+void saveHaLightBrightness(int newBrightness) {
+  if (settings.ha_light_brightness == newBrightness) return;
+  settings.ha_light_brightness = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lbri", settings.ha_light_brightness);
+  preferences.end();
+  Serial.println("ha_light_brightness commited to preferences");
+  Serial.print("ha_light_brightness: ");
+  Serial.println(settings.ha_light_brightness);
+  if (enableHA) {
+    haLight.setBrightness(newBrightness);
+  }
+  mapCycle();
+}
+
+void saveHaLightRgb(HALight::RGBColor newRgb) {
+  settings.ha_light_r = newRgb.red;
+  settings.ha_light_g = newRgb.green;
+  settings.ha_light_b = newRgb.blue;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lr", settings.ha_light_r);
+  preferences.putInt("ha_lg", settings.ha_light_g);
+  preferences.putInt("ha_lb", settings.ha_light_b);
+  preferences.end();
+  Serial.println("ha_light_rgb commited to preferences");
+  Serial.print("ha_light_rgb: ");
+  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
+  if (enableHA) {
+    haLight.setRGBColor(newRgb);
+  }
   mapCycle();
 }
 
@@ -1779,6 +1792,9 @@ void handleRoot(AsyncWebServerRequest* request) {
     case 4:
       html += "random_map.png";
       break;
+    case 5:
+      html += "lamp_map.png";
+      break;
     default:
       html += "alerts_map.png";
   }
@@ -1981,6 +1997,15 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "</option>";
   }
   html += "                        </select>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                       <label for='slider19'>Колір режиму \"Лампа\": <span id='sliderValue19'>0</span></label><br/>";
+  html += "                       <div class='color-box' id='colorBox17'></div>";
+  html += "                       <input type='range' name='color_lamp' class='form-control-range' id='slider19' min='0' max='360' value='0'>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
+  html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
@@ -2205,7 +2230,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2237,6 +2262,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        const initialHue5 = parseInt(slider7.value);";
   html += "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
   html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
+  html += "";
+  html += "        const initialRgbColor6 = { r: " + String(settings.ha_light_r) + ", g: " + String(settings.ha_light_g) + ", b: " + String(settings.ha_light_b) + " };";
+  html += "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
+  html += "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
+  html += "        document.getElementById('slider19').value = initialHue6;";
+  html += "        document.getElementById('sliderValue19').textContent = initialHue6;";
   html += "";
   html += "        function hsbToRgb(h, s, b) {";
   html += "            h /= 360;";
@@ -2271,6 +2302,30 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            };";
   html += "        }";
   html += "";
+  html += "        function rgbToHue(r, g, b) {";
+  html += "            var h;";
+  html += "            r /= 255, g /= 255, b /= 255;";
+  html += "            var max = Math.max(r, g, b), min = Math.min(r, g, b);";
+  html += "            if (max-min == 0) {";
+  html += "                return 0;";
+  html += "            }";
+  html += "            if (max == r) {";
+  html += "                h = (g-b)/(max-min);";
+  html += "            }";
+  html += "            else if (max == g) {";
+  html += "                h = 2 +(b-r)/(max-min);";
+  html += "            }";
+  html += "            else if (max == b) {";
+  html += "                h = 4 + (r-g)/(max-min);";
+  html += "            }";
+  html += "            h = h*60;";
+  html += "            h %= 360;";
+  html += "            if (h < 0) {";
+  html += "                h += 360;";
+  html += "            }";
+  html += "            return Math.round(h);";
+  html += "        }";
+  html += "";
   html += "        sliders.slice(1).forEach((slider, index) => {";
   html += "            const sliderElem = document.getElementById(slider);";
   html += "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));";
@@ -2284,6 +2339,31 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</body>";
   html += "</html>";
   request->send(200, "text/html", html);
+}
+
+HALight::RGBColor hue2rgb(int hue) {
+	float r, g, b;
+	
+	float h = hue / 360.0;
+	float s = 1.0;
+	float v = 1.0;
+	
+	int i = floor(h * 6);
+	float f = h * 6 - i;
+	float p = v * (1 - s);
+	float q = v * (1 - f * s);
+	float t = v * (1 - (1 - f) * s);
+	
+	switch (i % 6) {
+		case 0: r = v, g = t, b = p; break;
+		case 1: r = q, g = v, b = p; break;
+		case 2: r = p, g = v, b = t; break;
+		case 3: r = p, g = q, b = v; break;
+		case 4: r = t, g = p, b = v; break;
+		case 5: r = v, g = p, b = q; break;
+	}
+	
+	return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
 }
 
 void handleUpdate(AsyncWebServerRequest* request) {
@@ -2632,6 +2712,17 @@ void handleSave(AsyncWebServerRequest* request) {
       int newMapMode = request->getParam("map_mode", true)->value().toInt();
       saveMapMode(newMapMode);
     }
+  }
+  if (request->hasParam("brightness_lamp", true)) {
+    int selectedBrightness = request->getParam("brightness_lamp", true)->value().toInt();
+    if (selectedBrightness != settings.ha_light_brightness) {
+      saveHaLightBrightness(selectedBrightness);
+    }
+  }
+  if (request->hasParam("color_lamp", true)) {
+    int selectedHue = request->getParam("color_lamp", true)->value().toInt();
+    HALight::RGBColor rgb = hue2rgb(selectedHue);
+    saveHaLightRgb(rgb);
   }
   if (request->hasParam("display_mode", true)) {
     if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
