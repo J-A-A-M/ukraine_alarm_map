@@ -1524,6 +1524,15 @@ void showHomeAlertInfo() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
+String getFwVersion(Firmware firmware) {
+    String version = String(latestFirmware.major) + "." + latestFirmware.minor;
+    if (latestFirmware.patch > 0) {
+      version += ".";
+      version += latestFirmware.patch;
+    }
+    return version;
+}
+
 void showNewFirmwareNotification() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
@@ -1531,11 +1540,7 @@ void showNewFirmwareNotification() {
   String message;
   if (remainder < toggleTime) {
     title = "Доступне оновлення:";
-    message = (String) "v" + latestFirmware.major + "." + latestFirmware.minor;
-    if (latestFirmware.patch > 0) {
-      message += ".";
-      message += latestFirmware.patch;
-    }
+    message = (String) "v" + getFwVersion(latestFirmware);
   } else if (settings.button_mode == 0) {
     title = "Введіть у браузері:";
     message = WiFi.localIP().toString();
@@ -1755,6 +1760,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+  if (fwUpdateAvailable) {
+    html += "        <div class='row'>";
+    html += "           <div class='col-md-6 offset-md-3'>";
+    html += "              <div class='row'>";
+    html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
+    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>v" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                </div>";
+    html += "              </div>";
+    html += "            </div>";
+    html += "        </div>";
+  }
   html += "        <div class='row'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
