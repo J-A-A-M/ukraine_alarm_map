@@ -2792,6 +2792,10 @@ void connectStatuses() {
   }
 }
 
+void timeUpdate() {
+  timeClient.update();
+}
+
 void autoBrightnessUpdate() {
   if (settings.brightness_auto == 1) {
     int currentHour = timeClient.getHours();
@@ -3230,6 +3234,7 @@ void setup() {
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
+  asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
@@ -3243,7 +3248,6 @@ void loop() {
   asyncEngine.run();
   ArduinoOTA.handle();
   buttonUpdate();
-  timeClient.update();
   if (enableHA) {
     mqtt.loop();
   }
