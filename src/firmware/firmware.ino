@@ -580,11 +580,14 @@ void initTime() {
 }
 
 void timezoneUpdate() {
-  timeClient.update();
-  if (!timeClient.isTimeSet()) {
-     Serial.println("Time not set. Force update");
+  int count = 1;
+  while (!timeClient.isTimeSet() && count <= 7) {
+    Serial.println("Time not set. Force update " + String(count));
     timeClient.forceUpdate();
+    count++;
+    delay(1000);
   }
+  Serial.println("Timezone update");
 
   time_t rawTime = timeClient.getEpochTime();
   struct tm* timeInfo;
@@ -2789,10 +2792,6 @@ void connectStatuses() {
   }
 }
 
-void timeUpdate() {
-  timeClient.update();
-}
-
 void autoBrightnessUpdate() {
   if (settings.brightness_auto == 1) {
     int currentHour = timeClient.getHours();
@@ -3231,7 +3230,6 @@ void setup() {
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
-  asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
@@ -3245,6 +3243,7 @@ void loop() {
   asyncEngine.run();
   ArduinoOTA.handle();
   buttonUpdate();
+  timeClient.update();
   if (enableHA) {
     mqtt.loop();
   }
