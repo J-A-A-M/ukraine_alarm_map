@@ -9,6 +9,7 @@
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 #include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
@@ -119,7 +120,7 @@ WebsocketsClient  client_websocket;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
+NTPClient         timeClient(ntpUDP); // using default time server - pool.ntp.org
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
@@ -579,11 +580,14 @@ void initTime() {
 }
 
 void timezoneUpdate() {
-  timeClient.update();
-  if (!timeClient.isTimeSet()) {
-     Serial.println("Time not set. Force update");
+  int count = 1;
+  while (!timeClient.isTimeSet() && count <= 7) {
+    Serial.println("Time not set. Force update " + String(count));
     timeClient.forceUpdate();
+    count++;
+    delay(1000);
   }
+  Serial.println("Timezone update");
 
   time_t rawTime = timeClient.getEpochTime();
   struct tm* timeInfo;
@@ -653,11 +657,11 @@ void initWifi() {
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
   String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
-      Serial.println("Reboot");
-      showServiceMessage("Пepeзaвaнтaжeння...", 5000);
-      delay(5000);
-      ESP.restart();
-      return;
+    Serial.println("Reboot");
+    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
+    delay(5000);
+    ESP.restart();
+    return;
   }
   // Connected to WiFi
   Serial.println("connected...yeey :)");
@@ -701,32 +705,66 @@ static void wifiEvents(WiFiEvent_t event) {
 }
 
 void initUpdates() {
-    ArduinoOTA.onStart(showUpdateStart);
-    ArduinoOTA.onEnd(showUpdateEnd);
-    ArduinoOTA.onProgress(showUpdateProgress);
-    ArduinoOTA.onError(showOtaErrorMessage);
-    ArduinoOTA.begin();
-    Update.onProgress(showUpdateProgress);
+  ArduinoOTA.onStart(showUpdateStart);
+  ArduinoOTA.onEnd(showUpdateEnd);
+  ArduinoOTA.onProgress(showUpdateProgress);
+  ArduinoOTA.onError(showOtaUpdateErrorMessage);
+  ArduinoOTA.begin();
+  Update.onProgress(showUpdateProgress);
+  httpUpdate.onStart(showUpdateStart);
+  httpUpdate.onEnd(showUpdateEnd);
+  httpUpdate.onProgress(showUpdateProgress);
+  httpUpdate.onError(showHttpUpdateErrorMessage);
 }
 
 void showUpdateProgress(size_t progress, size_t total) {
-  String progressText = "Оновлення: ";
-  progressText += progress / (total / 100);
-  progressText += "%";
+  String progressText = String(progress / (total / 100)) + "%";
   Serial.println(progressText);
-  showServiceMessage(progressText);
+  showServiceMessage(progressText, "Оновлення:");
 }
 
 void showUpdateStart() {
-  showServiceMessage("Оновлення..");
+  showServiceMessage("Починаємо!", "Оновлення:");
+  delay(1000);
 }
 
 void showUpdateEnd() {
-  showServiceMessage("Перезавантаження..");
+  showServiceMessage("Перезавантаження..", "Оновлення:");
+  delay(1000);
 }
 
-void showOtaErrorMessage(ota_error_t error) {
-  showServiceMessage("Щось пішло не так", "Помилка оновлення:");
+void showOtaUpdateErrorMessage(ota_error_t error) {
+  switch (error) {
+    case OTA_AUTH_ERROR:
+      showServiceMessage("Авторизація", "Помилка оновлення:", 5000);
+      break;
+    case OTA_CONNECT_ERROR:
+      showServiceMessage("Збій підключення", "Помилка оновлення:", 5000);
+      break;
+    case OTA_RECEIVE_ERROR:
+      showServiceMessage("Збій отримання", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
+      break;
+  }
+}
+
+void showHttpUpdateErrorMessage(int error) {
+  switch (error) {
+    case HTTP_UE_TOO_LESS_SPACE:
+      showServiceMessage("Замало місця", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_SERVER_NOT_REPORT_SIZE:
+      showServiceMessage("Невідомий розмір файлу", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_BIN_FOR_WRONG_FLASH:
+      showServiceMessage("Неправильний тип пам'яті", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
+      break;
+  }
 }
 
 void initBroadcast() {
@@ -1106,44 +1144,20 @@ void doUpdate() {
 void downloadAndUpdateFw(String binFileName) {
   String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + binFileName + "";
   const char* firmwareUrl = firmwareUrlString.c_str();
-  http.begin(firmwareUrl);
   Serial.println(firmwareUrl);
-  int httpCode = http.GET();
-  if (httpCode == 200) {
-    int contentLength = http.getSize();
-    bool canBegin = Update.begin(contentLength);
-    if (canBegin) {
-      showUpdateStart();
-      size_t written = Update.writeStream(http.getStream());
-      if (written == contentLength) {
-        Serial.println("Written : " + String(written) + " successfully");
-      } else {
-        Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
-      }
-      if (Update.end()) {
-        Serial.println("OTA done!");
-        if (Update.isFinished()) {
-          showUpdateEnd();
-          Serial.println("Update successfully completed. Rebooting.");
-          ESP.restart();
-        } else {
-          showServiceMessage("Не завершене", "Помилка оновлення:");
-          Serial.println("Update not finished? Something went wrong!");
-        }
-      } else {
-        showServiceMessage(String(Update.getError()), "Помилка оновлення:");
-        Serial.println("Error Occurred. Error #: " + String(Update.getError()));
-      }
-    } else {
-      showServiceMessage("Замало місця", "Помилка оновлення:");
-      Serial.println("Not enough space to begin OTA");
-    }
-  } else {
-    showServiceMessage("Прошивка не доступна", "Помилка оновлення:");
-    Serial.print("Error on HTTP request: ");
-    Serial.println(httpCode);
+  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
+    case HTTP_UPDATE_OK:
+      Serial.println("Update successfully completed. Rebooting...");
+      ESP.restart();
+      break;
   }
-  http.end();
 }
 //--Update end
 
@@ -1218,7 +1232,7 @@ void mapModeSwitch() {
 
 void saveMapMode(int newMapMode) {
   if (newMapMode == settings.map_mode) return;
-  
+
   if (newMapMode == 5) {
     prevMapMode = settings.map_mode;
   }
@@ -1532,12 +1546,12 @@ void showHomeAlertInfo() {
 }
 
 String getFwVersion(Firmware firmware) {
-    String version = String(latestFirmware.major) + "." + latestFirmware.minor;
-    if (latestFirmware.patch > 0) {
-      version += ".";
-      version += latestFirmware.patch;
-    }
-    return version;
+  String version = String(latestFirmware.major) + "." + latestFirmware.minor;
+  if (latestFirmware.patch > 0) {
+    version += ".";
+    version += latestFirmware.patch;
+  }
+  return version;
 }
 
 void showNewFirmwareNotification() {
@@ -1577,7 +1591,7 @@ void showTemp() {
   char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
   dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  String temp = (String)"" + roundedTemp + (char)128 + "C";
+  String temp = String(roundedTemp) + (char)128 + "C";
   displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
 }
 
@@ -1590,20 +1604,20 @@ void showTechInfo() {
   if (remainder < toggleTime) {
     title = "IP-адреса мапи:";
     message = WiFi.localIP().toString();
-  // Wifi Signal level
+    // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
     title = "Сигнал WiFi:";
     message += rssi;
     message += " dBm";
-  // Uptime
+    // Uptime
   } else if (remainder < toggleTime * 3) {
     title = "Час роботи:";
     message = getStringFromTimer(millis() / 1000);
-  // map-API status
+    // map-API status
   } else if (remainder < toggleTime * 4) {
     title = "Статус map-API:";
     message = apiConnected ? "Підключено" : "Відключено";
-  // HA Status 
+    // HA Status
   } else {
     title = "Home Assistant:";
     message = haConnected ? "Підключено" : "Відключено";
@@ -1618,7 +1632,7 @@ String getStringFromTimer(long timerSeconds) {
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
   if (hours >= 99) {
-   return "99+ год.";
+    return "99+ год.";
   } else {
     String message;
     seconds %= 60;
@@ -2819,7 +2833,7 @@ void autoBrightnessUpdate() {
 
 //--Websocket process start
 void websocketProcess() {
-  while (!client_websocket.available()){
+  while (!client_websocket.available()) {
     Serial.println("Reconnecting...");
     if (millis() - websocketLastPingTime > settings.ws_alert_time) {
       mapReconnect();
@@ -2872,28 +2886,26 @@ void onMessageCallback(WebsocketsMessage message) {
       homeAlertStart = 0;
     }
   }
-
-
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
-    if (event == WebsocketsEvent::ConnectionOpened) {
-        apiConnected = true;
-        Serial.println("connnection opened");
-        servicePin(settings.datapin, HIGH, false);
-        websocketLastPingTime = millis();
-    } else if (event == WebsocketsEvent::ConnectionClosed) {
-        apiConnected = false;
-        Serial.println("connnection closed");
-        servicePin(settings.datapin, LOW, false);
-    } else if (event == WebsocketsEvent::GotPing) {
-        Serial.println("websocket ping");
-        client_websocket.pong();
-        Serial.println("answered pong");
-        websocketLastPingTime = millis();
-    } else if (event == WebsocketsEvent::GotPong) {
-        Serial.println("websocket pong");
-    }
+  if (event == WebsocketsEvent::ConnectionOpened) {
+    apiConnected = true;
+    Serial.println("connnection opened");
+    servicePin(settings.datapin, HIGH, false);
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::ConnectionClosed) {
+    apiConnected = false;
+    Serial.println("connnection closed");
+    servicePin(settings.datapin, LOW, false);
+  } else if (event == WebsocketsEvent::GotPing) {
+    Serial.println("websocket ping");
+    client_websocket.pong();
+    Serial.println("answered pong");
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::GotPong) {
+    Serial.println("websocket pong");
+  }
 }
 
 void socketConnect() {
