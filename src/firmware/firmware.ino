@@ -1255,17 +1255,24 @@ void saveHaLightBrightness(int newBrightness) {
 }
 
 void saveHaLightRgb(HALight::RGBColor newRgb) {
-  settings.ha_light_r = newRgb.red;
-  settings.ha_light_g = newRgb.green;
-  settings.ha_light_b = newRgb.blue;
   preferences.begin("storage", false);
-  preferences.putInt("ha_lr", settings.ha_light_r);
-  preferences.putInt("ha_lg", settings.ha_light_g);
-  preferences.putInt("ha_lb", settings.ha_light_b);
+  if (settings.ha_light_r != newRgb.red) {
+    settings.ha_light_r = newRgb.red;
+    preferences.putInt("ha_lr", settings.ha_light_r);
+    Serial.println("ha_light_red commited to preferences: " + String(settings.ha_light_r));
+  }
+  if (settings.ha_light_g != newRgb.green) {
+    settings.ha_light_g = newRgb.green;
+    preferences.putInt("ha_lg", settings.ha_light_g);
+    Serial.println("ha_light_green commited to preferences: " + String(settings.ha_light_g));
+  }
+  if (settings.ha_light_b != newRgb.blue) {
+    settings.ha_light_b = newRgb.blue;
+    preferences.putInt("ha_lb", settings.ha_light_b);
+    Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
+  }
   preferences.end();
-  Serial.println("ha_light_rgb commited to preferences");
-  Serial.print("ha_light_rgb: ");
-  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
+  
   if (enableHA) {
     haLight.setRGBColor(newRgb);
   }
