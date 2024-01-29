@@ -2080,6 +2080,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox8'>Режим прошивки</label>";
   html += "                        <select name='legacy' class='form-control' id='selectBox8'>";
   html += "<option value='0'";
@@ -3211,28 +3220,30 @@ void mapRandom() {
 int getCurrentMapMode() {
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
-  bool localAlarmNow = false;
-  //Serial.print("position ");Serial.println(settings.home_district);
   switch (settings.alarms_auto_switch) {
     case 1:
       for (int j = 0; j < counters[position]; j++) {
         int alarm_led_id = calculateOffset(neighboring_districts[position][j]);
         if (alarm_leds[alarm_led_id] != 0) {
           currentMapMode = 1;
-          localAlarmNow = true;
         }
       }
       break;
     case 2:
       if (alarm_leds[calculateOffset(position)] != 0) {
         currentMapMode = 1;
-        localAlarmNow = true;
       }
+  }
+  if (settings.enable_pin_on_alert) {
+    int ledStatus = alarm_leds[calculateOffset(position)];
+    alarmNow = (ledStatus == 1 || ledStatus == 3);
+  } else {
+    alarmNow = false;
   }
   if (settings.map_mode != currentMapMode && enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
-  alarmNow = localAlarmNow;
+
   return currentMapMode;
 }
 //--Map processing end
