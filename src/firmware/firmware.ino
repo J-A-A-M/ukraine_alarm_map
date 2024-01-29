@@ -120,7 +120,7 @@ WebsocketsClient  client_websocket;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
+NTPClient         timeClient(ntpUDP); // using default time server - pool.ntp.org
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
