@@ -2141,7 +2141,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                    </div>";
   }
   html += "                      <div class='form-group'>";
-  html += "                          <label for='inputField12'>Пін, який замкнеться при триводі у дом. регіоні (має бути digital)</label>";
+  html += "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>";
   html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
   html += "                      </div>";
   html += "                      <div class='form-group form-check'>";
