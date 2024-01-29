@@ -95,7 +95,8 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
-  int     ws_alert_time          = 120000;    
+  int     ws_alert_time          = 120000;
+  int     min_of_silence         = 1;
   // ------- web config end
 };
 
@@ -392,6 +393,7 @@ int     rssi;
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
+bool    minuteOfSilence = false;
 
 std::vector<String> bin_list;
 
@@ -555,6 +557,7 @@ void initSettings() {
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
+  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   
   preferences.end();
 
@@ -1450,12 +1453,21 @@ void displayCycle() {
   // DisplayCenter(str, 7, 2);
   // return;
 
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
+
   // update service message expiration
   serviceMessageUpdate();
 
   // Show service message if not expired
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  // Show Minute of silence mode if activated
+  if (minuteOfSilence) {
+    displayMinuteOfSilence();
     return;
   }
 
@@ -1503,6 +1515,49 @@ void displayByMode(int mode) {
 
 void clearDisplay() {
   display.clearDisplay();
+  display.display();
+}
+
+void displayMinuteOfSilence() {
+  int toggleTime = 3;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 3);
+  display.clearDisplay();
+  int16_t centerY = (settings.display_height - 32) / 2;
+  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+  int textSize;
+  String text1;
+  String text2;
+  String text3;
+  int gap = 40;
+  if (remainder < toggleTime) {
+    textSize = 1;
+    text1 = utf8cyr("Шана");
+    text2 = utf8cyr("Полеглим");
+    text3 = utf8cyr("Героям!");
+  } else if (remainder < toggleTime * 2) {
+    textSize = 2;
+    text1 = utf8cyr("Слава");
+    text3 = utf8cyr("Україні!");
+    gap = 32;
+  } else {
+    textSize = 2;
+    text1 = utf8cyr("Смерть");
+    text3 = utf8cyr("ворогам!");
+    gap = 32;
+  }
+  display.setTextSize(textSize);
+
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+  display.setCursor(gap, ((settings.display_height - height) / 2) - 9);
+  display.print(text1);
+  display.setCursor(gap, ((settings.display_height - height) / 2));
+  display.print(text2);
+  display.setCursor(gap, ((settings.display_height - height) / 2) + 9);
+  display.print(text3);
   display.display();
 }
 
@@ -2071,6 +2126,14 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        </label>";
     html += "                    </div>";
   }
+  html += "                    <div class='form-group form-check'>";
+  html += "                        <input name='min_of_silence' type='checkbox' class='form-check-input' id='checkbox6'";
+  if (settings.min_of_silence == 1) html += " checked";
+  html += ">";
+  html += "                        <label class='form-check-label' for='checkbox6'>";
+  html += "                          Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)";
+  html += "                        </label>";
+  html += "                    </div>";
   html += "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2491,6 +2554,21 @@ void handleSave(AsyncWebServerRequest* request) {
       preferences.putInt("sdm", settings.service_diodes_mode);
       checkServicePins();
       Serial.println("service_diodes_mode disabled to preferences");
+    }
+  }
+  if (request->hasParam("min_of_silence", true)) {
+    if (settings.min_of_silence == 0) {
+      settings.min_of_silence = 1;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence enabled to preferences");
+    }
+  } else {
+    if (settings.min_of_silence == 1) {
+      settings.min_of_silence = 0;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence disabled to preferences");
     }
   }
   if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
@@ -3018,6 +3096,16 @@ HsbColor processAlarms(int led, int position) {
   return hue;
 }
 
+void checkMinuteOfSilence() {
+  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.getHours() == 9 && timeClient.getMinutes() == 0);
+  if (localMinOfSilence != minuteOfSilence) {
+    minuteOfSilence = localMinOfSilence;
+    if (enableHA) {
+      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    }
+  }
+}
+
 float processWeather(int led) {
   double minTemp = settings.weather_min_temp;
   double maxTemp = settings.weather_max_temp;
@@ -3177,6 +3265,8 @@ void mapRandom() {
 }
 
 int getCurrentMapMode() {
+  if (minuteOfSilence) return 3;
+
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
   //Serial.print("position ");Serial.println(settings.home_district);
