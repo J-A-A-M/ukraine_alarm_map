@@ -36,7 +36,7 @@ async def handle_client(reader, writer, shared_data, geo):
 
     response = geo.city(client_ip)
 
-    if response.country.iso_code != 'UA':
+    if response.country.iso_code != 'UA' and response.continent.code != 'EU':
         logger.info(f"Block IP {client_ip} from {response.country.name}.")
         shared_data.blocked_ips.append(client_ip)
         writer.close()
