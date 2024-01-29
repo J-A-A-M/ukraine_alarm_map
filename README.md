@@ -1,5 +1,7 @@
 [![SWUbanner](https://github.com/vshymanskyy/StandWithUkraine/blob/main/badges/StandWithUkraine.svg)](http://stand-with-ukraine.pp.ua/)
 [![SWUbanner](https://github.com/vshymanskyy/StandWithUkraine/blob/main/badges/RussianWarship.svg)](http://stand-with-ukraine.pp.ua/)
+[![GitHub Clones](https://img.shields.io/badge/dynamic/json?color=success&label=Clone&query=count&url=https://gist.github.com/v00g100skr/3834111d448e497c81a139b69756835c/raw/clone.json&logo=github)](https://github.com/MShawon/github-clone-count-badge)
+
 
 Репозиторій містить файли прошивки JAAM. JAAM це прошивка для ESP32, що дозволяє за допомогою розміщений на мапі України адресних світлодіодів відображати таку інформацію: повітряні тривоги, погода, візуальні зображення накшталт прапору України. Крім цього, є окремий диспей, який може відображати потончий час, погоду та сервісні повідомлення
 
