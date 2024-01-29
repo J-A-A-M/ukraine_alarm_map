@@ -41,6 +41,7 @@ struct Settings {
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
+  int     alertpin               = 34;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -98,6 +99,7 @@ struct Settings {
   int     night_start            = 22;
   int     ws_alert_time          = 120000;
   int     min_of_silence         = 1;
+  int     enable_pin_on_alert    = 0;
   // ------- web config end
 };
 
@@ -394,6 +396,7 @@ int     rssi;
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
+bool    alarmNow = false;
 bool    minuteOfSilence = false;
 
 std::vector<String> bin_list;
@@ -483,7 +486,7 @@ void initLegacy() {
     pinMode(settings.wifipin, OUTPUT);
     pinMode(settings.datapin, OUTPUT);
     pinMode(settings.hapin, OUTPUT);
-    pinMode(settings.reservedpin, OUTPUT);
+    //pinMode(settings.reservedpin, OUTPUT);
 
     servicePin(settings.powerpin, HIGH, false);
 
@@ -550,6 +553,7 @@ void initSettings() {
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
+  settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
@@ -558,12 +562,21 @@ void initSettings() {
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
+  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
-  
+
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
   Serial.println((String) "Current firmware version: " + currentFirmware.major + "." + currentFirmware.minor + "." + currentFirmware.patch);
+}
+
+void InitAlertPin() {
+  if (settings.enable_pin_on_alert) {
+    Serial.print("alertpin: ");
+    Serial.println(settings.alertpin);
+    pinMode(settings.alertpin, OUTPUT);
+  }
 }
 
 void initStrip() {
@@ -1289,7 +1302,7 @@ void saveHaLightRgb(HALight::RGBColor newRgb) {
     Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
   }
   preferences.end();
-  
+
   if (enableHA) {
     haLight.setRGBColor(newRgb);
   }
@@ -1342,7 +1355,7 @@ void saveHomeDistrict() {
   preferences.begin("storage", false);
   preferences.putInt("hd", settings.home_district);
   preferences.end();
-  Serial.print("home_district commited to preferences");
+  Serial.println("home_district commited to preferences");
   if (enableHA) {
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
@@ -2172,6 +2185,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox8'>Режим прошивки</label>";
   html += "                        <select name='legacy' class='form-control' id='selectBox8'>";
   html += "<option value='0'";
@@ -2232,6 +2254,18 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
     html += "                    </div>";
   }
+  html += "                      <div class='form-group'>";
+  html += "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>";
+  html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
+  html += "                      </div>";
+  html += "                      <div class='form-group form-check'>";
+  html += "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox6'";
+  if (settings.enable_pin_on_alert == 1) html += " checked";
+  html += ">";
+  html += "                          <label class='form-check-label' for='checkbox6'>";
+  html += "                            Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні";
+  html += "                          </label>";
+  html += "                      </div>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2866,6 +2900,30 @@ void handleSaveDev (AsyncWebServerRequest* request) {
       Serial.println(settings.buttonpin);
     }
   }
+  if (request->hasParam("alertpin", true)) {
+    if (request->getParam("alertpin", true)->value().toInt() != settings.alertpin) {
+      reboot = true;
+      settings.alertpin = request->getParam("alertpin", true)->value().toInt();
+      preferences.putInt("ap", settings.alertpin);
+      Serial.println("alertpin commited: ");
+      Serial.println(settings.alertpin);
+    }
+  }
+  if (request->hasParam("enable_pin_on_alert", true)) {
+    if (settings.enable_pin_on_alert == 0) {
+      settings.enable_pin_on_alert = 1;
+      reboot = true;
+      preferences.putInt("epoa", settings.enable_pin_on_alert);
+      Serial.println("enable_pin_on_alert enabled to preferences");
+    }
+  } else {
+    if (settings.enable_pin_on_alert == 1) {
+      settings.enable_pin_on_alert = 0;
+      reboot = true;
+      preferences.putInt("epoa", settings.enable_pin_on_alert);
+      Serial.println("enable_pin_on_alert disabled to preferences");
+    }
+  }
   preferences.end();
   delay(1000);
   request->redirect("/");
@@ -3285,7 +3343,6 @@ void mapAlarms() {
     strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], i));
   }
   strip->Show();
-  //blink = !blink;
 }
 
 void mapWeather() {
@@ -3348,7 +3405,6 @@ int getCurrentMapMode() {
 
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
-  //Serial.print("position ");Serial.println(settings.home_district);
   switch (settings.alarms_auto_switch) {
     case 1:
       for (int j = 0; j < counters[position]; j++) {
@@ -3362,6 +3418,12 @@ int getCurrentMapMode() {
       if (alarm_leds[calculateOffset(position)] != 0) {
         currentMapMode = 1;
       }
+  }
+  if (settings.enable_pin_on_alert) {
+    int ledStatus = alarm_leds[calculateOffset(position)];
+    alarmNow = (ledStatus == 1 || ledStatus == 3);
+  } else {
+    alarmNow = false;
   }
   if (settings.map_mode != currentMapMode && enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
@@ -3378,11 +3440,23 @@ void WifiReconnect() {
   }
 }
 
+void alertPinCycle() {
+  if (alarmNow  && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+    Serial.println("alert pin enabled");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
+    Serial.println("alert pin disabled");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
   initSettings();
   initLegacy();
+  InitAlertPin();
   initStrip();
   initDisplay();
   initWifi();
@@ -3396,8 +3470,9 @@ void setup() {
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
-  asyncEngine.setInterval(doUpdate, 5000);
+  asyncEngine.setInterval(doUpdate, 1000);
   asyncEngine.setInterval(websocketProcess, 1000);
+  asyncEngine.setInterval(alertPinCycle, 1000);
 }
 
 void loop() {
