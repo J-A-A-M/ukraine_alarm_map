@@ -28,7 +28,7 @@ runs:
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
           - name: ESP Async WebServer
-            version: 2.5.1
+            version: 2.6.0
           - name: Adafruit SSD1306
             version: 2.5.7
           - name: home-assistant-integration

@@ -9,6 +9,7 @@
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 #include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
@@ -96,8 +97,9 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
-  int     ws_alert_time          = 120000;   
-  int     enable_pin_on_alert    = 0; 
+  int     ws_alert_time          = 120000;
+  int     min_of_silence         = 1;
+  int     enable_pin_on_alert    = 0;
   // ------- web config end
 };
 
@@ -121,7 +123,7 @@ WebsocketsClient  client_websocket;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
+NTPClient         timeClient(ntpUDP); // using default time server - pool.ntp.org
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
@@ -395,6 +397,7 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+bool    minuteOfSilence = false;
 
 std::vector<String> bin_list;
 
@@ -560,7 +563,8 @@ void initSettings() {
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
   settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
-  
+  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
+
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
@@ -592,11 +596,14 @@ void initTime() {
 }
 
 void timezoneUpdate() {
-  timeClient.update();
-  if (!timeClient.isTimeSet()) {
-     Serial.println("Time not set. Force update");
+  int count = 1;
+  while (!timeClient.isTimeSet() && count <= 7) {
+    Serial.println("Time not set. Force update " + String(count));
     timeClient.forceUpdate();
+    count++;
+    delay(1000);
   }
+  Serial.println("Timezone update");
 
   time_t rawTime = timeClient.getEpochTime();
   struct tm* timeInfo;
@@ -666,11 +673,11 @@ void initWifi() {
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
   String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
-      Serial.println("Reboot");
-      showServiceMessage("Пepeзaвaнтaжeння...", 5000);
-      delay(5000);
-      ESP.restart();
-      return;
+    Serial.println("Reboot");
+    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
+    delay(5000);
+    ESP.restart();
+    return;
   }
   // Connected to WiFi
   Serial.println("connected...yeey :)");
@@ -714,32 +721,66 @@ static void wifiEvents(WiFiEvent_t event) {
 }
 
 void initUpdates() {
-    ArduinoOTA.onStart(showUpdateStart);
-    ArduinoOTA.onEnd(showUpdateEnd);
-    ArduinoOTA.onProgress(showUpdateProgress);
-    ArduinoOTA.onError(showOtaErrorMessage);
-    ArduinoOTA.begin();
-    Update.onProgress(showUpdateProgress);
+  ArduinoOTA.onStart(showUpdateStart);
+  ArduinoOTA.onEnd(showUpdateEnd);
+  ArduinoOTA.onProgress(showUpdateProgress);
+  ArduinoOTA.onError(showOtaUpdateErrorMessage);
+  ArduinoOTA.begin();
+  Update.onProgress(showUpdateProgress);
+  httpUpdate.onStart(showUpdateStart);
+  httpUpdate.onEnd(showUpdateEnd);
+  httpUpdate.onProgress(showUpdateProgress);
+  httpUpdate.onError(showHttpUpdateErrorMessage);
 }
 
 void showUpdateProgress(size_t progress, size_t total) {
-  String progressText = "Оновлення: ";
-  progressText += progress / (total / 100);
-  progressText += "%";
+  String progressText = String(progress / (total / 100)) + "%";
   Serial.println(progressText);
-  showServiceMessage(progressText);
+  showServiceMessage(progressText, "Оновлення:");
 }
 
 void showUpdateStart() {
-  showServiceMessage("Оновлення..");
+  showServiceMessage("Починаємо!", "Оновлення:");
+  delay(1000);
 }
 
 void showUpdateEnd() {
-  showServiceMessage("Перезавантаження..");
+  showServiceMessage("Перезавантаження..", "Оновлення:");
+  delay(1000);
 }
 
-void showOtaErrorMessage(ota_error_t error) {
-  showServiceMessage("Щось пішло не так", "Помилка оновлення:");
+void showOtaUpdateErrorMessage(ota_error_t error) {
+  switch (error) {
+    case OTA_AUTH_ERROR:
+      showServiceMessage("Авторизація", "Помилка оновлення:", 5000);
+      break;
+    case OTA_CONNECT_ERROR:
+      showServiceMessage("Збій підключення", "Помилка оновлення:", 5000);
+      break;
+    case OTA_RECEIVE_ERROR:
+      showServiceMessage("Збій отримання", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
+      break;
+  }
+}
+
+void showHttpUpdateErrorMessage(int error) {
+  switch (error) {
+    case HTTP_UE_TOO_LESS_SPACE:
+      showServiceMessage("Замало місця", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_SERVER_NOT_REPORT_SIZE:
+      showServiceMessage("Невідомий розмір файлу", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_BIN_FOR_WRONG_FLASH:
+      showServiceMessage("Неправильний тип пам'яті", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
+      break;
+  }
 }
 
 void initBroadcast() {
@@ -1119,44 +1160,20 @@ void doUpdate() {
 void downloadAndUpdateFw(String binFileName) {
   String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + binFileName + "";
   const char* firmwareUrl = firmwareUrlString.c_str();
-  http.begin(firmwareUrl);
   Serial.println(firmwareUrl);
-  int httpCode = http.GET();
-  if (httpCode == 200) {
-    int contentLength = http.getSize();
-    bool canBegin = Update.begin(contentLength);
-    if (canBegin) {
-      showUpdateStart();
-      size_t written = Update.writeStream(http.getStream());
-      if (written == contentLength) {
-        Serial.println("Written : " + String(written) + " successfully");
-      } else {
-        Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
-      }
-      if (Update.end()) {
-        Serial.println("OTA done!");
-        if (Update.isFinished()) {
-          showUpdateEnd();
-          Serial.println("Update successfully completed. Rebooting.");
-          ESP.restart();
-        } else {
-          showServiceMessage("Не завершене", "Помилка оновлення:");
-          Serial.println("Update not finished? Something went wrong!");
-        }
-      } else {
-        showServiceMessage(String(Update.getError()), "Помилка оновлення:");
-        Serial.println("Error Occurred. Error #: " + String(Update.getError()));
-      }
-    } else {
-      showServiceMessage("Замало місця", "Помилка оновлення:");
-      Serial.println("Not enough space to begin OTA");
-    }
-  } else {
-    showServiceMessage("Прошивка не доступна", "Помилка оновлення:");
-    Serial.print("Error on HTTP request: ");
-    Serial.println(httpCode);
+  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
+    case HTTP_UPDATE_OK:
+      Serial.println("Update successfully completed. Rebooting...");
+      ESP.restart();
+      break;
   }
-  http.end();
 }
 //--Update end
 
@@ -1231,7 +1248,7 @@ void mapModeSwitch() {
 
 void saveMapMode(int newMapMode) {
   if (newMapMode == settings.map_mode) return;
-  
+
   if (newMapMode == 5) {
     prevMapMode = settings.map_mode;
   }
@@ -1268,17 +1285,24 @@ void saveHaLightBrightness(int newBrightness) {
 }
 
 void saveHaLightRgb(HALight::RGBColor newRgb) {
-  settings.ha_light_r = newRgb.red;
-  settings.ha_light_g = newRgb.green;
-  settings.ha_light_b = newRgb.blue;
   preferences.begin("storage", false);
-  preferences.putInt("ha_lr", settings.ha_light_r);
-  preferences.putInt("ha_lg", settings.ha_light_g);
-  preferences.putInt("ha_lb", settings.ha_light_b);
+  if (settings.ha_light_r != newRgb.red) {
+    settings.ha_light_r = newRgb.red;
+    preferences.putInt("ha_lr", settings.ha_light_r);
+    Serial.println("ha_light_red commited to preferences: " + String(settings.ha_light_r));
+  }
+  if (settings.ha_light_g != newRgb.green) {
+    settings.ha_light_g = newRgb.green;
+    preferences.putInt("ha_lg", settings.ha_light_g);
+    Serial.println("ha_light_green commited to preferences: " + String(settings.ha_light_g));
+  }
+  if (settings.ha_light_b != newRgb.blue) {
+    settings.ha_light_b = newRgb.blue;
+    preferences.putInt("ha_lb", settings.ha_light_b);
+    Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
+  }
   preferences.end();
-  Serial.println("ha_light_rgb commited to preferences");
-  Serial.print("ha_light_rgb: ");
-  Serial.println((String) "(" + settings.ha_light_r + ", " + settings.ha_light_g + ", " + settings.ha_light_b + ")");
+
   if (enableHA) {
     haLight.setRGBColor(newRgb);
   }
@@ -1463,12 +1487,21 @@ void displayCycle() {
   // DisplayCenter(str, 7, 2);
   // return;
 
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
+
   // update service message expiration
   serviceMessageUpdate();
 
   // Show service message if not expired
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  // Show Minute of silence mode if activated
+  if (minuteOfSilence) {
+    displayMinuteOfSilence();
     return;
   }
 
@@ -1519,6 +1552,49 @@ void clearDisplay() {
   display.display();
 }
 
+void displayMinuteOfSilence() {
+  int toggleTime = 3;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 3);
+  display.clearDisplay();
+  int16_t centerY = (settings.display_height - 32) / 2;
+  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+  int textSize;
+  String text1;
+  String text2;
+  String text3;
+  int gap = 40;
+  if (remainder < toggleTime) {
+    textSize = 1;
+    text1 = utf8cyr("Шана");
+    text2 = utf8cyr("Полеглим");
+    text3 = utf8cyr("Героям!");
+  } else if (remainder < toggleTime * 2) {
+    textSize = 2;
+    text1 = utf8cyr("Слава");
+    text3 = utf8cyr("Україні!");
+    gap = 32;
+  } else {
+    textSize = 2;
+    text1 = utf8cyr("Смерть");
+    text3 = utf8cyr("ворогам!");
+    gap = 32;
+  }
+  display.setTextSize(textSize);
+
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+  display.setCursor(gap, ((settings.display_height - height) / 2) - 9);
+  display.print(text1);
+  display.setCursor(gap, ((settings.display_height - height) / 2));
+  display.print(text2);
+  display.setCursor(gap, ((settings.display_height - height) / 2) + 9);
+  display.print(text3);
+  display.display();
+}
+
 void displayServiceMessage(ServiceMessage message) {
   displayMessage(message.message, message.textSize, message.title);
 }
@@ -1537,6 +1613,15 @@ void showHomeAlertInfo() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
+String getFwVersion(Firmware firmware) {
+  String version = String(latestFirmware.major) + "." + latestFirmware.minor;
+  if (latestFirmware.patch > 0) {
+    version += ".";
+    version += latestFirmware.patch;
+  }
+  return version;
+}
+
 void showNewFirmwareNotification() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
@@ -1544,11 +1629,7 @@ void showNewFirmwareNotification() {
   String message;
   if (remainder < toggleTime) {
     title = "Доступне оновлення:";
-    message = (String) "v" + latestFirmware.major + "." + latestFirmware.minor;
-    if (latestFirmware.patch > 0) {
-      message += ".";
-      message += latestFirmware.patch;
-    }
+    message = (String) "v" + getFwVersion(latestFirmware);
   } else if (settings.button_mode == 0) {
     title = "Введіть у браузері:";
     message = WiFi.localIP().toString();
@@ -1578,7 +1659,7 @@ void showTemp() {
   char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
   dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  String temp = (String)"" + roundedTemp + (char)128 + "C";
+  String temp = String(roundedTemp) + (char)128 + "C";
   displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
 }
 
@@ -1591,20 +1672,20 @@ void showTechInfo() {
   if (remainder < toggleTime) {
     title = "IP-адреса мапи:";
     message = WiFi.localIP().toString();
-  // Wifi Signal level
+    // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
     title = "Сигнал WiFi:";
     message += rssi;
     message += " dBm";
-  // Uptime
+    // Uptime
   } else if (remainder < toggleTime * 3) {
     title = "Час роботи:";
     message = getStringFromTimer(millis() / 1000);
-  // map-API status
+    // map-API status
   } else if (remainder < toggleTime * 4) {
     title = "Статус map-API:";
     message = apiConnected ? "Підключено" : "Відключено";
-  // HA Status 
+    // HA Status
   } else {
     title = "Home Assistant:";
     message = haConnected ? "Підключено" : "Відключено";
@@ -1619,7 +1700,7 @@ String getStringFromTimer(long timerSeconds) {
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
   if (hours >= 99) {
-   return "99+ год.";
+    return "99+ год.";
   } else {
     String message;
     seconds %= 60;
@@ -1696,7 +1777,12 @@ Firmware parseFirmwareVersion(String version) {
 void setupRouting() {
   Serial.println("Init WebServer");
   webserver.on("/", HTTP_GET, handleRoot);
-  webserver.on("/save", HTTP_POST, handleSave);
+  webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
+  webserver.on("/saveColors", HTTP_POST, handleSaveColors);
+  webserver.on("/saveWeather", HTTP_POST, handleSaveWeather);
+  webserver.on("/saveModes", HTTP_POST, handleSaveModes);
+  webserver.on("/saveDev", HTTP_POST, handleSaveDev);
+  webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
   webserver.on("/update", HTTP_POST, handleUpdate);
   webserver.begin();
   Serial.println("Webportal running");
@@ -1768,6 +1854,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+  if (fwUpdateAvailable) {
+    html += "        <div class='row'>";
+    html += "           <div class='col-md-6 offset-md-3'>";
+    html += "              <div class='row'>";
+    html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
+    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>v" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                </div>";
+    html += "              </div>";
+    html += "            </div>";
+    html += "        </div>";
+  }
   html += "        <div class='row'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1794,7 +1891,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
-  html += "        <form action='/save' method='POST'>";
+  html += "        <form action='/saveBrightness' method='POST'>";
   html += "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1859,7 +1956,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  html += "        <form action='/save' method='POST'>";
+  html += "        <form action='/saveColors' method='POST'>";
   html += "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1895,7 +1992,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  html += "        <form action='/save' method='POST'>";
+  html += "        <form action='/saveWeather' method='POST'>";
   html += "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1914,7 +2011,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  html += "        <form action='/save' method='POST'>";
+  html += "        <form action='/saveModes' method='POST'>";
   html += "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -2068,13 +2165,21 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        </label>";
     html += "                    </div>";
   }
+  html += "                    <div class='form-group form-check'>";
+  html += "                        <input name='min_of_silence' type='checkbox' class='form-check-input' id='checkbox6'";
+  if (settings.min_of_silence == 1) html += " checked";
+  html += ">";
+  html += "                        <label class='form-check-label' for='checkbox6'>";
+  html += "                          Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)";
+  html += "                        </label>";
+  html += "                    </div>";
   html += "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  html += "        <form action='/save' method='POST'>";
+  html += "        <form action='/saveDev' method='POST'>";
   html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -2171,7 +2276,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                       <form action='/save' method='POST'>";
+  html += "                       <form action='/saveFirmware' method='POST'>";
   html += "                          <div class='form-group form-check'>";
   html += "                              <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
   if (settings.new_fw_notification == 1) html += " checked";
@@ -2351,10 +2456,343 @@ void handleUpdate(AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSave(AsyncWebServerRequest* request) {
+void handleSaveBrightness(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   bool reboot = false;
   bool disableBrightnessAuto = false;
+  if (request->hasParam("brightness", true)) {
+    int currentBrightness = request->getParam("brightness", true)->value().toInt();
+    if (currentBrightness != settings.brightness) {
+      disableBrightnessAuto = true;
+      settings.brightness = request->getParam("brightness", true)->value().toInt();
+      preferences.putInt("brightness", settings.brightness);
+      if (enableHA) {
+        haBrightness.setState(settings.brightness);
+      }
+      Serial.println("brightness commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_day", true)) {
+    if (request->getParam("brightness_day", true)->value().toInt() != settings.brightness_day) {
+      settings.brightness_day = request->getParam("brightness_day", true)->value().toInt();
+      preferences.putInt("brd", settings.brightness_day);
+      Serial.println("brightness_day commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_night", true)) {
+    if (request->getParam("brightness_night", true)->value().toInt() != settings.brightness_night) {
+      settings.brightness_night = request->getParam("brightness_night", true)->value().toInt();
+      preferences.putInt("brn", settings.brightness_night);
+      Serial.println("brightness_night commited to preferences");
+    }
+  }
+  if (request->hasParam("day_start", true)) {
+    if (request->getParam("day_start", true)->value().toInt() != settings.day_start) {
+      settings.day_start = request->getParam("day_start", true)->value().toInt();
+      preferences.putInt("ds", settings.day_start);
+      Serial.println("day_start commited to preferences");
+    }
+  }
+  if (request->hasParam("night_start", true)) {
+    if (request->getParam("night_start", true)->value().toInt() != settings.night_start) {
+      settings.night_start = request->getParam("night_start", true)->value().toInt();
+      preferences.putInt("ns", settings.night_start);
+      Serial.println("night_start commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto) {
+    if (settings.brightness_auto == 0) {
+      settings.brightness_auto = 1;
+      if (enableHA) {
+        haBrightnessAuto.setState(true);
+      }
+      preferences.putInt("bra", settings.brightness_auto);
+      Serial.println("brightness_auto enabled to preferences");
+    }
+  } else {
+    if (settings.brightness_auto == 1) {
+      settings.brightness_auto = 0;
+      settings.brightness = settings.brightness_day;
+      if (enableHA) {
+        haBrightnessAuto.setState(false);
+        haBrightness.setState(settings.brightness);
+      }
+      preferences.putInt("bra", settings.brightness_auto);
+      preferences.putInt("brightness", settings.brightness);
+      Serial.println("brightness_auto disabled to preferences");
+    }
+  }
+  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
+    if (settings.sdm_auto == 0) {
+      settings.sdm_auto = 1;
+      settings.service_diodes_mode = 0;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(true);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto enabled to preferences");
+    }
+  } else {
+    if (settings.sdm_auto == 1) {
+      settings.sdm_auto = 0;
+      settings.service_diodes_mode = 1;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(false);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto disabled to preferences");
+    }
+  }
+  if (request->hasParam("brightness_alert", true)) {
+    if (request->getParam("brightness_alert", true)->value().toInt() != settings.brightness_alert) {
+      settings.brightness_alert = request->getParam("brightness_alert", true)->value().toInt();
+      preferences.putInt("ba", settings.brightness_alert);
+      Serial.println("brightness_alert commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_clear", true)) {
+    if (request->getParam("brightness_clear", true)->value().toInt() != settings.brightness_clear) {
+      settings.brightness_clear = request->getParam("brightness_clear", true)->value().toInt();
+      preferences.putInt("bc", settings.brightness_clear);
+      Serial.println("brightness_clear commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_new_alert", true)) {
+    if (request->getParam("brightness_new_alert", true)->value().toInt() != settings.brightness_new_alert) {
+      settings.brightness_new_alert = request->getParam("brightness_new_alert", true)->value().toInt();
+      preferences.putInt("bna", settings.brightness_new_alert);
+      Serial.println("brightness_new_alert commited to preferences");
+    }
+  }
+  if (request->hasParam("brightness_alert_over", true)) {
+    if (request->getParam("brightness_alert_over", true)->value().toInt() != settings.brightness_alert_over) {
+      settings.brightness_alert_over = request->getParam("brightness_alert_over", true)->value().toInt();
+      preferences.putInt("bao", settings.brightness_alert_over);
+      Serial.println("brightness_alert_over commited to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveColors (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
+  if (request->hasParam("color_alert", true)) {
+    if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
+      settings.color_alert = request->getParam("color_alert", true)->value().toInt();
+      preferences.putInt("coloral", settings.color_alert);
+      Serial.println("color_alert commited to preferences");
+    }
+  }
+  if (request->hasParam("color_clear", true)) {
+    if (request->getParam("color_clear", true)->value().toInt() != settings.color_clear) {
+      settings.color_clear = request->getParam("color_clear", true)->value().toInt();
+      preferences.putInt("colorcl", settings.color_clear);
+      Serial.println("color_clear commited to preferences");
+    }
+  }
+  if (request->hasParam("color_new_alert", true)) {
+    if (request->getParam("color_new_alert", true)->value().toInt() != settings.color_new_alert) {
+      settings.color_new_alert = request->getParam("color_new_alert", true)->value().toInt();
+      preferences.putInt("colorna", settings.color_new_alert);
+      Serial.println("color_new_alert commited to preferences");
+    }
+  }
+  if (request->hasParam("color_alert_over", true)) {
+    if (request->getParam("color_alert_over", true)->value().toInt() != settings.color_alert_over) {
+      settings.color_alert_over = request->getParam("color_alert_over", true)->value().toInt();
+      preferences.putInt("colorao", settings.color_alert_over);
+      Serial.println("color_alert_over commited to preferences");
+    }
+  }
+  if (request->hasParam("color_home_district", true)) {
+    if (request->getParam("color_home_district", true)->value().toInt() != settings.color_home_district) {
+      settings.color_home_district = request->getParam("color_home_district", true)->value().toInt();
+      preferences.putInt("colorhd", settings.color_home_district);
+      Serial.println("color_home_district commited to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveWeather (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
+  if (request->hasParam("weather_min_temp", true)) {
+    if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
+      settings.weather_min_temp = request->getParam("weather_min_temp", true)->value().toInt();
+      preferences.putInt("mintemp", settings.weather_min_temp);
+      Serial.println("color_alert_over commited to preferences");
+    }
+  }
+  if (request->hasParam("weather_max_temp", true)) {
+    if (request->getParam("weather_max_temp", true)->value().toInt() != settings.weather_max_temp) {
+      settings.weather_max_temp = request->getParam("weather_max_temp", true)->value().toInt();
+      preferences.putInt("maxtemp", settings.weather_max_temp);
+      Serial.println("weather_max_temp commited to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveModes (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
+  if (request->hasParam("kyiv_district_mode", true)) {
+    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
+      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
+      preferences.putInt("kdm", settings.kyiv_district_mode);
+      Serial.println("kyiv_district_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("map_mode", true)) {
+    if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
+      int newMapMode = request->getParam("map_mode", true)->value().toInt();
+      saveMapMode(newMapMode);
+    }
+  }
+  if (request->hasParam("color_lamp", true)) {
+    int selectedHue = request->getParam("color_lamp", true)->value().toInt();
+    HALight::RGBColor rgb = hue2rgb(selectedHue);
+    saveHaLightRgb(rgb);
+  }
+  if (request->hasParam("brightness_lamp", true)) {
+    int selectedBrightness = request->getParam("brightness_lamp", true)->value().toInt();
+    if (selectedBrightness != settings.ha_light_brightness) {
+      saveHaLightBrightness(selectedBrightness);
+    }
+  }
+  if (request->hasParam("display_mode", true)) {
+    if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
+      int newDisplayMode = request->getParam("display_mode", true)->value().toInt();
+      saveDisplayMode(newDisplayMode);
+    }
+  }
+  if (request->hasParam("display_mode_time", true)) {
+    if (request->getParam("display_mode_time", true)->value().toInt() != settings.display_mode_time) {
+      settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
+      preferences.putInt("dmt", settings.display_mode_time);
+      Serial.println("display_mode_time commited to preferences");
+    }
+  }
+  if (request->hasParam("button_mode", true)) {
+    if (request->getParam("button_mode", true)->value().toInt() != settings.button_mode) {
+      settings.button_mode = request->getParam("button_mode", true)->value().toInt();
+      preferences.putInt("bm", settings.button_mode);
+      Serial.println("button_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("home_district", true)) {
+    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
+      settings.home_district = request->getParam("home_district", true)->value().toInt();
+      saveHomeDistrict();
+    }
+  }
+  if (request->hasParam("home_alert_time", true)) {
+    if (settings.home_alert_time == 0) {
+      settings.home_alert_time = 1;
+      if (enableHA) {
+        haShowHomeAlarmTime.setState(true);
+      }
+      preferences.putInt("hat", settings.home_alert_time);
+      Serial.println("home_alert_time enabled to preferences");
+      parseHomeDistrictJson();
+    }
+  } else {
+    if (settings.home_alert_time == 1) {
+      settings.home_alert_time = 0;
+      if (enableHA) {
+        haShowHomeAlarmTime.setState(false);
+      }
+      preferences.putInt("hat", settings.home_alert_time);
+      Serial.println("home_alert_time disabled to preferences");
+    }
+  }
+  if (request->hasParam("alarms_notify_mode", true)) {
+    if (request->getParam("alarms_notify_mode", true)->value().toInt() != settings.alarms_notify_mode) {
+      settings.alarms_notify_mode = request->getParam("alarms_notify_mode", true)->value().toInt();
+      preferences.putInt("anm", settings.alarms_notify_mode);
+      Serial.println("alarms_notify_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("display_height", true)) {
+    if (request->getParam("display_height", true)->value().toInt() != settings.display_height) {
+      reboot = true;
+      preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
+      Serial.print("display_height commited to preferences: ");
+      Serial.println(request->getParam("display_height", true)->value().toInt());
+    }
+  }
+  if (request->hasParam("alarms_auto_switch", true)) {
+    if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch) {
+      settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
+      if (enableHA) {
+        haAlarmsAuto.setState(settings.alarms_auto_switch);
+      }
+      preferences.putInt("aas", settings.alarms_auto_switch);
+      Serial.println("alarms_auto_switch commited to preferences");
+    }
+  }
+  if (request->hasParam("service_diodes_mode", true)) {
+    if (settings.service_diodes_mode == 0) {
+      settings.service_diodes_mode = 1;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode enabled to preferences");
+    }
+  } else {
+    if (settings.service_diodes_mode == 1) {
+      settings.service_diodes_mode = 0;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode disabled to preferences");
+    }
+  }
+  if (request->hasParam("min_of_silence", true)) {
+    if (settings.min_of_silence == 0) {
+      settings.min_of_silence = 1;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence enabled to preferences");
+    }
+  } else {
+    if (settings.min_of_silence == 1) {
+      settings.min_of_silence = 0;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence disabled to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveDev (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
   if (request->hasParam("legacy", true)) {
     if (request->getParam("legacy", true)->value().toInt() != settings.legacy) {
       reboot = true;
@@ -2369,6 +2807,30 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
       preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
       Serial.println("ha_brokeraddress commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttport", true)) {
+    if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport) {
+      reboot = true;
+      settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
+      preferences.putInt("ha_mqttport", settings.ha_mqttport);
+      Serial.println("ha_mqttport commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttuser", true)) {
+    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
+      reboot = true;
+      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
+      preferences.putString("ha_mqttuser", settings.ha_mqttuser);
+      Serial.println("ha_mqttuser commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttpassword", true)) {
+    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
+      reboot = true;
+      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
+      preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
+      Serial.println("ha_mqttpassword commited to preferences");
     }
   }
   if (request->hasParam("devicename", true)) {
@@ -2393,14 +2855,6 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.broadcastname = request->getParam("broadcastname", true)->value();
       preferences.putString("bn", settings.broadcastname);
       Serial.println("broadcastname commited to preferences");
-    }
-  }
-  if (request->hasParam("ha_mqttport", true)) {
-    if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport) {
-      reboot = true;
-      settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
-      preferences.putInt("ha_mqttport", settings.ha_mqttport);
-      Serial.println("ha_mqttport commited to preferences");
     }
   }
   if (request->hasParam("serverhost", true)) {
@@ -2455,116 +2909,6 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println(settings.alertpin);
     }
   }
-  if (request->hasParam("ha_mqttuser", true)) {
-    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
-      reboot = true;
-      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
-      preferences.putString("ha_mqttuser", settings.ha_mqttuser);
-      Serial.println("ha_mqttuser commited to preferences");
-    }
-  }
-  if (request->hasParam("ha_mqttpassword", true)) {
-    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
-      reboot = true;
-      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
-      preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
-      Serial.println("ha_mqttpassword commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness", true)) {
-    int currentBrightness = request->getParam("brightness", true)->value().toInt();
-    if (currentBrightness != settings.brightness) {
-      disableBrightnessAuto = true;
-      settings.brightness = request->getParam("brightness", true)->value().toInt();
-      preferences.putInt("brightness", settings.brightness);
-      if (enableHA) {
-        haBrightness.setState(settings.brightness);
-      }
-      Serial.println("brightness commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto) {
-    if (settings.brightness_auto == 0) {
-      settings.brightness_auto = 1;
-      if (enableHA) {
-        haBrightnessAuto.setState(true);
-      }
-      preferences.putInt("bra", settings.brightness_auto);
-      Serial.println("brightness_auto enabled to preferences");
-    }
-  } else {
-    if (settings.brightness_auto == 1) {
-      settings.brightness_auto = 0;
-      settings.brightness = settings.brightness_day;
-      if (enableHA) {
-        haBrightnessAuto.setState(false);
-        haBrightness.setState(settings.brightness);
-      }
-      preferences.putInt("bra", settings.brightness_auto);
-      preferences.putInt("brightness", settings.brightness);
-      Serial.println("brightness_auto disabled to preferences");
-    }
-  }
-  if (request->hasParam("service_diodes_mode", true)) {
-    if (settings.service_diodes_mode == 0) {
-      settings.service_diodes_mode = 1;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode enabled to preferences");
-    }
-  } else {
-    if (settings.service_diodes_mode == 1) {
-      settings.service_diodes_mode = 0;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode disabled to preferences");
-    }
-  }
-  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
-    if (settings.sdm_auto == 0) {
-      settings.sdm_auto = 1;
-      settings.service_diodes_mode = 0;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(true);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto enabled to preferences");
-    }
-  } else {
-    if (settings.sdm_auto == 1) {
-      settings.sdm_auto = 0;
-      settings.service_diodes_mode = 1;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(false);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto disabled to preferences");
-    }
-  }
-  if (request->hasParam("home_alert_time", true)) {
-    if (settings.home_alert_time == 0) {
-      settings.home_alert_time = 1;
-      if (enableHA) {
-        haShowHomeAlarmTime.setState(true);
-      }
-      preferences.putInt("hat", settings.home_alert_time);
-      Serial.println("home_alert_time enabled to preferences");
-      parseHomeDistrictJson();
-    }
-  } else {
-    if (settings.home_alert_time == 1) {
-      settings.home_alert_time = 0;
-      if (enableHA) {
-        haShowHomeAlarmTime.setState(false);
-      }
-      preferences.putInt("hat", settings.home_alert_time);
-      Serial.println("home_alert_time disabled to preferences");
-    }
-  }
   if (request->hasParam("enable_pin_on_alert", true)) {
     if (settings.enable_pin_on_alert == 0) {
       settings.enable_pin_on_alert = 1;
@@ -2580,6 +2924,17 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("enable_pin_on_alert disabled to preferences");
     }
   }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveFirmware(AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
   if (request->hasParam("new_fw_notification", true)) {
     if (settings.new_fw_notification == 0) {
       settings.new_fw_notification = 1;
@@ -2591,186 +2946,6 @@ void handleSave(AsyncWebServerRequest* request) {
       settings.new_fw_notification = 0;
       preferences.putInt("nfwn", settings.new_fw_notification);
       Serial.println("new_fw_notification disabled to preferences");
-    }
-  }
-  if (request->hasParam("brightness_day", true)) {
-    if (request->getParam("brightness_day", true)->value().toInt() != settings.brightness_day) {
-      settings.brightness_day = request->getParam("brightness_day", true)->value().toInt();
-      preferences.putInt("brd", settings.brightness_day);
-      Serial.println("brightness_day commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_night", true)) {
-    if (request->getParam("brightness_night", true)->value().toInt() != settings.brightness_night) {
-      settings.brightness_night = request->getParam("brightness_night", true)->value().toInt();
-      preferences.putInt("brn", settings.brightness_night);
-      Serial.println("brightness_night commited to preferences");
-    }
-  }
-  if (request->hasParam("day_start", true)) {
-    if (request->getParam("day_start", true)->value().toInt() != settings.day_start) {
-      settings.day_start = request->getParam("day_start", true)->value().toInt();
-      preferences.putInt("ds", settings.day_start);
-      Serial.println("day_start commited to preferences");
-    }
-  }
-  if (request->hasParam("night_start", true)) {
-    if (request->getParam("night_start", true)->value().toInt() != settings.night_start) {
-      settings.night_start = request->getParam("night_start", true)->value().toInt();
-      preferences.putInt("ns", settings.night_start);
-      Serial.println("night_start commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_alert", true)) {
-    if (request->getParam("brightness_alert", true)->value().toInt() != settings.brightness_alert) {
-      settings.brightness_alert = request->getParam("brightness_alert", true)->value().toInt();
-      preferences.putInt("ba", settings.brightness_alert);
-      Serial.println("brightness_alert commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_clear", true)) {
-    if (request->getParam("brightness_clear", true)->value().toInt() != settings.brightness_clear) {
-      settings.brightness_clear = request->getParam("brightness_clear", true)->value().toInt();
-      preferences.putInt("bc", settings.brightness_clear);
-      Serial.println("brightness_clear commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_new_alert", true)) {
-    if (request->getParam("brightness_new_alert", true)->value().toInt() != settings.brightness_new_alert) {
-      settings.brightness_new_alert = request->getParam("brightness_new_alert", true)->value().toInt();
-      preferences.putInt("bna", settings.brightness_new_alert);
-      Serial.println("brightness_new_alert commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_alert_over", true)) {
-    if (request->getParam("brightness_alert_over", true)->value().toInt() != settings.brightness_alert_over) {
-      settings.brightness_alert_over = request->getParam("brightness_alert_over", true)->value().toInt();
-      preferences.putInt("bao", settings.brightness_alert_over);
-      Serial.println("brightness_alert_over commited to preferences");
-    }
-  }
-  if (request->hasParam("color_alert", true)) {
-    if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
-      settings.color_alert = request->getParam("color_alert", true)->value().toInt();
-      preferences.putInt("coloral", settings.color_alert);
-      Serial.println("color_alert commited to preferences");
-    }
-  }
-  if (request->hasParam("color_clear", true)) {
-    if (request->getParam("color_clear", true)->value().toInt() != settings.color_clear) {
-      settings.color_clear = request->getParam("color_clear", true)->value().toInt();
-      preferences.putInt("colorcl", settings.color_clear);
-      Serial.println("color_clear commited to preferences");
-    }
-  }
-  if (request->hasParam("color_new_alert", true)) {
-    if (request->getParam("color_new_alert", true)->value().toInt() != settings.color_new_alert) {
-      settings.color_new_alert = request->getParam("color_new_alert", true)->value().toInt();
-      preferences.putInt("colorna", settings.color_new_alert);
-      Serial.println("color_new_alert commited to preferences");
-    }
-  }
-  if (request->hasParam("color_alert_over", true)) {
-    if (request->getParam("color_alert_over", true)->value().toInt() != settings.color_alert_over) {
-      settings.color_alert_over = request->getParam("color_alert_over", true)->value().toInt();
-      preferences.putInt("colorao", settings.color_alert_over);
-      Serial.println("color_alert_over commited to preferences");
-    }
-  }
-  if (request->hasParam("color_home_district", true)) {
-    if (request->getParam("color_home_district", true)->value().toInt() != settings.color_home_district) {
-      settings.color_home_district = request->getParam("color_home_district", true)->value().toInt();
-      preferences.putInt("colorhd", settings.color_home_district);
-      Serial.println("color_home_district commited to preferences");
-    }
-  }
-  if (request->hasParam("home_district", true)) {
-    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
-      settings.home_district = request->getParam("home_district", true)->value().toInt();
-      saveHomeDistrict();
-    }
-  }
-  if (request->hasParam("alarms_auto_switch", true)) {
-    if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch) {
-      settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
-      if (enableHA) {
-        haAlarmsAuto.setState(settings.alarms_auto_switch);
-      }
-      preferences.putInt("aas", settings.alarms_auto_switch);
-      Serial.println("alarms_auto_switch commited to preferences");
-    }
-  }
-  if (request->hasParam("kyiv_district_mode", true)) {
-    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
-      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
-      preferences.putInt("kdm", settings.kyiv_district_mode);
-      Serial.println("kyiv_district_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("map_mode", true)) {
-    if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
-      int newMapMode = request->getParam("map_mode", true)->value().toInt();
-      saveMapMode(newMapMode);
-    }
-  }
-  if (request->hasParam("brightness_lamp", true)) {
-    int selectedBrightness = request->getParam("brightness_lamp", true)->value().toInt();
-    if (selectedBrightness != settings.ha_light_brightness) {
-      saveHaLightBrightness(selectedBrightness);
-    }
-  }
-  if (request->hasParam("color_lamp", true)) {
-    int selectedHue = request->getParam("color_lamp", true)->value().toInt();
-    HALight::RGBColor rgb = hue2rgb(selectedHue);
-    saveHaLightRgb(rgb);
-  }
-  if (request->hasParam("display_mode", true)) {
-    if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
-      int newDisplayMode = request->getParam("display_mode", true)->value().toInt();
-      saveDisplayMode(newDisplayMode);
-    }
-  }
-  if (request->hasParam("display_mode_time", true)) {
-    if (request->getParam("display_mode_time", true)->value().toInt() != settings.display_mode_time) {
-      settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
-      preferences.putInt("dmt", settings.display_mode_time);
-      Serial.println("display_mode_time commited to preferences");
-    }
-  }
-  if (request->hasParam("button_mode", true)) {
-    if (request->getParam("button_mode", true)->value().toInt() != settings.button_mode) {
-      settings.button_mode = request->getParam("button_mode", true)->value().toInt();
-      preferences.putInt("bm", settings.button_mode);
-      Serial.println("button_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("alarms_notify_mode", true)) {
-    if (request->getParam("alarms_notify_mode", true)->value().toInt() != settings.alarms_notify_mode) {
-      settings.alarms_notify_mode = request->getParam("alarms_notify_mode", true)->value().toInt();
-      preferences.putInt("anm", settings.alarms_notify_mode);
-      Serial.println("alarms_notify_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("weather_min_temp", true)) {
-    if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
-      settings.weather_min_temp = request->getParam("weather_min_temp", true)->value().toInt();
-      preferences.putInt("mintemp", settings.weather_min_temp);
-      Serial.println("color_alert_over commited to preferences");
-    }
-  }
-  if (request->hasParam("weather_max_temp", true)) {
-    if (request->getParam("weather_max_temp", true)->value().toInt() != settings.weather_max_temp) {
-      settings.weather_max_temp = request->getParam("weather_max_temp", true)->value().toInt();
-      preferences.putInt("maxtemp", settings.weather_max_temp);
-      Serial.println("weather_max_temp commited to preferences");
-    }
-  }
-  if (request->hasParam("display_height", true)) {
-    if (request->getParam("display_height", true)->value().toInt() != settings.display_height) {
-      reboot = true;
-      preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
-      Serial.print("display_height commited to preferences: ");
-      Serial.println(request->getParam("display_height", true)->value().toInt());
     }
   }
   preferences.end();
@@ -2854,7 +3029,7 @@ void autoBrightnessUpdate() {
 
 //--Websocket process start
 void websocketProcess() {
-  while (!client_websocket.available()){
+  while (!client_websocket.available()) {
     Serial.println("Reconnecting...");
     if (millis() - websocketLastPingTime > settings.ws_alert_time) {
       mapReconnect();
@@ -2907,28 +3082,26 @@ void onMessageCallback(WebsocketsMessage message) {
       homeAlertStart = 0;
     }
   }
-
-
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
-    if (event == WebsocketsEvent::ConnectionOpened) {
-        apiConnected = true;
-        Serial.println("connnection opened");
-        servicePin(settings.datapin, HIGH, false);
-        websocketLastPingTime = millis();
-    } else if (event == WebsocketsEvent::ConnectionClosed) {
-        apiConnected = false;
-        Serial.println("connnection closed");
-        servicePin(settings.datapin, LOW, false);
-    } else if (event == WebsocketsEvent::GotPing) {
-        Serial.println("websocket ping");
-        client_websocket.pong();
-        Serial.println("answered pong");
-        websocketLastPingTime = millis();
-    } else if (event == WebsocketsEvent::GotPong) {
-        Serial.println("websocket pong");
-    }
+  if (event == WebsocketsEvent::ConnectionOpened) {
+    apiConnected = true;
+    Serial.println("connnection opened");
+    servicePin(settings.datapin, HIGH, false);
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::ConnectionClosed) {
+    apiConnected = false;
+    Serial.println("connnection closed");
+    servicePin(settings.datapin, LOW, false);
+  } else if (event == WebsocketsEvent::GotPing) {
+    Serial.println("websocket ping");
+    client_websocket.pong();
+    Serial.println("answered pong");
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::GotPong) {
+    Serial.println("websocket pong");
+  }
 }
 
 void socketConnect() {
@@ -3058,6 +3231,16 @@ HsbColor processAlarms(int led, int position) {
       break;
   }
   return hue;
+}
+
+void checkMinuteOfSilence() {
+  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.getHours() == 9 && timeClient.getMinutes() == 0);
+  if (localMinOfSilence != minuteOfSilence) {
+    minuteOfSilence = localMinOfSilence;
+    if (enableHA) {
+      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    }
+  }
 }
 
 float processWeather(int led) {
@@ -3218,6 +3401,8 @@ void mapRandom() {
 }
 
 int getCurrentMapMode() {
+  if (minuteOfSilence) return 3;
+
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
   switch (settings.alarms_auto_switch) {
@@ -3243,7 +3428,6 @@ int getCurrentMapMode() {
   if (settings.map_mode != currentMapMode && enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
-
   return currentMapMode;
 }
 //--Map processing end
@@ -3260,7 +3444,7 @@ void alertPinCycle() {
   if (alarmNow  && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
     Serial.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
-  } 
+  }
   if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
     Serial.println("alert pin disabled");
     digitalWrite(settings.alertpin, LOW);
