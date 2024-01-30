@@ -386,7 +386,10 @@ async def dataparcer(clients, connection_type):
                 version1, version2, plate_id = data.get("firmware").split("_")
                 version = f'{version1}_{version2}'
             case _:
-                version, plate_id = data.get("firmware"), 'unknown'
+                try:
+                    version, plate_id = data.get("firmware").split("_")
+                except:
+                    version, plate_id = data.get("firmware"), 'unmatched'
         google.append({
             'ip': client_ip,
             'port': client_port,
