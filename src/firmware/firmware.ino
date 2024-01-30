@@ -2655,15 +2655,8 @@ void handleSaveWeather (AsyncWebServerRequest* request) {
 }
 
 void handleSaveModes (AsyncWebServerRequest* request) {
-  preferences.begin("storage", false);
   bool reboot = false;
-  if (request->hasParam("kyiv_district_mode", true)) {
-    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
-      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
-      preferences.putInt("kdm", settings.kyiv_district_mode);
-      Serial.println("kyiv_district_mode commited to preferences");
-    }
-  }
+  // this part saves values to prefs individually, and begins and ends prefs sessions each time
   if (request->hasParam("map_mode", true)) {
     if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
       int newMapMode = request->getParam("map_mode", true)->value().toInt();
@@ -2687,6 +2680,15 @@ void handleSaveModes (AsyncWebServerRequest* request) {
       saveDisplayMode(newDisplayMode);
     }
   }
+  if (request->hasParam("home_district", true)) {
+    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
+      settings.home_district = request->getParam("home_district", true)->value().toInt();
+      saveHomeDistrict();
+    }
+  }
+
+  // this part saves values to prefs directlly here, so we have one prefs session for this
+  preferences.begin("storage", false);
   if (request->hasParam("display_mode_time", true)) {
     if (request->getParam("display_mode_time", true)->value().toInt() != settings.display_mode_time) {
       settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
@@ -2701,10 +2703,11 @@ void handleSaveModes (AsyncWebServerRequest* request) {
       Serial.println("button_mode commited to preferences");
     }
   }
-  if (request->hasParam("home_district", true)) {
-    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
-      settings.home_district = request->getParam("home_district", true)->value().toInt();
-      saveHomeDistrict();
+  if (request->hasParam("kyiv_district_mode", true)) {
+    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
+      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
+      preferences.putInt("kdm", settings.kyiv_district_mode);
+      Serial.println("kyiv_district_mode commited to preferences");
     }
   }
   if (request->hasParam("home_alert_time", true)) {
