@@ -1285,6 +1285,8 @@ void saveHaLightBrightness(int newBrightness) {
 }
 
 void saveHaLightRgb(HALight::RGBColor newRgb) {
+  if (settings.ha_light_r == newRgb.red && settings.ha_light_g == newRgb.green && settings.ha_light_b != newRgb.blue) return;
+  
   preferences.begin("storage", false);
   if (settings.ha_light_r != newRgb.red) {
     settings.ha_light_r = newRgb.red;
@@ -1349,7 +1351,9 @@ void saveDisplayMode(int newDisplayMode) {
 }
 //--Button end
 
-void saveHomeDistrict() {
+void saveHomeDistrict(int newHomeDistrict) {
+  if (newHomeDistrict == settings.home_district) return;
+  settings.home_district = newHomeDistrict;
   Serial.print("home_district changed to: ");
   Serial.println(settings.home_district);
   preferences.begin("storage", false);
@@ -2682,8 +2686,8 @@ void handleSaveModes (AsyncWebServerRequest* request) {
   }
   if (request->hasParam("home_district", true)) {
     if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
-      settings.home_district = request->getParam("home_district", true)->value().toInt();
-      saveHomeDistrict();
+      int newHomeDistrict = request->getParam("home_district", true)->value().toInt();
+      saveHomeDistrict(newHomeDistrict);
     }
   }
 
