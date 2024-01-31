@@ -25,11 +25,15 @@ runs:
         sketch-paths: |
           - ${{ github.workspace }}/src/firmware
         fqbn: esp32:esp32:esp32
+        platforms: |
+          - name: esp32:esp32
+            source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+            version: 2.0.14
         libraries: |
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
-            destination-name: ESP_Async_WebServer
+          - name: ESP Async WebServer
+            version: 2.6.0
           - name: Adafruit SSD1306
             version: 2.5.7
           - name: home-assistant-integration
