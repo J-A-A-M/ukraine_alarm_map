@@ -16,7 +16,7 @@
 #include <esp_system.h>
 #include <ArduinoWebsockets.h>
 
-String VERSION = "3.4";
+String VERSION = "3.5";
 
 struct Settings {
   String        apssid                 = "JAAM";
