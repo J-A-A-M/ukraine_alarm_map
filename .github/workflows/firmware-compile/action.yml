@@ -34,7 +34,7 @@ runs:
           - name: ESP Async WebServer
             version: 2.6.0
           - name: Adafruit SSD1306
-            version: 2.5.7
+            version: 2.5.9
           - name: home-assistant-integration
             version: 2.0.0
           - name: NeoPixelBus by Makuna
