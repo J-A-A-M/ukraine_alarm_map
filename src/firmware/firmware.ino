@@ -651,7 +651,7 @@ void displayMessage(String message, int messageTextSize, String title = "") {
     display.setCursor(0, 0);
     display.setTextSize(1);
     display.println(utf8cyr(title));
-    bound = 7;
+    bound = 4 + messageTextSize;
   }
   displayCenter(message, bound, messageTextSize);
 }
@@ -1393,6 +1393,14 @@ int getTextSizeToFitDisplay(String text) {
   display.setTextWrap(false);
   String utf8Text = utf8cyr(text);
   display.setCursor(0, 0);
+  display.setTextSize(4);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  if (settings.display_height > 32 && display.width() >= textWidth) {
+    display.setTextWrap(true);
+    return 4;
+  }
+
   display.setTextSize(3);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
 
