@@ -145,7 +145,7 @@ async def alarm_data(mc):
 
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
-        raise
+        await asyncio.sleep(alert_loop_time)
 
 
 async def main():

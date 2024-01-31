@@ -4,6 +4,7 @@ import asyncio
 import logging
 from aiomcache import Client
 import cairosvg
+import random
 
 from datetime import datetime, timezone
 
@@ -49,6 +50,12 @@ regions = [
     "CHERNIVETSKA",
     "KIYEW"
 ]
+
+legacy_flag_leds = [
+  60, 60, 60, 180, 180, 180, 180, 180, 180,
+  180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
+  180, 180, 60, 60, 60, 60, 180
+];
 
 
 class SharedData:
@@ -108,7 +115,47 @@ async def svg_generator(mc, shared_data):
             shared_data.data = cached_data
     except Exception as e:
         logging.error(f"Request failed with status code: {e}")
-        raise
+        raise''
+
+
+async def generate_flag():
+    flag_svg_data = {}
+    for index, color in enumerate(legacy_flag_leds):
+        match color:
+            case 180:
+                flag_svg_data[regions[index]] = '005bbb'
+            case 60:
+                flag_svg_data[regions[index]] = 'ffd500'
+    file_path = os.path.join(shared_path, 'flag_map.png')
+    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    await asyncio.sleep(loop_time)
+
+
+async def generate_off():
+    flag_svg_data = {}
+    for index, color in enumerate(legacy_flag_leds):
+        flag_svg_data[regions[index]] = '808080'
+    file_path = os.path.join(shared_path, 'off_map.png')
+    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    await asyncio.sleep(loop_time)
+
+
+async def generate_lamp():
+    flag_svg_data = {}
+    for index, color in enumerate(legacy_flag_leds):
+        flag_svg_data[regions[index]] = 'F4E98C'
+    file_path = os.path.join(shared_path, 'lamp_map.png')
+    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    await asyncio.sleep(loop_time)
+
+
+async def generate_random():
+    flag_svg_data = {}
+    for index, color in enumerate(legacy_flag_leds):
+        flag_svg_data[regions[index]] = calculate_html_color_from_hsb(random.randint(-10, 30))
+    file_path = os.path.join(shared_path, 'random_map.png')
+    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    await asyncio.sleep(loop_time)
 
 
 def calculate_html_color_from_hsb(temp):

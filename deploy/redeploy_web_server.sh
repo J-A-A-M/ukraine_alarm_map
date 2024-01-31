@@ -45,7 +45,7 @@ cd web_server
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_async_web_server -f Dockerfile .
+docker build -t map_web_server -f Dockerfile .
 
 # Make shared data folder
 cd ../
@@ -53,12 +53,12 @@ mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_async_web_server || true
-docker rm map_async_web_server || true
+docker stop map_web_server || true
+docker rm map_web_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_async_web_server --restart unless-stopped -d -p "$PORT":8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_async_web_server
+docker run --name map_web_server --restart unless-stopped -d -p "$PORT":8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_web_server
 
 echo "Container deployed successfully!"
 

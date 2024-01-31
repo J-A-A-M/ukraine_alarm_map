@@ -97,7 +97,7 @@ async def weather_data(mc):
         await asyncio.sleep(weather_loop_time)
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
-        raise
+        await asyncio.sleep(weather_loop_time)
 
 
 async def main():

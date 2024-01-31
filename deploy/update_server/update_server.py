@@ -1,6 +1,10 @@
 import os
 import uvicorn
 import logging
+import json
+import asyncio
+
+from aiomcache import Client
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
@@ -57,11 +61,19 @@ async def update(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
+async def update_cache():
+    mc = Client(memcached_host, 11211)
+    filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
+    await mc.set(b"bins", json.dumps(filenames).encode('utf-8'))
+
+
 app = Starlette(debug=debug, exception_handlers=exception_handlers, routes=[
     Route('/', main),
     Route('/list', list),
     Route('/{filename}.bin', update),
 ])
 
+
 if __name__ == "__main__":
+    asyncio.run(update_cache())
     uvicorn.run(app, host="0.0.0.0", port=8080)

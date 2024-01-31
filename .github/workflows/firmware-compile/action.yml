@@ -18,20 +18,23 @@ runs:
       run: |
         unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
         unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-master.zip -d ${{ github.workspace }}/libs/
     - name: Compile firmware
       uses: arduino/compile-sketches@v1
       with:
         sketch-paths: |
           - ${{ github.workspace }}/src/firmware
         fqbn: esp32:esp32:esp32
+        platforms: |
+          - name: esp32:esp32
+            source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+            version: 2.0.14
         libraries: |
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-master
-            destination-name: ESP_Async_WebServer
+          - name: ESP Async WebServer
+            version: 2.6.0
           - name: Adafruit SSD1306
-            version: 2.5.7
+            version: 2.5.9
           - name: home-assistant-integration
             version: 2.0.0
           - name: NeoPixelBus by Makuna
@@ -44,6 +47,8 @@ runs:
             version: 1.1.4
           - name: ArduinoJson
             version: 7.0.2
+          - name: ArduinoWebsockets
+            version: 0.5.3
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
         enable-deltas-report: ${{ inputs.enable-deltas-report }}
         sketches-report-path: ${{ inputs.sketches-report-path }}

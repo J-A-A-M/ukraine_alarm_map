@@ -1,6 +1,5 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
-#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <async.h>
@@ -9,17 +8,18 @@
 #include <NTPClient.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
-#include <Wire.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 #include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
 #include <esp_system.h>
+#include <ArduinoWebsockets.h>
 
 String VERSION = "3.4";
 
 struct Settings {
-  char*         apssid                 = "JAAM";
+  String        apssid                 = "JAAM";
   const char*   softwareversion        = VERSION.c_str();
   int           pixelcount             = 26;
   int           buttontime             = 100;
@@ -34,13 +34,14 @@ struct Settings {
   String  devicedescription      = "Alarm Map Informer";
   String  broadcastname          = "alarmmap";
   String  serverhost             = "alerts.net.ua";
-  int     tcpport                = 12345;
+  int     websocket_port         = 38440;
   int     updateport             = 8090;
   String  bin_name               = VERSION + ".bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
+  int     alertpin               = 34;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -67,19 +68,26 @@ struct Settings {
   int     service_diodes_mode    = 0;
   int     sdm_auto               = 0;
   int     new_fw_notification    = 1;
+  int     ha_light_brightness    = 50;
+  int     ha_light_r             = 215;
+  int     ha_light_g             = 7;
+  int     ha_light_b             = 255;
+
 
   // ------- Map Modes:
   // -------  0 - Off
   // -------  1 - Alarms
   // -------  2 - Weather
   // -------  3 - UA Flag
+  // -------  4 - Random colors
+  // -------  5 - Lamp
   int     map_mode               = 1;
 
   // ------- Display Modes:
   // -------  0 - Off
   // -------  1 - Clock
   // -------  2 - Home District Temperature
-  // -------  3 - Random colors
+  // -------  3 - Tech info
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -89,6 +97,9 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
+  int     ws_alert_time          = 120000;
+  int     min_of_silence         = 1;
+  int     enable_pin_on_alert    = 0;
   // ------- web config end
 };
 
@@ -103,17 +114,28 @@ struct Firmware {
 Firmware currentFirmware;
 Firmware latestFirmware;
 
+using namespace websockets;
+
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
-WiFiClient        client_tcp;
-WiFiClient        client_update;
+WebsocketsClient  client_websocket;
 WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP, "ua.pool.ntp.org");
+NTPClient         timeClient(ntpUDP); // using default time server - pool.ntp.org
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+
+struct ServiceMessage {
+  String title;
+  String message;
+  int textSize;
+  long endTime;
+  bool expired;
+};
+
+ServiceMessage serviceMessage;
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
@@ -162,9 +184,9 @@ int d25[] = { 25, 6, 7, 8, 19, 20, 22 };
 
 int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 7 };
 
-String districts[] = {
+std::vector<String> districts = {
   "Закарпатська обл.",
-  "Івано-Франківська обл.",
+  "Ів.-Франківська обл.",
   "Тернопільська обл.",
   "Львівська обл.",
   "Волинська обл.",
@@ -191,7 +213,7 @@ String districts[] = {
   "Київ"
 };
 
-String districtsAlphabetical[] = {
+std::vector<String> districtsAlphabetical = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -359,23 +381,28 @@ const unsigned char trident_small[] PROGMEM = {
 
 bool    enableHA;
 bool    wifiReconnect = false;
-bool    tcpReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 bool    isPressed = true;
 long    buttonPressStart = 0;
-time_t  tcpLastPingTime = 0;
+time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
 int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
+int     rssi;
+bool    apiConnected;
+bool    haConnected;
+int     prevMapMode = 1;
+bool    alarmNow = false;
+bool    minuteOfSilence = false;
 
 std::vector<String> bin_list;
 
 HADevice        device;
-HAMqtt          mqtt(client, device, 16);
+HAMqtt          mqtt(client, device, 19);
 
 uint64_t chipid = ESP.getEfuseMac();
 String chipID1 = String((uint32_t)(chipid >> 32), HEX);
@@ -396,45 +423,50 @@ String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
 String haRebootString             = chipID1 + chipID2 + "_reboot";
 String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
 String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
+String haToggleMapModeString      = chipID1 + chipID2 + "_toggle_map_mode";
+String haToggleDisplayModeString  = chipID1 + chipID2 + "_toggle_display_mode";
+String haLightString              = chipID1 + chipID2 + "_light";
 
-const char* haUptimeChar              = haUptimeString.c_str();
-const char* haWifiSignalChar          = haWifiSignalString.c_str();
-const char* haFreeMemoryChar          = haFreeMemoryString.c_str();
-const char* haUsedMemoryChar          = haUsedMemoryString.c_str();
-const char* haBrightnessChar          = haBrightnessString.c_str();
-const char* haMapModeChar             = haMapModeString.c_str();
-const char* haDisplayModeChar         = haDisplayModeString.c_str();
-const char* haMapModeCurrentChar      = haMapModeCurrentString.c_str();
-const char* haMapApiConnectChar       = haMapApiConnectString.c_str();
-const char* haBrightnessAutoChar      = haBrightnessAutoString.c_str();
-const char* haAlarmsAutoChar          = haAlarmsAutoString.c_str();
-const char* haShowHomeAlarmTimeChar   = haShowHomeAlarmTimeString.c_str();
-const char* haRebootChar              = haRebootString.c_str();
-const char* haCpuTempChar             = haCpuTempString.c_str();
-const char* haHomeDistrictChar        = haHomeDistrictString.c_str();
+HASensorNumber  haUptime(haUptimeString.c_str());
+HASensorNumber  haWifiSignal(haWifiSignalString.c_str());
+HASensorNumber  haFreeMemory(haFreeMemoryString.c_str());
+HASensorNumber  haUsedMemory(haUsedMemoryString.c_str());
+HANumber        haBrightness(haBrightnessString.c_str());
+HASelect        haMapMode(haMapModeString.c_str());
+HASelect        haDisplayMode(haDisplayModeString.c_str());
+HASelect        haAlarmsAuto(haAlarmsAutoString.c_str());
+HASensor        haMapModeCurrent(haMapModeCurrentString.c_str());
+HABinarySensor  haMapApiConnect(haMapApiConnectString.c_str());
+HASwitch        haBrightnessAuto(haBrightnessAutoString.c_str());
+HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeString.c_str());
+HAButton        haReboot(haRebootString.c_str());
+HAButton        haToggleMapMode(haToggleMapModeString.c_str());
+HAButton        haToggleDisplayMode(haToggleDisplayModeString.c_str());
+HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
+HASensor        haHomeDistrict(haHomeDistrictString.c_str());
+HALight         haLight(haLightString.c_str(), HALight::BrightnessFeature | HALight::RGBFeature);
 
-HASensorNumber  haUptime(haUptimeChar);
-HASensorNumber  haWifiSignal(haWifiSignalChar);
-HASensorNumber  haFreeMemory(haFreeMemoryChar);
-HASensorNumber  haUsedMemory(haUsedMemoryChar);
-HANumber        haBrightness(haBrightnessChar);
-HASelect        haMapMode(haMapModeChar);
-HASelect        haDisplayMode(haDisplayModeChar);
-HASelect        haAlarmsAuto(haAlarmsAutoChar);
-HASensor        haMapModeCurrent(haMapModeCurrentChar);
-HABinarySensor  haMapApiConnect(haMapApiConnectChar);
-HASwitch        haBrightnessAuto(haBrightnessAutoChar);
-HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeChar);
-HAButton        haReboot(haRebootChar);
-HASensorNumber  haCpuTemp(haCpuTempChar, HASensorNumber::PrecisionP1);
-HASensor        haHomeDistrict(haHomeDistrictChar);
-
-char* mapModes [] = {
+std::vector<String> mapModes = {
   "Вимкнено",
-  "Tpивoгa",
+  "Тривога",
   "Погода",
   "Прапор",
-  "Випадкові кольори"
+  "Випадкові кольори",
+  "Лампа"
+};
+
+std::vector<String> displayModes = {
+  "Вимкнено",
+  "Годинник",
+  "Погода",
+  "Технічна інформація",
+  "Перемикання"
+};
+
+std::vector<String> autoAlarms = {
+  "Вимкнено",
+  "Домашній та суміжні",
+  "Лише домашній"
 };
 
 //--Init start
@@ -454,7 +486,7 @@ void initLegacy() {
     pinMode(settings.wifipin, OUTPUT);
     pinMode(settings.datapin, OUTPUT);
     pinMode(settings.hapin, OUTPUT);
-    pinMode(settings.reservedpin, OUTPUT);
+    //pinMode(settings.reservedpin, OUTPUT);
 
     servicePin(settings.powerpin, HIGH, false);
 
@@ -483,9 +515,8 @@ void initSettings() {
   settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
   settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
   settings.serverhost             = preferences.getString("host", settings.serverhost);
-  settings.bin_name               = preferences.getString("bin", settings.bin_name);
   settings.identifier             = preferences.getString("id", settings.identifier);
-  settings.tcpport                = preferences.getInt("tcpport", settings.tcpport);
+  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
@@ -522,18 +553,30 @@ void initSettings() {
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
+  settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
+  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
+  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
+  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
+  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
+  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
+  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
+
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
-  Serial.print(currentFirmware.major);
-  Serial.print(".");
-  Serial.print(currentFirmware.minor);
-  Serial.print(".");
-  Serial.println(currentFirmware.patch);
+  Serial.println((String) "Current firmware version: " + currentFirmware.major + "." + currentFirmware.minor + "." + currentFirmware.patch);
+}
+
+void InitAlertPin() {
+  if (settings.enable_pin_on_alert) {
+    Serial.print("alertpin: ");
+    Serial.println(settings.alertpin);
+    pinMode(settings.alertpin, OUTPUT);
+  }
 }
 
 void initStrip() {
@@ -549,11 +592,18 @@ void initTime() {
   Serial.println("Init time");
   timeClient.begin();
   timezoneUpdate();
-  tcpLastPingTime = millis();
+  websocketLastPingTime = millis();
 }
 
 void timezoneUpdate() {
-  timeClient.update();
+  int count = 1;
+  while (!timeClient.isTimeSet() && count <= 7) {
+    Serial.println("Time not set. Force update " + String(count));
+    timeClient.forceUpdate();
+    count++;
+    delay(1000);
+  }
+  Serial.println("Timezone update");
 
   time_t rawTime = timeClient.getEpochTime();
   struct tm* timeInfo;
@@ -566,18 +616,7 @@ void timezoneUpdate() {
   int minutes = timeInfo->tm_min;
   int seconds = timeInfo->tm_sec;
 
-  Serial.print("Current date and time: ");
-  Serial.print(year);
-  Serial.print("-");
-  Serial.print(month);
-  Serial.print("-");
-  Serial.print(day);
-  Serial.print(" ");
-  Serial.print(hour);
-  Serial.print(":");
-  Serial.print(minutes);
-  Serial.print(":");
-  Serial.println(seconds);
+  Serial.println((String) "Current date and time: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes + ":" + seconds);
 
   if ((month > 3 && month < 10) ||
       (month == 3 && day > getLastSunday(year,3)) ||
@@ -586,8 +625,7 @@ void timezoneUpdate() {
       (month == 10 && day == getLastSunday(year,10) and hour <3)) {
     isDaylightSaving = true;
   }
-  Serial.print("isDaylightSaving: ");
-  Serial.println(isDaylightSaving);
+  Serial.println((String) "isDaylightSaving: " + isDaylightSaving);
   if (isDaylightSaving) {
     timeOffset = 10800;
   } else {
@@ -606,6 +644,18 @@ int getLastSunday(int year, int month) {
   return 0;
 }
 
+void displayMessage(String message, int messageTextSize, String title = "") {
+  display.clearDisplay();
+  int bound = 0;
+  if (title.length() > 0) {
+    display.setCursor(0, 0);
+    display.setTextSize(1);
+    display.println(utf8cyr(title));
+    bound = 4 + messageTextSize;
+  }
+  displayCenter(message, bound, messageTextSize);
+}
+
 void initWifi() {
   Serial.println("Init Wifi");
   WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
@@ -618,62 +668,117 @@ void initWifi() {
   wm.setConnectTimeout(3);
   wm.setConnectRetries(10);
   wm.setAPCallback(apCallback);
+  wm.setSaveConfigCallback(saveConfigCallback);
   servicePin(settings.wifipin, LOW, false);
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.println(utf8cyr("Підключення до:"));
-  DisplayCenter(utf8cyr(wm.getWiFiSSID(true)), 3, 1);
-  String apssid = "";
-  apssid += settings.apssid;
-  apssid += "_";
-  apssid += chipID1;
-  apssid += chipID2;
-  if (wm.autoConnect(apssid.c_str())) {
-    Serial.println("connected...yeey :)");
-    servicePin(settings.wifipin, HIGH, false);
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.setTextSize(1);
-    display.println(utf8cyr("IP-адреса мапи:"));
-    DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
-    wm.setHttpPort(8080);
-    wm.startWebPortal();
-    delay(5000);
-    setupRouting();
-    initHA();
-    ArduinoOTA.begin();
-    initBroadcast();
-    tcpConnect();
-    doFetchBinList();
-  } else {
+  showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
+  String apssid = settings.apssid + "_" + chipID1 + chipID2;
+  if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пepeзaвaнтaжeння"), 0, 1);
+    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
     delay(5000);
     ESP.restart();
+    return;
   }
+  // Connected to WiFi
+  Serial.println("connected...yeey :)");
+  servicePin(settings.wifipin, HIGH, false);
+  showServiceMessage("Підключено до WiFi!");
+  wm.setHttpPort(8080);
+  wm.startWebPortal();
+  delay(5000);
+  setupRouting();
+  initHA();
+  initUpdates();
+  initBroadcast();
+  socketConnect();
+  showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
 
 void apCallback(WiFiManager* wifiManager) {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.println(utf8cyr("Підключіться до WiFi:"));
-  DisplayCenter(utf8cyr(wifiManager->getConfigPortalSSID()), 3, 1);
+  String title = "Підключіться до WiFi:";
+  String message = wifiManager->getConfigPortalSSID();
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
   WiFi.onEvent(wifiEvents);
+}
+
+void saveConfigCallback() {
+  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
+  delay(2000);
+  showServiceMessage("Перезавантаження..", 1000);
+  delay(1000);
+  ESP.restart();
 }
 
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.setTextSize(1);
-      display.println(utf8cyr("Введіть у браузері:"));
-      DisplayCenter(utf8cyr(WiFi.softAPIP().toString()), 3, 1);
+      displayMessage(WiFi.softAPIP().toString(), getTextSizeToFitDisplay(WiFi.softAPIP().toString()), "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
+      break;
     default:
+      break;
+  }
+}
+
+void initUpdates() {
+  ArduinoOTA.onStart(showUpdateStart);
+  ArduinoOTA.onEnd(showUpdateEnd);
+  ArduinoOTA.onProgress(showUpdateProgress);
+  ArduinoOTA.onError(showOtaUpdateErrorMessage);
+  ArduinoOTA.begin();
+  Update.onProgress(showUpdateProgress);
+  httpUpdate.onStart(showUpdateStart);
+  httpUpdate.onEnd(showUpdateEnd);
+  httpUpdate.onProgress(showUpdateProgress);
+  httpUpdate.onError(showHttpUpdateErrorMessage);
+}
+
+void showUpdateProgress(size_t progress, size_t total) {
+  String progressText = String(progress / (total / 100)) + "%";
+  Serial.println(progressText);
+  showServiceMessage(progressText, "Оновлення:");
+}
+
+void showUpdateStart() {
+  showServiceMessage("Починаємо!", "Оновлення:");
+  delay(1000);
+}
+
+void showUpdateEnd() {
+  showServiceMessage("Перезавантаження..", "Оновлення:");
+  delay(1000);
+}
+
+void showOtaUpdateErrorMessage(ota_error_t error) {
+  switch (error) {
+    case OTA_AUTH_ERROR:
+      showServiceMessage("Авторизація", "Помилка оновлення:", 5000);
+      break;
+    case OTA_CONNECT_ERROR:
+      showServiceMessage("Збій підключення", "Помилка оновлення:", 5000);
+      break;
+    case OTA_RECEIVE_ERROR:
+      showServiceMessage("Збій отримання", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
+      break;
+  }
+}
+
+void showHttpUpdateErrorMessage(int error) {
+  switch (error) {
+    case HTTP_UE_TOO_LESS_SPACE:
+      showServiceMessage("Замало місця", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_SERVER_NOT_REPORT_SIZE:
+      showServiceMessage("Невідомий розмір файлу", "Помилка оновлення:", 5000);
+      break;
+    case HTTP_UE_BIN_FOR_WRONG_FLASH:
+      showServiceMessage("Неправильний тип пам'яті", "Помилка оновлення:", 5000);
+      break;
+    default:
+      showServiceMessage("Щось пішло не так", "Помилка оновлення:", 5000);
       break;
   }
 }
@@ -683,8 +788,7 @@ void initBroadcast() {
 
   if (!MDNS.begin(settings.broadcastname)) {
     Serial.println("Error setting up mDNS responder");
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Помилка mDNS"), 0, 1);
+    showServiceMessage("Помилка mDNS");
     while (1) {
       delay(1000);
     }
@@ -752,19 +856,19 @@ void initHA() {
       haBrightness.setName("Brightness");
       haBrightness.setCurrentState(settings.brightness);
 
-      haMapMode.setOptions("Вимкнено;Тривога;Погода;Прапор;Випадкові кольори");
+      haMapMode.setOptions(getHaOptions(mapModes).c_str());
       haMapMode.onCommand(onHaMapModeCommand);
       haMapMode.setIcon("mdi:map");
       haMapMode.setName("Map Mode");
       haMapMode.setCurrentState(settings.map_mode);
 
-      haDisplayMode.setOptions("Вимкнено;Час;Погода;Перемикання");
+      haDisplayMode.setOptions(getHaOptions(displayModes).c_str());
       haDisplayMode.onCommand(onHaDisplayModeCommand);
       haDisplayMode.setIcon("mdi:clock-digital");
       haDisplayMode.setName("Display Mode");
       haDisplayMode.setCurrentState(getHaDisplayMode(settings.display_mode));
 
-      haAlarmsAuto.setOptions("Вимкнено;Домашній та суміжні;Лише домашній");
+      haAlarmsAuto.setOptions(getHaOptions(autoAlarms).c_str());
       haAlarmsAuto.onCommand(onhaAlarmsAutoCommand);
       haAlarmsAuto.setIcon("mdi:alert-outline");
       haAlarmsAuto.setName("Auto Alarm");
@@ -787,9 +891,17 @@ void initHA() {
       haShowHomeAlarmTime.setName("Show Home Alert Time");
       haShowHomeAlarmTime.setCurrentState(settings.home_alert_time);
 
-      haReboot.onCommand(onHaRebootCommand);
+      haReboot.onCommand(onHaButtonClicked);
       haReboot.setName("Reboot");
       haReboot.setDeviceClass("restart");
+
+      haToggleMapMode.onCommand(onHaButtonClicked);
+      haToggleMapMode.setName("Toggle Map Mode");
+      haToggleMapMode.setIcon("mdi:map-plus");
+
+      haToggleDisplayMode.onCommand(onHaButtonClicked);
+      haToggleDisplayMode.setName("Toggle Display Mode");
+      haToggleDisplayMode.setIcon("mdi:card-plus");
 
       haCpuTemp.setIcon("mdi:chip");
       haCpuTemp.setName("CPU Temperature");
@@ -800,6 +912,16 @@ void initHA() {
       haHomeDistrict.setIcon("mdi:home-map-marker");
       haHomeDistrict.setName("Home District");
 
+      haLight.setIcon("mdi:led-strip-variant");
+      haLight.setName("Lamp");
+      haLight.setBrightnessScale(100);
+      haLight.setCurrentState(settings.map_mode == 5);
+      haLight.setCurrentBrightness(settings.ha_light_brightness);
+      haLight.setCurrentRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
+      haLight.onStateCommand(onHaLightState);
+      haLight.onBrightnessCommand(onHaLightBrightness);
+      haLight.onRGBColorCommand(onHaLightRGBColor);
+
       device.enableLastWill();
       mqtt.onConnected(mqttConnected);
       mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
@@ -809,15 +931,48 @@ void initHA() {
 
 void mqttConnected() {
   Serial.println("Home Assistant MQTT connected!");
+  haConnected = true;
+  servicePin(settings.hapin, HIGH, false);
   if (enableHA) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
   }
 }
 
-void onHaRebootCommand(HAButton* sender) {
-  ESP.restart();
+String getHaOptions(std::vector<String> list) {
+  String result;
+  for (String option : list) {
+    if (list[0] != option) {
+      result += ";";
+    }
+    result += option;
+  }
+  return result;
+}
+
+void onHaLightState(bool state, HALight* sender) {
+  if (settings.map_mode == 5 && state) return;
+  int newMapMode = state ? 5 : prevMapMode;
+  saveMapMode(newMapMode);
+}
+
+void onHaLightBrightness(uint8_t brightness, HALight* sender) {
+  saveHaLightBrightness(brightness);
+}
+
+void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
+  saveHaLightRgb(rgb);
+}
+
+void onHaButtonClicked(HAButton* sender) {
+  if (sender == &haReboot) {
+    ESP.restart();
+  } else if (sender == &haToggleMapMode) {
+    mapModeSwitch();
+  } else if (sender == &haToggleDisplayMode) {
+    displayModeSwitch();
+  }
 }
 
 void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
@@ -861,19 +1016,7 @@ void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender) {
 }
 
 void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.alarms_auto_switch = 0;
-      break;
-    case 1:
-      settings.alarms_auto_switch = 1;
-      break;
-    case 2:
-      settings.alarms_auto_switch = 2;
-      break;
-    default:
-      return;
-  }
+  settings.alarms_auto_switch = index;
   preferences.begin("storage", false);
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
@@ -883,55 +1026,12 @@ void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaMapModeCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.map_mode = 0;
-      break;
-    case 1:
-      settings.map_mode = 1;
-      break;
-    case 2:
-      settings.map_mode = 2;
-      break;
-    case 3:
-      settings.map_mode = 3;
-      break;
-    case 4:
-      settings.map_mode = 4;
-      break;
-    default:
-      return;
-  }
-  preferences.begin("storage", false);
-  preferences.putInt("mapmode", settings.map_mode);
-  preferences.end();
-  Serial.println("map_mode commited to preferences");
-  haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-  sender->setState(index);
+  saveMapMode(index);
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  switch (index) {
-    case 0:
-      settings.display_mode = 0;
-      break;
-    case 1:
-      settings.display_mode = 1;
-      break;
-    case 2:
-      settings.display_mode = 2;
-      break;
-    case 3:
-      settings.display_mode = 9;
-      break;
-    default:
-      return;
-  }
-  preferences.begin("storage", false);
-  preferences.putInt("dm", settings.display_mode);
-  preferences.end();
-  Serial.println("display_mode commited to preferences");
-  sender->setState(index);
+  int newDisplayMode = getRealDisplayMode(index);
+  saveDisplayMode(newDisplayMode);
 }
 
 int getHaDisplayMode(int displayMode) {
@@ -941,9 +1041,28 @@ int getHaDisplayMode(int displayMode) {
     case 1:
       // passthrough
     case 2:
+      // passthrough
+    case 3:
       return displayMode;
     case 9:
-      return 3;
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+int getRealDisplayMode(int displayMode) {
+  switch (displayMode) {
+    case 0:
+      // passthrough
+    case 1:
+      // passthrough
+    case 2:
+      // passthrough
+    case 3:
+      return displayMode;
+    case 4:
+      return 9;
     default:
       return 0;
   }
@@ -979,44 +1098,6 @@ void initDisplay() {
 //--Init end
 
 //--Update
-
-std::vector<String> fetchAndParseJSON() {
-  Serial.println("Start fetching bin list");
-  String jsonURLString = "http://" + settings.serverhost + ":" + settings.updateport + "/list";
-  Serial.println(jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
-  int httpCode = http.GET();
-  std::vector<String> tempFilenames;
-
-  if (httpCode > 0) {
-    String payload = http.getString();
-    JsonDocument doc;
-    deserializeJson(doc, payload);
-
-    JsonArray arr = doc.as<JsonArray>();
-    for (String filename : arr) {
-      tempFilenames.push_back(filename);
-    }
-    Serial.println("Bin list fetched");
-  } else {
-    Serial.println("Error on HTTP request");
-  }
-
-  http.end();
-  for (String& filename : tempFilenames) {
-    Serial.println(filename);
-  }
-  return tempFilenames;
-}
-
-void doFetchBinList() {
-  Serial.println("DoFetchBinList");
-  bin_list = fetchAndParseJSON();
-  saveLatestFirmware();
-  fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
-}
-
 void saveLatestFirmware() {
   Firmware firmware;
   for (String& filename : bin_list) {
@@ -1046,42 +1127,27 @@ bool firstIsNewer(Firmware first, Firmware second) {
   return false;
 }
 
+JsonDocument parseJson(String payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.println("Deserialization error: ");
+    Serial.println(error.f_str());
+    return doc;
+  } else {
+    return doc;
+  }
+}
+
 // Home District Json Parsing
 void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
   if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
   lastHomeDistrictSync = timeClient.getEpochTime();
-
-  String jsonURLString = "http://" + settings.serverhost + "/map/region/v1/" + settings.home_district;
-  Serial.println("Http request to: " + jsonURLString);
-  const char* jsonURL = jsonURLString.c_str();
-  http.begin(jsonURL);
-  int httpCode = http.GET();
-
-  if (httpCode == 200) {
-    String payload = http.getString();
-    Serial.println("Http Success, payload: " + payload);
-
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-      Serial.println("Deserialization error: ");
-      Serial.println(error.f_str());
-      return;
-    }
-    Serial.println("Json parsed!");
-    bool alertNow = doc["data"]["alertnow"];
-    Serial.println(alertNow);
-    if (alertNow) {
-      homeAlertStart = doc["data"]["changed"];
-      Serial.println(homeAlertStart);
-    } else {
-      homeAlertStart = 0;
-    }
-  } else {
-    Serial.println("Error on HTTP request:" + httpCode);
-  }
+  String combinedString = "district:" + String(settings.home_district);
+  Serial.println(combinedString.c_str());
+  client_websocket.send(combinedString.c_str());
 }
 
 void doUpdate() {
@@ -1094,40 +1160,20 @@ void doUpdate() {
 void downloadAndUpdateFw(String binFileName) {
   String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + binFileName + "";
   const char* firmwareUrl = firmwareUrlString.c_str();
-  http.begin(firmwareUrl);
   Serial.println(firmwareUrl);
-  int httpCode = http.GET();
-  display.clearDisplay();
-  DisplayCenter(utf8cyr("Оновлення.."), 0, 1);
-  if (httpCode == 200) {
-    int contentLength = http.getSize();
-    bool canBegin = Update.begin(contentLength);
-    if (canBegin) {
-      size_t written = Update.writeStream(http.getStream());
-      if (written == contentLength) {
-        Serial.println("Written : " + String(written) + " successfully");
-      } else {
-        Serial.println("Written only : " + String(written) + "/" + String(contentLength) + "");
-      }
-      if (Update.end()) {
-        Serial.println("OTA done!");
-        if (Update.isFinished()) {
-          Serial.println("Update successfully completed. Rebooting.");
-          ESP.restart();
-        } else {
-          Serial.println("Update not finished? Something went wrong!");
-        }
-      } else {
-        Serial.println("Error Occurred. Error #: " + String(Update.getError()));
-      }
-    } else {
-      Serial.println("Not enough space to begin OTA");
-    }
-  } else {
-    Serial.print("Error on HTTP request: ");
-    Serial.println(httpCode);
+  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
+    case HTTP_UPDATE_OK:
+      Serial.println("Update successfully completed. Rebooting...");
+      ESP.restart();
+      break;
   }
-  http.end();
 }
 //--Update end
 
@@ -1135,7 +1181,7 @@ void downloadAndUpdateFw(String binFileName) {
 void checkServicePins() {
   if (!settings.legacy) {
     if (settings.service_diodes_mode) {
-      Serial.println("Dioded enabled");
+      //Serial.println("Dioded enabled");
       servicePin(settings.powerpin, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(settings.wifipin, LOW, true);
@@ -1147,13 +1193,13 @@ void checkServicePins() {
       } else {
         servicePin(settings.hapin, HIGH, true);
       }
-      if (!client_tcp.connected() or tcpReconnect) {
+      if (!client_websocket.available()) {
         servicePin(settings.datapin, LOW, true);
       } else {
         servicePin(settings.datapin, HIGH, true);
       }
     } else {
-      Serial.println("Dioded disables");
+      //Serial.println("Dioded disables");
       servicePin(settings.powerpin, LOW, true);
       servicePin(settings.wifipin, LOW, true);
       servicePin(settings.hapin, LOW, true);
@@ -1193,70 +1239,185 @@ void buttonUpdate() {
 }
 
 void mapModeSwitch() {
-  settings.map_mode += 1;
-  if (settings.map_mode > 4) {
-    settings.map_mode = 0;
+  int newMapMode = settings.map_mode + 1;
+  if (newMapMode > 5) {
+    newMapMode = 0;
   }
-  settings.alarms_auto_switch = 0;
+  saveMapMode(newMapMode);
+}
 
-  Serial.print("map_mode: ");
+void saveMapMode(int newMapMode) {
+  if (newMapMode == settings.map_mode) return;
+
+  if (newMapMode == 5) {
+    prevMapMode = settings.map_mode;
+  }
+  settings.map_mode = newMapMode;
+  Serial.print("map_mode changed to: ");
   Serial.println(settings.map_mode);
   preferences.begin("storage", false);
   preferences.putInt("mapmode", settings.map_mode);
-  preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
+  Serial.println("map_mode commited to preferences");
   if (enableHA) {
+    haLight.setState(settings.map_mode == 5);
     haMapMode.setState(settings.map_mode);
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-    haAlarmsAuto.setState(settings.alarms_auto_switch);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
   }
+  showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
-  //touchModeDisplay(utf8cyr("Режим мапи:"), utf8cyr(mapModes[mapModeInit-1]));
+}
+
+void saveHaLightBrightness(int newBrightness) {
+  if (settings.ha_light_brightness == newBrightness) return;
+  settings.ha_light_brightness = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lbri", settings.ha_light_brightness);
+  preferences.end();
+  Serial.println("ha_light_brightness commited to preferences");
+  Serial.print("ha_light_brightness: ");
+  Serial.println(settings.ha_light_brightness);
+  if (enableHA) {
+    haLight.setBrightness(newBrightness);
+  }
+  mapCycle();
+}
+
+void saveHaLightRgb(HALight::RGBColor newRgb) {
+  if (settings.ha_light_r == newRgb.red && settings.ha_light_g == newRgb.green && settings.ha_light_b != newRgb.blue) return;
+  
+  preferences.begin("storage", false);
+  if (settings.ha_light_r != newRgb.red) {
+    settings.ha_light_r = newRgb.red;
+    preferences.putInt("ha_lr", settings.ha_light_r);
+    Serial.println("ha_light_red commited to preferences: " + String(settings.ha_light_r));
+  }
+  if (settings.ha_light_g != newRgb.green) {
+    settings.ha_light_g = newRgb.green;
+    preferences.putInt("ha_lg", settings.ha_light_g);
+    Serial.println("ha_light_green commited to preferences: " + String(settings.ha_light_g));
+  }
+  if (settings.ha_light_b != newRgb.blue) {
+    settings.ha_light_b = newRgb.blue;
+    preferences.putInt("ha_lb", settings.ha_light_b);
+    Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
+  }
+  preferences.end();
+
+  if (enableHA) {
+    haLight.setRGBColor(newRgb);
+  }
+  mapCycle();
 }
 
 void displayModeSwitch() {
+  int newDisplayMode;
   switch (settings.display_mode) {
     case 0:
       // passthrough
     case 1:
-      settings.display_mode += 1;
-      break;
+      // passthrough
     case 2:
-      settings.display_mode = 9;
+      newDisplayMode = settings.display_mode + 1;
+      break;
+    case 3:
+      newDisplayMode = 9;
       break;
     case 9:
-     // passthrough
+      // passthrough
     default:
-      settings.display_mode = 0;
+      newDisplayMode = 0;
       break;
   }
-  Serial.print("display_mode: ");
+  saveDisplayMode(newDisplayMode);
+}
+
+void saveDisplayMode(int newDisplayMode) {
+  if (newDisplayMode == settings.display_mode) return;
+  settings.display_mode = newDisplayMode;
+  Serial.print("display_mode changed to: ");
   Serial.println(settings.display_mode);
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
+  Serial.println("display_mode commited to preferences");
   if (enableHA) {
     haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
   }
+  showServiceMessage(displayModes[getHaDisplayMode(settings.display_mode)], "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
-  //touchModeDisplay(utf8cyr("Режим дисплея:"), utf8cyr(displayModes[displayModeInit-1]));
 }
 //--Button end
 
+void saveHomeDistrict(int newHomeDistrict) {
+  if (newHomeDistrict == settings.home_district) return;
+  settings.home_district = newHomeDistrict;
+  Serial.print("home_district changed to: ");
+  Serial.println(settings.home_district);
+  preferences.begin("storage", false);
+  preferences.putInt("hd", settings.home_district);
+  preferences.end();
+  Serial.println("home_district commited to preferences");
+  if (enableHA) {
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+  }
+  homeAlertStart = 0;
+  parseHomeDistrictJson();
+  showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
+}
+
 //--Display start
-void DisplayCenter(String text, int bound, int text_size) {
+void displayCenter(String text, int bound, int text_size) {
   int16_t x;
   int16_t y;
   uint16_t width;
   uint16_t height;
+  String utf8Text = utf8cyr(text);
   display.setCursor(0, 0);
   display.setTextSize(text_size);
-  display.getTextBounds(text, 0, 0, &x, &y, &width, &height);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
   display.setCursor(((settings.display_width - width) / 2), ((settings.display_height - height) / 2) + bound);
-  display.println(utf8cyr(text));
+  display.println(utf8Text);
   display.display();
+}
+
+int getTextSizeToFitDisplay(String text) {
+  int16_t x;
+  int16_t y;
+  uint16_t textWidth;
+  uint16_t height;
+
+  display.setTextWrap(false);
+  String utf8Text = utf8cyr(text);
+  display.setCursor(0, 0);
+  display.setTextSize(4);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  if (settings.display_height > 32 && display.width() >= textWidth) {
+    display.setTextWrap(true);
+    return 4;
+  }
+
+  display.setTextSize(3);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  if (display.width() >= textWidth) {
+    display.setTextWrap(true);
+    return 3;
+  }
+
+  display.setTextSize(2);
+  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
+
+  display.setTextWrap(true);
+  if (display.width() >= textWidth) {
+    return 2;
+  } else {
+    return 1;
+  }
 }
 
 String utf8cyr(String source) {
@@ -1301,6 +1462,33 @@ String utf8cyr(String source) {
   return target;
 }
 
+void showServiceMessage(String message) {
+  showServiceMessage(message, "");
+}
+
+void showServiceMessage(String message, int duration) {
+  showServiceMessage(message, "", duration);
+}
+
+void showServiceMessage(String message, String title) {
+  showServiceMessage(message, title, 2000);
+}
+
+void showServiceMessage(String message, String title, int duration) {
+  serviceMessage.title = title;
+  serviceMessage.message = message;
+  serviceMessage.textSize = getTextSizeToFitDisplay(message);
+  serviceMessage.endTime = millis() + duration;
+  serviceMessage.expired = false;
+  displayCycle();
+}
+
+void serviceMessageUpdate() {
+  if (!serviceMessage.expired && millis() > serviceMessage.endTime) {
+    serviceMessage.expired = true;
+  }
+}
+
 void displayCycle() {
   // for display chars testing purposes
   // display.clearDisplay();
@@ -1310,6 +1498,24 @@ void displayCycle() {
   // str += (char) startSymbol;
   // DisplayCenter(str, 7, 2);
   // return;
+
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
+
+  // update service message expiration
+  serviceMessageUpdate();
+
+  // Show service message if not expired
+  if (!serviceMessage.expired) {
+    displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  // Show Minute of silence mode if activated
+  if (minuteOfSilence) {
+    displayMinuteOfSilence();
+    return;
+  }
 
   // Show Home Alert Time Info if enabled in settings and we have alert start time
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
@@ -1321,6 +1527,7 @@ void displayCycle() {
     showNewFirmwareNotification();
     return;
   }
+
   displayByMode(settings.display_mode);
 }
 
@@ -1338,6 +1545,9 @@ void displayByMode(int mode) {
     case 2:
       showTemp();
       break;
+    case 3:
+      showTechInfo();
+      break;
     // Display Mode Switching
     case 9:
       displayByMode(calculateCurrentDisplayMode());
@@ -1354,70 +1564,93 @@ void clearDisplay() {
   display.display();
 }
 
+void displayMinuteOfSilence() {
+  int toggleTime = 3;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 3);
+  display.clearDisplay();
+  int16_t centerY = (settings.display_height - 32) / 2;
+  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+  int textSize;
+  String text1;
+  String text2;
+  String text3;
+  int gap = 40;
+  if (remainder < toggleTime) {
+    textSize = 1;
+    text1 = utf8cyr("Шана");
+    text2 = utf8cyr("Полеглим");
+    text3 = utf8cyr("Героям!");
+  } else if (remainder < toggleTime * 2) {
+    textSize = 2;
+    text1 = utf8cyr("Слава");
+    text3 = utf8cyr("Україні!");
+    gap = 32;
+  } else {
+    textSize = 2;
+    text1 = utf8cyr("Смерть");
+    text3 = utf8cyr("ворогам!");
+    gap = 32;
+  }
+  display.setTextSize(textSize);
+
+  int16_t x;
+  int16_t y;
+  uint16_t width;
+  uint16_t height;
+  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+  display.setCursor(gap, ((settings.display_height - height) / 2) - 9);
+  display.print(text1);
+  display.setCursor(gap, ((settings.display_height - height) / 2));
+  display.print(text2);
+  display.setCursor(gap, ((settings.display_height - height) / 2) + 9);
+  display.print(text3);
+  display.display();
+}
+
+void displayServiceMessage(ServiceMessage message) {
+  displayMessage(message.message, message.textSize, message.title);
+}
+
 void showHomeAlertInfo() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
+  String title;
   if (remainder < toggleTime) {
-    display.println(utf8cyr("Тривога триває:"));
+    title = "Тривога триває:";
   } else {
-    display.println(utf8cyr(districts[settings.home_district]));
+    title = districts[settings.home_district];
   }
-  unsigned long timerSeconds = timeClient.getEpochTime() - homeAlertStart - timeOffset;
-  unsigned long seconds = timerSeconds;
-  unsigned long minutes = seconds / 60;
-  unsigned long hours = minutes / 60;
-  if (hours >= 99) {
-    DisplayCenter("99+ год.", 7, 2);
-    return;
+  String message = getStringFromTimer(timeClient.getEpochTime() - homeAlertStart - timeOffset);
+
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
+}
+
+String getFwVersion(Firmware firmware) {
+  String version = String(latestFirmware.major) + "." + latestFirmware.minor;
+  if (latestFirmware.patch > 0) {
+    version += ".";
+    version += latestFirmware.patch;
   }
-  seconds %= 60;
-  minutes %= 60;
-  String divider = getDivider();
-  String alertTime = "";
-  if (hours > 0) {
-    if (hours < 10) alertTime += "0";
-    alertTime += hours;
-    alertTime += divider;
-  }
-  if (minutes < 10) alertTime += "0";
-  alertTime += minutes;
-  if (hours == 0) {
-    alertTime += divider;
-    if (seconds < 10) alertTime += "0";
-    alertTime += seconds;
-  }
-  DisplayCenter(alertTime, 7, 3);
+  return version;
 }
 
 void showNewFirmwareNotification() {
   int toggleTime = 5;  // seconds
   int remainder = timeClient.getSeconds() % (toggleTime * 2);
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
+  String title;
+  String message;
   if (remainder < toggleTime) {
-    display.println(utf8cyr("Доступне оновлення:"));
-    String version = "v";
-    version += latestFirmware.major;
-    version += ".";
-    version += latestFirmware.minor;
-    if (latestFirmware.patch > 0) {
-      version +=  ".";
-      version += latestFirmware.patch;
-    }
-    DisplayCenter(version, 7, 3);
+    title = "Доступне оновлення:";
+    message = (String) "v" + getFwVersion(latestFirmware);
   } else if (settings.button_mode == 0) {
-    display.println(utf8cyr("Введіть у браузері:"));
-    DisplayCenter(utf8cyr(WiFi.localIP().toString()), 3, 1);
+    title = "Введіть у браузері:";
+    message = WiFi.localIP().toString();
   } else {
-    display.println(utf8cyr("Для оновлення"));
-    String text = "натисніть кнопку ";
-    text += (char) 24;
-    DisplayCenter(utf8cyr(text), 3, 1);
+    title = "Для оновлення";
+    message = (String) "натисніть кнопку " + (char)24;
   }
+  
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
 void showClock() {
@@ -1425,32 +1658,80 @@ void showClock() {
   int minute = timeClient.getMinutes();
   int day = timeClient.getDay();
   String daysOfWeek[] = { "Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота" };
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.println(utf8cyr(daysOfWeek[day]));
   String time = "";
   if (hour < 10) time += "0";
   time += hour;
   time += getDivider();
   if (minute < 10) time += "0";
   time += minute;
-  DisplayCenter(time, 7, 3);
+  displayMessage(time, getTextSizeToFitDisplay(time), daysOfWeek[day]);
 }
 
 void showTemp() {
-  display.setCursor(0, 0);
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.println(utf8cyr(districts[settings.home_district]));
-  String temp = "";
   char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
   dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  temp += roundedTemp;
-  temp += (char)128;
-  temp += "C";
-  DisplayCenter(temp, 7, 3);
+  String temp = String(roundedTemp) + (char)128 + "C";
+  displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
+}
+
+void showTechInfo() {
+  int toggleTime = 3;  // seconds
+  int remainder = timeClient.getSeconds() % (toggleTime * 5);
+  String title;
+  String message;
+  // IP address
+  if (remainder < toggleTime) {
+    title = "IP-адреса мапи:";
+    message = WiFi.localIP().toString();
+    // Wifi Signal level
+  } else if (remainder < toggleTime * 2) {
+    title = "Сигнал WiFi:";
+    message += rssi;
+    message += " dBm";
+    // Uptime
+  } else if (remainder < toggleTime * 3) {
+    title = "Час роботи:";
+    message = getStringFromTimer(millis() / 1000);
+    // map-API status
+  } else if (remainder < toggleTime * 4) {
+    title = "Статус map-API:";
+    message = apiConnected ? "Підключено" : "Відключено";
+    // HA Status
+  } else {
+    title = "Home Assistant:";
+    message = haConnected ? "Підключено" : "Відключено";
+  }
+
+  displayMessage(message, getTextSizeToFitDisplay(message), title);
+}
+
+String getStringFromTimer(long timerSeconds) {
+  String message;
+  unsigned long seconds = timerSeconds;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  if (hours >= 99) {
+    return "99+ год.";
+  } else {
+    String message;
+    seconds %= 60;
+    minutes %= 60;
+    String divider = getDivider();
+    if (hours > 0) {
+      if (hours < 10) message += "0";
+      message += hours;
+      message += divider;
+    }
+    if (minutes < 10) message += "0";
+    message += minutes;
+    if (hours == 0) {
+      message += divider;
+      if (seconds < 10) message += "0";
+      message += seconds;
+    }
+    return message;
+  }
 }
 
 int calculateCurrentDisplayMode() {
@@ -1483,12 +1764,12 @@ Firmware parseFirmwareVersion(String version) {
   while (version.length() > 0) {
     int index = version.indexOf('.');
     if (index == -1) {
-      // No dot found 
+      // No dot found
       parts[count++] = version;
       break;
     } else {
       parts[count++] = version.substring(0, index);
-      version = version.substring(index+1);
+      version = version.substring(index + 1);
     }
   }
 
@@ -1502,14 +1783,19 @@ Firmware parseFirmwareVersion(String version) {
     firmware.patch = atoi(parts[2].c_str());
   }
   return firmware;
-
 }
 
 //--Web server start
 void setupRouting() {
   Serial.println("Init WebServer");
   webserver.on("/", HTTP_GET, handleRoot);
-  webserver.on("/save", HTTP_POST, handleSave);
+  webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
+  webserver.on("/saveColors", HTTP_POST, handleSaveColors);
+  webserver.on("/saveWeather", HTTP_POST, handleSaveWeather);
+  webserver.on("/saveModes", HTTP_POST, handleSaveModes);
+  webserver.on("/saveDev", HTTP_POST, handleSaveDev);
+  webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
+  webserver.on("/update", HTTP_POST, handleUpdate);
   webserver.begin();
   Serial.println("Webportal running");
 }
@@ -1536,7 +1822,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    </style>";
   html += "</head>";
   html += "<body>";
-  html += "    <form action='/save' method='POST'>";
   html += "    <div class='container mt-3'  id='accordion'>";
   html += "        <h2 class='text-center'>" + settings.devicedescription + " ";
   html += settings.softwareversion;
@@ -1545,12 +1830,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                <div class='box_yellow col-md-12 mt-2'>";
-  if (settings.map_mode == 1) {
-    html += "                <img class='full-screen-img' src='http://alerts.net.ua/alerts_map.png'>";
+  html += "                <img class='full-screen-img' src='http://alerts.net.ua/";
+  switch (getCurrentMapMode()) {
+    case 0:
+      html += "off_map.png";
+      break;
+    case 2:
+      html += "weather_map.png";
+      break;
+    case 3:
+      html += "flag_map.png";
+      break;
+    case 4:
+      html += "random_map.png";
+      break;
+    case 5:
+      html += "lamp_map.png";
+      break;
+    default:
+      html += "alerts_map.png";
   }
-  if (settings.map_mode == 2) {
-    html += "                <img class='full-screen-img' src='http://alerts.net.ua/weather_map.png'>";
-  }
+  html += "'>";
   html += "                </div>";
   html += "              </div>";
   html += "            </div>";
@@ -1566,6 +1866,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+  if (fwUpdateAvailable) {
+    html += "        <div class='row'>";
+    html += "           <div class='col-md-6 offset-md-3'>";
+    html += "              <div class='row'>";
+    html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
+    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>v" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                </div>";
+    html += "              </div>";
+    html += "            </div>";
+    html += "        </div>";
+  }
   html += "        <div class='row'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1592,6 +1903,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+  html += "        <form action='/saveBrightness' method='POST'>";
   html += "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1627,7 +1939,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (!settings.legacy) {
     html += "                  <div class='form-group form-check'>";
     html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox2'";
-    if (settings.sdm_auto  == 1) html += " checked";
+    if (settings.sdm_auto == 1) html += " checked";
     html += ">";
     html += "                      <label class='form-check-label' for='checkbox2'>";
     html += "                        Вимикати сервісні діоди в нічний час";
@@ -1655,6 +1967,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/saveColors' method='POST'>";
   html += "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1689,6 +2003,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/saveWeather' method='POST'>";
   html += "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1706,6 +2022,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/saveModes' method='POST'>";
   html += "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
@@ -1732,38 +2050,39 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox2'>Режим мапи</label>";
   html += "                        <select name='map_mode' class='form-control' id='selectBox2'>";
-  html += "<option value='0'";
-  if (settings.map_mode == 0) html += " selected";
-  html += ">Вимкнена</option>";
-  html += "<option value='1'";
-  if (settings.map_mode == 1) html += " selected";
-  html += ">Тривоги</option>";
-  html += "<option value='2'";
-  if (settings.map_mode == 2) html += " selected";
-  html += ">Погода</option>";
-  html += "<option value='3'";
-  if (settings.map_mode == 3) html += " selected";
-  html += ">Прапор</option>";
-  html += "<option value='4'";
-  if (settings.map_mode == 4) html += " selected";
-  html += ">Випадкові кольори</option>";
+  for (int i = 0; i < mapModes.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.map_mode == i) html += " selected";
+    html += ">";
+    html += mapModes[i];
+    html += "</option>";
+  }
   html += "                        </select>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                       <label for='slider19'>Колір режиму \"Лампа\": <span id='sliderValue19'>0</span></label><br/>";
+  html += "                       <div class='color-box' id='colorBox17'></div>";
+  html += "                       <input type='range' name='color_lamp' class='form-control-range' id='slider19' min='0' max='360' value='0'>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
+  html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
   html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
-  html += "<option value='0'";
-  if (settings.display_mode == 0) html += " selected";
-  html += ">Вимкнений</option>";
-  html += "<option value='1'";
-  if (settings.display_mode == 1) html += " selected";
-  html += ">Час</option>";
-  html += "<option value='2'";
-  if (settings.display_mode == 2) html += " selected";
-  html += ">Погода</option>";
-  html += "<option value='9'";
-  if (settings.display_mode == 9) html += " selected";
-  html += ">Перемикання за часом</option>";
+  for (int i = 0; i < displayModes.size(); i++) {
+    int num = getRealDisplayMode(i);
+    html += "<option value='";
+    html += num;
+    html += "'";
+    if (settings.display_mode == num) html += " selected";
+    html += ">";
+    html += displayModes[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
@@ -1787,7 +2106,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox3'>Домашній регіон</label>";
   html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < 26; alphabet++) {
+  for (int alphabet = 0; alphabet < districtsAlphabetical.size(); alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
     html += "<option value='";
     html += num;
@@ -1837,15 +2156,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
-  html += "<option value='0'";
-  if (settings.alarms_auto_switch == 0) html += " selected";
-  html += ">Вимкнено</option>";
-  html += "<option value='1'";
-  if (settings.alarms_auto_switch == 1) html += " selected";
-  html += ">Домашній регіон + суміжні регіони</option>";
-  html += "<option value='2'";
-  if (settings.alarms_auto_switch == 2) html += " selected";
-  html += ">Домашній регіон</option>";
+  for (int i = 0; i < autoAlarms.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.alarms_auto_switch == i) html += " selected";
+    html += ">";
+    html += autoAlarms[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   if (!settings.legacy) {
@@ -1858,15 +2177,34 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        </label>";
     html += "                    </div>";
   }
+  html += "                    <div class='form-group form-check'>";
+  html += "                        <input name='min_of_silence' type='checkbox' class='form-check-input' id='checkbox6'";
+  if (settings.min_of_silence == 1) html += " checked";
+  html += ">";
+  html += "                        <label class='form-check-label' for='checkbox6'>";
+  html += "                          Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)";
+  html += "                        </label>";
+  html += "                    </div>";
   html += "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
+  html += "        <form action='/saveDev' method='POST'>";
   html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField12'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</label>";
+  html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox8'>Режим прошивки</label>";
   html += "                        <select name='legacy' class='form-control' id='selectBox8'>";
@@ -1899,8 +2237,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField8'>Порт TCP сервера даних</label>";
-  html += "                        <input type='text' name='tcpport' class='form-control' id='inputField8' value='" + String(settings.tcpport) + "'>";
+  html += "                        <label for='inputField8'>Порт WebSockets</label>";
+  html += "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='" + String(settings.websocket_port) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField8'>Порт сервера прошивок</label>";
@@ -1928,41 +2266,53 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
     html += "                    </div>";
   }
+  html += "                      <div class='form-group'>";
+  html += "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>";
+  html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
+  html += "                      </div>";
+  html += "                      <div class='form-group form-check'>";
+  html += "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox6'";
+  if (settings.enable_pin_on_alert == 1) html += " checked";
+  html += ">";
+  html += "                          <label class='form-check-label' for='checkbox6'>";
+  html += "                            Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні";
+  html += "                          </label>";
+  html += "                      </div>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+  html += "        </form>";
   html += "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
+  html += "                       <form action='/saveFirmware' method='POST'>";
+  html += "                          <div class='form-group form-check'>";
+  html += "                              <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
   if (settings.new_fw_notification == 1) html += " checked";
   html += ">";
-  html += "                        <label class='form-check-label' for='checkbox5'>";
-  html += "                          Сповіщення про нові прошивки на екрані";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                        <label for='selectBox9'>Файл прошивки</label>";
-  html += "                        <select name='bin_name' class='form-control' id='selectBox9'>";
+  html += "                              <label class='form-check-label' for='checkbox5'>";
+  html += "                                  Сповіщення про нові прошивки на екрані";
+  html += "                              </label>";
+  html += "                          </div>";
+  html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html += "                       </form>";
+  html += "                       <form action='/update' method='POST'>";
+  html += "                          <div class='form-group'>";
+  html += "                              <label for='selectBox9'>Файл прошивки</label>";
+  html += "                              <select name='bin_name' class='form-control' id='selectBox9'>";
   for (String& filename : bin_list) {
     html += "<option value='" + filename + "'";
     if (settings.bin_name == filename) html += " selected";
     html += ">" + filename + "</option>";
   }
-  html += "                        </select>";
+  html += "                              </select>";
+  html += "                          </div>";
+  html += "                          <button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>";
+  html += "                       </form>";
   html += "                    </div>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='do_update' type='checkbox' class='form-check-input' id='checkbox6'>";
-  html += "                        <label class='form-check-label' for='checkbox6'>";
-  html += "                          Оновлення";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
@@ -1972,7 +2322,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2004,6 +2354,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        const initialHue5 = parseInt(slider7.value);";
   html += "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
   html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
+  html += "";
+  html += "        const initialRgbColor6 = { r: " + String(settings.ha_light_r) + ", g: " + String(settings.ha_light_g) + ", b: " + String(settings.ha_light_b) + " };";
+  html += "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
+  html += "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
+  html += "        document.getElementById('slider19').value = initialHue6;";
+  html += "        document.getElementById('sliderValue19').textContent = initialHue6;";
   html += "";
   html += "        function hsbToRgb(h, s, b) {";
   html += "            h /= 360;";
@@ -2038,6 +2394,30 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            };";
   html += "        }";
   html += "";
+  html += "        function rgbToHue(r, g, b) {";
+  html += "            var h;";
+  html += "            r /= 255, g /= 255, b /= 255;";
+  html += "            var max = Math.max(r, g, b), min = Math.min(r, g, b);";
+  html += "            if (max-min == 0) {";
+  html += "                return 0;";
+  html += "            }";
+  html += "            if (max == r) {";
+  html += "                h = (g-b)/(max-min);";
+  html += "            }";
+  html += "            else if (max == g) {";
+  html += "                h = 2 +(b-r)/(max-min);";
+  html += "            }";
+  html += "            else if (max == b) {";
+  html += "                h = 4 + (r-g)/(max-min);";
+  html += "            }";
+  html += "            h = h*60;";
+  html += "            h %= 360;";
+  html += "            if (h < 0) {";
+  html += "                h += 360;";
+  html += "            }";
+  html += "            return Math.round(h);";
+  html += "        }";
+  html += "";
   html += "        sliders.slice(1).forEach((slider, index) => {";
   html += "            const sliderElem = document.getElementById(slider);";
   html += "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));";
@@ -2053,117 +2433,45 @@ void handleRoot(AsyncWebServerRequest* request) {
   request->send(200, "text/html", html);
 }
 
-void handleSave(AsyncWebServerRequest* request) {
+HALight::RGBColor hue2rgb(int hue) {
+  float r, g, b;
+
+  float h = hue / 360.0;
+  float s = 1.0;
+  float v = 1.0;
+
+  int i = floor(h * 6);
+  float f = h * 6 - i;
+  float p = v * (1 - s);
+  float q = v * (1 - f * s);
+  float t = v * (1 - (1 - f) * s);
+
+  switch (i % 6) {
+    case 0: r = v, g = t, b = p; break;
+    case 1: r = q, g = v, b = p; break;
+    case 2: r = p, g = v, b = t; break;
+    case 3: r = p, g = q, b = v; break;
+    case 4: r = t, g = p, b = v; break;
+    case 5: r = v, g = p, b = q; break;
+    default: r = 1.0, g = 1.0, b = 1.0; break;
+  }
+
+  return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
+}
+
+void handleUpdate(AsyncWebServerRequest* request) {
+  Serial.println("do_update triggered");
+  initUpdate = true;
+  if (request->hasParam("bin_name", true)) {
+    settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
+  }
+  request->redirect("/");
+}
+
+void handleSaveBrightness(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   bool reboot = false;
   bool disableBrightnessAuto = false;
-  if (request->hasParam("legacy", true)) {
-    if (request->getParam("legacy", true)->value().toInt() != settings.legacy) {
-      reboot = true;
-      settings.legacy = request->getParam("legacy", true)->value().toInt();
-      preferences.putInt("legacy", settings.legacy);
-      Serial.println("legacy commited to preferences");
-    }
-  }
-  if (request->hasParam("ha_brokeraddress", true)) {
-    if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress) {
-      reboot = true;
-      settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
-      preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
-      Serial.println("ha_brokeraddress commited to preferences");
-    }
-  }
-  if (request->hasParam("devicename", true)) {
-    if (request->getParam("devicename", true)->value() != settings.devicename) {
-      reboot = true;
-      settings.devicename = request->getParam("devicename", true)->value();
-      preferences.putString("dn", settings.devicename);
-      Serial.println("devicename commited to preferences");
-    }
-  }
-  if (request->hasParam("devicedescription", true)) {
-    if (request->getParam("devicedescription", true)->value() != settings.devicedescription) {
-      reboot = true;
-      settings.devicedescription = request->getParam("devicedescription", true)->value();
-      preferences.putString("dd", settings.devicedescription);
-      Serial.println("devicedescription commited to preferences");
-    }
-  }
-  if (request->hasParam("broadcastname", true)) {
-    if (request->getParam("broadcastname", true)->value() != settings.broadcastname) {
-      reboot = true;
-      settings.broadcastname = request->getParam("broadcastname", true)->value();
-      preferences.putString("bn", settings.broadcastname);
-      Serial.println("broadcastname commited to preferences");
-    }
-  }
-  if (request->hasParam("ha_mqttport", true)) {
-    if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport) {
-      reboot = true;
-      settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
-      preferences.putInt("ha_mqttport", settings.ha_mqttport);
-      Serial.println("ha_mqttport commited to preferences");
-    }
-  }
-  if (request->hasParam("serverhost", true)) {
-    String local_host = String(settings.serverhost);
-    if (request->getParam("serverhost", true)->value() != local_host) {
-      reboot = true;
-      settings.serverhost = strdup(request->getParam("serverhost", true)->value().c_str());
-      preferences.putString("host", request->getParam("serverhost", true)->value());
-      Serial.println("serverhost commited to preferences");
-    }
-  }
-  if (request->hasParam("tcpport", true)) {
-    if (request->getParam("tcpport", true)->value().toInt() != settings.tcpport) {
-      reboot = true;
-      settings.tcpport = request->getParam("tcpport", true)->value().toInt();
-      preferences.putInt("tcpport", settings.tcpport);
-      Serial.println("tcpport commited to preferences");
-    }
-  }
-  if (request->hasParam("updateport", true)) {
-    if (request->getParam("updateport", true)->value().toInt() != settings.updateport) {
-      reboot = true;
-      settings.updateport = request->getParam("updateport", true)->value().toInt();
-      preferences.putInt("upport", settings.updateport);
-      Serial.println("updateport commited to preferences");
-    }
-  }
-  if (request->hasParam("pixelpin", true)) {
-    if (request->getParam("pixelpin", true)->value().toInt() != settings.pixelpin) {
-      reboot = true;
-      settings.pixelpin = request->getParam("pixelpin", true)->value().toInt();
-      preferences.putInt("pp", settings.pixelpin);
-      Serial.println("pixelpin commited: ");
-      Serial.println(settings.pixelpin);
-    }
-  }
-  if (request->hasParam("buttonpin", true)) {
-    if (request->getParam("buttonpin", true)->value().toInt() != settings.buttonpin) {
-      reboot = true;
-      settings.buttonpin = request->getParam("buttonpin", true)->value().toInt();
-      preferences.putInt("bp", settings.buttonpin);
-      Serial.println("buttonpin commited: ");
-      Serial.println(settings.buttonpin);
-    }
-  }
-  if (request->hasParam("ha_mqttuser", true)) {
-    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
-      reboot = true;
-      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
-      preferences.putString("ha_mqttuser", settings.ha_mqttuser);
-      Serial.println("ha_mqttuser commited to preferences");
-    }
-  }
-  if (request->hasParam("ha_mqttpassword", true)) {
-    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
-      reboot = true;
-      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
-      preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
-      Serial.println("ha_mqttpassword commited to preferences");
-    }
-  }
   if (request->hasParam("brightness", true)) {
     int currentBrightness = request->getParam("brightness", true)->value().toInt();
     if (currentBrightness != settings.brightness) {
@@ -2174,113 +2482,6 @@ void handleSave(AsyncWebServerRequest* request) {
         haBrightness.setState(settings.brightness);
       }
       Serial.println("brightness commited to preferences");
-    }
-  }
-  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto) {
-    if (settings.brightness_auto == 0) {
-      settings.brightness_auto = 1;
-      if (enableHA) {
-        haBrightnessAuto.setState(true);
-      }
-      preferences.putInt("bra", settings.brightness_auto);
-      Serial.println("brightness_auto enabled to preferences");
-    }
-  } else {
-    if (settings.brightness_auto == 1) {
-      settings.brightness_auto = 0;
-      settings.brightness = settings.brightness_day;
-      if (enableHA) {
-        haBrightnessAuto.setState(false);
-        haBrightness.setState(settings.brightness);
-      }
-      preferences.putInt("bra", settings.brightness_auto);
-      preferences.putInt("brightness", settings.brightness);
-      Serial.println("brightness_auto disabled to preferences");
-    }
-  }
-  if (request->hasParam("service_diodes_mode", true)) {
-    if (settings.service_diodes_mode == 0) {
-      settings.service_diodes_mode = 1;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode enabled to preferences");
-    }
-  } else {
-    if (settings.service_diodes_mode == 1) {
-      settings.service_diodes_mode = 0;
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      checkServicePins();
-      Serial.println("service_diodes_mode disabled to preferences");
-    }
-  }
-  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
-    if (settings.sdm_auto == 0) {
-      settings.sdm_auto = 1;
-      settings.service_diodes_mode = 0;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(true);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto enabled to preferences");
-    }
-  } else {
-    if (settings.sdm_auto == 1) {
-      settings.sdm_auto = 0;
-      settings.service_diodes_mode = 1;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(false);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto disabled to preferences");
-    }
-  }
-  if (request->hasParam("home_alert_time", true)) {
-    if (settings.home_alert_time == 0) {
-      settings.home_alert_time = 1;
-      if (enableHA) {
-        haShowHomeAlarmTime.setState(true);
-      }
-      preferences.putInt("hat", settings.home_alert_time);
-      Serial.println("home_alert_time enabled to preferences");
-      parseHomeDistrictJson();
-    }
-  } else {
-    if (settings.home_alert_time == 1) {
-      settings.home_alert_time = 0;
-      if (enableHA) {
-        haShowHomeAlarmTime.setState(false);
-      }
-      preferences.putInt("hat", settings.home_alert_time);
-      Serial.println("home_alert_time disabled to preferences");
-    }
-  }
-  if (request->hasParam("new_fw_notification", true)) {
-    if (settings.new_fw_notification == 0) {
-      settings.new_fw_notification = 1;
-      preferences.putInt("nfwn", settings.new_fw_notification);
-      Serial.println("new_fw_notification enabled to preferences");
-    }
-  } else {
-    if (settings.new_fw_notification == 1) {
-      settings.new_fw_notification = 0;
-      preferences.putInt("nfwn", settings.new_fw_notification);
-      Serial.println("new_fw_notification disabled to preferences");
-    }
-  }
-  if (request->hasParam("do_update", true)) {
-    Serial.println("do_update triggered");
-    initUpdate = true;
-  }
-  if (request->hasParam("bin_name", true)) {
-    String local_bin_name = String(settings.bin_name);
-    if (request->getParam("bin_name", true)->value() != local_bin_name) {
-      settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
-      preferences.putString("bin", request->getParam("bin_name", true)->value());
-      Serial.println("bin_name commited to preferences");
     }
   }
   if (request->hasParam("brightness_day", true)) {
@@ -2311,6 +2512,53 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("night_start commited to preferences");
     }
   }
+  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto) {
+    if (settings.brightness_auto == 0) {
+      settings.brightness_auto = 1;
+      if (enableHA) {
+        haBrightnessAuto.setState(true);
+      }
+      preferences.putInt("bra", settings.brightness_auto);
+      Serial.println("brightness_auto enabled to preferences");
+    }
+  } else {
+    if (settings.brightness_auto == 1) {
+      settings.brightness_auto = 0;
+      settings.brightness = settings.brightness_day;
+      if (enableHA) {
+        haBrightnessAuto.setState(false);
+        haBrightness.setState(settings.brightness);
+      }
+      preferences.putInt("bra", settings.brightness_auto);
+      preferences.putInt("brightness", settings.brightness);
+      Serial.println("brightness_auto disabled to preferences");
+    }
+  }
+  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
+    if (settings.sdm_auto == 0) {
+      settings.sdm_auto = 1;
+      settings.service_diodes_mode = 0;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(true);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto enabled to preferences");
+    }
+  } else {
+    if (settings.sdm_auto == 1) {
+      settings.sdm_auto = 0;
+      settings.service_diodes_mode = 1;
+      // if (enableHA) {
+      //   haBrightnessAuto.setState(false);
+      // }
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      preferences.putInt("sdma", settings.sdm_auto);
+      checkServicePins();
+      Serial.println("sdm_auto disabled to preferences");
+    }
+  }
   if (request->hasParam("brightness_alert", true)) {
     if (request->getParam("brightness_alert", true)->value().toInt() != settings.brightness_alert) {
       settings.brightness_alert = request->getParam("brightness_alert", true)->value().toInt();
@@ -2339,6 +2587,17 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("brightness_alert_over commited to preferences");
     }
   }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveColors (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
   if (request->hasParam("color_alert", true)) {
     if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
       settings.color_alert = request->getParam("color_alert", true)->value().toInt();
@@ -2374,79 +2633,17 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("color_home_district commited to preferences");
     }
   }
-  if (request->hasParam("home_district", true)) {
-    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
-      settings.home_district = request->getParam("home_district", true)->value().toInt();
-      if (enableHA) {
-        haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-      }
-      preferences.putInt("hd", settings.home_district);
-      homeAlertStart = 0;
-      Serial.println("home_district commited to preferences");
-      parseHomeDistrictJson();
-    }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
   }
-  if (request->hasParam("alarms_auto_switch", true)) {
-    if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch) {
-      settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
-      if (enableHA) {
-        haAlarmsAuto.setState(settings.alarms_auto_switch);
-      }
-      preferences.putInt("aas", settings.alarms_auto_switch);
-      Serial.println("alarms_auto_switch commited to preferences");
-    }
-  }
-  if (request->hasParam("kyiv_district_mode", true)) {
-    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
-      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
-      preferences.putInt("kdm", settings.kyiv_district_mode);
-      Serial.println("kyiv_district_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("map_mode", true)) {
-    if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
-      settings.map_mode = request->getParam("map_mode", true)->value().toInt();
-      preferences.putInt("mapmode", settings.map_mode);
-      if (enableHA) {
-        haMapMode.setState(settings.map_mode);
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
-      }
-      Serial.println("map_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("display_mode", true)) {
-    if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
-      settings.display_mode = request->getParam("display_mode", true)->value().toInt();
-      preferences.putInt("dm", settings.display_mode);
-      if (enableHA) {
-        haDisplayMode.setState(getHaDisplayMode(settings.display_mode));
-      }
-      Serial.print("display_mode commited to preferences: ");
-      Serial.println(settings.display_mode);
-    }
-  }
-  if (request->hasParam("display_mode_time", true)) {
-    if (request->getParam("display_mode_time", true)->value().toInt() != settings.display_mode_time) {
-      settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
-      preferences.putInt("dmt", settings.display_mode_time);
-      Serial.println("display_mode_time commited to preferences");
-    }
-  }
-  if (request->hasParam("button_mode", true)) {
-    if (request->getParam("button_mode", true)->value().toInt() != settings.button_mode) {
-      settings.button_mode = request->getParam("button_mode", true)->value().toInt();
-      preferences.putInt("bm", settings.button_mode);
-      Serial.println("button_mode commited to preferences");
-    }
-  }
-  if (request->hasParam("alarms_notify_mode", true)) {
-    if (request->getParam("alarms_notify_mode", true)->value().toInt() != settings.alarms_notify_mode) {
-      settings.alarms_notify_mode = request->getParam("alarms_notify_mode", true)->value().toInt();
-      preferences.putInt("anm", settings.alarms_notify_mode);
-      Serial.println("alarms_notify_mode commited to preferences");
-    }
-  }
+}
+
+void handleSaveWeather (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
   if (request->hasParam("weather_min_temp", true)) {
     if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
       settings.weather_min_temp = request->getParam("weather_min_temp", true)->value().toInt();
@@ -2461,12 +2658,309 @@ void handleSave(AsyncWebServerRequest* request) {
       Serial.println("weather_max_temp commited to preferences");
     }
   }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveModes (AsyncWebServerRequest* request) {
+  bool reboot = false;
+  // this part saves values to prefs individually, and begins and ends prefs sessions each time
+  if (request->hasParam("map_mode", true)) {
+    if (request->getParam("map_mode", true)->value().toInt() != settings.map_mode) {
+      int newMapMode = request->getParam("map_mode", true)->value().toInt();
+      saveMapMode(newMapMode);
+    }
+  }
+  if (request->hasParam("color_lamp", true)) {
+    int selectedHue = request->getParam("color_lamp", true)->value().toInt();
+    HALight::RGBColor rgb = hue2rgb(selectedHue);
+    saveHaLightRgb(rgb);
+  }
+  if (request->hasParam("brightness_lamp", true)) {
+    int selectedBrightness = request->getParam("brightness_lamp", true)->value().toInt();
+    if (selectedBrightness != settings.ha_light_brightness) {
+      saveHaLightBrightness(selectedBrightness);
+    }
+  }
+  if (request->hasParam("display_mode", true)) {
+    if (request->getParam("display_mode", true)->value().toInt() != settings.display_mode) {
+      int newDisplayMode = request->getParam("display_mode", true)->value().toInt();
+      saveDisplayMode(newDisplayMode);
+    }
+  }
+  if (request->hasParam("home_district", true)) {
+    if (request->getParam("home_district", true)->value().toInt() != settings.home_district) {
+      int newHomeDistrict = request->getParam("home_district", true)->value().toInt();
+      saveHomeDistrict(newHomeDistrict);
+    }
+  }
+
+  // this part saves values to prefs directlly here, so we have one prefs session for this
+  preferences.begin("storage", false);
+  if (request->hasParam("display_mode_time", true)) {
+    if (request->getParam("display_mode_time", true)->value().toInt() != settings.display_mode_time) {
+      settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
+      preferences.putInt("dmt", settings.display_mode_time);
+      Serial.println("display_mode_time commited to preferences");
+    }
+  }
+  if (request->hasParam("button_mode", true)) {
+    if (request->getParam("button_mode", true)->value().toInt() != settings.button_mode) {
+      settings.button_mode = request->getParam("button_mode", true)->value().toInt();
+      preferences.putInt("bm", settings.button_mode);
+      Serial.println("button_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("kyiv_district_mode", true)) {
+    if (request->getParam("kyiv_district_mode", true)->value().toInt() != settings.kyiv_district_mode) {
+      settings.kyiv_district_mode = request->getParam("kyiv_district_mode", true)->value().toInt();
+      preferences.putInt("kdm", settings.kyiv_district_mode);
+      Serial.println("kyiv_district_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("home_alert_time", true)) {
+    if (settings.home_alert_time == 0) {
+      settings.home_alert_time = 1;
+      if (enableHA) {
+        haShowHomeAlarmTime.setState(true);
+      }
+      preferences.putInt("hat", settings.home_alert_time);
+      Serial.println("home_alert_time enabled to preferences");
+      parseHomeDistrictJson();
+    }
+  } else {
+    if (settings.home_alert_time == 1) {
+      settings.home_alert_time = 0;
+      if (enableHA) {
+        haShowHomeAlarmTime.setState(false);
+      }
+      preferences.putInt("hat", settings.home_alert_time);
+      Serial.println("home_alert_time disabled to preferences");
+    }
+  }
+  if (request->hasParam("alarms_notify_mode", true)) {
+    if (request->getParam("alarms_notify_mode", true)->value().toInt() != settings.alarms_notify_mode) {
+      settings.alarms_notify_mode = request->getParam("alarms_notify_mode", true)->value().toInt();
+      preferences.putInt("anm", settings.alarms_notify_mode);
+      Serial.println("alarms_notify_mode commited to preferences");
+    }
+  }
   if (request->hasParam("display_height", true)) {
     if (request->getParam("display_height", true)->value().toInt() != settings.display_height) {
       reboot = true;
       preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
       Serial.print("display_height commited to preferences: ");
       Serial.println(request->getParam("display_height", true)->value().toInt());
+    }
+  }
+  if (request->hasParam("alarms_auto_switch", true)) {
+    if (request->getParam("alarms_auto_switch", true)->value().toInt() != settings.alarms_auto_switch) {
+      settings.alarms_auto_switch = request->getParam("alarms_auto_switch", true)->value().toInt();
+      if (enableHA) {
+        haAlarmsAuto.setState(settings.alarms_auto_switch);
+      }
+      preferences.putInt("aas", settings.alarms_auto_switch);
+      Serial.println("alarms_auto_switch commited to preferences");
+    }
+  }
+  if (request->hasParam("service_diodes_mode", true)) {
+    if (settings.service_diodes_mode == 0) {
+      settings.service_diodes_mode = 1;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode enabled to preferences");
+    }
+  } else {
+    if (settings.service_diodes_mode == 1) {
+      settings.service_diodes_mode = 0;
+      preferences.putInt("sdm", settings.service_diodes_mode);
+      checkServicePins();
+      Serial.println("service_diodes_mode disabled to preferences");
+    }
+  }
+  if (request->hasParam("min_of_silence", true)) {
+    if (settings.min_of_silence == 0) {
+      settings.min_of_silence = 1;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence enabled to preferences");
+    }
+  } else {
+    if (settings.min_of_silence == 1) {
+      settings.min_of_silence = 0;
+      preferences.putInt("mos", settings.min_of_silence);
+      checkServicePins();
+      Serial.println("min_of_silence disabled to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveDev (AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
+  if (request->hasParam("legacy", true)) {
+    if (request->getParam("legacy", true)->value().toInt() != settings.legacy) {
+      reboot = true;
+      settings.legacy = request->getParam("legacy", true)->value().toInt();
+      preferences.putInt("legacy", settings.legacy);
+      Serial.println("legacy commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_brokeraddress", true)) {
+    if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress) {
+      reboot = true;
+      settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
+      preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
+      Serial.println("ha_brokeraddress commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttport", true)) {
+    if (request->getParam("ha_mqttport", true)->value().toInt() != settings.ha_mqttport) {
+      reboot = true;
+      settings.ha_mqttport = request->getParam("ha_mqttport", true)->value().toInt();
+      preferences.putInt("ha_mqttport", settings.ha_mqttport);
+      Serial.println("ha_mqttport commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttuser", true)) {
+    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
+      reboot = true;
+      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
+      preferences.putString("ha_mqttuser", settings.ha_mqttuser);
+      Serial.println("ha_mqttuser commited to preferences");
+    }
+  }
+  if (request->hasParam("ha_mqttpassword", true)) {
+    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
+      reboot = true;
+      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
+      preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
+      Serial.println("ha_mqttpassword commited to preferences");
+    }
+  }
+  if (request->hasParam("devicename", true)) {
+    if (request->getParam("devicename", true)->value() != settings.devicename) {
+      reboot = true;
+      settings.devicename = request->getParam("devicename", true)->value();
+      preferences.putString("dn", settings.devicename);
+      Serial.println("devicename commited to preferences");
+    }
+  }
+  if (request->hasParam("devicedescription", true)) {
+    if (request->getParam("devicedescription", true)->value() != settings.devicedescription) {
+      reboot = true;
+      settings.devicedescription = request->getParam("devicedescription", true)->value();
+      preferences.putString("dd", settings.devicedescription);
+      Serial.println("devicedescription commited to preferences");
+    }
+  }
+  if (request->hasParam("broadcastname", true)) {
+    if (request->getParam("broadcastname", true)->value() != settings.broadcastname) {
+      reboot = true;
+      settings.broadcastname = request->getParam("broadcastname", true)->value();
+      preferences.putString("bn", settings.broadcastname);
+      Serial.println("broadcastname commited to preferences");
+    }
+  }
+  if (request->hasParam("serverhost", true)) {
+    String local_host = String(settings.serverhost);
+    if (request->getParam("serverhost", true)->value() != local_host) {
+      reboot = true;
+      settings.serverhost = strdup(request->getParam("serverhost", true)->value().c_str());
+      preferences.putString("host", request->getParam("serverhost", true)->value());
+      Serial.println("serverhost commited to preferences");
+    }
+  }
+  if (request->hasParam("websocket_port", true)) {
+    if (request->getParam("websocket_port", true)->value().toInt() != settings.websocket_port) {
+      reboot = true;
+      settings.websocket_port = request->getParam("websocket_port", true)->value().toInt();
+      preferences.putInt("wsp", settings.websocket_port);
+      Serial.println("websocket_port commited to preferences");
+    }
+  }
+  if (request->hasParam("updateport", true)) {
+    if (request->getParam("updateport", true)->value().toInt() != settings.updateport) {
+      reboot = true;
+      settings.updateport = request->getParam("updateport", true)->value().toInt();
+      preferences.putInt("upport", settings.updateport);
+      Serial.println("updateport commited to preferences");
+    }
+  }
+  if (request->hasParam("pixelpin", true)) {
+    if (request->getParam("pixelpin", true)->value().toInt() != settings.pixelpin) {
+      reboot = true;
+      settings.pixelpin = request->getParam("pixelpin", true)->value().toInt();
+      preferences.putInt("pp", settings.pixelpin);
+      Serial.println("pixelpin commited: ");
+      Serial.println(settings.pixelpin);
+    }
+  }
+  if (request->hasParam("buttonpin", true)) {
+    if (request->getParam("buttonpin", true)->value().toInt() != settings.buttonpin) {
+      reboot = true;
+      settings.buttonpin = request->getParam("buttonpin", true)->value().toInt();
+      preferences.putInt("bp", settings.buttonpin);
+      Serial.println("buttonpin commited: ");
+      Serial.println(settings.buttonpin);
+    }
+  }
+  if (request->hasParam("alertpin", true)) {
+    if (request->getParam("alertpin", true)->value().toInt() != settings.alertpin) {
+      reboot = true;
+      settings.alertpin = request->getParam("alertpin", true)->value().toInt();
+      preferences.putInt("ap", settings.alertpin);
+      Serial.println("alertpin commited: ");
+      Serial.println(settings.alertpin);
+    }
+  }
+  if (request->hasParam("enable_pin_on_alert", true)) {
+    if (settings.enable_pin_on_alert == 0) {
+      settings.enable_pin_on_alert = 1;
+      reboot = true;
+      preferences.putInt("epoa", settings.enable_pin_on_alert);
+      Serial.println("enable_pin_on_alert enabled to preferences");
+    }
+  } else {
+    if (settings.enable_pin_on_alert == 1) {
+      settings.enable_pin_on_alert = 0;
+      reboot = true;
+      preferences.putInt("epoa", settings.enable_pin_on_alert);
+      Serial.println("enable_pin_on_alert disabled to preferences");
+    }
+  }
+  preferences.end();
+  delay(1000);
+  request->redirect("/");
+  if (reboot) {
+    ESP.restart();
+  }
+}
+
+void handleSaveFirmware(AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+  bool reboot = false;
+  if (request->hasParam("new_fw_notification", true)) {
+    if (settings.new_fw_notification == 0) {
+      settings.new_fw_notification = 1;
+      preferences.putInt("nfwn", settings.new_fw_notification);
+      Serial.println("new_fw_notification enabled to preferences");
+    }
+  } else {
+    if (settings.new_fw_notification == 1) {
+      settings.new_fw_notification = 0;
+      preferences.putInt("nfwn", settings.new_fw_notification);
+      Serial.println("new_fw_notification disabled to preferences");
     }
   }
   preferences.end();
@@ -2481,13 +2975,12 @@ void handleSave(AsyncWebServerRequest* request) {
 //--Service messages start
 void uptime() {
   int     uptimeValue = millis() / 1000;
-  int32_t number      = WiFi.RSSI();
-  int     rssi        = 0 - number;
-
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
   float cpuTemp       = temperatureRead();
+            
+  rssi = WiFi.RSSI();
 
   if (enableHA) {
     haUptime.setValue(uptimeValue);
@@ -2496,21 +2989,24 @@ void uptime() {
     haUsedMemory.setValue(usedHeapSize);
     haCpuTemp.setValue(cpuTemp);
   }
-  Serial.println(uptimeValue);
+  //Serial.println(uptimeValue);
 }
 
 void connectStatuses() {
   Serial.print("Map API connected: ");
-  Serial.println(client_tcp.connected());
+  apiConnected = client_websocket.available();
+  Serial.println(apiConnected);
+  haConnected = false;
   if (enableHA) {
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
     if (mqtt.isConnected()) {
+      haConnected = true;
       servicePin(settings.hapin, HIGH, false);
     } else {
       servicePin(settings.hapin, LOW, false);
     }
-    haMapApiConnect.setState(client_tcp.connected(), true);
+    haMapApiConnect.setState(apiConnected, true);
   }
 }
 
@@ -2546,191 +3042,108 @@ void autoBrightnessUpdate() {
 }
 //--Service messages end
 
-//--TCP process start
-void tcpConnect() {
-  if (millis() - tcpLastPingTime > 60000) {
-    tcpReconnect = true;
-  }
-  if (!client_tcp.connected() or tcpReconnect) {
-    int cycle = 0;
-    servicePin(settings.datapin, LOW, false);
-    Serial.println("Connecting to map API...");
-    Serial.print("id: ");
-    Serial.println(settings.identifier);
-
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("Пiдключення map-API.."), 0, 1);
-    const char* local_serverhost = settings.serverhost.c_str();
-    while (!client_tcp.connect(local_serverhost, settings.tcpport)) {
-      Serial.println("Failed");
-      display.clearDisplay();
-      DisplayCenter(utf8cyr("map-API нeдocтyпнe"), 0, 1);
-      if (enableHA) {
-        haMapApiConnect.setState(false);
-      }
-      tcpReconnect = true;
-      if (cycle > 30) {
-        mapReconnect();
-      }
-      delay(2000);
-      cycle += 1;
+//--Websocket process start
+void websocketProcess() {
+  while (!client_websocket.available()) {
+    Serial.println("Reconnecting...");
+    if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+      mapReconnect();
     }
-    String combinedString = String(settings.softwareversion) + "_" + settings.identifier;
-    char charArray[combinedString.length() + 1];
-    combinedString.toCharArray(charArray, sizeof(charArray));
-    Serial.println(charArray);
-    client_tcp.print(charArray);
-    display.clearDisplay();
-    DisplayCenter(utf8cyr("map-API пiдключeнo"), 0, 1);
-    servicePin(settings.datapin, HIGH, false);
-    Serial.println("TCP connected");
-    if (enableHA) {
-      haMapApiConnect.setState(true);
-    }
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
+    socketConnect();
+    delay(3000);
   }
 }
 
-// void tcpReconnect(){
-//   if (millis() - tcpLastPingTime > 30000){
-//     tcpReconnect = true;
-//   }
-//   if (!client_tcp.connected() or tcpReconnect) {
-//     Serial.print("Reconnecting to map API: ");
-//     display.clearDisplay();
-//     DisplayCenter(utf8cyr("Підключення map-API.."),0,1);
-//     if (!client_tcp.connect(settings.serverhost, settings.tcpport))
-//     {
-//       Serial.println("Failed");
-//       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API нeдocтyпнe"),0,1);
-//       haMapApiConnect.setState(false);
-//     }else{
-//       display.clearDisplay();
-//       DisplayCenter(utf8cyr("map-API пiдключeнo"),0,1);
-//       Serial.println("Connected");
-//       haMapApiConnect.setState(true);
-//     }
-//   }
-// }
-
-void tcpProcess() {
-  String data;
-  while (client_tcp.available() > 0) {
-    data += (char)client_tcp.read();
+void onMessageCallback(WebsocketsMessage message) {
+  Serial.print("Got Message: ");
+  Serial.println(message.data());
+  JsonDocument data = parseJson(message.data());
+  String payload = data["payload"];
+  if (payload == "ping") {
+    Serial.println("Heartbeat from server");
+    websocketLastPingTime = millis();
   }
-  if (data.length()) {
-    Serial.print("New data: ");
-    Serial.print(data.length());
-    Serial.print(" : ");
-    Serial.println(data);
-    TestParcer(data, data.length());
+  if (payload == "alerts") {
+    Serial.println("Successfully parsed alerts data");
+    for (int i = 0; i < 26; ++i) {
+      alarm_leds[calculateOffset(i)] = data["alerts"][i];
+    }
   }
-}
-
-void TestParcer(String sensorBuffer, int data_lenght) {
-  if (sensorBuffer == "p") {
-    Serial.println("TCP PING SUCCESS!");
-    tcpLastPingTime = millis();
-    tcpReconnect = false;
-  } else {
-    long values[26];
-    float sensorValues[26];
-
-    char buffer[data_lenght];
-
-    sensorBuffer.toCharArray(buffer, sizeof(buffer));
-
-    int n = sscanf(buffer, "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld:%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
-                   &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6], &values[7], &values[8], &values[9],
-                   &values[10], &values[11], &values[12], &values[13], &values[14], &values[15], &values[16], &values[17], &values[18], &values[19],
-                   &values[20], &values[21], &values[22], &values[23], &values[24], &values[25],
-                   &sensorValues[0], &sensorValues[1], &sensorValues[2], &sensorValues[3], &sensorValues[4], &sensorValues[5], &sensorValues[6], &sensorValues[7],
-                   &sensorValues[8], &sensorValues[9], &sensorValues[10], &sensorValues[11], &sensorValues[12], &sensorValues[13], &sensorValues[14],
-                   &sensorValues[15], &sensorValues[16], &sensorValues[17], &sensorValues[18], &sensorValues[19], &sensorValues[20], &sensorValues[21],
-                   &sensorValues[22], &sensorValues[23], &sensorValues[24], &sensorValues[25]);
-
-    if (n == 52) {
-      Serial.println("Successfully parsed sensor data!");
-      for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = values[i];
-        Serial.print("Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(values[i]);
-      }
-      for (int i = 0; i < 26; ++i) {
-        weather_leds[calculateOffset(i)] = sensorValues[i];
-        Serial.print("Sensor Value ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(sensorValues[i], 1);
-      }
+  if (payload == "weather") {
+    Serial.println("Successfully parsed weather data");
+    for (int i = 0; i < 26; ++i) {
+      weather_leds[calculateOffset(i)] = data["weather"][i];
+    }
+  }
+  if (payload == "bins") {
+    Serial.println("Successfully parsed bins list");
+    std::vector<String> tempFilenames;
+    JsonArray arr = data["bins"].as<JsonArray>();
+    for (String filename : arr) {
+      tempFilenames.push_back(filename);
+    }
+    bin_list = tempFilenames;
+    saveLatestFirmware();
+    fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
+  }
+  if (payload == "district") {
+    Serial.println("Successfully parsed district data");
+    bool alertNow = data["district"]["alertnow"];
+    Serial.println(alertNow);
+    if (alertNow) {
+      homeAlertStart = data["district"]["changed"];
+      Serial.println(homeAlertStart);
     } else {
-      Serial.print("Error parsing sensor buffer, could only decode ");
-      Serial.print(n);
-      Serial.println(" parameter(s).");
+      homeAlertStart = 0;
     }
   }
 }
 
-// void parseString(String str, int data_lenght) {
-//   if (str == "p"){
-//     Serial.println("TCP PING SUCCESS");
-//     tcpLastPingTime = millis();
-//     tcpReconnect = false;
-//   }else{
-//     int colonIndex = str.indexOf(":");
-//     String firstPart = str.substring(0, colonIndex);
-//     String secondPart = str.substring(colonIndex + 1);
+void onEventsCallback(WebsocketsEvent event, String data) {
+  if (event == WebsocketsEvent::ConnectionOpened) {
+    apiConnected = true;
+    Serial.println("connnection opened");
+    servicePin(settings.datapin, HIGH, false);
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::ConnectionClosed) {
+    apiConnected = false;
+    Serial.println("connnection closed");
+    servicePin(settings.datapin, LOW, false);
+  } else if (event == WebsocketsEvent::GotPing) {
+    Serial.println("websocket ping");
+    client_websocket.pong();
+    Serial.println("answered pong");
+    websocketLastPingTime = millis();
+  } else if (event == WebsocketsEvent::GotPong) {
+    Serial.println("websocket pong");
+  }
+}
 
-//     int firstArraySize = countOccurrences(firstPart, ',') + 1;
-//     int firstArray[firstArraySize];
-//     extractAlarms(firstPart, firstArraySize);
-
-//     int secondArraySize = countOccurrences(secondPart, ',') + 1;
-//     int secondArray[secondArraySize];
-//     extractWeather(secondPart, secondArraySize);
-//   }
-// }
-
-// int countOccurrences(String str, char target) {
-//   int count = 0;
-//   for (int i = 0; i < str.length(); i++) {
-//     if (str.charAt(i) == target) {
-//       count++;
-//     }
-//   }
-//   return count;
-// }
-
-// void extractAlarms(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   while (token != NULL && index < size) {
-//     alarm_leds[calculateOffset(index)] = atoi(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//   }
-// }
-
-// void extractWeather(String str, int size) {
-//   int index = 0;
-//   char *token = strtok(const_cast<char*>(str.c_str()), ",");
-//   //Serial.print("weather");
-//   while (token != NULL && index < size) {
-//     weather_leds[calculateOffset(index)] = atof(token);
-//     token = strtok(NULL, ",");
-//     index++;
-//     //Serial.print(weather_leds[position]);
-//     //Serial.print(" ");
-//   }
-//   //Serial.println(" ");
-// }
-
-
-//--TCP process end
+void socketConnect() {
+  Serial.println("connection start...");
+  showServiceMessage("підключення..", "Сервер даних");
+  client_websocket.onMessage(onMessageCallback);
+  client_websocket.onEvent(onEventsCallback);
+  long startTime = millis();
+  String webSocketUrl = "ws://" + String(settings.serverhost) + ":" + String(settings.websocket_port) + "/data_v1";
+  Serial.println(webSocketUrl);
+  client_websocket.connect(webSocketUrl.c_str());
+  if (client_websocket.available()) {
+    Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
+    String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
+    Serial.println(combinedString.c_str());
+    client_websocket.send(combinedString.c_str());
+    String chipId = "chip_id:" + chipID1 + chipID2;
+    Serial.println(chipId.c_str());
+    client_websocket.send(chipId.c_str());
+    client_websocket.ping();
+    showServiceMessage("підключено!", "Сервер даних");
+    delay(1000);
+  } else {
+    showServiceMessage("недоступний", "Сервер даних", 3000);
+  }
+}
+//--Websocket process end
 
 //--Map processing start
 int calculateOffset(int initial_position) {
@@ -2747,7 +3160,6 @@ int calculateOffset(int initial_position) {
 }
 
 int calculateOffsetDistrict(int initial_position) {
-  //Serial.print("initial_position");Serial.println(initial_position);
   int position;
   if (initial_position == 25) {
     position = 25;
@@ -2757,7 +3169,6 @@ int calculateOffsetDistrict(int initial_position) {
       position -= 25;
     }
   }
-  //Serial.print("position");Serial.println(position);
   if (settings.kyiv_district_mode == 2) {
     if (position == 25) {
       return 7 + offset;
@@ -2766,11 +3177,9 @@ int calculateOffsetDistrict(int initial_position) {
   if (settings.kyiv_district_mode == 3) {
 
     if (position == 25) {
-      //Serial.print("position8+");Serial.println(8+offset);
       return 8 + offset;
     }
     if (position > 7 + offset) {
-      //Serial.print("position+");Serial.println(position + 1);
       return position + 1;
     }
   }
@@ -2839,6 +3248,16 @@ HsbColor processAlarms(int led, int position) {
   return hue;
 }
 
+void checkMinuteOfSilence() {
+  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.getHours() == 9 && timeClient.getMinutes() == 0);
+  if (localMinOfSilence != minuteOfSilence) {
+    minuteOfSilence = localMinOfSilence;
+    if (enableHA) {
+      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    }
+  }
+}
+
 float processWeather(int led) {
   double minTemp = settings.weather_min_temp;
   double maxTemp = settings.weather_max_temp;
@@ -2886,6 +3305,8 @@ void mapCycle() {
     case 4:
       mapRandom();
       break;
+    case 5:
+      mapLamp();
   }
   blink = !blink;
 }
@@ -2893,6 +3314,13 @@ void mapCycle() {
 void mapOff() {
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HslColor(0.0, 0.0, 0.0));
+  }
+  strip->Show();
+}
+
+void mapLamp() {
+  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
+    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(settings.ha_light_brightness));
   }
   strip->Show();
 }
@@ -2930,7 +3358,6 @@ void mapAlarms() {
     strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], i));
   }
   strip->Show();
-  //blink = !blink;
 }
 
 void mapWeather() {
@@ -2989,9 +3416,10 @@ void mapRandom() {
 }
 
 int getCurrentMapMode() {
+  if (minuteOfSilence) return 3;
+
   int currentMapMode = settings.map_mode;
   int position = settings.home_district;
-  //Serial.print("position ");Serial.println(settings.home_district);
   switch (settings.alarms_auto_switch) {
     case 1:
       for (int j = 0; j < counters[position]; j++) {
@@ -3006,8 +3434,14 @@ int getCurrentMapMode() {
         currentMapMode = 1;
       }
   }
+  if (settings.enable_pin_on_alert) {
+    int ledStatus = alarm_leds[calculateOffset(position)];
+    alarmNow = (ledStatus == 1 || ledStatus == 3);
+  } else {
+    alarmNow = false;
+  }
   if (settings.map_mode != currentMapMode && enableHA) {
-    haMapModeCurrent.setValue(mapModes[currentMapMode]);
+    haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
   return currentMapMode;
 }
@@ -3021,32 +3455,39 @@ void WifiReconnect() {
   }
 }
 
+void alertPinCycle() {
+  if (alarmNow  && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+    Serial.println("alert pin enabled");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
+    Serial.println("alert pin disabled");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
   initSettings();
   initLegacy();
+  InitAlertPin();
   initStrip();
   initDisplay();
   initWifi();
   initTime();
 
-  Serial.print("ESP32 Chip ID: ");
-  Serial.print(chipID1);
-  Serial.println(chipID2);
-
   asyncEngine.setInterval(uptime, 5000);
-  asyncEngine.setInterval(tcpProcess, 10);
-  asyncEngine.setInterval(connectStatuses, 10000);
-  asyncEngine.setInterval(tcpConnect, 1000);
+  asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(WifiReconnect, 5000);
+  asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(timezoneUpdate, 60000);
-  asyncEngine.setInterval(doUpdate, 10000);
-  asyncEngine.setInterval(doFetchBinList, 600000);
+  asyncEngine.setInterval(doUpdate, 1000);
+  asyncEngine.setInterval(websocketProcess, 1000);
+  asyncEngine.setInterval(alertPinCycle, 1000);
 }
 
 void loop() {
@@ -3057,4 +3498,5 @@ void loop() {
   if (enableHA) {
     mqtt.loop();
   }
+  client_websocket.poll();
 }
