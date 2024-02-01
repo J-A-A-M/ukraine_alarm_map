@@ -1303,6 +1303,9 @@ void handleClick(int event) {
       isMapOff = !isMapOff;
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
       mapCycle();
+      if (enableHA) {
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+      }
       break;
     case 4:
       isDisplayOff = !isDisplayOff;
@@ -1318,6 +1321,9 @@ void handleClick(int event) {
       }
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
       mapCycle();
+      if (enableHA) {
+        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+      }
       break;
     case 6:
       nightMode = !nightMode;
