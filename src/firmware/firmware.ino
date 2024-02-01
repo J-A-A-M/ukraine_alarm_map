@@ -1303,9 +1303,6 @@ void handleClick(int event) {
       isMapOff = !isMapOff;
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
       mapCycle();
-      if (enableHA) {
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
-      }
       break;
     case 4:
       isDisplayOff = !isDisplayOff;
@@ -1321,9 +1318,6 @@ void handleClick(int event) {
       }
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
       mapCycle();
-      if (enableHA) {
-        haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
-      }
       break;
     case 6:
       nightMode = !nightMode;
@@ -3553,9 +3547,8 @@ void mapRandom() {
 
 int getCurrentMapMode() {
   if (minuteOfSilence) return 3;
-  if (isMapOff) return 0;
 
-  int currentMapMode = settings.map_mode;
+  int currentMapMode = isMapOff ? 0 : settings.map_mode;
   int position = settings.home_district;
   switch (settings.alarms_auto_switch) {
     case 1:
@@ -3577,7 +3570,7 @@ int getCurrentMapMode() {
   } else {
     alarmNow = false;
   }
-  if (settings.map_mode != currentMapMode && enableHA) {
+  if (enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
   return currentMapMode;
