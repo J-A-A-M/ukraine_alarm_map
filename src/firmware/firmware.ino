@@ -3139,33 +3139,31 @@ void timeUpdate() {
 }
 
 void autoBrightnessUpdate() {
-  if (settings.brightness_auto == 1 || nightMode) {
-    bool isNight =  nightMode || isItNightNow();
-    int currentBrightness = isNight ? settings.brightness_night : settings.brightness_day;
-    if (isNight && settings.sdm_auto && settings.service_diodes_mode != 0) {
-      settings.service_diodes_mode = 0;
-      checkServicePins();
+  bool isNight =  nightMode || isItNightNow();
+  int currentBrightness = isNight ? settings.brightness_night : settings.brightness_day;
+  // if (isNight && settings.sdm_auto && settings.service_diodes_mode != 0) {
+  //   settings.service_diodes_mode = 0;
+  //   checkServicePins();
+  // }
+  // if (!isNight && settings.sdm_auto && settings.service_diodes_mode != 1) {
+  //   settings.service_diodes_mode = 1;
+  //   checkServicePins();
+  // }
+  if (currentBrightness != settings.brightness) {
+    settings.brightness = currentBrightness;
+    if (enableHA) {
+      haBrightness.setState(settings.brightness);
     }
-    if (!isNight && settings.sdm_auto && settings.service_diodes_mode != 1) {
-      settings.service_diodes_mode = 1;
-      checkServicePins();
-    }
-    if (currentBrightness != settings.brightness) {
-      settings.brightness = currentBrightness;
-      if (enableHA) {
-        haBrightness.setState(settings.brightness);
-      }
-      preferences.begin("storage", false);
-      preferences.putInt("brightness", settings.brightness);
-      preferences.end();
-      Serial.print(" set auto brightness: ");
-      Serial.println(settings.brightness);
-    }
+    preferences.begin("storage", false);
+    preferences.putInt("brightness", settings.brightness);
+    preferences.end();
+    Serial.print(" set auto brightness: ");
+    Serial.println(settings.brightness);
   }
 }
 
 bool isItNightNow() {
-  if (settings.night_start == settings.day_start) return false;
+  if (settings.brightness_auto == 0 || settings.night_start == settings.day_start) return false;
   int currentHour = timeClient.getHours();
   if (settings.night_start > settings.day_start)
     return currentHour >= settings.night_start || currentHour < settings.day_start;
