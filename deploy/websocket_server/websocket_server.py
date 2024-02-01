@@ -107,10 +107,10 @@ async def echo(websocket, path):
 
     response = geo.city(client_ip)
 
-    if response.country.iso_code != 'UA' and response.continent.code != 'EU':
-        shared_data.blocked_ips.append(client_ip)
-        logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
-        return
+    # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
+    #     shared_data.blocked_ips.append(client_ip)
+    #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+    #     return
 
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
