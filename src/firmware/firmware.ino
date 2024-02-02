@@ -400,6 +400,7 @@ bool    minuteOfSilence = false;
 bool    isMapOff = false;
 bool    isDisplayOff = false;
 bool    nightMode = false;
+int     needRebootWithDelay = -1;
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -690,6 +691,16 @@ void displayMessage(String message, int messageTextSize, String title = "") {
   displayCenter(message, bound, messageTextSize);
 }
 
+void rebootDevice(int time = 2000, bool async = false) {
+  if (async) {
+    needRebootWithDelay = time;
+    return;
+  }
+  showServiceMessage("Перезавантаження..", time);
+  delay(time);
+  ESP.restart();
+}
+
 void initWifi() {
   Serial.println("Init Wifi");
   WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
@@ -708,9 +719,7 @@ void initWifi() {
   String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
-    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
-    delay(5000);
-    ESP.restart();
+    rebootDevice(5000);
     return;
   }
   // Connected to WiFi
@@ -738,9 +747,7 @@ void apCallback(WiFiManager* wifiManager) {
 void saveConfigCallback() {
   showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
   delay(2000);
-  showServiceMessage("Перезавантаження..", 1000);
-  delay(1000);
-  ESP.restart();
+  rebootDevice();
 }
 
 static void wifiEvents(WiFiEvent_t event) {
@@ -1001,7 +1008,7 @@ void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
 
 void onHaButtonClicked(HAButton* sender) {
   if (sender == &haReboot) {
-    ESP.restart();
+    rebootDevice();
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
   } else if (sender == &haToggleDisplayMode) {
@@ -1205,7 +1212,7 @@ void downloadAndUpdateFw(String binFileName) {
       break;
     case HTTP_UPDATE_OK:
       Serial.println("Update successfully completed. Rebooting...");
-      ESP.restart();
+      rebootDevice();
       break;
   }
 }
@@ -1326,9 +1333,7 @@ void handleClick(int event) {
       mapCycle();
       break;
     case 7:
-      showServiceMessage("Перезавантаження..");
-      delay(1000);
-      ESP.restart();
+      rebootDevice();
       break;
     default:
       // do nothing
@@ -2590,7 +2595,6 @@ void handleUpdate(AsyncWebServerRequest* request) {
 
 void handleSaveBrightness(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   bool disableBrightnessAuto = false;
   if (request->hasParam("brightness", true)) {
     int currentBrightness = request->getParam("brightness", true)->value().toInt();
@@ -2708,16 +2712,11 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveColors (AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("color_alert", true)) {
     if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
       settings.color_alert = request->getParam("color_alert", true)->value().toInt();
@@ -2754,16 +2753,11 @@ void handleSaveColors (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveWeather (AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("weather_min_temp", true)) {
     if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
       settings.weather_min_temp = request->getParam("weather_min_temp", true)->value().toInt();
@@ -2779,11 +2773,7 @@ void handleSaveWeather (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveModes (AsyncWebServerRequest* request) {
@@ -2925,10 +2915,9 @@ void handleSaveModes (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
   if (reboot) {
-    ESP.restart();
+    rebootDevice(3000, true);
   }
 }
 
@@ -3067,16 +3056,14 @@ void handleSaveDev (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
   if (reboot) {
-    ESP.restart();
+    rebootDevice(3000, true);
   }
 }
 
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("new_fw_notification", true)) {
     if (settings.new_fw_notification == 0) {
       settings.new_fw_notification = 1;
@@ -3091,17 +3078,13 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 //--Web server end
 
 //--Service messages start
 void uptime() {
-  int     uptimeValue = millis() / 1000;
+  int   uptimeValue   = millis() / 1000;
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
@@ -3599,6 +3582,14 @@ void alertPinCycle() {
   }
 }
 
+void rebootCycle() {
+  if (needRebootWithDelay != -1) {
+    int localDelay = needRebootWithDelay;
+    needRebootWithDelay = -1;
+    rebootDevice(localDelay);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3621,6 +3612,7 @@ void setup() {
   asyncEngine.setInterval(doUpdate, 1000);
   asyncEngine.setInterval(websocketProcess, 1000);
   asyncEngine.setInterval(alertPinCycle, 1000);
+  asyncEngine.setInterval(rebootCycle, 500);
 }
 
 void loop() {
