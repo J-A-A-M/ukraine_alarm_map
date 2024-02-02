@@ -39,8 +39,8 @@ runs:
             version: 2.0.0
           - name: NeoPixelBus by Makuna
             version: 2.7.8
-          - name: NTPClient
-            version: 3.2.1
+          - name: NTPTime
+            version: 1.2.1
           - name: WiFiManager
             version: 2.0.16-rc.2
           - name: AsyncTCP
@@ -54,3 +54,4 @@ runs:
         sketches-report-path: ${{ inputs.sketches-report-path }}
         cli-compile-flags: |
           - --export-binaries
+          - --warnings default
