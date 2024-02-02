@@ -601,6 +601,7 @@ void initTime() {
     count++;
     delay(1000);
   }
+  Serial.println((String) "Current date and time: " + timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
   websocketLastPingTime = millis();
 }
 
