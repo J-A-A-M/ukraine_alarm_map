@@ -1283,7 +1283,7 @@ void singleClick() {
 }
 
 void longClick() {
-   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0) {
+   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
     downloadAndUpdateFw("latest.bin");
     return;
   }
@@ -1603,34 +1603,37 @@ void displayCycle() {
   // update service message expiration
   serviceMessageUpdate();
 
-  // Show service message if not expired
+  // Show service message if not expired (Always shown, it's short message)
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
     return;
   }
 
-  // Show Minute of silence mode if activated
+  // Show Minute of silence mode if activated. (Priority - 0)
   if (minuteOfSilence) {
     displayMinuteOfSilence();
     return;
   }
 
+  // Show Home Alert Time Info if enabled in settings and we have alert start time (Priority - 1)
+  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
+    showHomeAlertInfo();
+    return;
+  }
+
+  // Turn off display, if activated (Priority - 2)
   if (isDisplayOff) {
     clearDisplay();
     return;
   }
 
-  // Show Home Alert Time Info if enabled in settings and we have alert start time
-  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
-    showHomeAlertInfo();
-    return;
-  }
-  // Show New Firmware Notification if enabled in settings and New firmware available
+  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
   if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
     showNewFirmwareNotification();
     return;
   }
 
+  // Show selected display mode in other cases (Priority - last)
   displayByMode(settings.display_mode);
 }
 
@@ -1749,8 +1752,8 @@ void showNewFirmwareNotification() {
     title = "Введіть у браузері:";
     message = WiFi.localIP().toString();
   } else {
-    title = "Для оновлення натисніть";
-    message = (String) "і тримайте кнопку " + (char)24;
+    title = "Для оновл. натисніть";
+    message = (String) "та тримайте кнопку " + (char)24;
   }
   
   displayMessage(message, getTextSizeToFitDisplay(message), title);
