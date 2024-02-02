@@ -54,4 +54,4 @@ runs:
         sketches-report-path: ${{ inputs.sketches-report-path }}
         cli-compile-flags: |
           - --export-binaries
-          - --warnings default
+          - --warnings "default"
