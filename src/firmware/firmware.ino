@@ -401,7 +401,7 @@ bool    minuteOfSilence = false;
 bool    isMapOff = false;
 bool    isDisplayOff = false;
 bool    nightMode = false;
-int     prevBrightnes = -1;
+int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 
 // Button variables
@@ -1291,7 +1291,7 @@ void handleClick(int event) {
     case 6:
       nightMode = !nightMode;
       if (nightMode) {
-        prevBrightnes = settings.brightness;
+        prevBrightness = settings.brightness;
       }
       showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
       autoBrightnessUpdate();
@@ -3106,9 +3106,9 @@ int getCurrentBrightnes() {
   if (nightMode) return settings.brightness_night;
 
   // if nightMode deactivated return previous brightnes
-  if (prevBrightnes >= 0) {
-    int tempBrightnes = prevBrightnes;
-    prevBrightnes = -1;
+  if (prevBrightness >= 0) {
+    int tempBrightnes = prevBrightness;
+    prevBrightness = -1;
     return tempBrightnes;
   } 
 
