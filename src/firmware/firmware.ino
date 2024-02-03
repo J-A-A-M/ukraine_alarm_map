@@ -5,7 +5,6 @@
 #include <async.h>
 #include <ArduinoOTA.h>
 #include <ArduinoHA.h>
-#include <NTPClient.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
 #include <HTTPClient.h>
@@ -15,6 +14,8 @@
 #include <ArduinoJson.h>
 #include <esp_system.h>
 #include <ArduinoWebsockets.h>
+#define UNIX64
+#include <NTPtime.h>
 
 String VERSION = "3.5";
 
@@ -120,10 +121,10 @@ Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WebsocketsClient  client_websocket;
-WiFiUDP           ntpUDP;
 HTTPClient        http;
 AsyncWebServer    webserver(80);
-NTPClient         timeClient(ntpUDP); // using default time server - pool.ntp.org
+NTPtime           timeClient(2);
+DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 
@@ -590,58 +591,18 @@ void initStrip() {
 
 void initTime() {
   Serial.println("Init time");
+  timeClient.setDSTauto(&dst); //auto update on summer/winter time.
   timeClient.begin();
-  timezoneUpdate();
-  websocketLastPingTime = millis();
-}
-
-void timezoneUpdate() {
-  int count = 1;
-  while (!timeClient.isTimeSet() && count <= 7) {
+  int count = 0;
+  while (timeClient.status() != 0 && count <= 7) {
     Serial.println("Time not set. Force update " + String(count));
-    timeClient.forceUpdate();
+    timeClient.updateNow();
+    timeClient.tick();
     count++;
     delay(1000);
   }
-  Serial.println("Timezone update");
-
-  time_t rawTime = timeClient.getEpochTime();
-  struct tm* timeInfo;
-  timeInfo = localtime(&rawTime);
-
-  int year = 1900 + timeInfo->tm_year;
-  int month = 1 + timeInfo->tm_mon;
-  int day = timeInfo->tm_mday;
-  int hour = timeInfo->tm_hour;
-  int minutes = timeInfo->tm_min;
-  int seconds = timeInfo->tm_sec;
-
-  Serial.println((String) "Current date and time: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes + ":" + seconds);
-
-  if ((month > 3 && month < 10) ||
-      (month == 3 && day > getLastSunday(year,3)) ||
-      (month == 3 && day == getLastSunday(year,3) and hour >=3) ||
-      (month == 10 && day < getLastSunday(year,10))||
-      (month == 10 && day == getLastSunday(year,10) and hour <3)) {
-    isDaylightSaving = true;
-  }
-  Serial.println((String) "isDaylightSaving: " + isDaylightSaving);
-  if (isDaylightSaving) {
-    timeOffset = 10800;
-  } else {
-    timeOffset = 7200;
-  }
-  timeClient.setTimeOffset(timeOffset);
-}
-
-int getLastSunday(int year, int month) {
-  for (int day = 31; day >= 25; day--) {
-    int h = (day + (13 * (month + 1)) / 5 + year + year / 4 - year / 100 + year / 400) % 7;
-    if (h == 1) {
-      return day;
-    }
-  }
-  return 0;
+  Serial.println((String) "Current date and time: " + timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
+  websocketLastPingTime = millis();
 }
 
 void displayMessage(String message, int messageTextSize, String title = "") {
@@ -1142,9 +1103,9 @@ JsonDocument parseJson(String payload) {
 // Home District Json Parsing
 void parseHomeDistrictJson() {
   // Skip parsing if home alert time is disabled or less then 5 sec from last sync
-  if ((timeClient.getEpochTime() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
+  if ((timeClient.unixGMT() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
-  lastHomeDistrictSync = timeClient.getEpochTime();
+  lastHomeDistrictSync = timeClient.unixGMT();
   String combinedString = "district:" + String(settings.home_district);
   Serial.println(combinedString.c_str());
   client_websocket.send(combinedString.c_str());
@@ -1566,7 +1527,7 @@ void clearDisplay() {
 
 void displayMinuteOfSilence() {
   int toggleTime = 3;  // seconds
-  int remainder = timeClient.getSeconds() % (toggleTime * 3);
+  int remainder = timeClient.second() % (toggleTime * 3);
   display.clearDisplay();
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
@@ -1613,14 +1574,14 @@ void displayServiceMessage(ServiceMessage message) {
 
 void showHomeAlertInfo() {
   int toggleTime = 5;  // seconds
-  int remainder = timeClient.getSeconds() % (toggleTime * 2);
+  int remainder = timeClient.second() % (toggleTime * 2);
   String title;
   if (remainder < toggleTime) {
     title = "Тривога триває:";
   } else {
     title = districts[settings.home_district];
   }
-  String message = getStringFromTimer(timeClient.getEpochTime() - homeAlertStart - timeOffset);
+  String message = getStringFromTimer(timeClient.unixGMT() - homeAlertStart - timeOffset);
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
@@ -1636,7 +1597,7 @@ String getFwVersion(Firmware firmware) {
 
 void showNewFirmwareNotification() {
   int toggleTime = 5;  // seconds
-  int remainder = timeClient.getSeconds() % (toggleTime * 2);
+  int remainder = timeClient.second() % (toggleTime * 2);
   String title;
   String message;
   if (remainder < toggleTime) {
@@ -1653,18 +1614,10 @@ void showNewFirmwareNotification() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
-void showClock() {
-  int hour = timeClient.getHours();
-  int minute = timeClient.getMinutes();
-  int day = timeClient.getDay();
-  String daysOfWeek[] = { "Heдiля", "Пoнeдiлoк", "Biвтopoк", "Середа", "Четвер", "П\'ятниця", "Субота" };
-  String time = "";
-  if (hour < 10) time += "0";
-  time += hour;
-  time += getDivider();
-  if (minute < 10) time += "0";
-  time += minute;
-  displayMessage(time, getTextSizeToFitDisplay(time), daysOfWeek[day]);
+void showClock() { 
+  String time = timeClient.unixToString(String("hh") + getDivider() + "mm");
+  String date = timeClient.unixToString("DSTRUA DD.MM.YYYY");
+  displayMessage(time, getTextSizeToFitDisplay(time), date);
 }
 
 void showTemp() {
@@ -1677,7 +1630,7 @@ void showTemp() {
 
 void showTechInfo() {
   int toggleTime = 3;  // seconds
-  int remainder = timeClient.getSeconds() % (toggleTime * 5);
+  int remainder = timeClient.second() % (toggleTime * 5);
   String title;
   String message;
   // IP address
@@ -1736,7 +1689,7 @@ String getStringFromTimer(long timerSeconds) {
 
 int calculateCurrentDisplayMode() {
   int toggleTime = settings.display_mode_time;
-  int remainder = timeClient.getEpochTime() % (toggleTime * 2);
+  int remainder = timeClient.second() % (toggleTime * 2);
   if (remainder < toggleTime) {
     // Display Mode Clock
     return 1;
@@ -1748,7 +1701,7 @@ int calculateCurrentDisplayMode() {
 
 String getDivider() {
   // Change every second
-  if (timeClient.getSeconds() % 2 == 0) {
+  if (timeClient.second() % 2 == 0) {
     return ":";
   } else {
     return " ";
@@ -3010,13 +2963,9 @@ void connectStatuses() {
   }
 }
 
-void timeUpdate() {
-  timeClient.update();
-}
-
 void autoBrightnessUpdate() {
   if (settings.brightness_auto == 1) {
-    int currentHour = timeClient.getHours();
+    int currentHour = timeClient.hour();
     bool isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
     int currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
     if (!isDay && settings.sdm_auto && settings.service_diodes_mode != 0) {
@@ -3249,7 +3198,7 @@ HsbColor processAlarms(int led, int position) {
 }
 
 void checkMinuteOfSilence() {
-  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.getHours() == 9 && timeClient.getMinutes() == 0);
+  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
     if (enableHA) {
@@ -3480,17 +3429,16 @@ void setup() {
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
-  asyncEngine.setInterval(timeUpdate, 5000);
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
-  asyncEngine.setInterval(timezoneUpdate, 60000);
   asyncEngine.setInterval(doUpdate, 1000);
   asyncEngine.setInterval(websocketProcess, 1000);
   asyncEngine.setInterval(alertPinCycle, 1000);
 }
 
 void loop() {
+  timeClient.tick();
   wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
