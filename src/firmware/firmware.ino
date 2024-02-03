@@ -93,6 +93,7 @@ struct Settings {
   int     display_mode           = 2;
   int     display_mode_time      = 5;
   int     button_mode            = 0;
+  int     button_mode_long       = 0;
   int     alarms_notify_mode     = 2;
   int     display_width          = 128;
   int     display_height         = 32;
@@ -384,8 +385,6 @@ bool    enableHA;
 bool    wifiReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
-bool    isPressed = true;
-long    buttonPressStart = 0;
 time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
@@ -399,6 +398,21 @@ bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
 bool    minuteOfSilence = false;
+bool    isMapOff = false;
+bool    isDisplayOff = false;
+bool    nightMode = false;
+int     prevBrightness = -1;
+int     needRebootWithDelay = -1;
+
+// Button variables
+#define SHORT_PRESS_TIME 500 // 500 milliseconds
+#define LONG_PRESS_TIME  500 // 500 milliseconds
+int lastState = LOW;  // the previous state from the input pin
+int currentState;     // the current reading from the input pin
+unsigned long pressedTime  = 0;
+unsigned long releasedTime = 0;
+bool isPressing = false;
+bool isLongDetected = false;
 
 std::vector<String> bin_list;
 
@@ -470,6 +484,27 @@ std::vector<String> autoAlarms = {
   "Лише домашній"
 };
 
+std::vector<String> singleClickOptions = {
+  "Вимкнено",
+  "Перемикання режимів мапи",
+  "Перемикання режимів дисплея",
+  "Увімк./Вимк. мапу",
+  "Увімк./Вимк. дисплей",
+  "Увімк./Вимк. мапу та дисплей",
+  "Увімк./Вимк. нічний режим"
+};
+
+std::vector<String> longClickOptions = {
+  "Вимкнено",
+  "Перемикання режимів мапи",
+  "Перемикання режимів дисплея",
+  "Увімк./Вимк. мапу",
+  "Увімк./Вимк. дисплей",
+  "Увімк./Вимк. мапу та дисплей",
+  "Увімк./Вимк. нічний режим",
+  "Перезавантаження пристрою"
+};
+
 //--Init start
 void initLegacy() {
   if (settings.legacy) {
@@ -496,7 +531,7 @@ void initLegacy() {
     settings.buttonpin = 35;
     settings.display_height = 64;
   }
-  pinMode(settings.buttonpin, INPUT);
+  pinMode(settings.buttonpin, INPUT_PULLUP);
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
@@ -541,6 +576,7 @@ void initSettings() {
   settings.display_mode           = preferences.getInt("dm", settings.display_mode);
   settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
   settings.button_mode            = preferences.getInt("bm", settings.button_mode);
+  settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
@@ -617,6 +653,16 @@ void displayMessage(String message, int messageTextSize, String title = "") {
   displayCenter(message, bound, messageTextSize);
 }
 
+void rebootDevice(int time = 2000, bool async = false) {
+  if (async) {
+    needRebootWithDelay = time;
+    return;
+  }
+  showServiceMessage("Перезавантаження..", time);
+  delay(time);
+  ESP.restart();
+}
+
 void initWifi() {
   Serial.println("Init Wifi");
   WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
@@ -635,9 +681,7 @@ void initWifi() {
   String apssid = settings.apssid + "_" + chipID1 + chipID2;
   if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
-    showServiceMessage("Пepeзaвaнтaжeння...", 5000);
-    delay(5000);
-    ESP.restart();
+    rebootDevice(5000);
     return;
   }
   // Connected to WiFi
@@ -665,9 +709,7 @@ void apCallback(WiFiManager* wifiManager) {
 void saveConfigCallback() {
   showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
   delay(2000);
-  showServiceMessage("Перезавантаження..", 1000);
-  delay(1000);
-  ESP.restart();
+  rebootDevice();
 }
 
 static void wifiEvents(WiFiEvent_t event) {
@@ -928,7 +970,7 @@ void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
 
 void onHaButtonClicked(HAButton* sender) {
   if (sender == &haReboot) {
-    ESP.restart();
+    rebootDevice();
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
   } else if (sender == &haToggleDisplayMode) {
@@ -1132,7 +1174,7 @@ void downloadAndUpdateFw(String binFileName) {
       break;
     case HTTP_UPDATE_OK:
       Serial.println("Update successfully completed. Rebooting...");
-      ESP.restart();
+      rebootDevice();
       break;
   }
 }
@@ -1176,26 +1218,91 @@ void checkServicePins() {
 // int startSymbol = 0;
 //--Button start
 void buttonUpdate() {
-  if (digitalRead(settings.buttonpin) == HIGH) {
-    buttonPressStart = millis();
-    if (!isPressed) {
-      Serial.println("Pressed");
-      Serial.print("button_mode: ");
-      Serial.println(settings.button_mode);
-      isPressed = true;
-      // for display chars testing purposes
-      // startSymbol ++;
-      if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0) {
-        downloadAndUpdateFw("latest.bin");
-      } else if (settings.button_mode == 1) {
-        mapModeSwitch();
-      } else if (settings.button_mode == 2) {
-        displayModeSwitch();
-      }
+  // read the state of the switch/button:
+  currentState = digitalRead(settings.buttonpin);
+
+  if (lastState == HIGH && currentState == LOW) {  // button is pressed
+    pressedTime = millis();
+    isPressing = true;
+    isLongDetected = false;
+  } else if (lastState == LOW && currentState == HIGH) {  // button is released
+    isPressing = false;
+    releasedTime = millis();
+
+    long pressDuration = releasedTime - pressedTime;
+
+    if (pressDuration < SHORT_PRESS_TIME) singleClick();
+  }
+
+  if (isPressing == true && isLongDetected == false) {
+    long pressDuration = millis() - pressedTime;
+
+    if (pressDuration > LONG_PRESS_TIME) {
+      longClick();
+      isLongDetected = true;
     }
   }
-  if (millis() - buttonPressStart > settings.buttontime) {
-    isPressed = false;
+
+  // save the the last state
+  lastState = currentState;
+}
+
+void singleClick() {
+  handleClick(settings.button_mode);
+}
+
+void longClick() {
+   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
+    downloadAndUpdateFw("latest.bin");
+    return;
+  }
+
+  handleClick(settings.button_mode_long);
+}
+
+void handleClick(int event) {
+  switch (event) {
+    case 1:
+      mapModeSwitch();
+      break;
+    case 2:
+      displayModeSwitch();
+      break;
+    case 3:
+      isMapOff = !isMapOff;
+      showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
+      mapCycle();
+      break;
+    case 4:
+      isDisplayOff = !isDisplayOff;
+      showServiceMessage(!isDisplayOff ? "Увімкнено" : "Вимкнено", "Дисплей:");
+      break;
+    case 5:
+      if (isDisplayOff != isMapOff) {
+        isDisplayOff = false;
+        isMapOff = false;
+      } else {
+        isMapOff = !isMapOff;
+        isDisplayOff = !isDisplayOff;
+      }
+      showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
+      mapCycle();
+      break;
+    case 6:
+      nightMode = !nightMode;
+      if (nightMode) {
+        prevBrightness = settings.brightness;
+      }
+      showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
+      autoBrightnessUpdate();
+      mapCycle();
+      break;
+    case 7:
+      rebootDevice();
+      break;
+    default:
+      // do nothing
+      break;
   }
 }
 
@@ -1466,29 +1573,37 @@ void displayCycle() {
   // update service message expiration
   serviceMessageUpdate();
 
-  // Show service message if not expired
+  // Show service message if not expired (Always shown, it's short message)
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
     return;
   }
 
-  // Show Minute of silence mode if activated
+  // Show Minute of silence mode if activated. (Priority - 0)
   if (minuteOfSilence) {
     displayMinuteOfSilence();
     return;
   }
 
-  // Show Home Alert Time Info if enabled in settings and we have alert start time
+  // Show Home Alert Time Info if enabled in settings and we have alert start time (Priority - 1)
   if (homeAlertStart > 0 && settings.home_alert_time == 1) {
     showHomeAlertInfo();
     return;
   }
-  // Show New Firmware Notification if enabled in settings and New firmware available
+
+  // Turn off display, if activated (Priority - 2)
+  if (isDisplayOff) {
+    clearDisplay();
+    return;
+  }
+
+  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
   if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
     showNewFirmwareNotification();
     return;
   }
 
+  // Show selected display mode in other cases (Priority - last)
   displayByMode(settings.display_mode);
 }
 
@@ -1607,8 +1722,8 @@ void showNewFirmwareNotification() {
     title = "Введіть у браузері:";
     message = WiFi.localIP().toString();
   } else {
-    title = "Для оновлення";
-    message = (String) "натисніть кнопку " + (char)24;
+    title = "Для оновл. натисніть";
+    message = (String) "та тримайте кнопку " + (char)24;
   }
   
   displayMessage(message, getTextSizeToFitDisplay(message), title);
@@ -2043,17 +2158,31 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox6'>Режим кнопки</label>";
+  html += "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>";
   html += "                        <select name='button_mode' class='form-control' id='selectBox6'>";
-  html += "<option value='0'";
-  if (settings.button_mode == 0) html += " selected";
-  html += ">Вимкнений</option>";
-  html += "<option value='1'";
-  if (settings.button_mode == 1) html += " selected";
-  html += ">Перемикання режимів мапи</option>";
-  html += "<option value='2'";
-  if (settings.button_mode == 2) html += " selected";
-  html += ">Перемикання режимів дисплея</option>";
+  for (int i = 0; i < singleClickOptions.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.button_mode == i) html += " selected";
+    html += ">";
+    html += singleClickOptions[i];
+    html += "</option>";
+  }
+  html += "                        </select>";
+  html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='selectBox10'>Режим кнопки (Long Click)</label>";
+  html += "                        <select name='button_mode_long' class='form-control' id='selectBox10'>";
+  for (int i = 0; i < longClickOptions.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.button_mode_long == i) html += " selected";
+    html += ">";
+    html += longClickOptions[i];
+    html += "</option>";
+  }
   html += "                        </select>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
@@ -2423,7 +2552,6 @@ void handleUpdate(AsyncWebServerRequest* request) {
 
 void handleSaveBrightness(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   bool disableBrightnessAuto = false;
   if (request->hasParam("brightness", true)) {
     int currentBrightness = request->getParam("brightness", true)->value().toInt();
@@ -2541,16 +2669,12 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
+  autoBrightnessUpdate();
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveColors (AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("color_alert", true)) {
     if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
       settings.color_alert = request->getParam("color_alert", true)->value().toInt();
@@ -2587,16 +2711,11 @@ void handleSaveColors (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveWeather (AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("weather_min_temp", true)) {
     if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
       settings.weather_min_temp = request->getParam("weather_min_temp", true)->value().toInt();
@@ -2612,11 +2731,7 @@ void handleSaveWeather (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 
 void handleSaveModes (AsyncWebServerRequest* request) {
@@ -2666,6 +2781,13 @@ void handleSaveModes (AsyncWebServerRequest* request) {
       settings.button_mode = request->getParam("button_mode", true)->value().toInt();
       preferences.putInt("bm", settings.button_mode);
       Serial.println("button_mode commited to preferences");
+    }
+  }
+  if (request->hasParam("button_mode_long", true)) {
+    if (request->getParam("button_mode_long", true)->value().toInt() != settings.button_mode) {
+      settings.button_mode_long = request->getParam("button_mode_long", true)->value().toInt();
+      preferences.putInt("bml", settings.button_mode_long);
+      Serial.println("button_mode_long commited to preferences");
     }
   }
   if (request->hasParam("kyiv_district_mode", true)) {
@@ -2751,10 +2873,9 @@ void handleSaveModes (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
   if (reboot) {
-    ESP.restart();
+    rebootDevice(3000, true);
   }
 }
 
@@ -2893,16 +3014,14 @@ void handleSaveDev (AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
   if (reboot) {
-    ESP.restart();
+    rebootDevice(3000, true);
   }
 }
 
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool reboot = false;
   if (request->hasParam("new_fw_notification", true)) {
     if (settings.new_fw_notification == 0) {
       settings.new_fw_notification = 1;
@@ -2917,17 +3036,13 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
     }
   }
   preferences.end();
-  delay(1000);
   request->redirect("/");
-  if (reboot) {
-    ESP.restart();
-  }
 }
 //--Web server end
 
 //--Service messages start
 void uptime() {
-  int     uptimeValue = millis() / 1000;
+  int   uptimeValue   = millis() / 1000;
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
   float usedHeapSize  = totalHeapSize - freeHeapSize;
@@ -2964,30 +3079,53 @@ void connectStatuses() {
 }
 
 void autoBrightnessUpdate() {
-  if (settings.brightness_auto == 1) {
-    int currentHour = timeClient.hour();
-    bool isDay = currentHour >= settings.day_start && currentHour < settings.night_start;
-    int currentBrightness = isDay ? settings.brightness_day : settings.brightness_night;
-    if (!isDay && settings.sdm_auto && settings.service_diodes_mode != 0) {
-      settings.service_diodes_mode = 0;
-      checkServicePins();
+  int currentBrightness = getCurrentBrightnes();
+  // if (isNight && settings.sdm_auto && settings.service_diodes_mode != 0) {
+  //   settings.service_diodes_mode = 0;
+  //   checkServicePins();
+  // }
+  // if (!isNight && settings.sdm_auto && settings.service_diodes_mode != 1) {
+  //   settings.service_diodes_mode = 1;
+  //   checkServicePins();
+  // }
+  if (currentBrightness != settings.brightness) {
+    settings.brightness = currentBrightness;
+    if (enableHA) {
+      haBrightness.setState(settings.brightness);
     }
-    if (isDay && settings.sdm_auto && settings.service_diodes_mode != 1) {
-      settings.service_diodes_mode = 1;
-      checkServicePins();
-    }
-    if (currentBrightness != settings.brightness) {
-      settings.brightness = currentBrightness;
-      if (enableHA) {
-        haBrightness.setState(settings.brightness);
-      }
-      preferences.begin("storage", false);
-      preferences.putInt("brightness", settings.brightness);
-      preferences.end();
-      Serial.print(" set auto brightness: ");
-      Serial.println(settings.brightness);
-    }
+    preferences.begin("storage", false);
+    preferences.putInt("brightness", settings.brightness);
+    preferences.end();
+    Serial.print(" set auto brightness: ");
+    Serial.println(settings.brightness);
   }
+}
+
+int getCurrentBrightnes() {
+  // highest priority for night mode, return night brightness
+  if (nightMode) return settings.brightness_night;
+
+  // if nightMode deactivated return previous brightnes
+  if (prevBrightness >= 0) {
+    int tempBrightnes = prevBrightness;
+    prevBrightness = -1;
+    return tempBrightnes;
+  } 
+
+  // if auto brightnes deactivated, return regular brightnes
+  if (settings.brightness_auto == 0) return settings.brightness;
+
+  // if day and night start time is equels it means it's always day, return day brightness
+  if(settings.night_start == settings.day_start) return settings.brightness_day;
+
+  int currentHour = timeClient.hour();
+
+  // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
+  if (settings.night_start > settings.day_start)
+    return currentHour >= settings.night_start || currentHour < settings.day_start ? settings.brightness_night : settings.brightness_day;
+
+  // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
+  return currentHour < settings.day_start && currentHour >= settings.night_start ? settings.brightness_night : settings.brightness_day;
 }
 //--Service messages end
 
@@ -3367,7 +3505,7 @@ void mapRandom() {
 int getCurrentMapMode() {
   if (minuteOfSilence) return 3;
 
-  int currentMapMode = settings.map_mode;
+  int currentMapMode = isMapOff ? 0 : settings.map_mode;
   int position = settings.home_district;
   switch (settings.alarms_auto_switch) {
     case 1:
@@ -3389,7 +3527,7 @@ int getCurrentMapMode() {
   } else {
     alarmNow = false;
   }
-  if (settings.map_mode != currentMapMode && enableHA) {
+  if (enableHA) {
     haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
   }
   return currentMapMode;
@@ -3415,6 +3553,14 @@ void alertPinCycle() {
   }
 }
 
+void rebootCycle() {
+  if (needRebootWithDelay != -1) {
+    int localDelay = needRebootWithDelay;
+    needRebootWithDelay = -1;
+    rebootDevice(localDelay);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3435,6 +3581,7 @@ void setup() {
   asyncEngine.setInterval(doUpdate, 1000);
   asyncEngine.setInterval(websocketProcess, 1000);
   asyncEngine.setInterval(alertPinCycle, 1000);
+  asyncEngine.setInterval(rebootCycle, 500);
 }
 
 void loop() {
