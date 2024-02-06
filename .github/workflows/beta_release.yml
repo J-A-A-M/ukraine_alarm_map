@@ -32,7 +32,7 @@ jobs:
       - name: Leave only 3 recent BETA builds
         run: |
           cd ${{ github.workspace }}/bin_beta/
-          ls -tp | grep -v '/$' | tail -n +5 | tr '\n' '\0' | xargs -0 rm --
+          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
           cd ${{ github.workspace }}
       - name: Commit changes
         id: commit_changes
