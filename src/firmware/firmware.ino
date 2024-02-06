@@ -102,6 +102,7 @@ struct Settings {
   int     ws_alert_time          = 120000;
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
+  int     fw_update_channel      = 0;
   // ------- web config end
 };
 
@@ -111,6 +112,8 @@ struct Firmware {
   int major = 0;
   int minor = 0;
   int patch = 0;
+  int betaBuild = 0;
+  bool isBeta = false;
 };
 
 Firmware currentFirmware;
@@ -415,6 +418,7 @@ bool isPressing = false;
 bool isLongDetected = false;
 
 std::vector<String> bin_list;
+std::vector<String> test_bin_list;
 
 HADevice        device;
 HAMqtt          mqtt(client, device, 19);
@@ -503,6 +507,11 @@ std::vector<String> longClickOptions = {
   "Увімк./Вимк. мапу та дисплей",
   "Увімк./Вимк. нічний режим",
   "Перезавантаження пристрою"
+};
+
+std::vector<String> fwUpdateChannels = {
+  "Production",
+  "Beta"
 };
 
 //--Init start
@@ -601,11 +610,12 @@ void initSettings() {
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
   settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
+  settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
 
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.println((String) "Current firmware version: " + currentFirmware.major + "." + currentFirmware.minor + "." + currentFirmware.patch);
+  Serial.println((String) "Current firmware version: " + getFwVersion(currentFirmware));
 }
 
 void InitAlertPin() {
@@ -1102,8 +1112,9 @@ void initDisplay() {
 
 //--Update
 void saveLatestFirmware() {
+  std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
   Firmware firmware;
-  for (String& filename : bin_list) {
+  for (String& filename : tempBinList) {
     if (filename.startsWith("latest")) continue;
     Firmware parsedFirmware = parseFirmwareVersion(filename);
     if (firstIsNewer(parsedFirmware, firmware)) {
@@ -1111,12 +1122,10 @@ void saveLatestFirmware() {
     }
   }
   latestFirmware = firmware;
+  fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
   Serial.print("Latest firmware version: ");
-  Serial.print(latestFirmware.major);
-  Serial.print(".");
-  Serial.print(latestFirmware.minor);
-  Serial.print(".");
-  Serial.println(latestFirmware.patch);
+  Serial.println(getFwVersion(latestFirmware));
+  Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
 
 bool firstIsNewer(Firmware first, Firmware second) {
@@ -1125,6 +1134,9 @@ bool firstIsNewer(Firmware first, Firmware second) {
     if (first.minor > second.minor) return true;
     if (first.minor == second.minor) {
       if (first.patch > second.patch) return true;
+      if (first.patch == second.patch) {
+        if (first.betaBuild > second.betaBuild) return true;
+      }
     }
   }
   return false;
@@ -1156,12 +1168,16 @@ void parseHomeDistrictJson() {
 void doUpdate() {
   if (initUpdate) {
     initUpdate = false;
-    downloadAndUpdateFw(settings.bin_name);
+    downloadAndUpdateFw(settings.bin_name, settings.fw_update_channel == 1);
   }
 }
 
-void downloadAndUpdateFw(String binFileName) {
-  String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport + "/" + binFileName + "";
+void downloadAndUpdateFw(String binFileName, bool isBeta) {
+  String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport;
+  if (isBeta) {
+      firmwareUrlString += "/beta";
+  }
+  firmwareUrlString += "/" + binFileName;
   const char* firmwareUrl = firmwareUrlString.c_str();
   Serial.println(firmwareUrl);
   t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
@@ -1253,7 +1269,7 @@ void singleClick() {
 
 void longClick() {
    if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
-    downloadAndUpdateFw("latest.bin");
+    downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
     return;
   }
 
@@ -1702,11 +1718,15 @@ void showHomeAlertInfo() {
 }
 
 String getFwVersion(Firmware firmware) {
-  String version = String(latestFirmware.major) + "." + latestFirmware.minor;
-  if (latestFirmware.patch > 0) {
-    version += ".";
-    version += latestFirmware.patch;
-  }
+  String version = String(firmware.major) + "." + firmware.minor;
+    if (firmware.patch > 0) {
+        version += ".";
+        version += firmware.patch;
+    }
+    if (firmware.isBeta) {
+        version += "-b";
+        version += firmware.betaBuild;
+    }
   return version;
 }
 
@@ -1844,9 +1864,21 @@ Firmware parseFirmwareVersion(String version) {
   Firmware firmware;
 
   firmware.major = atoi(parts[0].c_str());
-  firmware.minor = atoi(parts[1].c_str());
+  if (parts[1].indexOf("-b") > 0) {
+    int indexOfBeta = parts[1].indexOf("-b");
+    firmware.minor = atoi(parts[1].substring(0, indexOfBeta).c_str());
+    firmware.isBeta = true;
+    firmware.betaBuild = atoi(parts[1].substring(indexOfBeta + 2, parts[1].length()).c_str());
+  } else {
+    firmware.minor = atoi(parts[1].c_str());
+  }
   if (parts[2] == "bin" || parts[2] == NULL) {
     firmware.patch = 0;
+  } else if (parts[2].indexOf("-b") > 0) {
+    int indexOfBeta = parts[2].indexOf("-b");
+    firmware.patch = atoi(parts[2].substring(0, indexOfBeta).c_str());
+    firmware.isBeta = true;
+    firmware.betaBuild = atoi(parts[2].substring(indexOfBeta + 2, parts[2].length()).c_str());
   } else {
     firmware.patch = atoi(parts[2].c_str());
   }
@@ -2278,15 +2310,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           <div class='col-md-6 offset-md-3'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField12'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</label>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField12'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</label>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField12'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</label>";
-  html += "                    </div>";
+  html += "                    <b>";
+  html += "                      <p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
+  html += "                      <p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
+  html += "                      <p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
+  html += "                    </b>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox8'>Режим прошивки</label>";
   html += "                        <select name='legacy' class='form-control' id='selectBox8'>";
@@ -2379,13 +2407,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                                  Сповіщення про нові прошивки на екрані";
   html += "                              </label>";
   html += "                          </div>";
+  html += "                          <div class='form-group'>";
+  html += "                              <label for='selectBox11'>Канал оновлення прошивок</label>";
+  html += "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>";
+  for (int i = 0; i < fwUpdateChannels.size(); i++) {
+      html += "<option value='";
+      html += i;
+      html += "'";
+      if (settings.fw_update_channel == i) html += " selected";
+      html += ">" + fwUpdateChannels[i] + "</option>";
+  }
+  html += "                              </select>";
+  html += "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
+  html += "                          </div>";
   html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                       </form>";
   html += "                       <form action='/update' method='POST'>";
   html += "                          <div class='form-group'>";
   html += "                              <label for='selectBox9'>Файл прошивки</label>";
   html += "                              <select name='bin_name' class='form-control' id='selectBox9'>";
-  for (String& filename : bin_list) {
+  std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
+  for (String& filename : tempBinList) {
     html += "<option value='" + filename + "'";
     if (settings.bin_name == filename) html += " selected";
     html += ">" + filename + "</option>";
@@ -3035,6 +3077,14 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
       Serial.println("new_fw_notification disabled to preferences");
     }
   }
+  if (request->hasParam("fw_update_channel", true)) {
+    if (request->getParam("fw_update_channel", true)->value().toInt() != settings.fw_update_channel) {
+      settings.fw_update_channel = request->getParam("fw_update_channel", true)->value().toInt();
+      preferences.putInt("fwuc", settings.fw_update_channel);
+      Serial.println("fw_update_channel commited to preferences");
+      saveLatestFirmware();
+    }
+  }
   preferences.end();
   request->redirect("/");
 }
@@ -3146,42 +3196,48 @@ void onMessageCallback(WebsocketsMessage message) {
   Serial.println(message.data());
   JsonDocument data = parseJson(message.data());
   String payload = data["payload"];
-  if (payload == "ping") {
-    Serial.println("Heartbeat from server");
-    websocketLastPingTime = millis();
-  }
-  if (payload == "alerts") {
-    Serial.println("Successfully parsed alerts data");
-    for (int i = 0; i < 26; ++i) {
-      alarm_leds[calculateOffset(i)] = data["alerts"][i];
-    }
-  }
-  if (payload == "weather") {
-    Serial.println("Successfully parsed weather data");
-    for (int i = 0; i < 26; ++i) {
-      weather_leds[calculateOffset(i)] = data["weather"][i];
-    }
-  }
-  if (payload == "bins") {
-    Serial.println("Successfully parsed bins list");
-    std::vector<String> tempFilenames;
-    JsonArray arr = data["bins"].as<JsonArray>();
-    for (String filename : arr) {
-      tempFilenames.push_back(filename);
-    }
-    bin_list = tempFilenames;
-    saveLatestFirmware();
-    fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
-  }
-  if (payload == "district") {
-    Serial.println("Successfully parsed district data");
-    bool alertNow = data["district"]["alertnow"];
-    Serial.println(alertNow);
-    if (alertNow) {
-      homeAlertStart = data["district"]["changed"];
-      Serial.println(homeAlertStart);
-    } else {
-      homeAlertStart = 0;
+  if (!payload.isEmpty()) {
+    if (payload == "ping") {
+      Serial.println("Heartbeat from server");
+      websocketLastPingTime = millis();
+    } else if (payload == "alerts") {
+      Serial.println("Successfully parsed alerts data");
+      for (int i = 0; i < 26; ++i) {
+        alarm_leds[calculateOffset(i)] = data["alerts"][i];
+      }
+    } else if (payload == "weather") {
+      Serial.println("Successfully parsed weather data");
+      for (int i = 0; i < 26; ++i) {
+        weather_leds[calculateOffset(i)] = data["weather"][i];
+      }
+    } else if (payload == "bins") {
+      Serial.println("Successfully parsed bins list");
+      std::vector<String> tempFilenames;
+      JsonArray arr = data["bins"].as<JsonArray>();
+      for (String filename : arr) {
+        tempFilenames.push_back(filename);
+      }
+      bin_list = tempFilenames;
+      saveLatestFirmware();
+    } else if (payload == "test_bins") {
+      Serial.println("Successfully parsed test_bins list");
+      std::vector<String> tempFilenames;
+      JsonArray arr = data["test_bins"].as<JsonArray>();
+      for (String filename : arr) {
+        tempFilenames.push_back(filename);
+      }
+      test_bin_list = tempFilenames;
+      saveLatestFirmware();
+    } else if (payload == "district") {
+      Serial.println("Successfully parsed district data");
+      bool alertNow = data["district"]["alertnow"];
+      Serial.println(alertNow);
+      if (alertNow) {
+        homeAlertStart = data["district"]["changed"];
+        Serial.println(homeAlertStart);
+      } else {
+        homeAlertStart = 0;
+      }
     }
   }
 }

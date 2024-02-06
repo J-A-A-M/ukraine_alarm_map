@@ -2,6 +2,7 @@
 
 # Default values
 SHARED_PATH=""
+SHARED_BETA_PATH=""
 MEMCACHED_HOST=""
 PORT=8090
 
@@ -18,6 +19,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -s|--shared-path)
             SHARED_PATH="$2"
+            shift 2
+            ;;
+        -sb|--shared-beta-path)
+            SHARED_BETA_PATH="$2"
             shift 2
             ;;
         *)
@@ -58,7 +63,7 @@ docker rm map_update_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_update_server --restart unless-stopped -d -p "$PORT":8080  -v "$SHARED_PATH":/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_update_server
+docker run --name map_update_server --restart unless-stopped -d -p "$PORT":8080  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_update_server
 
 echo "Container deployed successfully!"
 

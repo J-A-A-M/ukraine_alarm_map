@@ -43,12 +43,13 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: ${{ github.workspace }}/testBin/${{ BETA_VERSION }}.bin
-          name: "${{ RELEASE_TITLE }}"
+          name: ${{ RELEASE_TITLE }}
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ BETA_VERSION }}
           generateReleaseNotes: true
           allowUpdates: true
           prerelease: true
+          makeLatest: false
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.0.3
         with:

@@ -49,6 +49,7 @@ jobs:
           tag: ${{ inputs.release-version }}
           generateReleaseNotes: true
           allowUpdates: true
+          makeLatest: true
       - name: Merge master -> develop
         uses: devmasx/merge-branch@master
         with:
