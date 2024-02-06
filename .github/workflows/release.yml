@@ -27,6 +27,7 @@ jobs:
         uses: ./.github/workflows/firmware-compile
       - name: Copy release files to bin folder
         run: |
+          mkdir -p ${{ github.workspace }}/bin/
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
       - name: Leave only 3 recent releases
@@ -68,5 +69,5 @@ jobs:
             cd /root/ukraine_alarm_map/deploy/
             git fetch --all
             git checkout master
-            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -m ${{ secrets.MEMCACHED_HOST }}
+            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
 
