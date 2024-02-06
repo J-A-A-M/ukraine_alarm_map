@@ -3407,7 +3407,7 @@ void mapOff() {
 
 void mapLamp() {
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(settings.ha_light_brightness));
+    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(round(settings.ha_light_brightness * 255 / 200.0f)));
   }
   strip->Show();
 }
