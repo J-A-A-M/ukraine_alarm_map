@@ -1,0 +1,63 @@
+name: 🅱️ Release BETA Firmware
+on:
+  workflow_dispatch:
+    inputs:
+        release-version:
+          description: 'Beta version, ex. 3.6 or 3.6.1'
+          required: true
+          type: string
+run-name: Release BETA ${{ inputs.release-version }}-b${{ github.run_number }}
+env:
+  BETA_VERSION: ${{ inputs.release-version }}-b${{ github.run_number }}
+  RELEASE_TITLE: Beta ${{ inputs.release-version }}-b${{ github.run_number }}
+jobs:
+  release_beta_firmware:
+    if: ${{ github.ref_name == 'develop' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i "s/String VERSION = \".*\";/String VERSION = \"${{ BETA_VERSION }} \";/" ${{ github.workspace }}/src/firmware/firmware.ino
+      - name: Compile firmware
+        uses: ./.github/workflows/firmware-compile
+      - name: Copy release files to bin folder
+        run: |
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/testBin/${{ BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/testBin/latest_beta.bin
+      - name: Leave only 3 recent BETA builds
+        run: |
+          cd ${{ github.workspace }}/testBin/
+          ls -tp | grep -v '/$' | tail -n +5 | tr '\n' '\0' | xargs -0 rm --
+          cd ${{ github.workspace }}
+      - name: Commit changes
+        id: commit_changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Beta ${{ BETA_VERSION }}"
+          file_pattern: ${{ github.workspace }}/testBin/
+      - name: Create Beta Pre Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: ${{ github.workspace }}/testBin/${{ BETA_VERSION }}.bin
+          name: "${{ RELEASE_TITLE }}"
+          commit: ${{ steps.commit_changes.outputs.commit_hash }}
+          tag: ${{ BETA_VERSION }}
+          generateReleaseNotes: true
+          allowUpdates: true
+          prerelease: true
+      - name: Update server test bin list
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_SSH_USER }}
+          password: ${{ secrets.SERVER_SSH_PASSWORD }}
+          script: |
+            cd /root/ukraine_alarm_map/deploy/
+            git fetch --all
+            git checkout ${{ github.ref_name }}
+            bash redeploy_update_beta_server.sh -s '/root/ukraine_alarm_map/testBin' -m ${{ secrets.MEMCACHED_HOST }}
+

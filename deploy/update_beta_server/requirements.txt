@@ -1,0 +1,4 @@
+starlette==0.36.2
+uvicorn==0.24.0.post1
+aiomcache==0.8.1
+pymemcache==3.5.2

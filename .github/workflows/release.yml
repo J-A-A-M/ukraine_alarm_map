@@ -29,6 +29,11 @@ jobs:
         run: |
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
+      - name: Leave only 3 recent releases
+        run: |
+          cd ${{ github.workspace }}/bin/
+          ls -tp | grep -v '/$' | tail -n +5 | tr '\n' '\0' | xargs -0 rm --
+          cd ${{ github.workspace }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
