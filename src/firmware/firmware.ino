@@ -1134,7 +1134,11 @@ bool firstIsNewer(Firmware first, Firmware second) {
     if (first.minor == second.minor) {
       if (first.patch > second.patch) return true;
       if (first.patch == second.patch) {
-        if (first.betaBuild > second.betaBuild) return true;
+        if (first.isBeta && second.isBeta) {
+          if (first.betaBuild > second.betaBuild) return true;
+        } else { 
+          return !first.isBeta && second.isBeta; 
+        }
       }
     }
   }
