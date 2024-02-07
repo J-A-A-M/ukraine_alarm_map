@@ -424,27 +424,26 @@ HADevice        device;
 HAMqtt          mqtt(client, device, 19);
 
 uint64_t chipid = ESP.getEfuseMac();
-String chipID1 = String((uint32_t)(chipid >> 32), HEX);
-String chipID2 = String((uint32_t)chipid, HEX);
+String chipID = String((uint32_t)(chipid >> 32), HEX) + String((uint32_t)chipid, HEX);
 
-String haUptimeString             = chipID1 + chipID2 + "_uptime";
-String haWifiSignalString         = chipID1 + chipID2 + "_wifi_signal";
-String haFreeMemoryString         = chipID1 + chipID2 + "_free_memory";
-String haUsedMemoryString         = chipID1 + chipID2 + "_used_memory";
-String haBrightnessString         = chipID1 + chipID2 + "_brightness";
-String haMapModeString            = chipID1 + chipID2 + "_map_mode";
-String haDisplayModeString        = chipID1 + chipID2 + "_display_mode";
-String haMapModeCurrentString     = chipID1 + chipID2 + "_map_mode_current";
-String haMapApiConnectString      = chipID1 + chipID2 + "_map_api_connect";
-String haBrightnessAutoString     = chipID1 + chipID2 + "_brightness_auto";
-String haAlarmsAutoString         = chipID1 + chipID2 + "_alarms_auto";
-String haShowHomeAlarmTimeString  = chipID1 + chipID2 + "_show_home_alarm_time";
-String haRebootString             = chipID1 + chipID2 + "_reboot";
-String haCpuTempString            = chipID1 + chipID2 + "_cpu_temp";
-String haHomeDistrictString       = chipID1 + chipID2 + "_home_district";
-String haToggleMapModeString      = chipID1 + chipID2 + "_toggle_map_mode";
-String haToggleDisplayModeString  = chipID1 + chipID2 + "_toggle_display_mode";
-String haLightString              = chipID1 + chipID2 + "_light";
+String haUptimeString             = chipID + "_uptime";
+String haWifiSignalString         = chipID + "_wifi_signal";
+String haFreeMemoryString         = chipID + "_free_memory";
+String haUsedMemoryString         = chipID + "_used_memory";
+String haBrightnessString         = chipID + "_brightness";
+String haMapModeString            = chipID + "_map_mode";
+String haDisplayModeString        = chipID + "_display_mode";
+String haMapModeCurrentString     = chipID + "_map_mode_current";
+String haMapApiConnectString      = chipID + "_map_api_connect";
+String haBrightnessAutoString     = chipID + "_brightness_auto";
+String haAlarmsAutoString         = chipID + "_alarms_auto";
+String haShowHomeAlarmTimeString  = chipID + "_show_home_alarm_time";
+String haRebootString             = chipID + "_reboot";
+String haCpuTempString            = chipID + "_cpu_temp";
+String haHomeDistrictString       = chipID + "_home_district";
+String haToggleMapModeString      = chipID + "_toggle_map_mode";
+String haToggleDisplayModeString  = chipID + "_toggle_display_mode";
+String haLightString              = chipID + "_light";
 
 HASensorNumber  haUptime(haUptimeString.c_str());
 HASensorNumber  haWifiSignal(haWifiSignalString.c_str());
@@ -688,7 +687,7 @@ void initWifi() {
   wm.setSaveConfigCallback(saveConfigCallback);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = settings.apssid + "_" + chipID1 + chipID2;
+  String apssid = settings.apssid + "_" + chipID;
   if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
     rebootDevice(5000);
@@ -3276,7 +3275,7 @@ void socketConnect() {
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
     Serial.println(combinedString.c_str());
     client_websocket.send(combinedString.c_str());
-    String chipId = "chip_id:" + chipID1 + chipID2;
+    String chipId = "chip_id:" + chipID;
     Serial.println(chipId.c_str());
     client_websocket.send(chipId.c_str());
     client_websocket.ping();

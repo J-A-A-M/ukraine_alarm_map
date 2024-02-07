@@ -71,9 +71,9 @@ async def update_beta(request):
 async def update_cache():
     mc = Client(memcached_host, 11211)
     filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
-    betaFilenames = sorted([file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))])
+    beta_filenames = sorted([file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))])
     await mc.set(b"bins", json.dumps(filenames).encode('utf-8'))
-    await mc.set(b"test_bins", json.dumps(betaFilenames).encode('utf-8'))
+    await mc.set(b"test_bins", json.dumps(beta_filenames).encode('utf-8'))
 
 
 app = Starlette(debug=debug, exception_handlers=exception_handlers, routes=[
