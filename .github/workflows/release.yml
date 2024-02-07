@@ -27,8 +27,14 @@ jobs:
         uses: ./.github/workflows/firmware-compile
       - name: Copy release files to bin folder
         run: |
+          mkdir -p ${{ github.workspace }}/bin/
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
+      - name: Leave only 3 recent releases
+        run: |
+          cd ${{ github.workspace }}/bin/
+          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
+          cd ${{ github.workspace }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -44,6 +50,7 @@ jobs:
           tag: ${{ inputs.release-version }}
           generateReleaseNotes: true
           allowUpdates: true
+          makeLatest: true
       - name: Merge master -> develop
         uses: devmasx/merge-branch@master
         with:
@@ -62,5 +69,5 @@ jobs:
             cd /root/ukraine_alarm_map/deploy/
             git fetch --all
             git checkout master
-            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -m ${{ secrets.MEMCACHED_HOST }}
+            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
 
