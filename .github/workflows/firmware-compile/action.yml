@@ -32,7 +32,7 @@ runs:
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
           - name: ESP Async WebServer
-            version: 2.6.1
+            version: 2.7.0
           - name: Adafruit SSD1306
             version: 2.5.9
           - name: home-assistant-integration
@@ -46,7 +46,7 @@ runs:
           - name: AsyncTCP
             version: 1.1.4
           - name: ArduinoJson
-            version: 7.0.2
+            version: 7.0.3
           - name: ArduinoWebsockets
             version: 0.5.3
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
