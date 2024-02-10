@@ -1592,7 +1592,7 @@ void displayCycle() {
   // update service message expiration
   serviceMessageUpdate();
 
-  // Show service message if not expired (Always shown, it's short message)
+  // Show service message if not expired (Always show, it's short message)
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
     return;
@@ -1740,7 +1740,7 @@ void showNewFirmwareNotification() {
   String message;
   if (remainder < toggleTime) {
     title = "Доступне оновлення:";
-    message = (String) "v" + getFwVersion(latestFirmware);
+    message = getFwVersion(latestFirmware);
   } else if (settings.button_mode == 0) {
     title = "Введіть у браузері:";
     message = WiFi.localIP().toString();
@@ -1767,8 +1767,8 @@ void showTemp() {
 }
 
 void showTechInfo() {
-  int toggleTime = 3;  // seconds
-  int remainder = timeClient.second() % (toggleTime * 5);
+  int toggleTime = settings.display_mode_time;  // seconds
+  int remainder = timeClient.second() % (toggleTime * 6);
   String title;
   String message;
   // IP address
@@ -1789,9 +1789,12 @@ void showTechInfo() {
     title = "Статус map-API:";
     message = apiConnected ? "Підключено" : "Відключено";
     // HA Status
-  } else {
+  } else if (remainder < toggleTime * 5) {
     title = "Home Assistant:";
     message = haConnected ? "Підключено" : "Відключено";
+  } else {
+    title = "Версія прошивки:";
+    message = VERSION;
   }
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
@@ -1974,7 +1977,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "           <div class='col-md-6 offset-md-3'>";
     html += "              <div class='row'>";
     html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>v" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
     html += "                </div>";
     html += "              </div>";
     html += "            </div>";
