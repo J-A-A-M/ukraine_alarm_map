@@ -32,21 +32,21 @@ runs:
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
           - name: ESP Async WebServer
-            version: 2.6.0
+            version: 2.7.0
           - name: Adafruit SSD1306
             version: 2.5.9
           - name: home-assistant-integration
-            version: 2.0.0
+            version: 2.1.0
           - name: NeoPixelBus by Makuna
             version: 2.7.8
-          - name: NTPClient
-            version: 3.2.1
+          - name: NTPTime
+            version: 1.2.1
           - name: WiFiManager
             version: 2.0.16-rc.2
           - name: AsyncTCP
             version: 1.1.4
           - name: ArduinoJson
-            version: 7.0.2
+            version: 7.0.3
           - name: ArduinoWebsockets
             version: 0.5.3
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
@@ -54,3 +54,4 @@ runs:
         sketches-report-path: ${{ inputs.sketches-report-path }}
         cli-compile-flags: |
           - --export-binaries
+          - --warnings=default

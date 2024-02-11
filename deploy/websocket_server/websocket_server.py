@@ -5,7 +5,7 @@ import os
 import json
 import random
 from aiomcache import Client
-from geoip2 import database
+from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone
 
@@ -31,6 +31,7 @@ class SharedData:
         self.weather = '[]'
         self.weather_full = {}
         self.bins = '[]'
+        self.test_bins = '[]'
         self.clients = {}
         self.blocked_ips = []
 
@@ -70,56 +71,73 @@ regions = {
 async def alerts_data(websocket, client, shared_data):
     client_ip, client_port = websocket.remote_address
     while True:
+        match client['firmware']:
+            case 'unknown':
+                client_id = client_port
+            case _:
+                client_id = client['firmware']
         try:
-            logger.debug(f"{client_ip}_{client_port}: check")
+            logger.debug(f"{client_ip}:{client_id}: check")
             if client['alerts'] != shared_data.alerts:
                 alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts)])
                 payload = '{"payload":"alerts","alerts":%s}' % alerts
                 await websocket.send(payload)
-                logger.info(f"{client_ip}_{client_port} <<< new alerts")
+                logger.info(f"{client_ip}:{client_id} <<< new alerts")
                 client['alerts'] = shared_data.alerts
             if client['weather'] != shared_data.weather:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
-                logger.info(f"{client_ip}_{client_port} <<< new weather")
+                logger.info(f"{client_ip}:{client_id} <<< new weather")
                 client['weather'] = shared_data.weather
             if client['bins'] != shared_data.bins:
                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                 await websocket.send(payload)
-                logger.info(f"{client_ip}_{client_port} <<< new bins")
+                logger.info(f"{client_ip}:{client_id} <<< new bins")
                 client['bins'] = shared_data.bins
+            if client['test_bins'] != shared_data.test_bins:
+                payload = '{"payload": "test_bins", "test_bins": %s}' % shared_data.test_bins
+                await websocket.send(payload)
+                logger.info(f"{client_ip}:{client_id} <<< new test_bins")
+                client['test_bins'] = shared_data.test_bins
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
-            logger.warning(f"{client_ip}_{client_port} !!! data stopped")
+            logger.warning(f"{client_ip}:{client_id} !!! data stopped")
             break
         except Exception as e:
-            logger.warning(f"{client_ip}_{client_port}: {e}")
+            logger.warning(f"{client_ip}:{client_id}: {e}")
 
 
 async def echo(websocket, path):
     client_ip, client_port = websocket.remote_address
-    logger.info(f"{client_ip}_{client_port} >>> new client")
+    logger.info(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
-        logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+        logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
         return
 
-    response = geo.city(client_ip)
+    try:
+        response = geo.city(client_ip)
+        city = response.city.name or 'not-in-db'
+        region = response.subdivisions.most_specific.name or 'not-in-db'
+    except errors.AddressNotFoundError:
+        city = 'not-found'
+        region = 'not-found'
 
-    if response.country.iso_code != 'UA' and response.continent.code != 'EU':
-        shared_data.blocked_ips.append(client_ip)
-        logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
-        return
+    # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
+    #     shared_data.blocked_ips.append(client_ip)
+    #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+    #     return
 
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
         'weather': '[]',
         'bins': '[]',
+        'test_bins': '[]',
         'firmware': 'unknown',
         'chip_id': 'unknown',
-        'city': response.city.name or 'unknown',
-        'region': response.subdivisions.most_specific.name or 'unknown'
+        'city': city,
+        'region': region
     }
 
     match path:
@@ -128,7 +146,12 @@ async def echo(websocket, path):
             try:
                 while True:
                     async for message in websocket:
-                        logger.info(f"{client_ip}_{client_port} >>> {message}")
+                        match client['firmware']:
+                            case 'unknown':
+                                client_id = client_port
+                            case _:
+                                client_id = client['firmware']
+                        logger.info(f"{client_ip}:{client_id} >>> {message}")
 
                         def split_message(message):
                             parts = message.split(':', 1)  # Split at most into 2 parts
@@ -142,15 +165,15 @@ async def echo(websocket, path):
                                 district_data = await district_data_v1(int(data))
                                 payload = json.dumps(district_data).encode('utf-8')
                                 await websocket.send(payload)
-                                logger.info(f"{client_ip}_{client_port} <<< district {payload} ")
+                                logger.info(f"{client_ip}:{client_id} <<< district {payload} ")
                             case 'firmware':
                                 client['firmware'] = data
-                                logger.warning(f"{client_ip}_{client_port} >>> firmware saved")
+                                logger.warning(f"{client_ip}:{client_id} >>> firmware saved")
                             case 'chip_id':
                                 client['chip_id'] = data
-                                logger.info(f"{client_ip}_{client_port} >>> chip_id saved")
+                                logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
                             case _:
-                                logger.info(f"{client_ip}_{client_port} !!! unknown data request")
+                                logger.info(f"{client_ip}:{client_id} !!! unknown data request")
             except websockets.exceptions.ConnectionClosedError as e:
                 logger.error(f"Connection closed with error - {e}")
             except Exception as e:
@@ -161,8 +184,8 @@ async def echo(websocket, path):
                 try:
                     await data_task
                 except asyncio.CancelledError:
-                    logger.info(f"{client_ip}_{client_port} !!! tasks cancelled")
-                logger.info(f"{client_ip}_{client_port} !!! end")
+                    logger.info(f"{client_ip}:{client_id} !!! tasks cancelled")
+                logger.info(f"{client_ip}:{client_id} !!! end")
         case _:
             return
 
@@ -189,7 +212,7 @@ async def district_data_v1(district_id):
 async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
-        alerts, weather, bins, alerts_full, weather_full = await get_data_from_memcached(mc)
+        alerts, weather, bins, test_bins, alerts_full, weather_full = await get_data_from_memcached(mc)
         try:
             if alerts != shared_data.alerts:
                 shared_data.alerts = alerts
@@ -209,6 +232,13 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"bins updated: {bins}")
         except Exception as e:
             logger.error(f"error in bins: {e}")
+            
+        try:
+            if test_bins != shared_data.test_bins:
+                shared_data.test_bins = test_bins
+                logger.info(f"test bins updated: {test_bins}")
+        except Exception as e:
+            logger.error(f"error in test_bins: {e}")
 
         try:
             if alerts_full != shared_data.alerts_full:
@@ -242,6 +272,7 @@ async def get_data_from_memcached(mc):
     alerts_cached = await mc.get(b"alerts_websocket_v1")
     weather_cached = await mc.get(b"weather_websocket_v1")
     bins_cached = await mc.get(b"bins")
+    test_bins_cached = await mc.get(b"test_bins")
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
 
@@ -265,6 +296,11 @@ async def get_data_from_memcached(mc):
         bins_cached_data = bins_cached.decode('utf-8')
     else:
         bins_cached_data = '[]'
+                
+    if test_bins_cached:
+        test_bins_cached_data = test_bins_cached.decode('utf-8')
+    else:
+        test_bins_cached_data = '[]'
 
     if alerts_full_cached:
         alerts_full_cached_data = json.loads(alerts_full_cached.decode('utf-8'))['states']
@@ -276,7 +312,7 @@ async def get_data_from_memcached(mc):
     else:
         weather_full_cached_data = {}
 
-    return alerts_cached_data, weather_cached_data, bins_cached_data, alerts_full_cached_data, weather_full_cached_data
+    return alerts_cached_data, weather_cached_data, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data
 
 
 start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
