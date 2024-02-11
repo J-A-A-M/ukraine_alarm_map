@@ -701,10 +701,10 @@ void initWifi() {
   wm.startWebPortal();
   delay(5000);
   setupRouting();
-  initHA();
   initUpdates();
   initBroadcast();
   socketConnect();
+  initHA();
   showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
 }
 
@@ -841,7 +841,13 @@ void initHA() {
       device.setSoftwareVersion(settings.softwareversion);
       device.setManufacturer("v00g100skr");
       device.setModel(deviceDescr);
+      // Doesn't work right now. Try on next arduino HA release.
+      // const char* deviceUrl = ((String) "http://"+ WiFi.localIP().toString() + ":80/").c_str();
+      // Serial.println(deviceUrl);
+      // device.setConfigurationUrl(deviceUrl);
+      device.enableExtendedUniqueIds();
       device.enableSharedAvailability();
+      device.enableLastWill();
 
       haUptime.setIcon("mdi:timer-outline");
       haUptime.setName("Uptime");
@@ -852,16 +858,19 @@ void initHA() {
       haWifiSignal.setName("WIFI Signal");
       haWifiSignal.setUnitOfMeasurement("dBm");
       haWifiSignal.setDeviceClass("signal_strength");
+      haWifiSignal.setStateClass("measurement");
 
       haFreeMemory.setIcon("mdi:memory");
       haFreeMemory.setName("Free Memory");
       haFreeMemory.setUnitOfMeasurement("kB");
       haFreeMemory.setDeviceClass("data_size");
+      haFreeMemory.setStateClass("measurement");
 
       haUsedMemory.setIcon("mdi:memory");
       haUsedMemory.setName("Used Memory");
       haUsedMemory.setUnitOfMeasurement("kB");
       haUsedMemory.setDeviceClass("data_size");
+      haUsedMemory.setStateClass("measurement");
 
       haBrightness.onCommand(onHaBrightnessCommand);
       haBrightness.setIcon("mdi:brightness-percent");
@@ -891,7 +900,7 @@ void initHA() {
 
       haMapApiConnect.setName("Connectivity");
       haMapApiConnect.setDeviceClass("connectivity");
-      haMapApiConnect.setCurrentState(false);
+      haMapApiConnect.setCurrentState(client_websocket.available());
 
       haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
       haBrightnessAuto.setIcon("mdi:brightness-auto");
@@ -920,6 +929,7 @@ void initHA() {
       haCpuTemp.setDeviceClass("temperature");
       haCpuTemp.setUnitOfMeasurement("°C");
       haCpuTemp.setCurrentValue(temperatureRead());
+      haCpuTemp.setStateClass("measurement");
 
       haHomeDistrict.setIcon("mdi:home-map-marker");
       haHomeDistrict.setName("Home District");
@@ -935,17 +945,18 @@ void initHA() {
       haLight.onRGBColorCommand(onHaLightRGBColor);
 
       device.enableLastWill();
-      mqtt.onConnected(mqttConnected);
+      mqtt.onStateChanged(onMqttStateChanged);
       mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
     }
   }
 }
 
-void mqttConnected() {
-  Serial.println("Home Assistant MQTT connected!");
-  haConnected = true;
-  servicePin(settings.hapin, HIGH, false);
-  if (enableHA) {
+void onMqttStateChanged(HAMqtt::ConnectionState state) {
+  Serial.print("Home Assistant MQTT state changed! State:");
+  Serial.println(state);
+  haConnected = state == HAMqtt::StateConnected;
+  servicePin(settings.hapin, haConnected ? HIGH : LOW, false);
+  if (enableHA && haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
     haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
     haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
@@ -979,6 +990,7 @@ void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
 
 void onHaButtonClicked(HAButton* sender) {
   if (sender == &haReboot) {
+    device.setAvailability(false);
     rebootDevice();
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
@@ -3254,10 +3266,16 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     Serial.println("connnection opened");
     servicePin(settings.datapin, HIGH, false);
     websocketLastPingTime = millis();
+    if (enableHA) {
+      haMapApiConnect.setState(apiConnected, true);
+    }
   } else if (event == WebsocketsEvent::ConnectionClosed) {
     apiConnected = false;
     Serial.println("connnection closed");
     servicePin(settings.datapin, LOW, false);
+    if (enableHA) {
+      haMapApiConnect.setState(apiConnected, true);
+    }
   } else if (event == WebsocketsEvent::GotPing) {
     Serial.println("websocket ping");
     client_websocket.pong();
