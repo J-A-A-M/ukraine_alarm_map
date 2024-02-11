@@ -74,5 +74,6 @@ jobs:
             cd /root/ukraine_alarm_map/deploy/
             git fetch --all
             git checkout master
+            git pull
             bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
 
