@@ -17,7 +17,7 @@
 #define UNIX64
 #include <NTPtime.h>
 
-String VERSION = "3.5";
+String VERSION = "3.6";
 
 struct Settings {
   String        apssid                 = "JAAM";
