@@ -184,10 +184,10 @@ int d21[] = { 21, 16, 17, 18, 19, 20, 22 };
 int d22[] = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
 int d23[] = { 23, 2, 5, 6, 22, 24 };
 int d24[] = { 24, 1, 2, 22, 23 };
-int d25[] = { 25, 6, 7, 8, 19, 20, 22 };
+int d25[] = { 25, 7 };
 
 
-int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 7 };
+int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
 std::vector<String> districts = {
   "Закарпатська обл.",
@@ -2435,7 +2435,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
   for (String& filename : tempBinList) {
     html += "<option value='" + filename + "'";
-    if (settings.bin_name == filename) html += " selected";
+    if (filename == "latest.bin" || filename == "latest_beta.bin") html += " selected";
     html += ">" + filename + "</option>";
   }
   html += "                              </select>";
