@@ -2435,7 +2435,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
   for (String& filename : tempBinList) {
     html += "<option value='" + filename + "'";
-    if (settings.bin_name == filename) html += " selected";
+    if (filename == "latest.bin" || filename == "latest_beta.bin") html += " selected";
     html += ">" + filename + "</option>";
   }
   html += "                              </select>";
