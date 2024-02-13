@@ -685,6 +685,7 @@ void initWifi() {
   wm.setConnectRetries(10);
   wm.setAPCallback(apCallback);
   wm.setSaveConfigCallback(saveConfigCallback);
+  wm.setConfigPortalTimeout(180);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
   String apssid = settings.apssid + "_" + chipID;
