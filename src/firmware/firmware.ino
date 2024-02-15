@@ -3208,7 +3208,7 @@ void websocketProcess() {
     }
     socketConnect();
     if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
-      rebootDevice(3000, true)
+      rebootDevice(3000, true);
     }
   }
 }
