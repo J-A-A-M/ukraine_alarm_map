@@ -3201,15 +3201,15 @@ int getCurrentBrightnes() {
 
 //--Websocket process start
 void websocketProcess() {
-  while (!client_websocket.available()) {
+  if (!client_websocket.available()) {
     Serial.println("Reconnecting...");
     if (millis() - websocketLastPingTime > settings.ws_alert_time) {
       mapReconnect();
     }
-    socketConnect();
     if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
       rebootDevice(3000, true);
     }
+    socketConnect();
   }
 }
 
