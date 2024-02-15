@@ -100,6 +100,7 @@ struct Settings {
   int     day_start              = 8;
   int     night_start            = 22;
   int     ws_alert_time          = 120000;
+  int     ws_reboot_time         = 180000;
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
@@ -603,6 +604,7 @@ void initSettings() {
   settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
   settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ws_reboot_time         = preferences.getInt("wsrt", settings.ws_reboot_time);
   settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
@@ -3205,7 +3207,9 @@ void websocketProcess() {
       mapReconnect();
     }
     socketConnect();
-    delay(3000);
+    if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
+      rebootDevice(3000, true)
+    }
   }
 }
 
@@ -3659,7 +3663,7 @@ void setup() {
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(doUpdate, 1000);
-  asyncEngine.setInterval(websocketProcess, 1000);
+  asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
 }
