@@ -641,7 +641,7 @@ void initTime() {
   timeClient.setDSTauto(&dst); //auto update on summer/winter time.
   timeClient.begin();
   int count = 0;
-  while (timeClient.status() != 0 && count <= 7) {
+  while (timeClient.status() != 0 && count <= 10) {
     Serial.println("Time not set. Force update " + String(count));
     timeClient.updateNow();
     timeClient.tick();
@@ -2924,14 +2924,12 @@ void handleSaveModes (AsyncWebServerRequest* request) {
     if (settings.min_of_silence == 0) {
       settings.min_of_silence = 1;
       preferences.putInt("mos", settings.min_of_silence);
-      checkServicePins();
       Serial.println("min_of_silence enabled to preferences");
     }
   } else {
     if (settings.min_of_silence == 1) {
       settings.min_of_silence = 0;
       preferences.putInt("mos", settings.min_of_silence);
-      checkServicePins();
       Serial.println("min_of_silence disabled to preferences");
     }
   }
@@ -3128,7 +3126,6 @@ void uptime() {
     haUsedMemory.setValue(usedHeapSize);
     haCpuTemp.setValue(cpuTemp);
   }
-  //Serial.println(uptimeValue);
 }
 
 void connectStatuses() {
@@ -3151,14 +3148,6 @@ void connectStatuses() {
 
 void autoBrightnessUpdate() {
   int currentBrightness = getCurrentBrightnes();
-  // if (isNight && settings.sdm_auto && settings.service_diodes_mode != 0) {
-  //   settings.service_diodes_mode = 0;
-  //   checkServicePins();
-  // }
-  // if (!isNight && settings.sdm_auto && settings.service_diodes_mode != 1) {
-  //   settings.service_diodes_mode = 1;
-  //   checkServicePins();
-  // }
   if (currentBrightness != settings.brightness) {
     settings.brightness = currentBrightness;
     if (enableHA) {
@@ -3202,15 +3191,15 @@ int getCurrentBrightnes() {
 
 //--Websocket process start
 void websocketProcess() {
-  while (!client_websocket.available()) {
+  if (!client_websocket.available()) {
     Serial.println("Reconnecting...");
     if (millis() - websocketLastPingTime > settings.ws_alert_time) {
       mapReconnect();
     }
-    socketConnect();
     if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
       rebootDevice(3000, true);
     }
+    socketConnect();
   }
 }
 
@@ -3309,8 +3298,7 @@ void socketConnect() {
     Serial.println(chipId.c_str());
     client_websocket.send(chipId.c_str());
     client_websocket.ping();
-    showServiceMessage("підключено!", "Сервер даних");
-    delay(1000);
+    showServiceMessage("підключено!", "Сервер даних", 3000);
   } else {
     showServiceMessage("недоступний", "Сервер даних", 3000);
   }
@@ -3551,11 +3539,8 @@ void mapWeather() {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    //Serial.print(adapted_weather_leds[i]);
-    //Serial.print(" ");
     strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]), 1.0, settings.brightness / 200.0f));
   }
-  //Serial.println(" ");
   strip->Show();
 }
 
