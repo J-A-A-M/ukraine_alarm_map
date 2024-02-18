@@ -43,7 +43,7 @@ struct Settings {
   int     pixelpin               = 13;
   int     buttonpin              = 15;
   int     alertpin               = 34;
-  int     lightpin               = 36;
+  int     lightpin               = 32;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
@@ -52,7 +52,7 @@ struct Settings {
   int     brightness             = 50;
   int     brightness_day         = 50;
   int     brightness_night       = 5;
-  int     brightness_auto        = 0;
+  int     brightness_mode        = 0;
   int     home_alert_time        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
@@ -575,7 +575,7 @@ void initSettings() {
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
   settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
-  settings.brightness_auto        = preferences.getInt("bra", settings.brightness_auto);
+  settings.brightness_mode        = preferences.getInt("bra", settings.brightness_mode);
   settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
   settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
   settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
@@ -917,7 +917,7 @@ void initHA() {
       haBrightnessAuto.onCommand(onHaBrightnessAutoCommand);
       haBrightnessAuto.setIcon("mdi:brightness-auto");
       haBrightnessAuto.setName("Auto Brightness");
-      haBrightnessAuto.setCurrentState(settings.brightness_auto);
+      haBrightnessAuto.setCurrentState(settings.brightness_mode);
 
       haShowHomeAlarmTime.onCommand(onHaShowHomeAlarmTimeCommand);
       haShowHomeAlarmTime.setIcon("mdi:timer-alert");
@@ -1023,15 +1023,15 @@ void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
 }
 
 void onHaBrightnessAutoCommand(int8_t index, HASelect* sender) {
-  settings.brightness_auto = index;
+  settings.brightness_mode = index;
   preferences.begin("storage", false);
-  preferences.putInt("bra", settings.brightness_auto);
+  preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
   Serial.println("brightness_auto commited to preferences: ");
-  Serial.println(settings.brightness_auto);
+  Serial.println(settings.brightness_mode);
   sender->setState(index);  // report state back to the Home Assistant
   autoBrightnessUpdate();
-  showServiceMessage(autoBrightnessOptions[settings.brightness_auto], "Авто. яскравість:");
+  showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
 }
 
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender) {
@@ -2038,11 +2038,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_auto == 1 || settings.brightness_auto == 2) +">";
+  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2) +">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_auto == 0 || settings.brightness_auto == 2) +">";
+  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_mode == 0) +">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span>%</label>";
@@ -2050,11 +2050,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> година</label>";
-  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_auto == 0 || settings.brightness_auto == 2) +">";
+  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) +">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> година</label>";
-  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_auto == 0 || settings.brightness_auto == 2) +">";
+  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) +">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox12'>Автоматична яскравість</label>";
@@ -2063,7 +2063,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "<option value='";
     html += i;
     html += "'";
-    if (settings.brightness_auto == i) html += " selected";
+    if (settings.brightness_mode == i) html += " selected";
     html += ">";
     html += autoBrightnessOptions[i];
     html += "</option>";
@@ -2584,7 +2584,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            const selectedOption =  $(this).val();";
   html += "            console.log('Selected auto_brightness option: '.concat(selectedOption));";
   html += "            $('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);";
-  html += "            $('input[name=brightness_day]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
+  html += "            $('input[name=brightness_day]').prop('disabled', selectedOption == 0);";
   html += "            $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
   html += "            $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
   html += "        });";
@@ -2672,14 +2672,14 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
     }
   }
   if (request->hasParam("brightness_auto", true)) {
-    if (request->getParam("brightness_auto", true)->value().toInt() != settings.brightness_auto) {
-      settings.brightness_auto = request->getParam("brightness_auto", true)->value().toInt();
+    if (request->getParam("brightness_auto", true)->value().toInt() != settings.brightness_mode) {
+      settings.brightness_mode = request->getParam("brightness_auto", true)->value().toInt();
       if (enableHA) {
-        haBrightnessAuto.setState(settings.brightness_auto);
+        haBrightnessAuto.setState(settings.brightness_mode);
       }
-      preferences.putInt("bra", settings.brightness_auto);
+      preferences.putInt("bra", settings.brightness_mode);
       Serial.println("brightness_auto commited to preferences");
-      showServiceMessage(autoBrightnessOptions[settings.brightness_auto], "Авто. яскравість:");
+      showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
     }
   }
   if (request->hasParam("brightness_alert", true)) {
@@ -3141,7 +3141,7 @@ void autoBrightnessUpdate() {
     preferences.begin("storage", false);
     preferences.putInt("cbr", settings.current_brightness);
     preferences.end();
-    Serial.print(" set current brightness: ");
+    Serial.print("set current brightness: ");
     Serial.println(settings.current_brightness);
   }
 }
@@ -3150,25 +3150,27 @@ int getBrightnessFromSensor() {
   // reads the input on analog pin (value between 0 and 4095)
   int analogValue = analogRead(settings.lightpin);
 
-  Serial.print("Light Sensor Analog Value = ");
-  Serial.print(analogValue);   // the raw analog reading
+  // 
+  int minBrightness = min(settings.brightness_day, settings.brightness_night);
+  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
+  int step = round((maxBrightness - minBrightness) / 4);
 
   // We'll have a few threshholds, qualitatively determined
+  // Dark
   if (analogValue < 40) {
-    Serial.println(" => Dark");
-    return 5;
+    return minBrightness;
+  // Dim
   } else if (analogValue < 800) {
-    Serial.println(" => Dim");
-    return 25;
+    return minBrightness + step;
+  // Light
   } else if (analogValue < 2000) {
-    Serial.println(" => Light");
-    return 50;
+    return minBrightness + 2 * step;
+  // Bright
   } else if (analogValue < 3200) {
-    Serial.println(" => Bright");
-    return 75;
+    return minBrightness + 3 * step;
+  // Very Bright
   } else {
-    Serial.println(" => Very bright");
-    return 100;
+    return maxBrightness;
   }
 }
 
@@ -3176,7 +3178,7 @@ int getCurrentBrightnes() {
   // highest priority for night mode, return night brightness
   if (nightMode) return settings.brightness_night;
 
-  // if nightMode deactivated return previous brightnes
+  // if nightMode deactivated return previous brightness
   if (prevBrightness >= 0) {
     int tempBrightnes = prevBrightness;
     prevBrightness = -1;
@@ -3184,10 +3186,10 @@ int getCurrentBrightnes() {
   } 
 
   // if auto brightnes deactivated, return regular brightnes
-  if (settings.brightness_auto == 0) return settings.brightness;
+  if (settings.brightness_mode == 0) return settings.brightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_auto == 2) return getBrightnessFromSensor();
+  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
 
   // if day and night start time is equels it means it's always day, return day brightness
   if(settings.night_start == settings.day_start) return settings.brightness_day;
