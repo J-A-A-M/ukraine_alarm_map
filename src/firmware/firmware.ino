@@ -388,6 +388,7 @@ const unsigned char trident_small[] PROGMEM = {
 
 bool    enableHA;
 bool    wifiReconnect = false;
+bool    websocketReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
@@ -3207,14 +3208,15 @@ int getCurrentBrightnes() {
 
 //--Websocket process start
 void websocketProcess() {
-  if (!client_websocket.available()) {
+  if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+    mapReconnect();
+    websocketReconnect = true;
+  }
+  if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
+    rebootDevice(3000, true);
+  }
+  if (!client_websocket.available() or websocketReconnect) {
     Serial.println("Reconnecting...");
-    if (millis() - websocketLastPingTime > settings.ws_alert_time) {
-      mapReconnect();
-    }
-    if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
-      rebootDevice(3000, true);
-    }
     socketConnect();
   }
 }
@@ -3314,6 +3316,7 @@ void socketConnect() {
     Serial.println(chipId.c_str());
     client_websocket.send(chipId.c_str());
     client_websocket.ping();
+    websocketReconnect = false;
     showServiceMessage("підключено!", "Сервер даних", 3000);
   } else {
     showServiceMessage("недоступний", "Сервер даних", 3000);
