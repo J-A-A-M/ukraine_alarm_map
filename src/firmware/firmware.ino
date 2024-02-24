@@ -1149,6 +1149,8 @@ void initDisplayModes() {
   if (bme280Inited || bmp280Inited || sht30Inited) {
     displayModes.insert(displayModes.end() - 1, "Мікроклімат");
     localTempHumSensorCycle();
+  } else if (settings.display_mode == displayModes.size() - 1) {
+    saveDisplayMode(9);
   }
 }
 //--Init end
@@ -3732,12 +3734,12 @@ void localTempHumSensorCycle() {
     localTemp = sht.getTemperature();
     localHum = sht.getHumidity();
 
-    Serial.print("SHT30! Temp: ");
-    Serial.print(localTemp);
-    Serial.print("°C");
-    Serial.print("\tHumidity: ");
-    Serial.print(localHum);
-    Serial.println("%");
+    //Serial.print("SHT30! Temp: ");
+    //Serial.print(localTemp);
+    //Serial.print("°C");
+    //Serial.print("\tHumidity: ");
+    //Serial.print(localHum);
+    //Serial.println("%");
     return;
   }
 
@@ -3749,15 +3751,15 @@ void localTempHumSensorCycle() {
       localHum = bme.hum();
     }
 
-    Serial.print("BME280! Temp: ");
-    Serial.print(localTemp);
-    Serial.print("°C");
-    Serial.print("\tHumidity: ");
-    Serial.print(localHum);
-    Serial.print("%");
-    Serial.print("\tPressure: ");
-    Serial.print(localPresure);
-    Serial.println("mmHg");
+    // Serial.print("BME280! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.print("%");
+    // Serial.print("\tPressure: ");
+    // Serial.print(localPresure);
+    // Serial.println("mmHg");
   }
 }
 
