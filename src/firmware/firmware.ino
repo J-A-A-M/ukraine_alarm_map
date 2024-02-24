@@ -17,6 +17,7 @@
 #include <Wire.h>
 #include <BME280I2C.h>
 #include <SHT31.h>
+#include <SHT2x.h>
 #define UNIX64
 #include <NTPtime.h>
 
@@ -108,6 +109,9 @@ struct Settings {
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
+  float   temp_correction        = 0;
+  float   hum_correction         = 0;
+  float   presure_correction     = 0;
   // ------- web config end
 };
 
@@ -137,7 +141,8 @@ DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 BME280I2C         bme;
-SHT31             sht;
+SHT31             sht3x;
+HTU20             htu2x;
 
 struct ServiceMessage {
   String title;
@@ -416,7 +421,8 @@ int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 bool    bme280Inited = false;
 bool    bmp280Inited = false;
-bool    sht30Inited = false;
+bool    sht3xInited = false;
+bool    htu2xInited = false;
 float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
@@ -632,6 +638,9 @@ void initSettings() {
   settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
+  settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
+  settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
+  settings.presure_correction     = preferences.getFloat("lpc", settings.presure_correction);
 
   preferences.end();
 
@@ -658,7 +667,7 @@ void initStrip() {
 
 void initTime() {
   Serial.println("Init time");
-  timeClient.setDSTauto(&dst); //auto update on summer/winter time.
+  timeClient.setDSTauto(&dst);  //auto update on summer/winter time.
   timeClient.begin();
   int count = 0;
   while (timeClient.status() != 0 && count <= 10) {
@@ -1120,11 +1129,26 @@ void initDisplay() {
   delay(3000);
 }
 
-void initBme280TempSensor() {
+void initI2cTempSensors() {
   Wire.begin();
+  initSht3xTempSensor();
+  initHtu2xTempSensor();
+  initBme280TempSensor();
+  initDisplayModes();
+}
+
+void initSht3xTempSensor() {
+  sht3xInited = sht3x.begin();
+}
+
+void initHtu2xTempSensor() {
+  htu2xInited = htu2x.begin();
+}
+
+void initBme280TempSensor() {
   bme.begin();
 
-  switch(bme.chipModel()) {
+  switch (bme.chipModel()) {
     case BME280::ChipModel_BME280:
       bme280Inited = true;
       Serial.println("Found BME280 sensor! Success.");
@@ -1140,13 +1164,8 @@ void initBme280TempSensor() {
   }
 }
 
-void initSht30TempSensor() {
-  Wire.begin();
-  sht30Inited = sht.begin();
-}
-
 void initDisplayModes() {
-  if (bme280Inited || bmp280Inited || sht30Inited) {
+  if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
     displayModes.insert(displayModes.end() - 1, "Мікроклімат");
     localTempHumSensorCycle();
   } else if (settings.display_mode == displayModes.size() - 1) {
@@ -1182,8 +1201,8 @@ bool firstIsNewer(Firmware first, Firmware second) {
       if (first.patch == second.patch) {
         if (first.isBeta && second.isBeta) {
           if (first.betaBuild > second.betaBuild) return true;
-        } else { 
-          return !first.isBeta && second.isBeta; 
+        } else {
+          return !first.isBeta && second.isBeta;
         }
       }
     }
@@ -1224,7 +1243,7 @@ void doUpdate() {
 void downloadAndUpdateFw(String binFileName, bool isBeta) {
   String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport;
   if (isBeta) {
-      firmwareUrlString += "/beta";
+    firmwareUrlString += "/beta";
   }
   firmwareUrlString += "/" + binFileName;
   const char* firmwareUrl = firmwareUrlString.c_str();
@@ -1317,7 +1336,7 @@ void singleClick() {
 }
 
 void longClick() {
-   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
     downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
     return;
   }
@@ -1756,14 +1775,14 @@ void showHomeAlertInfo() {
 
 String getFwVersion(Firmware firmware) {
   String version = String(firmware.major) + "." + firmware.minor;
-    if (firmware.patch > 0) {
-        version += ".";
-        version += firmware.patch;
-    }
-    if (firmware.isBeta) {
-        version += "-b";
-        version += firmware.betaBuild;
-    }
+  if (firmware.patch > 0) {
+    version += ".";
+    version += firmware.patch;
+  }
+  if (firmware.isBeta) {
+    version += "-b";
+    version += firmware.betaBuild;
+  }
   return version;
 }
 
@@ -1786,7 +1805,7 @@ void showNewFirmwareNotification() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
-void showClock() { 
+void showClock() {
   String time = timeClient.unixToString(String("hh") + getDivider() + "mm");
   String date = timeClient.unixToString("DSTRUA DD.MM.YYYY");
   displayMessage(time, getTextSizeToFitDisplay(time), date);
@@ -2007,6 +2026,11 @@ String disableRange(bool isDisabled) {
   return isDisabled ? " disabled" : "";
 }
 
+String floatToString(float value, int prec) {
+  char result[10];
+  dtostrf(value, 2 + prec, prec, result);
+  return String(result);
+}
 
 void handleRoot(AsyncWebServerRequest* request) {
   String html;
@@ -2117,11 +2141,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2) +">";
+  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_mode == 0) +">";
+  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_mode == 0) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span>%</label>";
@@ -2129,11 +2153,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> година</label>";
-  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) +">";
+  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> година</label>";
-  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) +">";
+  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox12'>Автоматична яскравість</label>";
@@ -2292,6 +2316,24 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
   html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html += "                    </div>";
+  if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>" + floatToString(settings.temp_correction, 1) + "</span> °C</label>";
+    html += "                        <input type='range' name='temp_correction' class='form-control-range' id='slider21' min='-10' max='10' step='0.1' value='" + String(settings.temp_correction) + "'>";
+    html += "                    </div>";
+  }
+  if (sht3xInited || bme280Inited || htu2xInited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider22'>Корегування вологості: <span id='sliderValue22'>" + floatToString(settings.hum_correction, 1) + "</span> %</label>";
+    html += "                        <input type='range' name='hum_correction' class='form-control-range' id='slider22' min='-20' max='20' step='0.5' value='" + String(settings.hum_correction) + "'>";
+    html += "                    </div>";
+  }
+  if (bme280Inited || bmp280Inited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider23'>Корегування тиску: <span id='sliderValue23'>" + floatToString(settings.presure_correction, 1) + "</span> мм.рт.ст.</label>";
+    html += "                        <input type='range' name='presure_correction' class='form-control-range' id='slider23' min='-50' max='50' step='0.5' value='" + String(settings.presure_correction) + "'>";
+    html += "                    </div>";
+  }
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>";
   html += "                        <select name='button_mode' class='form-control' id='selectBox6'>";
@@ -2518,11 +2560,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                              <label for='selectBox11'>Канал оновлення прошивок</label>";
   html += "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>";
   for (int i = 0; i < fwUpdateChannels.size(); i++) {
-      html += "<option value='";
-      html += i;
-      html += "'";
-      if (settings.fw_update_channel == i) html += " selected";
-      html += ">" + fwUpdateChannels[i] + "</option>";
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.fw_update_channel == i) html += " selected";
+    html += ">" + fwUpdateChannels[i] + "</option>";
   }
   html += "                              </select>";
   html += "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
@@ -2553,7 +2595,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20', 'slider21', 'slider22', 'slider23'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2794,7 +2836,7 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSaveColors (AsyncWebServerRequest* request) {
+void handleSaveColors(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   if (request->hasParam("color_alert", true)) {
     if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
@@ -2835,7 +2877,7 @@ void handleSaveColors (AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSaveWeather (AsyncWebServerRequest* request) {
+void handleSaveWeather(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   if (request->hasParam("weather_min_temp", true)) {
     if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
@@ -2855,7 +2897,7 @@ void handleSaveWeather (AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSaveModes (AsyncWebServerRequest* request) {
+void handleSaveModes(AsyncWebServerRequest* request) {
   bool reboot = false;
   // this part saves values to prefs individually, and begins and ends prefs sessions each time
   if (request->hasParam("map_mode", true)) {
@@ -2895,6 +2937,33 @@ void handleSaveModes (AsyncWebServerRequest* request) {
       settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
       preferences.putInt("dmt", settings.display_mode_time);
       Serial.println("display_mode_time commited to preferences");
+    }
+  }
+  if (request->hasParam("temp_correction", true)) {
+    if (request->getParam("temp_correction", true)->value().toFloat() != settings.temp_correction) {
+      settings.temp_correction = request->getParam("temp_correction", true)->value().toFloat();
+      preferences.putFloat("ltc", settings.temp_correction);
+      Serial.print("temp_correction commited to preferences: ");
+      Serial.println(settings.temp_correction);
+      localTempHumSensorCycle();
+    }
+  }
+  if (request->hasParam("hum_correction", true)) {
+    if (request->getParam("hum_correction", true)->value().toFloat() != settings.hum_correction) {
+      settings.hum_correction = request->getParam("hum_correction", true)->value().toFloat();
+      preferences.putFloat("lhc", settings.hum_correction);
+      Serial.print("hum_correction commited to preferences: ");
+      Serial.println(settings.hum_correction);
+      localTempHumSensorCycle();
+    }
+  }
+  if (request->hasParam("presure_correction", true)) {
+    if (request->getParam("presure_correction", true)->value().toFloat() != settings.presure_correction) {
+      settings.presure_correction = request->getParam("presure_correction", true)->value().toFloat();
+      preferences.putFloat("lpc", settings.presure_correction);
+      Serial.print("presure_correction commited to preferences: ");
+      Serial.println(settings.presure_correction);
+      localTempHumSensorCycle();
     }
   }
   if (request->hasParam("button_mode", true)) {
@@ -2998,7 +3067,7 @@ void handleSaveModes (AsyncWebServerRequest* request) {
   }
 }
 
-void handleSaveDev (AsyncWebServerRequest* request) {
+void handleSaveDev(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   bool reboot = false;
   if (request->hasParam("legacy", true)) {
@@ -3229,7 +3298,7 @@ int getBrightnessFromAnalogSensor() {
   // reads the input on analog pin (value between 0 and 4095)
   int analogValue = analogRead(settings.lightpin);
 
-  // 
+  //
   int minBrightness = min(settings.brightness_day, settings.brightness_night);
   int maxBrightness = max(settings.brightness_day, settings.brightness_night);
   int step = round((maxBrightness - minBrightness) / 4);
@@ -3238,16 +3307,16 @@ int getBrightnessFromAnalogSensor() {
   // Dark
   if (analogValue < 40) {
     return minBrightness;
-  // Dim
+    // Dim
   } else if (analogValue < 800) {
     return minBrightness + step;
-  // Light
+    // Light
   } else if (analogValue < 2000) {
     return minBrightness + 2 * step;
-  // Bright
+    // Bright
   } else if (analogValue < 3200) {
     return minBrightness + 3 * step;
-  // Very Bright
+    // Very Bright
   } else {
     return maxBrightness;
   }
@@ -3262,7 +3331,7 @@ int getCurrentBrightnes() {
     int tempBrightnes = prevBrightness;
     prevBrightness = -1;
     return tempBrightnes;
-  } 
+  }
 
   // if auto brightnes deactivated, return regular brightnes
   if (settings.brightness_mode == 0) return settings.brightness;
@@ -3271,7 +3340,7 @@ int getCurrentBrightnes() {
   if (settings.brightness_mode == 2) return getBrightnessFromAnalogSensor();
 
   // if day and night start time is equels it means it's always day, return day brightness
-  if(settings.night_start == settings.day_start) return settings.brightness_day;
+  if (settings.night_start == settings.day_start) return settings.brightness_day;
 
   int currentHour = timeClient.hour();
 
@@ -3710,7 +3779,7 @@ void WifiReconnect() {
 }
 
 void alertPinCycle() {
-  if (alarmNow  && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
     Serial.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
   }
@@ -3729,26 +3798,40 @@ void rebootCycle() {
 }
 
 void localTempHumSensorCycle() {
-  if (sht30Inited) {
-    sht.read();
-    localTemp = sht.getTemperature();
-    localHum = sht.getHumidity();
+  if (sht3xInited) {
+    sht3x.read();
+    localTemp = sht3x.getTemperature() + settings.temp_correction;
+    localHum = sht3x.getHumidity() + settings.hum_correction;
 
-    //Serial.print("SHT30! Temp: ");
-    //Serial.print(localTemp);
-    //Serial.print("°C");
-    //Serial.print("\tHumidity: ");
-    //Serial.print(localHum);
-    //Serial.println("%");
+    // Serial.print("SHT3X! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.println("%");
+    return;
+  }
+
+  if (htu2xInited) {
+    htu2x.read();
+    localTemp = htu2x.getTemperature() + settings.temp_correction;
+    localHum = htu2x.getHumidity() + settings.hum_correction;
+
+    // Serial.print("HTU2X! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.println("%");
     return;
   }
 
   if (bme280Inited || bmp280Inited) {
-    localTemp = bme.temp(BME280::TempUnit_Celsius);
-    localPresure = bme.pres(BME280::PresUnit_inHg) * 25.4;  //mmHg
+    localTemp = bme.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
+    localPresure = bme.pres(BME280::PresUnit_inHg) * 25.4 + settings.presure_correction;  //mmHg
 
     if (bme280Inited) {
-      localHum = bme.hum();
+      localHum = bme.hum() + settings.hum_correction;
     }
 
     // Serial.print("BME280! Temp: ");
@@ -3760,6 +3843,7 @@ void localTempHumSensorCycle() {
     // Serial.print("\tPressure: ");
     // Serial.print(localPresure);
     // Serial.println("mmHg");
+    return;
   }
 }
 
@@ -3771,9 +3855,7 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
-  initBme280TempSensor();
-  initSht30TempSensor();
-  initDisplayModes();
+  initI2cTempSensors();
   initWifi();
   initTime();
 
