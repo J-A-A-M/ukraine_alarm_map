@@ -14,6 +14,9 @@
 #include <ArduinoJson.h>
 #include <esp_system.h>
 #include <ArduinoWebsockets.h>
+#include <Wire.h>
+#include <BME280I2C.h>
+#include <SHT31.h>
 #define UNIX64
 #include <NTPtime.h>
 
@@ -133,6 +136,8 @@ NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+BME280I2C         bme;
+SHT31             sht;
 
 struct ServiceMessage {
   String title;
@@ -409,6 +414,12 @@ bool    isDisplayOff = false;
 bool    nightMode = false;
 int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
+bool    bme280Inited = false;
+bool    bmp280Inited = false;
+bool    sht30Inited = false;
+float   localTemp = -273;
+float   localHum = -1;
+float   localPresure = -1;
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -572,7 +583,7 @@ void initSettings() {
   settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
-  settings.current_brightness      = preferences.getInt("cbr", settings.current_brightness);
+  settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
   settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
@@ -1008,7 +1019,7 @@ void onHaButtonClicked(HAButton* sender) {
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
   } else if (sender == &haToggleDisplayMode) {
-    displayModeSwitch();
+    nextDisplayMode();
   }
 }
 
@@ -1066,37 +1077,19 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
 }
 
 int getHaDisplayMode(int displayMode) {
-  switch (displayMode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      // passthrough
-    case 3:
-      return displayMode;
-    case 9:
-      return 4;
-    default:
-      return 0;
-  }
+  int lastModeIndex = displayModes.size() - 1;
+  if (displayMode < lastModeIndex) return displayMode;
+  if (displayMode == 9) return lastModeIndex;
+  // default
+  return 0;
 }
 
 int getRealDisplayMode(int displayMode) {
-  switch (displayMode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      // passthrough
-    case 3:
-      return displayMode;
-    case 4:
-      return 9;
-    default:
-      return 0;
-  }
+  int lastModeIndex = displayModes.size() - 1;
+  if (displayMode < lastModeIndex) return displayMode;
+  if (displayMode == lastModeIndex) return 9;
+  // default
+  return 0;
 }
 
 void initDisplay() {
@@ -1125,6 +1118,38 @@ void initDisplay() {
   display.print(settings.softwareversion);
   display.display();
   delay(3000);
+}
+
+void initBme280TempSensor() {
+  Wire.begin();
+  bme.begin();
+
+  switch(bme.chipModel()) {
+    case BME280::ChipModel_BME280:
+      bme280Inited = true;
+      Serial.println("Found BME280 sensor! Success.");
+      break;
+    case BME280::ChipModel_BMP280:
+      bmp280Inited = true;
+      Serial.println("Found BMP280 sensor! No Humidity available.");
+      break;
+    default:
+      bme280Inited = false;
+      bmp280Inited = false;
+      Serial.println("Not found BME280 or BMP280!");
+  }
+}
+
+void initSht30TempSensor() {
+  Wire.begin();
+  sht30Inited = sht.begin();
+}
+
+void initDisplayModes() {
+  if (bme280Inited || bmp280Inited || sht30Inited) {
+    displayModes.insert(displayModes.end() - 1, "Мікроклімат");
+    localTempHumSensorCycle();
+  }
 }
 //--Init end
 
@@ -1304,7 +1329,7 @@ void handleClick(int event) {
       mapModeSwitch();
       break;
     case 2:
-      displayModeSwitch();
+      nextDisplayMode();
       break;
     case 3:
       isMapOff = !isMapOff;
@@ -1417,24 +1442,16 @@ void saveHaLightRgb(HALight::RGBColor newRgb) {
   mapCycle();
 }
 
-void displayModeSwitch() {
+void nextDisplayMode() {
   int newDisplayMode;
-  switch (settings.display_mode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      newDisplayMode = settings.display_mode + 1;
-      break;
-    case 3:
-      newDisplayMode = 9;
-      break;
-    case 9:
-      // passthrough
-    default:
-      newDisplayMode = 0;
-      break;
+  // Get last mode index without mode "Switching"
+  int lastModeIndex = displayModes.size() - 2;
+  if (settings.display_mode < lastModeIndex) {
+    newDisplayMode = settings.display_mode + 1;
+  } else if (settings.display_mode == lastModeIndex) {
+    newDisplayMode = 9;
+  } else {
+    newDisplayMode = 0;
   }
   saveDisplayMode(newDisplayMode);
 }
@@ -1596,14 +1613,6 @@ void serviceMessageUpdate() {
 }
 
 void displayCycle() {
-  // for display chars testing purposes
-  // display.clearDisplay();
-  // String str = "";
-  // str += startSymbol;
-  // str += "-";
-  // str += (char) startSymbol;
-  // DisplayCenter(str, 7, 2);
-  // return;
 
   // check if we need activate "minute of silence mode"
   checkMinuteOfSilence();
@@ -1662,9 +1671,13 @@ void displayByMode(int mode) {
     case 3:
       showTechInfo();
       break;
+    // Display Climate info from sensor
+    case 4:
+      showClimate();
+      break;
     // Display Mode Switching
     case 9:
-      displayByMode(calculateCurrentDisplayMode());
+      showSwitchingModes();
       break;
     // Unknown Display Mode, clearing display...
     default:
@@ -1819,6 +1832,63 @@ void showTechInfo() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
+void showClimate() {
+  int toggleTime = settings.display_mode_time;  // seconds
+  int remainder = timeClient.second() % (toggleTime * getClimateInfoSize());
+  if (remainder < toggleTime) {
+    showLocalClimateInfo(0);
+  } else if (remainder < toggleTime * 2) {
+    showLocalClimateInfo(1);
+  } else if (remainder < toggleTime * 3) {
+    showLocalClimateInfo(2);
+  }
+}
+
+void showLocalTemp() {
+  char roundedTemp[5];
+  dtostrf(localTemp, 5, 1, roundedTemp);
+  String message = String(roundedTemp) + (char)128 + "C";
+  displayMessage(message, getTextSizeToFitDisplay(message), "Температура");
+}
+
+void showLocalHum() {
+  char roundedHum[5];
+  dtostrf(localHum, 5, 1, roundedHum);
+  String message = String(roundedHum) + "%";
+
+  displayMessage(message, getTextSizeToFitDisplay(message), "Вологість");
+}
+
+void showLocalPresure() {
+  char roundedPres[6];
+  dtostrf(localPresure, 6, 1, roundedPres);
+  String message = String(roundedPres) + "mmHg";
+  displayMessage(message, getTextSizeToFitDisplay(message), "Тиск");
+}
+
+void showLocalClimateInfo(int index) {
+  if (index == 0 && localTemp > -273) {
+    showLocalTemp();
+    return;
+  }
+  if (index <= 1 && localHum > 0) {
+    showLocalHum();
+    return;
+  }
+  if (index <= 2 && localPresure > 0) {
+    showLocalPresure();
+    return;
+  }
+}
+
+int getClimateInfoSize() {
+  int size = 0;
+  if (localTemp > -273) size++;
+  if (localHum > 0) size++;
+  if (localPresure > 0) size++;
+  return size;
+}
+
 String getStringFromTimer(long timerSeconds) {
   String message;
   unsigned long seconds = timerSeconds;
@@ -1847,15 +1917,21 @@ String getStringFromTimer(long timerSeconds) {
   }
 }
 
-int calculateCurrentDisplayMode() {
+void showSwitchingModes() {
   int toggleTime = settings.display_mode_time;
-  int remainder = timeClient.second() % (toggleTime * 2);
+  int remainder = timeClient.second() % (toggleTime * (2 + getClimateInfoSize()));
   if (remainder < toggleTime) {
     // Display Mode Clock
-    return 1;
-  } else {
+    showClock();
+  } else if (remainder < toggleTime * 2) {
     // Display Mode Temperature
-    return 2;
+    showTemp();
+  } else if (remainder < toggleTime * 3) {
+    showLocalClimateInfo(0);
+  } else if (remainder < toggleTime * 4) {
+    showLocalClimateInfo(1);
+  } else if (remainder < toggleTime * 5) {
+    showLocalClimateInfo(2);
   }
 }
 
@@ -3147,7 +3223,7 @@ void autoBrightnessUpdate() {
   }
 }
 
-int getBrightnessFromSensor() {
+int getBrightnessFromAnalogSensor() {
   // reads the input on analog pin (value between 0 and 4095)
   int analogValue = analogRead(settings.lightpin);
 
@@ -3190,7 +3266,7 @@ int getCurrentBrightnes() {
   if (settings.brightness_mode == 0) return settings.brightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
+  if (settings.brightness_mode == 2) return getBrightnessFromAnalogSensor();
 
   // if day and night start time is equels it means it's always day, return day brightness
   if(settings.night_start == settings.day_start) return settings.brightness_day;
@@ -3650,6 +3726,41 @@ void rebootCycle() {
   }
 }
 
+void localTempHumSensorCycle() {
+  if (sht30Inited) {
+    sht.read();
+    localTemp = sht.getTemperature();
+    localHum = sht.getHumidity();
+
+    Serial.print("SHT30! Temp: ");
+    Serial.print(localTemp);
+    Serial.print("°C");
+    Serial.print("\tHumidity: ");
+    Serial.print(localHum);
+    Serial.println("%");
+    return;
+  }
+
+  if (bme280Inited || bmp280Inited) {
+    localTemp = bme.temp(BME280::TempUnit_Celsius);
+    localPresure = bme.pres(BME280::PresUnit_inHg) * 25.4;  //mmHg
+
+    if (bme280Inited) {
+      localHum = bme.hum();
+    }
+
+    Serial.print("BME280! Temp: ");
+    Serial.print(localTemp);
+    Serial.print("°C");
+    Serial.print("\tHumidity: ");
+    Serial.print(localHum);
+    Serial.print("%");
+    Serial.print("\tPressure: ");
+    Serial.print(localPresure);
+    Serial.println("mmHg");
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3658,6 +3769,9 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
+  initBme280TempSensor();
+  initSht30TempSensor();
+  initDisplayModes();
   initWifi();
   initTime();
 
@@ -3671,6 +3785,7 @@ void setup() {
   asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
+  asyncEngine.setInterval(localTempHumSensorCycle, 5000);
 }
 
 void loop() {
