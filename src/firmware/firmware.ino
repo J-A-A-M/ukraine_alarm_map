@@ -2595,7 +2595,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20', 'slider21', 'slider22', 'slider23'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'";
+   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+    html += ", 'slider21'";
+  }
+  if (sht3xInited || bme280Inited || htu2xInited) {
+    html += ", 'slider22'";
+  }
+  if (bme280Inited || bmp280Inited) {
+    html += ", 'slider23'";
+  }
+  html += "];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
