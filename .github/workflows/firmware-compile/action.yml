@@ -49,6 +49,12 @@ runs:
             version: 7.0.3
           - name: ArduinoWebsockets
             version: 0.5.3
+          - name: BME280
+            version: 3.0.0
+          - name: SHT2x
+            version: 0.5.0
+          - name: SHT31
+            version: 0.5.0
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
         enable-deltas-report: ${{ inputs.enable-deltas-report }}
         sketches-report-path: ${{ inputs.sketches-report-path }}
