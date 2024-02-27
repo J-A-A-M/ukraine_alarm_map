@@ -15,6 +15,7 @@
 #include <esp_system.h>
 #include <ArduinoWebsockets.h>
 #include <Wire.h>
+#include <BH1750.h>
 #include <BME280I2C.h>
 #include <SHT31.h>
 #include <SHT2x.h>
@@ -112,6 +113,7 @@ struct Settings {
   float   temp_correction        = 0;
   float   hum_correction         = 0;
   float   presure_correction     = 0;
+  float   light_sensor_factor    = 1;
   // ------- web config end
 };
 
@@ -140,7 +142,8 @@ NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
-BME280I2C         bme;
+BH1750            bh1750;
+BME280I2C         bme280;
 SHT31             sht3x;
 HTU20             htu2x;
 
@@ -419,13 +422,16 @@ bool    isDisplayOff = false;
 bool    nightMode = false;
 int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
+bool    bh1750Inited = false;
 bool    bme280Inited = false;
 bool    bmp280Inited = false;
 bool    sht3xInited = false;
 bool    htu2xInited = false;
+float   lightInLuxes = -1;
 float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
+int     brightnessLevels[10]; // Array containing brightness values
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -641,6 +647,7 @@ void initSettings() {
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
   settings.presure_correction     = preferences.getFloat("lpc", settings.presure_correction);
+  settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
 
   preferences.end();
 
@@ -1131,31 +1138,55 @@ void initDisplay() {
 
 void initI2cTempSensors() {
   Wire.begin();
+  initBh1750LightSensor();
   initSht3xTempSensor();
   initHtu2xTempSensor();
   initBme280TempSensor();
   initDisplayModes();
 }
 
+void initBh1750LightSensor() {
+  bh1750Inited = bh1750.begin();
+  // bh1750Inited = bh1750.begin(BH1750_TO_VCC);
+  if (bh1750Inited) {
+    bh1750LightSensorCycle();
+    Serial.println("Found BH1750 light sensor! Success.");
+  } else {
+    Serial.println("Not found BH1750 light sensor!");
+  }
+  // Distribute brightness levels
+  distributeBrightnessLevels();
+  autoBrightnessUpdate();
+}
+
 void initSht3xTempSensor() {
   sht3xInited = sht3x.begin();
+  if (sht3xInited) {
+    Serial.println("Found SHT3x temp/hum sensor! Success.");
+  } else {
+    Serial.println("Not found SHT3x temp/hum sensor!");
+  }
 }
 
 void initHtu2xTempSensor() {
   htu2xInited = htu2x.begin();
+  if (sht3xInited) {
+    Serial.println("Found HTU2x temp/hum sensor! Success.");
+  } else {
+    Serial.println("Not found HTU2x temp/hum sensor!");
+  }
 }
 
 void initBme280TempSensor() {
-  bme.begin();
-
-  switch (bme.chipModel()) {
+  bme280.begin();
+  switch (bme280.chipModel()) {
     case BME280::ChipModel_BME280:
       bme280Inited = true;
-      Serial.println("Found BME280 sensor! Success.");
+      Serial.println("Found BME280 temp/hum/presure sensor! Success.");
       break;
     case BME280::ChipModel_BMP280:
       bmp280Inited = true;
-      Serial.println("Found BMP280 sensor! No Humidity available.");
+      Serial.println("Found BMP280 temp/presure sensor! No Humidity available.");
       break;
     default:
       bme280Inited = false;
@@ -2189,6 +2220,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
   html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='slider24'>Коефіцієнт чутливості сенсора освітлення: <span id='sliderValue24'>" + floatToString(settings.light_sensor_factor, 1) + "</span></label>";
+  html += "                        <input type='range' name='light_sensor_factor' class='form-control-range' id='slider24' min='0.1' max='10' step='0.1' value='" + String(settings.light_sensor_factor) + "'>";
+  html += "                    </div>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2605,7 +2640,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bme280Inited || bmp280Inited) {
     html += ", 'slider23'";
   }
-  html += "];";
+  html += ", 'slider24'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2779,6 +2814,7 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       settings.brightness_day = request->getParam("brightness_day", true)->value().toInt();
       preferences.putInt("brd", settings.brightness_day);
       Serial.println("brightness_day commited to preferences");
+      distributeBrightnessLevels();
     }
   }
   if (request->hasParam("brightness_night", true)) {
@@ -2786,6 +2822,7 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       settings.brightness_night = request->getParam("brightness_night", true)->value().toInt();
       preferences.putInt("brn", settings.brightness_night);
       Serial.println("brightness_night commited to preferences");
+      distributeBrightnessLevels();
     }
   }
   if (request->hasParam("day_start", true)) {
@@ -2839,6 +2876,14 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       settings.brightness_alert_over = request->getParam("brightness_alert_over", true)->value().toInt();
       preferences.putInt("bao", settings.brightness_alert_over);
       Serial.println("brightness_alert_over commited to preferences");
+    }
+  }
+  if (request->hasParam("light_sensor_factor", true)) {
+    if (request->getParam("light_sensor_factor", true)->value().toFloat() != settings.light_sensor_factor) {
+      settings.light_sensor_factor = request->getParam("light_sensor_factor", true)->value().toFloat();
+      preferences.putFloat("lsf", settings.light_sensor_factor);
+      Serial.print("light_sensor_factor commited to preferences: ");
+      Serial.println(settings.light_sensor_factor);
     }
   }
   preferences.end();
@@ -3292,6 +3337,20 @@ void connectStatuses() {
   }
 }
 
+void distributeBrightnessLevels() {
+  int brLevels = 10;
+  int minBrightness = min(settings.brightness_day, settings.brightness_night);
+  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
+  int step = round(maxBrightness - minBrightness) / (brLevels - 1);
+  Serial.print("Brightness levels: ");
+  for (int i = 0; i < brLevels; i++) {
+    brightnessLevels[i] = i == brLevels - 1 ? maxBrightness : minBrightness + i * step;
+    Serial.print(brightnessLevels[i]);
+    Serial.print(", ");
+  }
+  Serial.println();
+}
+
 void autoBrightnessUpdate() {
   int tempBrightness = getCurrentBrightnes();
   if (tempBrightness != settings.current_brightness) {
@@ -3304,32 +3363,24 @@ void autoBrightnessUpdate() {
   }
 }
 
-int getBrightnessFromAnalogSensor() {
+int getBrightnessFromSensor() {
+
+  // BH1750 have higher priority. BH1750 measurmant range is 0..54612 lx. The daylight is about 5000 lx
+  if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 5000)];
+
   // reads the input on analog pin (value between 0 and 4095)
-  int analogValue = analogRead(settings.lightpin);
+  int analogValue = analogRead(settings.lightpin) / settings.light_sensor_factor;
+  Serial.print("Analog light value: ");
+  Serial.println(analogValue);
 
-  //
-  int minBrightness = min(settings.brightness_day, settings.brightness_night);
-  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
-  int step = round((maxBrightness - minBrightness) / 4);
+  // The sunny daylight is about 3575
+  return brightnessLevels[getCurrentBrightnessLevel(analogValue, 3575)];
+}
 
-  // We'll have a few threshholds, qualitatively determined
-  // Dark
-  if (analogValue < 40) {
-    return minBrightness;
-    // Dim
-  } else if (analogValue < 800) {
-    return minBrightness + step;
-    // Light
-  } else if (analogValue < 2000) {
-    return minBrightness + 2 * step;
-    // Bright
-  } else if (analogValue < 3200) {
-    return minBrightness + 3 * step;
-    // Very Bright
-  } else {
-    return maxBrightness;
-  }
+// Determine the current brightness level
+int getCurrentBrightnessLevel(int currentValue, int maxValue) {
+  int level = map(currentValue, 0, maxValue, 0, 10);
+  return constrain(level, 0, 9);
 }
 
 int getCurrentBrightnes() {
@@ -3347,7 +3398,7 @@ int getCurrentBrightnes() {
   if (settings.brightness_mode == 0) return settings.brightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return getBrightnessFromAnalogSensor();
+  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
 
   // if day and night start time is equels it means it's always day, return day brightness
   if (settings.night_start == settings.day_start) return settings.brightness_day;
@@ -3807,9 +3858,37 @@ void rebootCycle() {
   }
 }
 
+void bh1750LightSensorCycle() {
+  if (!bh1750Inited && !bh1750.measurementReady(true)) return;
+  lightInLuxes = bh1750.readLightLevel() / settings.light_sensor_factor;
+  Serial.print("BH1750!\tLight: ");
+  Serial.print(lightInLuxes);
+  Serial.println(" lx");
+}
+
 void localTempHumSensorCycle() {
-  if (sht3xInited) {
-    sht3x.read();
+
+  if (bme280Inited || bmp280Inited) {
+    localTemp = bme280.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
+    localPresure = bme280.pres(BME280::PresUnit_inHg) * 25.4 + settings.presure_correction;  //mmHg
+
+    if (bme280Inited) {
+      localHum = bme280.hum() + settings.hum_correction;
+    }
+
+    // Serial.print("BME280! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.print("%");
+    // Serial.print("\tPressure: ");
+    // Serial.print(localPresure);
+    // Serial.println("mmHg");
+    return;
+  }
+
+  if (sht3xInited && sht3x.read()) {
     localTemp = sht3x.getTemperature() + settings.temp_correction;
     localHum = sht3x.getHumidity() + settings.hum_correction;
 
@@ -3822,8 +3901,7 @@ void localTempHumSensorCycle() {
     return;
   }
 
-  if (htu2xInited) {
-    htu2x.read();
+  if (htu2xInited && htu2x.read()) {
     localTemp = htu2x.getTemperature() + settings.temp_correction;
     localHum = htu2x.getHumidity() + settings.hum_correction;
 
@@ -3833,26 +3911,6 @@ void localTempHumSensorCycle() {
     // Serial.print("\tHumidity: ");
     // Serial.print(localHum);
     // Serial.println("%");
-    return;
-  }
-
-  if (bme280Inited || bmp280Inited) {
-    localTemp = bme.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
-    localPresure = bme.pres(BME280::PresUnit_inHg) * 25.4 + settings.presure_correction;  //mmHg
-
-    if (bme280Inited) {
-      localHum = bme.hum() + settings.hum_correction;
-    }
-
-    // Serial.print("BME280! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.print("%");
-    // Serial.print("\tPressure: ");
-    // Serial.print(localPresure);
-    // Serial.println("mmHg");
     return;
   }
 }
@@ -3879,6 +3937,7 @@ void setup() {
   asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
+  asyncEngine.setInterval(bh1750LightSensorCycle, 2000);
   asyncEngine.setInterval(localTempHumSensorCycle, 5000);
 }
 
