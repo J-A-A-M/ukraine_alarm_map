@@ -1166,7 +1166,6 @@ void initDisplay() {
   display.display();
   display.clearDisplay();
   display.setTextColor(WHITE);
-  // int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
@@ -1198,7 +1197,6 @@ void initI2cTempSensors() {
 
 void initBh1750LightSensor() {
   bh1750Inited = bh1750.begin();
-  // bh1750Inited = bh1750.begin(BH1750_TO_VCC);
   if (bh1750Inited) {
     bh1750LightSensorCycle();
     Serial.println("Found BH1750 light sensor! Success.");
@@ -3919,9 +3917,9 @@ void rebootCycle() {
 void bh1750LightSensorCycle() {
   if (!bh1750Inited && !bh1750.measurementReady(true)) return;
   lightInLuxes = bh1750.readLightLevel() / settings.light_sensor_factor;
-  Serial.print("BH1750!\tLight: ");
-  Serial.print(lightInLuxes);
-  Serial.println(" lx");
+  // Serial.print("BH1750!\tLight: ");
+  // Serial.print(lightInLuxes);
+  // Serial.println(" lx");
 }
 
 void localTempHumSensorCycle() {
