@@ -19,14 +19,13 @@
 #include <BME280I2C.h>
 #include <SHT31.h>
 #include <SHT2x.h>
-#define UNIX64
 #include <NTPtime.h>
 
-String VERSION = "3.6";
+const PROGMEM char* VERSION = "3.6";
 
 struct Settings {
-  String        apssid                 = "JAAM";
-  const char*   softwareversion        = VERSION.c_str();
+  const char*   apssid                 = "JAAM";
+  const char*   softwareversion        = VERSION;
   int           pixelcount             = 26;
   int           buttontime             = 100;
   int           powerpin               = 12;
@@ -42,7 +41,7 @@ struct Settings {
   String  serverhost             = "alerts.net.ua";
   int     websocket_port         = 38440;
   int     updateport             = 8090;
-  String  bin_name               = VERSION + ".bin";
+  String  bin_name               = String(VERSION) + ".bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
@@ -167,44 +166,44 @@ int     flag_leds[26];
 //   60,180,180,180,180,180,180,
 //   180,180,180,60,60,60,60,180
 // };
-int legacy_flag_leds[26] = {
+int legacy_flag_leds[26] PROGMEM = {
   60, 60, 60, 180, 180, 180, 180, 180, 180,
   180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
   180, 180, 60, 60, 60, 60, 180
 };
 
 
-int d0[] = { 0, 1, 3 };
-int d1[] = { 1, 0, 2, 3, 24 };
-int d2[] = { 2, 1, 3, 4, 5, 23, 24 };
-int d3[] = { 3, 0, 1, 2, 4 };
-int d4[] = { 4, 2, 3, 5 };
-int d5[] = { 5, 2, 3, 4, 6, 23 };
-int d6[] = { 6, 5, 7, 22, 23, 25 };
-int d7[] = { 7, 6, 8, 19, 20, 22, 25 };
-int d8[] = { 8, 7, 9, 19, 20 };
-int d9[] = { 9, 8, 10, 19 };
-int d10[] = { 10, 9, 12, 18, 19 };
-int d11[] = { 11, 10, 12 };
-int d12[] = { 12, 10, 13, 18 };
-int d13[] = { 13, 12, 14, 18 };
-int d14[] = { 14, 13, 17, 18 };
-int d15[] = { 15, 14 };
-int d16[] = { 16, 17, 20, 21, 22 };
-int d17[] = { 17, 14, 16, 18, 21 };
-int d18[] = { 18, 10, 12, 13, 14, 17, 19, 21 };
-int d19[] = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
-int d20[] = { 20, 7, 8, 19, 21, 22, 25 };
-int d21[] = { 21, 16, 17, 18, 19, 20, 22 };
-int d22[] = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
-int d23[] = { 23, 2, 5, 6, 22, 24 };
-int d24[] = { 24, 1, 2, 22, 23 };
-int d25[] = { 25, 7 };
+int d0[] PROGMEM = { 0, 1, 3 };
+int d1[] PROGMEM = { 1, 0, 2, 3, 24 };
+int d2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
+int d3[] PROGMEM = { 3, 0, 1, 2, 4 };
+int d4[] PROGMEM = { 4, 2, 3, 5 };
+int d5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
+int d6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
+int d7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
+int d8[] PROGMEM = { 8, 7, 9, 19, 20 };
+int d9[] PROGMEM = { 9, 8, 10, 19 };
+int d10[] PROGMEM = { 10, 9, 12, 18, 19 };
+int d11[] PROGMEM = { 11, 10, 12 };
+int d12[] PROGMEM = { 12, 10, 13, 18 };
+int d13[] PROGMEM = { 13, 12, 14, 18 };
+int d14[] PROGMEM = { 14, 13, 17, 18 };
+int d15[] PROGMEM = { 15, 14 };
+int d16[] PROGMEM = { 16, 17, 20, 21, 22 };
+int d17[] PROGMEM = { 17, 14, 16, 18, 21 };
+int d18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
+int d19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
+int d20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
+int d21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
+int d22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
+int d23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
+int d24[] PROGMEM = { 24, 1, 2, 22, 23 };
+int d25[] PROGMEM = { 25, 7 };
 
 
-int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
+int counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
-std::vector<String> districts = {
+std::vector<const PROGMEM char*> districts PROGMEM = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -233,7 +232,7 @@ std::vector<String> districts = {
   "Київ"
 };
 
-std::vector<String> districtsAlphabetical = {
+std::vector<const PROGMEM char*> districtsAlphabetical PROGMEM = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -382,7 +381,7 @@ int numDistrictToAlphabet(int num) {
   }
 }
 
-int* neighboring_districts[] = {
+int* neighboring_districts[] PROGMEM = {
   d0, d1, d2, d3, d4, d5, d6, d7, d8, d9,
   d10, d11, d12, d13, d14, d15, d16, d17, d18, d19,
   d20, d21, d22, d23, d24, d25
@@ -490,7 +489,7 @@ HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
 HASensor        haHomeDistrict(haHomeDistrictString.c_str());
 HALight         haLight(haLightString.c_str(), HALight::BrightnessFeature | HALight::RGBFeature);
 
-std::vector<String> mapModes = {
+std::vector<const PROGMEM char*> mapModes PROGMEM = {
   "Вимкнено",
   "Тривога",
   "Погода",
@@ -499,7 +498,7 @@ std::vector<String> mapModes = {
   "Лампа"
 };
 
-std::vector<String> displayModes = {
+std::vector<const PROGMEM char*> displayModes PROGMEM = {
   "Вимкнено",
   "Годинник",
   "Погода",
@@ -507,13 +506,13 @@ std::vector<String> displayModes = {
   "Перемикання"
 };
 
-std::vector<String> autoAlarms = {
+std::vector<const PROGMEM char*> autoAlarms PROGMEM = {
   "Вимкнено",
   "Домашній та суміжні",
   "Лише домашній"
 };
 
-std::vector<String> singleClickOptions = {
+std::vector<const PROGMEM char*> singleClickOptions PROGMEM = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -523,7 +522,7 @@ std::vector<String> singleClickOptions = {
   "Увімк./Вимк. нічний режим"
 };
 
-std::vector<String> longClickOptions = {
+std::vector<const PROGMEM char*> longClickOptions PROGMEM = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -534,12 +533,12 @@ std::vector<String> longClickOptions = {
   "Перезавантаження пристрою"
 };
 
-std::vector<String> fwUpdateChannels = {
+std::vector<const PROGMEM char*> fwUpdateChannels PROGMEM = {
   "Production",
   "Beta"
 };
 
-std::vector<String> autoBrightnessOptions = {
+std::vector<const PROGMEM char*> autoBrightnessOptions PROGMEM = {
   "Вимкнено",
   "День/Ніч",
   "Сенсор освітлення"
@@ -652,7 +651,8 @@ void initSettings() {
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.println((String) "Current firmware version: " + getFwVersion(currentFirmware));
+  Serial.print("Current firmware version: ");
+  Serial.println(getFwVersion(currentFirmware));
 }
 
 void InitAlertPin() {
@@ -674,18 +674,68 @@ void initStrip() {
 
 void initTime() {
   Serial.println("Init time");
-  timeClient.setDSTauto(&dst);  //auto update on summer/winter time.
+  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
+  timeClient.setTimeout(5000); // 5 seconds waiting for reply
   timeClient.begin();
-  int count = 0;
-  while (timeClient.status() != 0 && count <= 10) {
-    Serial.println("Time not set. Force update " + String(count));
-    timeClient.updateNow();
+  syncTime();
+}
+  
+void syncTime() {
+  timeClient.tick();
+  if (timeClient.status() == UNIX_OK) return;
+  Serial.println("Time not synced yet!");
+  printNtpStatus();
+  int count = 1;
+  while (timeClient.NTPstatus() != NTP_OK && count <= 7) {
+    Serial.print("Try #");
+    Serial.println(count);
+    if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
+      Serial.println("Force update!");
+      timeClient.updateNow();
+    }
     timeClient.tick();
     count++;
     delay(1000);
+    printNtpStatus();
   }
-  Serial.println((String) "Current date and time: " + timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
-  websocketLastPingTime = millis();
+}
+
+void printNtpStatus() {
+  Serial.print("NTP status: ");
+    switch (timeClient.NTPstatus()) {
+      case 0:
+        Serial.println("OK");
+        Serial.print("Current date and time: ");
+        Serial.println(timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
+        break;
+      case 1:
+        Serial.println("NOT_STARTED");
+        break;
+      case 2:
+        Serial.println("NOT_CONNECTED_WIFI");
+        break;
+      case 3:
+        Serial.println("NOT_CONNECTED_TO_SERVER");
+        break;
+      case 4:
+        Serial.println("NOT_SENT_PACKET");
+        break;
+      case 5:
+        Serial.println("WAITING_REPLY");
+        break;
+      case 6:
+        Serial.println("TIMEOUT");
+        break;
+      case 7:
+        Serial.println("REPLY_ERROR");
+        break;
+      case 8:
+        Serial.println("NOT_CONNECTED_ETHERNET");
+        break;
+      default:
+        Serial.println("UNKNOWN_STATUS");
+        break;
+    }
 }
 
 void displayMessage(String message, int messageTextSize, String title = "") {
@@ -726,7 +776,7 @@ void initWifi() {
   wm.setConfigPortalTimeout(180);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = settings.apssid + "_" + chipID;
+  String apssid = String(settings.apssid) + "_" + chipID;
   if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
     rebootDevice(5000);
@@ -844,7 +894,8 @@ void initBroadcast() {
       delay(1000);
     }
   }
-  Serial.println("Device broadcasted to network: " + settings.broadcastname + ".local");
+  Serial.printf("Device broadcasted to network: %s.local", settings.broadcastname);
+  Serial.println();
 }
 
 void initHA() {
@@ -998,14 +1049,14 @@ void onMqttStateChanged(HAMqtt::ConnectionState state) {
   servicePin(settings.hapin, haConnected ? HIGH : LOW, false);
   if (enableHA && haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
-    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
   }
 }
 
-String getHaOptions(std::vector<String> list) {
+String getHaOptions(std::vector<const char*> list) {
   String result;
-  for (String option : list) {
+  for (const char* option : list) {
     if (list[0] != option) {
       result += ";";
     }
@@ -1055,7 +1106,7 @@ void onHaBrightnessAutoCommand(int8_t index, HASelect* sender) {
   preferences.begin("storage", false);
   preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
-  Serial.println("brightness_auto commited to preferences: ");
+  Serial.print("brightness_auto commited to preferences: ");
   Serial.println(settings.brightness_mode);
   sender->setState(index);  // report state back to the Home Assistant
   autoBrightnessUpdate();
@@ -1245,7 +1296,7 @@ JsonDocument parseJson(String payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
-    Serial.println("Deserialization error: ");
+    Serial.print("Deserialization error: ");
     Serial.println(error.f_str());
     return doc;
   } else {
@@ -1283,6 +1334,7 @@ void downloadAndUpdateFw(String binFileName, bool isBeta) {
   switch (ret) {
     case HTTP_UPDATE_FAILED:
       Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      Serial.println();
       break;
     case HTTP_UPDATE_NO_UPDATES:
       Serial.println("HTTP_UPDATE_NO_UPDATES");
@@ -1445,7 +1497,7 @@ void saveMapMode(int newMapMode) {
   if (enableHA) {
     haLight.setState(settings.map_mode == 5);
     haMapMode.setState(settings.map_mode);
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   }
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
@@ -1474,17 +1526,20 @@ void saveHaLightRgb(HALight::RGBColor newRgb) {
   if (settings.ha_light_r != newRgb.red) {
     settings.ha_light_r = newRgb.red;
     preferences.putInt("ha_lr", settings.ha_light_r);
-    Serial.println("ha_light_red commited to preferences: " + String(settings.ha_light_r));
+    Serial.print("ha_light_red commited to preferences: ");
+    Serial.println(settings.ha_light_r);
   }
   if (settings.ha_light_g != newRgb.green) {
     settings.ha_light_g = newRgb.green;
     preferences.putInt("ha_lg", settings.ha_light_g);
-    Serial.println("ha_light_green commited to preferences: " + String(settings.ha_light_g));
+    Serial.print("ha_light_green commited to preferences: ");
+    Serial.println(settings.ha_light_g);
   }
   if (settings.ha_light_b != newRgb.blue) {
     settings.ha_light_b = newRgb.blue;
     preferences.putInt("ha_lb", settings.ha_light_b);
-    Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
+    Serial.print("ha_light_blue commited to preferences: ");
+    Serial.println(settings.ha_light_b);
   }
   preferences.end();
 
@@ -1536,8 +1591,8 @@ void saveHomeDistrict(int newHomeDistrict) {
   preferences.end();
   Serial.println("home_district commited to preferences");
   if (enableHA) {
-    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   }
   homeAlertStart = 0;
   parseHomeDistrictJson();
@@ -2599,7 +2654,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += i;
     html += "'";
     if (settings.fw_update_channel == i) html += " selected";
-    html += ">" + fwUpdateChannels[i] + "</option>";
+    html += ">" + String(fwUpdateChannels[i]) + "</option>";
   }
   html += "                              </select>";
   html += "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
@@ -3072,9 +3127,10 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   if (request->hasParam("display_height", true)) {
     if (request->getParam("display_height", true)->value().toInt() != settings.display_height) {
       reboot = true;
-      preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
+      settings.display_height = request->getParam("display_height", true)->value().toInt();
+      preferences.putInt("dh", settings.display_height);
       Serial.print("display_height commited to preferences: ");
-      Serial.println(request->getParam("display_height", true)->value().toInt());
+      Serial.println(settings.display_height);
     }
   }
   if (request->hasParam("alarms_auto_switch", true)) {
@@ -3219,7 +3275,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
       reboot = true;
       settings.pixelpin = request->getParam("pixelpin", true)->value().toInt();
       preferences.putInt("pp", settings.pixelpin);
-      Serial.println("pixelpin commited: ");
+      Serial.print("pixelpin commited: ");
       Serial.println(settings.pixelpin);
     }
   }
@@ -3228,7 +3284,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
       reboot = true;
       settings.buttonpin = request->getParam("buttonpin", true)->value().toInt();
       preferences.putInt("bp", settings.buttonpin);
-      Serial.println("buttonpin commited: ");
+      Serial.print("buttonpin commited: ");
       Serial.println(settings.buttonpin);
     }
   }
@@ -3237,7 +3293,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
       reboot = true;
       settings.alertpin = request->getParam("alertpin", true)->value().toInt();
       preferences.putInt("ap", settings.alertpin);
-      Serial.println("alertpin commited: ");
+      Serial.print("alertpin commited: ");
       Serial.println(settings.alertpin);
     }
   }
@@ -3246,7 +3302,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
       reboot = true;
       settings.lightpin = request->getParam("lightpin", true)->value().toInt();
       preferences.putInt("lp", settings.lightpin);
-      Serial.println("lightpin commited: ");
+      Serial.print("lightpin commited: ");
       Serial.println(settings.lightpin);
     }
   }
@@ -3516,7 +3572,9 @@ void socketConnect() {
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl.c_str());
   if (client_websocket.available()) {
-    Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
+    Serial.print("connection time - ");
+    Serial.print(millis() - startTime);
+    Serial.println("ms");
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
     Serial.println(combinedString.c_str());
     client_websocket.send(combinedString.c_str());
@@ -3640,7 +3698,7 @@ void checkMinuteOfSilence() {
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
     if (enableHA) {
-      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
     }
   }
 }
@@ -3825,7 +3883,7 @@ int getCurrentMapMode() {
     alarmNow = false;
   }
   if (enableHA) {
-    haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
+    haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
   return currentMapMode;
 }
@@ -3942,7 +4000,6 @@ void setup() {
 }
 
 void loop() {
-  timeClient.tick();
   wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
@@ -3951,4 +4008,5 @@ void loop() {
     mqtt.loop();
   }
   client_websocket.poll();
+  syncTime();
 }
