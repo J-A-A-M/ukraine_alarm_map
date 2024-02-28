@@ -1205,7 +1205,6 @@ void initBh1750LightSensor() {
   }
   // Distribute brightness levels
   distributeBrightnessLevels();
-  autoBrightnessUpdate();
 }
 
 void initSht3xTempSensor() {
@@ -3915,7 +3914,7 @@ void rebootCycle() {
 }
 
 void bh1750LightSensorCycle() {
-  if (!bh1750Inited && !bh1750.measurementReady(true)) return;
+  if (!bh1750Inited || !bh1750.measurementReady(true)) return;
   lightInLuxes = bh1750.readLightLevel() / settings.light_sensor_factor;
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
