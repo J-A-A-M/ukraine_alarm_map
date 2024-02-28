@@ -3396,13 +3396,13 @@ void distributeBrightnessLevels() {
   int minBrightness = min(settings.brightness_day, settings.brightness_night);
   int maxBrightness = max(settings.brightness_day, settings.brightness_night);
   int step = round(maxBrightness - minBrightness) / (brLevels - 1);
-  Serial.print("Brightness levels: ");
+  Serial.print("Brightness levels: [");
   for (int i = 0; i < brLevels; i++) {
     brightnessLevels[i] = i == brLevels - 1 ? maxBrightness : minBrightness + i * step;
     Serial.print(brightnessLevels[i]);
-    Serial.print(", ");
+    if (i < brLevels - 1) Serial.print(", ");
   }
-  Serial.println();
+  Serial.println("]");
 }
 
 void autoBrightnessUpdate() {
