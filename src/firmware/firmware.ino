@@ -677,25 +677,27 @@ void initTime() {
   timeClient.setDSTauto(&dst); // auto update on summer/winter time.
   timeClient.setTimeout(5000); // 5 seconds waiting for reply
   timeClient.begin();
-  syncTime();
+  syncTime(7);
 }
   
-void syncTime() {
+void syncTime(int8_t attempts) {
   timeClient.tick();
   if (timeClient.status() == UNIX_OK) return;
   Serial.println("Time not synced yet!");
   printNtpStatus();
-  int count = 1;
-  while (timeClient.NTPstatus() != NTP_OK && count <= 7) {
-    Serial.print("Try #");
-    Serial.println(count);
+  int8_t count = 1;
+  while (timeClient.NTPstatus() != NTP_OK && count <= attempts) {
+    Serial.print("Attempt #");
+    Serial.print(count);
+    Serial.print(" of ");
+    Serial.println(attempts);
     if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
       Serial.println("Force update!");
       timeClient.updateNow();
     }
     timeClient.tick();
+    if (count < attempts) delay(1000);
     count++;
-    delay(1000);
     printNtpStatus();
   }
 }
@@ -4005,5 +4007,5 @@ void loop() {
     mqtt.loop();
   }
   client_websocket.poll();
-  syncTime();
+  syncTime(2);
 }
