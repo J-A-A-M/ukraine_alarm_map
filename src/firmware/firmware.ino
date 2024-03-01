@@ -7,14 +7,10 @@
 #include <ArduinoHA.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
-#include <HTTPClient.h>
 #include <HTTPUpdate.h>
-#include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
-#include <esp_system.h>
 #include <ArduinoWebsockets.h>
-#include <Wire.h>
 #include <BH1750.h>
 #include <BME280I2C.h>
 #include <SHT31.h>
@@ -135,7 +131,6 @@ Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WebsocketsClient  client_websocket;
-HTTPClient        http;
 AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
@@ -430,7 +425,10 @@ float   lightInLuxes = -1;
 float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
-int     brightnessLevels[10]; // Array containing brightness values
+
+
+#define BR_LEVELS_COUNT 20
+int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -1198,8 +1196,9 @@ void initI2cTempSensors() {
 }
 
 void initBh1750LightSensor() {
-  bh1750Inited = bh1750.begin();
+  bh1750Inited = bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2);
   if (bh1750Inited) {
+    delay(500); //waiting to get first measurement
     bh1750LightSensorCycle();
     Serial.println("Found BH1750 light sensor! Success.");
   } else {
@@ -2278,6 +2277,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider24'>Коефіцієнт чутливості сенсора освітлення: <span id='sliderValue24'>" + floatToString(settings.light_sensor_factor, 1) + "</span></label>";
   html += "                        <input type='range' name='light_sensor_factor' class='form-control-range' id='slider24' min='0.1' max='10' step='0.1' value='" + String(settings.light_sensor_factor) + "'>";
   html += "                    </div>";
+  html += "                    <p class='text-info'>Коефіцієнт чутливості працює наступним чином: <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.</p>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -3393,15 +3393,14 @@ void connectStatuses() {
 }
 
 void distributeBrightnessLevels() {
-  int brLevels = 10;
   int minBrightness = min(settings.brightness_day, settings.brightness_night);
   int maxBrightness = max(settings.brightness_day, settings.brightness_night);
-  int step = round(maxBrightness - minBrightness) / (brLevels - 1);
+  int step = round(maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1);
   Serial.print("Brightness levels: [");
-  for (int i = 0; i < brLevels; i++) {
-    brightnessLevels[i] = i == brLevels - 1 ? maxBrightness : minBrightness + i * step;
+  for (int i = 0; i < BR_LEVELS_COUNT; i++) {
+    brightnessLevels[i] = i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step;
     Serial.print(brightnessLevels[i]);
-    if (i < brLevels - 1) Serial.print(", ");
+    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
   }
   Serial.println("]");
 }
@@ -3420,22 +3419,24 @@ void autoBrightnessUpdate() {
 
 int getBrightnessFromSensor() {
 
-  // BH1750 have higher priority. BH1750 measurmant range is 0..54612 lx. The daylight is about 5000 lx
-  if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 5000)];
+  // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
+  if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 500)];
 
   // reads the input on analog pin (value between 0 and 4095)
-  int analogValue = analogRead(settings.lightpin) / settings.light_sensor_factor;
-  Serial.print("Analog light value: ");
-  Serial.println(analogValue);
+  int analogValue = analogRead(settings.lightpin) * settings.light_sensor_factor;
+  // Serial.print("Analog light value: ");
+  // Serial.println(analogValue);
 
-  // The sunny daylight is about 3575
-  return brightnessLevels[getCurrentBrightnessLevel(analogValue, 3575)];
+  // 2600 - very bright indoor environment.
+  return brightnessLevels[getCurrentBrightnessLevel(analogValue, 2600)];
 }
 
 // Determine the current brightness level
 int getCurrentBrightnessLevel(int currentValue, int maxValue) {
-  int level = map(currentValue, 0, maxValue, 0, 10);
-  return constrain(level, 0, 9);
+  int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
+  // Serial.print("Brightness level: ");
+  // Serial.println(level);
+  return level;
 }
 
 int getCurrentBrightnes() {
@@ -3917,7 +3918,7 @@ void rebootCycle() {
 
 void bh1750LightSensorCycle() {
   if (!bh1750Inited || !bh1750.measurementReady(true)) return;
-  lightInLuxes = bh1750.readLightLevel() / settings.light_sensor_factor;
+  lightInLuxes = bh1750.readLightLevel() * settings.light_sensor_factor;
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
   // Serial.println(" lx");
