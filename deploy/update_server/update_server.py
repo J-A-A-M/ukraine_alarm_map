@@ -67,6 +67,12 @@ async def update(request):
 async def update_beta(request):
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
+async def spiffs_update(request):
+    return FileResponse(f'{shared_path}/spiffs/{request.path_params["filename"]}.bin')
+
+async def spiffs_update_beta(request):
+    return FileResponse(f'{shared_beta_path}/spiffs/{request.path_params["filename"]}.bin')
+
 
 async def update_cache():
     mc = Client(memcached_host, 11211)
@@ -81,7 +87,9 @@ app = Starlette(debug=debug, exception_handlers=exception_handlers, routes=[
     Route('/list', list),
     Route('/betalist', list_beta),
     Route('/{filename}.bin', update),
+    Route('/spiffs/{filename}.bin', spiffs_update),
     Route('/beta/{filename}.bin', update_beta),
+    Route('/beta/spiffs/{filename}.bin', spiffs_update_beta),
 ])
 
 
