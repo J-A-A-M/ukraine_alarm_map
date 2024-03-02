@@ -835,8 +835,8 @@ void initUpdates() {
 }
 
 void showUpdateProgress(size_t progress, size_t total) {
+  if (total == 0) return;
   String progressText = String(progress / (total / 100)) + "%";
-  Serial.println(progressText);
   showServiceMessage(progressText, "Оновлення:");
 }
 
@@ -1321,27 +1321,41 @@ void doUpdate() {
 }
 
 void downloadAndUpdateFw(String binFileName, bool isBeta) {
-  String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport;
-  if (isBeta) {
-    firmwareUrlString += "/beta";
-  }
-  firmwareUrlString += "/" + binFileName;
-  const char* firmwareUrl = firmwareUrlString.c_str();
-  Serial.println(firmwareUrl);
-  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+  char spiffUrlChar[100];
+  char firmwareUrlChar[100];
+  Serial.println("Building spiffs url...");
+  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName.c_str());
+  Serial.println("Building firmware url...");
+  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName.c_str());
+
+  Serial.printf("Spiffs url: %s\n", spiffUrlChar);
+  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
+  handleUpdateStatus(spiffsRet, true);
+
+  Serial.printf("Firmware url: %s\n", firmwareUrlChar);
+  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
+  handleUpdateStatus(fwRet, false);
+}
+
+void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
+  Serial.printf("%s update status:\n", isSpiffsUpdate ? "Spiffs" : "Firmware");
   switch (ret) {
     case HTTP_UPDATE_FAILED:
       Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-      Serial.println();
       break;
     case HTTP_UPDATE_NO_UPDATES:
       Serial.println("HTTP_UPDATE_NO_UPDATES");
       break;
     case HTTP_UPDATE_OK:
-      Serial.println("Update successfully completed. Rebooting...");
-      rebootDevice();
+      if (isSpiffsUpdate) {
+        Serial.println("Spiffs update successfully completed. Starting firmware update...");
+      } else {
+        Serial.println("Firmware update successfully completed. Rebooting...");
+        rebootDevice();
+      }
       break;
   }
+
 }
 //--Update end
 
