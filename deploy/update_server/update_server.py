@@ -30,12 +30,12 @@ HTML_500_PAGE = '''request error'''
 
 async def not_found(request: Request, exc: HTTPException):
     logger.debug(f'Request time: {exc.args}')
-    return HTMLResponse(content=HTML_404_PAGE)
+    return HTMLResponse(content=HTML_404_PAGE, status_code=404)
 
 
 async def server_error(request: Request, exc: HTTPException):
     logger.debug(f'Request time: {exc.args}')
-    return HTMLResponse(content=HTML_500_PAGE)
+    return HTMLResponse(content=HTML_500_PAGE, status_code=500)
 
 
 exception_handlers = {
