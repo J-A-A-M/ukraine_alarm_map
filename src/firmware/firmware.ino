@@ -7,21 +7,21 @@
 #include <ArduinoHA.h>
 #include <NeoPixelBus.h>
 #include <Adafruit_SSD1306.h>
-#include <HTTPClient.h>
 #include <HTTPUpdate.h>
-#include <Update.h>
 #include <vector>
 #include <ArduinoJson.h>
-#include <esp_system.h>
 #include <ArduinoWebsockets.h>
-#define UNIX64
+#include <BH1750.h>
+#include <BME280I2C.h>
+#include <SHT31.h>
+#include <SHT2x.h>
 #include <NTPtime.h>
 
-String VERSION = "3.6";
+const PROGMEM char* VERSION = "3.6";
 
 struct Settings {
-  String        apssid                 = "JAAM";
-  const char*   softwareversion        = VERSION.c_str();
+  const char*   apssid                 = "JAAM";
+  const char*   softwareversion        = VERSION;
   int           pixelcount             = 26;
   int           buttontime             = 100;
   int           powerpin               = 12;
@@ -37,20 +37,22 @@ struct Settings {
   String  serverhost             = "alerts.net.ua";
   int     websocket_port         = 38440;
   int     updateport             = 8090;
-  String  bin_name               = VERSION + ".bin";
+  String  bin_name               = String(VERSION) + ".bin";
   String  identifier             = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
   int     alertpin               = 34;
+  int     lightpin               = 32;
   int     ha_mqttport            = 1883;
   String  ha_mqttuser            = "";
   String  ha_mqttpassword        = "";
   String  ha_brokeraddress       = "";
+  int     current_brightness     = 50;
   int     brightness             = 50;
   int     brightness_day         = 50;
   int     brightness_night       = 5;
-  int     brightness_auto        = 0;
+  int     brightness_mode        = 0;
   int     home_alert_time        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
@@ -67,7 +69,6 @@ struct Settings {
   int     home_district          = 7;
   int     kyiv_district_mode     = 1;
   int     service_diodes_mode    = 0;
-  int     sdm_auto               = 0;
   int     new_fw_notification    = 1;
   int     ha_light_brightness    = 50;
   int     ha_light_r             = 215;
@@ -100,9 +101,14 @@ struct Settings {
   int     day_start              = 8;
   int     night_start            = 22;
   int     ws_alert_time          = 120000;
+  int     ws_reboot_time         = 180000;
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
+  float   temp_correction        = 0;
+  float   hum_correction         = 0;
+  float   presure_correction     = 0;
+  float   light_sensor_factor    = 1;
   // ------- web config end
 };
 
@@ -125,12 +131,15 @@ Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WebsocketsClient  client_websocket;
-HTTPClient        http;
 AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+BH1750            bh1750;
+BME280I2C         bme280;
+SHT31             sht3x;
+HTU20             htu2x;
 
 struct ServiceMessage {
   String title;
@@ -152,44 +161,44 @@ int     flag_leds[26];
 //   60,180,180,180,180,180,180,
 //   180,180,180,60,60,60,60,180
 // };
-int legacy_flag_leds[26] = {
+int legacy_flag_leds[26] PROGMEM = {
   60, 60, 60, 180, 180, 180, 180, 180, 180,
   180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
   180, 180, 60, 60, 60, 60, 180
 };
 
 
-int d0[] = { 0, 1, 3 };
-int d1[] = { 1, 0, 2, 3, 24 };
-int d2[] = { 2, 1, 3, 4, 5, 23, 24 };
-int d3[] = { 3, 0, 1, 2, 4 };
-int d4[] = { 4, 2, 3, 5 };
-int d5[] = { 5, 2, 3, 4, 6, 23 };
-int d6[] = { 6, 5, 7, 22, 23, 25 };
-int d7[] = { 7, 6, 8, 19, 20, 22, 25 };
-int d8[] = { 8, 7, 9, 19, 20 };
-int d9[] = { 9, 8, 10, 19 };
-int d10[] = { 10, 9, 12, 18, 19 };
-int d11[] = { 11, 10, 12 };
-int d12[] = { 12, 10, 13, 18 };
-int d13[] = { 13, 12, 14, 18 };
-int d14[] = { 14, 13, 17, 18 };
-int d15[] = { 15, 14 };
-int d16[] = { 16, 17, 20, 21, 22 };
-int d17[] = { 17, 14, 16, 18, 21 };
-int d18[] = { 18, 10, 12, 13, 14, 17, 19, 21 };
-int d19[] = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
-int d20[] = { 20, 7, 8, 19, 21, 22, 25 };
-int d21[] = { 21, 16, 17, 18, 19, 20, 22 };
-int d22[] = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
-int d23[] = { 23, 2, 5, 6, 22, 24 };
-int d24[] = { 24, 1, 2, 22, 23 };
-int d25[] = { 25, 7 };
+int d0[] PROGMEM = { 0, 1, 3 };
+int d1[] PROGMEM = { 1, 0, 2, 3, 24 };
+int d2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
+int d3[] PROGMEM = { 3, 0, 1, 2, 4 };
+int d4[] PROGMEM = { 4, 2, 3, 5 };
+int d5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
+int d6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
+int d7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
+int d8[] PROGMEM = { 8, 7, 9, 19, 20 };
+int d9[] PROGMEM = { 9, 8, 10, 19 };
+int d10[] PROGMEM = { 10, 9, 12, 18, 19 };
+int d11[] PROGMEM = { 11, 10, 12 };
+int d12[] PROGMEM = { 12, 10, 13, 18 };
+int d13[] PROGMEM = { 13, 12, 14, 18 };
+int d14[] PROGMEM = { 14, 13, 17, 18 };
+int d15[] PROGMEM = { 15, 14 };
+int d16[] PROGMEM = { 16, 17, 20, 21, 22 };
+int d17[] PROGMEM = { 17, 14, 16, 18, 21 };
+int d18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
+int d19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
+int d20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
+int d21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
+int d22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
+int d23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
+int d24[] PROGMEM = { 24, 1, 2, 22, 23 };
+int d25[] PROGMEM = { 25, 7 };
 
 
-int counters[] = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
+int counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
-std::vector<String> districts = {
+std::vector<const PROGMEM char*> districts PROGMEM = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -218,7 +227,7 @@ std::vector<String> districts = {
   "Київ"
 };
 
-std::vector<String> districtsAlphabetical = {
+std::vector<const PROGMEM char*> districtsAlphabetical PROGMEM = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -367,7 +376,7 @@ int numDistrictToAlphabet(int num) {
   }
 }
 
-int* neighboring_districts[] = {
+int* neighboring_districts[] PROGMEM = {
   d0, d1, d2, d3, d4, d5, d6, d7, d8, d9,
   d10, d11, d12, d13, d14, d15, d16, d17, d18, d19,
   d20, d21, d22, d23, d24, d25
@@ -386,6 +395,7 @@ const unsigned char trident_small[] PROGMEM = {
 
 bool    enableHA;
 bool    wifiReconnect = false;
+bool    websocketReconnect = false;
 bool    blink = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
@@ -406,6 +416,19 @@ bool    isDisplayOff = false;
 bool    nightMode = false;
 int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
+bool    bh1750Inited = false;
+bool    bme280Inited = false;
+bool    bmp280Inited = false;
+bool    sht3xInited = false;
+bool    htu2xInited = false;
+float   lightInLuxes = -1;
+float   localTemp = -273;
+float   localHum = -1;
+float   localPresure = -1;
+
+
+#define BR_LEVELS_COUNT 20
+int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -455,7 +478,7 @@ HASelect        haDisplayMode(haDisplayModeString.c_str());
 HASelect        haAlarmsAuto(haAlarmsAutoString.c_str());
 HASensor        haMapModeCurrent(haMapModeCurrentString.c_str());
 HABinarySensor  haMapApiConnect(haMapApiConnectString.c_str());
-HASwitch        haBrightnessAuto(haBrightnessAutoString.c_str());
+HASelect        haBrightnessAuto(haBrightnessAutoString.c_str());
 HASwitch        haShowHomeAlarmTime(haShowHomeAlarmTimeString.c_str());
 HAButton        haReboot(haRebootString.c_str());
 HAButton        haToggleMapMode(haToggleMapModeString.c_str());
@@ -464,7 +487,7 @@ HASensorNumber  haCpuTemp(haCpuTempString.c_str(), HASensorNumber::PrecisionP1);
 HASensor        haHomeDistrict(haHomeDistrictString.c_str());
 HALight         haLight(haLightString.c_str(), HALight::BrightnessFeature | HALight::RGBFeature);
 
-std::vector<String> mapModes = {
+std::vector<const PROGMEM char*> mapModes PROGMEM = {
   "Вимкнено",
   "Тривога",
   "Погода",
@@ -473,7 +496,7 @@ std::vector<String> mapModes = {
   "Лампа"
 };
 
-std::vector<String> displayModes = {
+std::vector<const PROGMEM char*> displayModes PROGMEM = {
   "Вимкнено",
   "Годинник",
   "Погода",
@@ -481,13 +504,13 @@ std::vector<String> displayModes = {
   "Перемикання"
 };
 
-std::vector<String> autoAlarms = {
+std::vector<const PROGMEM char*> autoAlarms PROGMEM = {
   "Вимкнено",
   "Домашній та суміжні",
   "Лише домашній"
 };
 
-std::vector<String> singleClickOptions = {
+std::vector<const PROGMEM char*> singleClickOptions PROGMEM = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -497,7 +520,7 @@ std::vector<String> singleClickOptions = {
   "Увімк./Вимк. нічний режим"
 };
 
-std::vector<String> longClickOptions = {
+std::vector<const PROGMEM char*> longClickOptions PROGMEM = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -508,9 +531,15 @@ std::vector<String> longClickOptions = {
   "Перезавантаження пристрою"
 };
 
-std::vector<String> fwUpdateChannels = {
+std::vector<const PROGMEM char*> fwUpdateChannels PROGMEM = {
   "Production",
   "Beta"
+};
+
+std::vector<const PROGMEM char*> autoBrightnessOptions PROGMEM = {
+  "Вимкнено",
+  "День/Ніч",
+  "Сенсор освітлення"
 };
 
 //--Init start
@@ -563,10 +592,11 @@ void initSettings() {
   settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
+  settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
   settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
   settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
-  settings.brightness_auto        = preferences.getInt("bra", settings.brightness_auto);
+  settings.brightness_mode        = preferences.getInt("bra", settings.brightness_mode);
   settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
   settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
   settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
@@ -599,10 +629,11 @@ void initSettings() {
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
-  settings.sdm_auto               = preferences.getInt("sdma", settings.sdm_auto);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
   settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ws_reboot_time         = preferences.getInt("wsrt", settings.ws_reboot_time);
   settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
@@ -610,11 +641,16 @@ void initSettings() {
   settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
+  settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
+  settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
+  settings.presure_correction     = preferences.getFloat("lpc", settings.presure_correction);
+  settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
 
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.println((String) "Current firmware version: " + getFwVersion(currentFirmware));
+  Serial.print("Current firmware version: ");
+  Serial.println(getFwVersion(currentFirmware));
 }
 
 void InitAlertPin() {
@@ -636,18 +672,70 @@ void initStrip() {
 
 void initTime() {
   Serial.println("Init time");
-  timeClient.setDSTauto(&dst); //auto update on summer/winter time.
+  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
+  timeClient.setTimeout(5000); // 5 seconds waiting for reply
   timeClient.begin();
-  int count = 0;
-  while (timeClient.status() != 0 && count <= 7) {
-    Serial.println("Time not set. Force update " + String(count));
-    timeClient.updateNow();
+  syncTime(7);
+}
+  
+void syncTime(int8_t attempts) {
+  timeClient.tick();
+  if (timeClient.status() == UNIX_OK) return;
+  Serial.println("Time not synced yet!");
+  printNtpStatus();
+  int8_t count = 1;
+  while (timeClient.NTPstatus() != NTP_OK && count <= attempts) {
+    Serial.print("Attempt #");
+    Serial.print(count);
+    Serial.print(" of ");
+    Serial.println(attempts);
+    if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
+      Serial.println("Force update!");
+      timeClient.updateNow();
+    }
     timeClient.tick();
+    if (count < attempts) delay(1000);
     count++;
-    delay(1000);
+    printNtpStatus();
   }
-  Serial.println((String) "Current date and time: " + timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
-  websocketLastPingTime = millis();
+}
+
+void printNtpStatus() {
+  Serial.print("NTP status: ");
+    switch (timeClient.NTPstatus()) {
+      case 0:
+        Serial.println("OK");
+        Serial.print("Current date and time: ");
+        Serial.println(timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
+        break;
+      case 1:
+        Serial.println("NOT_STARTED");
+        break;
+      case 2:
+        Serial.println("NOT_CONNECTED_WIFI");
+        break;
+      case 3:
+        Serial.println("NOT_CONNECTED_TO_SERVER");
+        break;
+      case 4:
+        Serial.println("NOT_SENT_PACKET");
+        break;
+      case 5:
+        Serial.println("WAITING_REPLY");
+        break;
+      case 6:
+        Serial.println("TIMEOUT");
+        break;
+      case 7:
+        Serial.println("REPLY_ERROR");
+        break;
+      case 8:
+        Serial.println("NOT_CONNECTED_ETHERNET");
+        break;
+      default:
+        Serial.println("UNKNOWN_STATUS");
+        break;
+    }
 }
 
 void displayMessage(String message, int messageTextSize, String title = "") {
@@ -685,9 +773,10 @@ void initWifi() {
   wm.setConnectRetries(10);
   wm.setAPCallback(apCallback);
   wm.setSaveConfigCallback(saveConfigCallback);
+  wm.setConfigPortalTimeout(180);
   servicePin(settings.wifipin, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = settings.apssid + "_" + chipID;
+  String apssid = String(settings.apssid) + "_" + chipID;
   if (!wm.autoConnect(apssid.c_str())) {
     Serial.println("Reboot");
     rebootDevice(5000);
@@ -746,8 +835,8 @@ void initUpdates() {
 }
 
 void showUpdateProgress(size_t progress, size_t total) {
+  if (total == 0) return;
   String progressText = String(progress / (total / 100)) + "%";
-  Serial.println(progressText);
   showServiceMessage(progressText, "Оновлення:");
 }
 
@@ -805,7 +894,8 @@ void initBroadcast() {
       delay(1000);
     }
   }
-  Serial.println("Device broadcasted to network: " + settings.broadcastname + ".local");
+  Serial.printf("Device broadcasted to network: %s.local", settings.broadcastname);
+  Serial.println();
 }
 
 void initHA() {
@@ -902,10 +992,11 @@ void initHA() {
       haMapApiConnect.setDeviceClass("connectivity");
       haMapApiConnect.setCurrentState(client_websocket.available());
 
-      haBrightnessAuto.onCommand(onhaBrightnessAutoCommand);
+      haBrightnessAuto.setOptions(getHaOptions(autoBrightnessOptions).c_str());
+      haBrightnessAuto.onCommand(onHaBrightnessAutoCommand);
       haBrightnessAuto.setIcon("mdi:brightness-auto");
       haBrightnessAuto.setName("Auto Brightness");
-      haBrightnessAuto.setCurrentState(settings.brightness_auto);
+      haBrightnessAuto.setCurrentState(settings.brightness_mode);
 
       haShowHomeAlarmTime.onCommand(onHaShowHomeAlarmTimeCommand);
       haShowHomeAlarmTime.setIcon("mdi:timer-alert");
@@ -958,14 +1049,14 @@ void onMqttStateChanged(HAMqtt::ConnectionState state) {
   servicePin(settings.hapin, haConnected ? HIGH : LOW, false);
   if (enableHA && haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
-    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
   }
 }
 
-String getHaOptions(std::vector<String> list) {
+String getHaOptions(std::vector<const char*> list) {
   String result;
-  for (String option : list) {
+  for (const char* option : list) {
     if (list[0] != option) {
       result += ";";
     }
@@ -995,7 +1086,7 @@ void onHaButtonClicked(HAButton* sender) {
   } else if (sender == &haToggleMapMode) {
     mapModeSwitch();
   } else if (sender == &haToggleDisplayMode) {
-    displayModeSwitch();
+    nextDisplayMode();
   }
 }
 
@@ -1010,33 +1101,27 @@ void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
   sender->setState(state);  // report state back to the Home Assistant
 }
 
-void onhaBrightnessAutoCommand(bool state, HASwitch* sender) {
-  settings.brightness_auto = state;
+void onHaBrightnessAutoCommand(int8_t index, HASelect* sender) {
+  settings.brightness_mode = index;
   preferences.begin("storage", false);
-  if (state == false) {
-    settings.brightness = settings.brightness_day;
-    preferences.putInt("brightness", settings.brightness);
-    haBrightness.setState(settings.brightness);
-  }
-  preferences.putInt("bra", settings.brightness_auto);
+  preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
-  Serial.println("brightness_auto commited to preferences");
-  Serial.print("brightness_auto: ");
-  Serial.println(settings.brightness_auto);
-  sender->setState(state);  // report state back to the Home Assistant
+  Serial.print("brightness_auto commited to preferences: ");
+  Serial.println(settings.brightness_mode);
+  sender->setState(index);  // report state back to the Home Assistant
+  autoBrightnessUpdate();
+  showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
 }
 
 void onHaBrightnessCommand(HANumeric haBrightness, HANumber* sender) {
   int8_t numberInt8 = haBrightness.toInt8();
   settings.brightness = numberInt8;
-  settings.brightness_auto = 0;
   preferences.begin("storage", false);
   preferences.putInt("brightness", settings.brightness);
-  preferences.putInt("bra", 0);
   preferences.end();
   Serial.println("brightness commited to preferences");
-  haBrightnessAuto.setState(false);
   sender->setState(haBrightness);
+  autoBrightnessUpdate();
 }
 
 void onhaAlarmsAutoCommand(int8_t index, HASelect* sender) {
@@ -1059,37 +1144,19 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
 }
 
 int getHaDisplayMode(int displayMode) {
-  switch (displayMode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      // passthrough
-    case 3:
-      return displayMode;
-    case 9:
-      return 4;
-    default:
-      return 0;
-  }
+  int lastModeIndex = displayModes.size() - 1;
+  if (displayMode < lastModeIndex) return displayMode;
+  if (displayMode == 9) return lastModeIndex;
+  // default
+  return 0;
 }
 
 int getRealDisplayMode(int displayMode) {
-  switch (displayMode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      // passthrough
-    case 3:
-      return displayMode;
-    case 4:
-      return 9;
-    default:
-      return 0;
-  }
+  int lastModeIndex = displayModes.size() - 1;
+  if (displayMode < lastModeIndex) return displayMode;
+  if (displayMode == lastModeIndex) return 9;
+  // default
+  return 0;
 }
 
 void initDisplay() {
@@ -1099,7 +1166,6 @@ void initDisplay() {
   display.display();
   display.clearDisplay();
   display.setTextColor(WHITE);
-  // int16_t centerX = (settings.display_width - 32) / 2;    // Calculate the X coordinate
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
@@ -1118,6 +1184,73 @@ void initDisplay() {
   display.print(settings.softwareversion);
   display.display();
   delay(3000);
+}
+
+void initI2cTempSensors() {
+  Wire.begin();
+  initBh1750LightSensor();
+  initSht3xTempSensor();
+  initHtu2xTempSensor();
+  initBme280TempSensor();
+  initDisplayModes();
+}
+
+void initBh1750LightSensor() {
+  bh1750Inited = bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2);
+  if (bh1750Inited) {
+    delay(500); //waiting to get first measurement
+    bh1750LightSensorCycle();
+    Serial.println("Found BH1750 light sensor! Success.");
+  } else {
+    Serial.println("Not found BH1750 light sensor!");
+  }
+  // Distribute brightness levels
+  distributeBrightnessLevels();
+}
+
+void initSht3xTempSensor() {
+  sht3xInited = sht3x.begin();
+  if (sht3xInited) {
+    Serial.println("Found SHT3x temp/hum sensor! Success.");
+  } else {
+    Serial.println("Not found SHT3x temp/hum sensor!");
+  }
+}
+
+void initHtu2xTempSensor() {
+  htu2xInited = htu2x.begin();
+  if (sht3xInited) {
+    Serial.println("Found HTU2x temp/hum sensor! Success.");
+  } else {
+    Serial.println("Not found HTU2x temp/hum sensor!");
+  }
+}
+
+void initBme280TempSensor() {
+  bme280.begin();
+  switch (bme280.chipModel()) {
+    case BME280::ChipModel_BME280:
+      bme280Inited = true;
+      Serial.println("Found BME280 temp/hum/presure sensor! Success.");
+      break;
+    case BME280::ChipModel_BMP280:
+      bmp280Inited = true;
+      Serial.println("Found BMP280 temp/presure sensor! No Humidity available.");
+      break;
+    default:
+      bme280Inited = false;
+      bmp280Inited = false;
+      Serial.println("Not found BME280 or BMP280!");
+  }
+}
+
+void initDisplayModes() {
+  if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
+    displayModes.insert(displayModes.end() - 1, "Мікроклімат");
+    localTempHumSensorCycle();
+  } else if (settings.display_mode == displayModes.size() - 1) {
+    saveDisplayMode(9);
+  }
 }
 //--Init end
 
@@ -1148,8 +1281,8 @@ bool firstIsNewer(Firmware first, Firmware second) {
       if (first.patch == second.patch) {
         if (first.isBeta && second.isBeta) {
           if (first.betaBuild > second.betaBuild) return true;
-        } else { 
-          return !first.isBeta && second.isBeta; 
+        } else {
+          return !first.isBeta && second.isBeta;
         }
       }
     }
@@ -1161,7 +1294,7 @@ JsonDocument parseJson(String payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
-    Serial.println("Deserialization error: ");
+    Serial.print("Deserialization error: ");
     Serial.println(error.f_str());
     return doc;
   } else {
@@ -1188,14 +1321,24 @@ void doUpdate() {
 }
 
 void downloadAndUpdateFw(String binFileName, bool isBeta) {
-  String firmwareUrlString = "http://" + settings.serverhost + ":" + settings.updateport;
-  if (isBeta) {
-      firmwareUrlString += "/beta";
-  }
-  firmwareUrlString += "/" + binFileName;
-  const char* firmwareUrl = firmwareUrlString.c_str();
-  Serial.println(firmwareUrl);
-  t_httpUpdate_return ret = httpUpdate.update(client, firmwareUrl);
+  char spiffUrlChar[100];
+  char firmwareUrlChar[100];
+  Serial.println("Building spiffs url...");
+  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName.c_str());
+  Serial.println("Building firmware url...");
+  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName.c_str());
+
+  Serial.printf("Spiffs url: %s\n", spiffUrlChar);
+  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
+  handleUpdateStatus(spiffsRet, true);
+
+  Serial.printf("Firmware url: %s\n", firmwareUrlChar);
+  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
+  handleUpdateStatus(fwRet, false);
+}
+
+void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
+  Serial.printf("%s update status:\n", isSpiffsUpdate ? "Spiffs" : "Firmware");
   switch (ret) {
     case HTTP_UPDATE_FAILED:
       Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
@@ -1204,10 +1347,15 @@ void downloadAndUpdateFw(String binFileName, bool isBeta) {
       Serial.println("HTTP_UPDATE_NO_UPDATES");
       break;
     case HTTP_UPDATE_OK:
-      Serial.println("Update successfully completed. Rebooting...");
-      rebootDevice();
+      if (isSpiffsUpdate) {
+        Serial.println("Spiffs update successfully completed. Starting firmware update...");
+      } else {
+        Serial.println("Firmware update successfully completed. Rebooting...");
+        rebootDevice();
+      }
       break;
   }
+
 }
 //--Update end
 
@@ -1283,7 +1431,7 @@ void singleClick() {
 }
 
 void longClick() {
-   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
     downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
     return;
   }
@@ -1297,7 +1445,7 @@ void handleClick(int event) {
       mapModeSwitch();
       break;
     case 2:
-      displayModeSwitch();
+      nextDisplayMode();
       break;
     case 3:
       isMapOff = !isMapOff;
@@ -1361,7 +1509,7 @@ void saveMapMode(int newMapMode) {
   if (enableHA) {
     haLight.setState(settings.map_mode == 5);
     haMapMode.setState(settings.map_mode);
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   }
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
@@ -1390,17 +1538,20 @@ void saveHaLightRgb(HALight::RGBColor newRgb) {
   if (settings.ha_light_r != newRgb.red) {
     settings.ha_light_r = newRgb.red;
     preferences.putInt("ha_lr", settings.ha_light_r);
-    Serial.println("ha_light_red commited to preferences: " + String(settings.ha_light_r));
+    Serial.print("ha_light_red commited to preferences: ");
+    Serial.println(settings.ha_light_r);
   }
   if (settings.ha_light_g != newRgb.green) {
     settings.ha_light_g = newRgb.green;
     preferences.putInt("ha_lg", settings.ha_light_g);
-    Serial.println("ha_light_green commited to preferences: " + String(settings.ha_light_g));
+    Serial.print("ha_light_green commited to preferences: ");
+    Serial.println(settings.ha_light_g);
   }
   if (settings.ha_light_b != newRgb.blue) {
     settings.ha_light_b = newRgb.blue;
     preferences.putInt("ha_lb", settings.ha_light_b);
-    Serial.println("ha_light_blue commited to preferences: " + String(settings.ha_light_b));
+    Serial.print("ha_light_blue commited to preferences: ");
+    Serial.println(settings.ha_light_b);
   }
   preferences.end();
 
@@ -1410,24 +1561,16 @@ void saveHaLightRgb(HALight::RGBColor newRgb) {
   mapCycle();
 }
 
-void displayModeSwitch() {
+void nextDisplayMode() {
   int newDisplayMode;
-  switch (settings.display_mode) {
-    case 0:
-      // passthrough
-    case 1:
-      // passthrough
-    case 2:
-      newDisplayMode = settings.display_mode + 1;
-      break;
-    case 3:
-      newDisplayMode = 9;
-      break;
-    case 9:
-      // passthrough
-    default:
-      newDisplayMode = 0;
-      break;
+  // Get last mode index without mode "Switching"
+  int lastModeIndex = displayModes.size() - 2;
+  if (settings.display_mode < lastModeIndex) {
+    newDisplayMode = settings.display_mode + 1;
+  } else if (settings.display_mode == lastModeIndex) {
+    newDisplayMode = 9;
+  } else {
+    newDisplayMode = 0;
   }
   saveDisplayMode(newDisplayMode);
 }
@@ -1460,8 +1603,8 @@ void saveHomeDistrict(int newHomeDistrict) {
   preferences.end();
   Serial.println("home_district commited to preferences");
   if (enableHA) {
-    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)].c_str());
-    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+    haHomeDistrict.setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
+    haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
   }
   homeAlertStart = 0;
   parseHomeDistrictJson();
@@ -1589,14 +1732,6 @@ void serviceMessageUpdate() {
 }
 
 void displayCycle() {
-  // for display chars testing purposes
-  // display.clearDisplay();
-  // String str = "";
-  // str += startSymbol;
-  // str += "-";
-  // str += (char) startSymbol;
-  // DisplayCenter(str, 7, 2);
-  // return;
 
   // check if we need activate "minute of silence mode"
   checkMinuteOfSilence();
@@ -1655,9 +1790,13 @@ void displayByMode(int mode) {
     case 3:
       showTechInfo();
       break;
+    // Display Climate info from sensor
+    case 4:
+      showClimate();
+      break;
     // Display Mode Switching
     case 9:
-      displayByMode(calculateCurrentDisplayMode());
+      showSwitchingModes();
       break;
     // Unknown Display Mode, clearing display...
     default:
@@ -1734,14 +1873,14 @@ void showHomeAlertInfo() {
 
 String getFwVersion(Firmware firmware) {
   String version = String(firmware.major) + "." + firmware.minor;
-    if (firmware.patch > 0) {
-        version += ".";
-        version += firmware.patch;
-    }
-    if (firmware.isBeta) {
-        version += "-b";
-        version += firmware.betaBuild;
-    }
+  if (firmware.patch > 0) {
+    version += ".";
+    version += firmware.patch;
+  }
+  if (firmware.isBeta) {
+    version += "-b";
+    version += firmware.betaBuild;
+  }
   return version;
 }
 
@@ -1764,7 +1903,7 @@ void showNewFirmwareNotification() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
-void showClock() { 
+void showClock() {
   String time = timeClient.unixToString(String("hh") + getDivider() + "mm");
   String date = timeClient.unixToString("DSTRUA DD.MM.YYYY");
   displayMessage(time, getTextSizeToFitDisplay(time), date);
@@ -1812,6 +1951,63 @@ void showTechInfo() {
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
+void showClimate() {
+  int toggleTime = settings.display_mode_time;  // seconds
+  int remainder = timeClient.second() % (toggleTime * getClimateInfoSize());
+  if (remainder < toggleTime) {
+    showLocalClimateInfo(0);
+  } else if (remainder < toggleTime * 2) {
+    showLocalClimateInfo(1);
+  } else if (remainder < toggleTime * 3) {
+    showLocalClimateInfo(2);
+  }
+}
+
+void showLocalTemp() {
+  char roundedTemp[5];
+  dtostrf(localTemp, 5, 1, roundedTemp);
+  String message = String(roundedTemp) + (char)128 + "C";
+  displayMessage(message, getTextSizeToFitDisplay(message), "Температура");
+}
+
+void showLocalHum() {
+  char roundedHum[5];
+  dtostrf(localHum, 5, 1, roundedHum);
+  String message = String(roundedHum) + "%";
+
+  displayMessage(message, getTextSizeToFitDisplay(message), "Вологість");
+}
+
+void showLocalPresure() {
+  char roundedPres[6];
+  dtostrf(localPresure, 6, 1, roundedPres);
+  String message = String(roundedPres) + "mmHg";
+  displayMessage(message, getTextSizeToFitDisplay(message), "Тиск");
+}
+
+void showLocalClimateInfo(int index) {
+  if (index == 0 && localTemp > -273) {
+    showLocalTemp();
+    return;
+  }
+  if (index <= 1 && localHum > 0) {
+    showLocalHum();
+    return;
+  }
+  if (index <= 2 && localPresure > 0) {
+    showLocalPresure();
+    return;
+  }
+}
+
+int getClimateInfoSize() {
+  int size = 0;
+  if (localTemp > -273) size++;
+  if (localHum > 0) size++;
+  if (localPresure > 0) size++;
+  return size;
+}
+
 String getStringFromTimer(long timerSeconds) {
   String message;
   unsigned long seconds = timerSeconds;
@@ -1840,15 +2036,21 @@ String getStringFromTimer(long timerSeconds) {
   }
 }
 
-int calculateCurrentDisplayMode() {
+void showSwitchingModes() {
   int toggleTime = settings.display_mode_time;
-  int remainder = timeClient.second() % (toggleTime * 2);
+  int remainder = timeClient.second() % (toggleTime * (2 + getClimateInfoSize()));
   if (remainder < toggleTime) {
     // Display Mode Clock
-    return 1;
-  } else {
+    showClock();
+  } else if (remainder < toggleTime * 2) {
     // Display Mode Temperature
-    return 2;
+    showTemp();
+  } else if (remainder < toggleTime * 3) {
+    showLocalClimateInfo(0);
+  } else if (remainder < toggleTime * 4) {
+    showLocalClimateInfo(1);
+  } else if (remainder < toggleTime * 5) {
+    showLocalClimateInfo(2);
   }
 }
 
@@ -1918,6 +2120,15 @@ void setupRouting() {
   Serial.println("Webportal running");
 }
 
+String disableRange(bool isDisabled) {
+  return isDisabled ? " disabled" : "";
+}
+
+String floatToString(float value, int prec) {
+  char result[10];
+  dtostrf(value, 2 + prec, prec, result);
+  return String(result);
+}
 
 void handleRoot(AsyncWebServerRequest* request) {
   String html;
@@ -1989,7 +2200,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "           <div class='col-md-6 offset-md-3'>";
     html += "              <div class='row'>";
     html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "                    <h8>Доспуна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
     html += "                </div>";
     html += "              </div>";
     html += "            </div>";
@@ -2028,42 +2239,38 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'>";
+  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'>";
+  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_mode == 0) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='" + String(settings.brightness_night) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> годин</label>";
-  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'>";
+  html += "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> година</label>";
+  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> годин</label>";
-  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'>";
+  html += "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> година</label>";
+  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
   html += "                    </div>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='brightness_auto' type='checkbox' class='form-check-input' id='checkbox1'";
-  if (settings.brightness_auto == 1) html += " checked";
-  html += ">";
-  html += "                        <label class='form-check-label' for='checkbox1'>";
-  html += "                          Змінювати яскравість (день-ніч по годинам)";
-  html += "                        </label>";
-  html += "                    </div>";
-  if (!settings.legacy) {
-    html += "                  <div class='form-group form-check'>";
-    html += "                      <input name='sdm_auto' type='checkbox' class='form-check-input' id='checkbox2'";
-    if (settings.sdm_auto == 1) html += " checked";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='selectBox12'>Автоматична яскравість</label>";
+  html += "                        <select name='brightness_auto' class='form-control' id='selectBox12'>";
+  for (int i = 0; i < autoBrightnessOptions.size(); i++) {
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.brightness_mode == i) html += " selected";
     html += ">";
-    html += "                      <label class='form-check-label' for='checkbox2'>";
-    html += "                        Вимикати сервісні діоди в нічний час";
-    html += "                      </label>";
-    html += "                  </div>";
+    html += autoBrightnessOptions[i];
+    html += "</option>";
   }
+  html += "                        </select>";
+  html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
@@ -2080,6 +2287,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
   html += "                    </div>";
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='slider24'>Коефіцієнт чутливості сенсора освітлення: <span id='sliderValue24'>" + floatToString(settings.light_sensor_factor, 1) + "</span></label>";
+  html += "                        <input type='range' name='light_sensor_factor' class='form-control-range' id='slider24' min='0.1' max='10' step='0.1' value='" + String(settings.light_sensor_factor) + "'>";
+  html += "                    </div>";
+  html += "                    <p class='text-info'>Коефіцієнт чутливості працює наступним чином: Значення менше 1 - знижує чутливість, більше 1 - підвищує. Формула для розрахунку - <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.<br>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2207,6 +2419,24 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
   html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html += "                    </div>";
+  if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>" + floatToString(settings.temp_correction, 1) + "</span> °C</label>";
+    html += "                        <input type='range' name='temp_correction' class='form-control-range' id='slider21' min='-10' max='10' step='0.1' value='" + String(settings.temp_correction) + "'>";
+    html += "                    </div>";
+  }
+  if (sht3xInited || bme280Inited || htu2xInited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider22'>Корегування вологості: <span id='sliderValue22'>" + floatToString(settings.hum_correction, 1) + "</span> %</label>";
+    html += "                        <input type='range' name='hum_correction' class='form-control-range' id='slider22' min='-20' max='20' step='0.5' value='" + String(settings.hum_correction) + "'>";
+    html += "                    </div>";
+  }
+  if (bme280Inited || bmp280Inited) {
+    html += "                    <div class='form-group'>";
+    html += "                        <label for='slider23'>Корегування тиску: <span id='sliderValue23'>" + floatToString(settings.presure_correction, 1) + "</span> мм.рт.ст.</label>";
+    html += "                        <input type='range' name='presure_correction' class='form-control-range' id='slider23' min='-50' max='50' step='0.5' value='" + String(settings.presure_correction) + "'>";
+    html += "                    </div>";
+  }
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>";
   html += "                        <select name='button_mode' class='form-control' id='selectBox6'>";
@@ -2406,6 +2636,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                            Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні";
   html += "                          </label>";
   html += "                      </div>";
+  html += "                      <div class='form-group'>";
+  html += "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>";
+  html += "                          <input type='text' name='lightpin' class='form-control' id='inputField12' value='" + String(settings.lightpin) + "'>";
+  html += "                      </div>";
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2429,11 +2663,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                              <label for='selectBox11'>Канал оновлення прошивок</label>";
   html += "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>";
   for (int i = 0; i < fwUpdateChannels.size(); i++) {
-      html += "<option value='";
-      html += i;
-      html += "'";
-      if (settings.fw_update_channel == i) html += " selected";
-      html += ">" + fwUpdateChannels[i] + "</option>";
+    html += "<option value='";
+    html += i;
+    html += "'";
+    if (settings.fw_update_channel == i) html += " selected";
+    html += ">" + String(fwUpdateChannels[i]) + "</option>";
   }
   html += "                              </select>";
   html += "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
@@ -2464,7 +2698,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'];";
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'";
+   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+    html += ", 'slider21'";
+  }
+  if (sht3xInited || bme280Inited || htu2xInited) {
+    html += ", 'slider22'";
+  }
+  if (bme280Inited || bmp280Inited) {
+    html += ", 'slider23'";
+  }
+  html += ", 'slider24'];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -2569,6 +2813,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                document.getElementById(slider.replace('slider', 'sliderValue')).textContent = hue;";
   html += "            });";
   html += "        });";
+  html += "";
+  html += "        $('select[name=brightness_auto]').change(function() {";
+  html += "            const selectedOption =  $(this).val();";
+  html += "            console.log('Selected auto_brightness option: '.concat(selectedOption));";
+  html += "            $('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);";
+  html += "            $('input[name=brightness_day]').prop('disabled', selectedOption == 0);";
+  html += "            $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
+  html += "            $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
+  html += "        });";
+
+
   html += "    </script>";
   html += "</body>";
   html += "</html>";
@@ -2612,11 +2867,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
 
 void handleSaveBrightness(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
-  bool disableBrightnessAuto = false;
   if (request->hasParam("brightness", true)) {
-    int currentBrightness = request->getParam("brightness", true)->value().toInt();
-    if (currentBrightness != settings.brightness) {
-      disableBrightnessAuto = true;
+    if (request->getParam("brightness", true)->value().toInt() != settings.brightness) {
       settings.brightness = request->getParam("brightness", true)->value().toInt();
       preferences.putInt("brightness", settings.brightness);
       if (enableHA) {
@@ -2630,6 +2882,7 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       settings.brightness_day = request->getParam("brightness_day", true)->value().toInt();
       preferences.putInt("brd", settings.brightness_day);
       Serial.println("brightness_day commited to preferences");
+      distributeBrightnessLevels();
     }
   }
   if (request->hasParam("brightness_night", true)) {
@@ -2637,6 +2890,7 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       settings.brightness_night = request->getParam("brightness_night", true)->value().toInt();
       preferences.putInt("brn", settings.brightness_night);
       Serial.println("brightness_night commited to preferences");
+      distributeBrightnessLevels();
     }
   }
   if (request->hasParam("day_start", true)) {
@@ -2653,51 +2907,15 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       Serial.println("night_start commited to preferences");
     }
   }
-  if (request->hasParam("brightness_auto", true) and !disableBrightnessAuto) {
-    if (settings.brightness_auto == 0) {
-      settings.brightness_auto = 1;
+  if (request->hasParam("brightness_auto", true)) {
+    if (request->getParam("brightness_auto", true)->value().toInt() != settings.brightness_mode) {
+      settings.brightness_mode = request->getParam("brightness_auto", true)->value().toInt();
       if (enableHA) {
-        haBrightnessAuto.setState(true);
+        haBrightnessAuto.setState(settings.brightness_mode);
       }
-      preferences.putInt("bra", settings.brightness_auto);
-      Serial.println("brightness_auto enabled to preferences");
-    }
-  } else {
-    if (settings.brightness_auto == 1) {
-      settings.brightness_auto = 0;
-      settings.brightness = settings.brightness_day;
-      if (enableHA) {
-        haBrightnessAuto.setState(false);
-        haBrightness.setState(settings.brightness);
-      }
-      preferences.putInt("bra", settings.brightness_auto);
-      preferences.putInt("brightness", settings.brightness);
-      Serial.println("brightness_auto disabled to preferences");
-    }
-  }
-  if (request->hasParam("sdm_auto", true) and !disableBrightnessAuto) {
-    if (settings.sdm_auto == 0) {
-      settings.sdm_auto = 1;
-      settings.service_diodes_mode = 0;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(true);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto enabled to preferences");
-    }
-  } else {
-    if (settings.sdm_auto == 1) {
-      settings.sdm_auto = 0;
-      settings.service_diodes_mode = 1;
-      // if (enableHA) {
-      //   haBrightnessAuto.setState(false);
-      // }
-      preferences.putInt("sdm", settings.service_diodes_mode);
-      preferences.putInt("sdma", settings.sdm_auto);
-      checkServicePins();
-      Serial.println("sdm_auto disabled to preferences");
+      preferences.putInt("bra", settings.brightness_mode);
+      Serial.println("brightness_auto commited to preferences");
+      showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
     }
   }
   if (request->hasParam("brightness_alert", true)) {
@@ -2728,12 +2946,20 @@ void handleSaveBrightness(AsyncWebServerRequest* request) {
       Serial.println("brightness_alert_over commited to preferences");
     }
   }
+  if (request->hasParam("light_sensor_factor", true)) {
+    if (request->getParam("light_sensor_factor", true)->value().toFloat() != settings.light_sensor_factor) {
+      settings.light_sensor_factor = request->getParam("light_sensor_factor", true)->value().toFloat();
+      preferences.putFloat("lsf", settings.light_sensor_factor);
+      Serial.print("light_sensor_factor commited to preferences: ");
+      Serial.println(settings.light_sensor_factor);
+    }
+  }
   preferences.end();
   autoBrightnessUpdate();
   request->redirect("/");
 }
 
-void handleSaveColors (AsyncWebServerRequest* request) {
+void handleSaveColors(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   if (request->hasParam("color_alert", true)) {
     if (request->getParam("color_alert", true)->value().toInt() != settings.color_alert) {
@@ -2774,7 +3000,7 @@ void handleSaveColors (AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSaveWeather (AsyncWebServerRequest* request) {
+void handleSaveWeather(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   if (request->hasParam("weather_min_temp", true)) {
     if (request->getParam("weather_min_temp", true)->value().toInt() != settings.weather_min_temp) {
@@ -2794,7 +3020,7 @@ void handleSaveWeather (AsyncWebServerRequest* request) {
   request->redirect("/");
 }
 
-void handleSaveModes (AsyncWebServerRequest* request) {
+void handleSaveModes(AsyncWebServerRequest* request) {
   bool reboot = false;
   // this part saves values to prefs individually, and begins and ends prefs sessions each time
   if (request->hasParam("map_mode", true)) {
@@ -2834,6 +3060,33 @@ void handleSaveModes (AsyncWebServerRequest* request) {
       settings.display_mode_time = request->getParam("display_mode_time", true)->value().toInt();
       preferences.putInt("dmt", settings.display_mode_time);
       Serial.println("display_mode_time commited to preferences");
+    }
+  }
+  if (request->hasParam("temp_correction", true)) {
+    if (request->getParam("temp_correction", true)->value().toFloat() != settings.temp_correction) {
+      settings.temp_correction = request->getParam("temp_correction", true)->value().toFloat();
+      preferences.putFloat("ltc", settings.temp_correction);
+      Serial.print("temp_correction commited to preferences: ");
+      Serial.println(settings.temp_correction);
+      localTempHumSensorCycle();
+    }
+  }
+  if (request->hasParam("hum_correction", true)) {
+    if (request->getParam("hum_correction", true)->value().toFloat() != settings.hum_correction) {
+      settings.hum_correction = request->getParam("hum_correction", true)->value().toFloat();
+      preferences.putFloat("lhc", settings.hum_correction);
+      Serial.print("hum_correction commited to preferences: ");
+      Serial.println(settings.hum_correction);
+      localTempHumSensorCycle();
+    }
+  }
+  if (request->hasParam("presure_correction", true)) {
+    if (request->getParam("presure_correction", true)->value().toFloat() != settings.presure_correction) {
+      settings.presure_correction = request->getParam("presure_correction", true)->value().toFloat();
+      preferences.putFloat("lpc", settings.presure_correction);
+      Serial.print("presure_correction commited to preferences: ");
+      Serial.println(settings.presure_correction);
+      localTempHumSensorCycle();
     }
   }
   if (request->hasParam("button_mode", true)) {
@@ -2887,9 +3140,10 @@ void handleSaveModes (AsyncWebServerRequest* request) {
   if (request->hasParam("display_height", true)) {
     if (request->getParam("display_height", true)->value().toInt() != settings.display_height) {
       reboot = true;
-      preferences.putInt("dh", request->getParam("display_height", true)->value().toInt());
+      settings.display_height = request->getParam("display_height", true)->value().toInt();
+      preferences.putInt("dh", settings.display_height);
       Serial.print("display_height commited to preferences: ");
-      Serial.println(request->getParam("display_height", true)->value().toInt());
+      Serial.println(settings.display_height);
     }
   }
   if (request->hasParam("alarms_auto_switch", true)) {
@@ -2921,14 +3175,12 @@ void handleSaveModes (AsyncWebServerRequest* request) {
     if (settings.min_of_silence == 0) {
       settings.min_of_silence = 1;
       preferences.putInt("mos", settings.min_of_silence);
-      checkServicePins();
       Serial.println("min_of_silence enabled to preferences");
     }
   } else {
     if (settings.min_of_silence == 1) {
       settings.min_of_silence = 0;
       preferences.putInt("mos", settings.min_of_silence);
-      checkServicePins();
       Serial.println("min_of_silence disabled to preferences");
     }
   }
@@ -2939,7 +3191,7 @@ void handleSaveModes (AsyncWebServerRequest* request) {
   }
 }
 
-void handleSaveDev (AsyncWebServerRequest* request) {
+void handleSaveDev(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   bool reboot = false;
   if (request->hasParam("legacy", true)) {
@@ -3036,7 +3288,7 @@ void handleSaveDev (AsyncWebServerRequest* request) {
       reboot = true;
       settings.pixelpin = request->getParam("pixelpin", true)->value().toInt();
       preferences.putInt("pp", settings.pixelpin);
-      Serial.println("pixelpin commited: ");
+      Serial.print("pixelpin commited: ");
       Serial.println(settings.pixelpin);
     }
   }
@@ -3045,7 +3297,7 @@ void handleSaveDev (AsyncWebServerRequest* request) {
       reboot = true;
       settings.buttonpin = request->getParam("buttonpin", true)->value().toInt();
       preferences.putInt("bp", settings.buttonpin);
-      Serial.println("buttonpin commited: ");
+      Serial.print("buttonpin commited: ");
       Serial.println(settings.buttonpin);
     }
   }
@@ -3054,8 +3306,17 @@ void handleSaveDev (AsyncWebServerRequest* request) {
       reboot = true;
       settings.alertpin = request->getParam("alertpin", true)->value().toInt();
       preferences.putInt("ap", settings.alertpin);
-      Serial.println("alertpin commited: ");
+      Serial.print("alertpin commited: ");
       Serial.println(settings.alertpin);
+    }
+  }
+  if (request->hasParam("lightpin", true)) {
+    if (request->getParam("lightpin", true)->value().toInt() != settings.lightpin) {
+      reboot = true;
+      settings.lightpin = request->getParam("lightpin", true)->value().toInt();
+      preferences.putInt("lp", settings.lightpin);
+      Serial.print("lightpin commited: ");
+      Serial.println(settings.lightpin);
     }
   }
   if (request->hasParam("enable_pin_on_alert", true)) {
@@ -3125,7 +3386,6 @@ void uptime() {
     haUsedMemory.setValue(usedHeapSize);
     haCpuTemp.setValue(cpuTemp);
   }
-  //Serial.println(uptimeValue);
 }
 
 void connectStatuses() {
@@ -3146,45 +3406,72 @@ void connectStatuses() {
   }
 }
 
-void autoBrightnessUpdate() {
-  int currentBrightness = getCurrentBrightnes();
-  // if (isNight && settings.sdm_auto && settings.service_diodes_mode != 0) {
-  //   settings.service_diodes_mode = 0;
-  //   checkServicePins();
-  // }
-  // if (!isNight && settings.sdm_auto && settings.service_diodes_mode != 1) {
-  //   settings.service_diodes_mode = 1;
-  //   checkServicePins();
-  // }
-  if (currentBrightness != settings.brightness) {
-    settings.brightness = currentBrightness;
-    if (enableHA) {
-      haBrightness.setState(settings.brightness);
-    }
-    preferences.begin("storage", false);
-    preferences.putInt("brightness", settings.brightness);
-    preferences.end();
-    Serial.print(" set auto brightness: ");
-    Serial.println(settings.brightness);
+void distributeBrightnessLevels() {
+  int minBrightness = min(settings.brightness_day, settings.brightness_night);
+  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
+  int step = round(maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1);
+  Serial.print("Brightness levels: [");
+  for (int i = 0; i < BR_LEVELS_COUNT; i++) {
+    brightnessLevels[i] = i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step;
+    Serial.print(brightnessLevels[i]);
+    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
   }
+  Serial.println("]");
+}
+
+void autoBrightnessUpdate() {
+  int tempBrightness = getCurrentBrightnes();
+  if (tempBrightness != settings.current_brightness) {
+    settings.current_brightness = tempBrightness;
+    preferences.begin("storage", false);
+    preferences.putInt("cbr", settings.current_brightness);
+    preferences.end();
+    Serial.print("set current brightness: ");
+    Serial.println(settings.current_brightness);
+  }
+}
+
+int getBrightnessFromSensor() {
+
+  // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
+  if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 500)];
+
+  // reads the input on analog pin (value between 0 and 4095)
+  int analogValue = analogRead(settings.lightpin) * settings.light_sensor_factor;
+  // Serial.print("Analog light value: ");
+  // Serial.println(analogValue);
+
+  // 2600 - very bright indoor environment.
+  return brightnessLevels[getCurrentBrightnessLevel(analogValue, 2600)];
+}
+
+// Determine the current brightness level
+int getCurrentBrightnessLevel(int currentValue, int maxValue) {
+  int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
+  // Serial.print("Brightness level: ");
+  // Serial.println(level);
+  return level;
 }
 
 int getCurrentBrightnes() {
   // highest priority for night mode, return night brightness
   if (nightMode) return settings.brightness_night;
 
-  // if nightMode deactivated return previous brightnes
+  // if nightMode deactivated return previous brightness
   if (prevBrightness >= 0) {
     int tempBrightnes = prevBrightness;
     prevBrightness = -1;
     return tempBrightnes;
-  } 
+  }
 
   // if auto brightnes deactivated, return regular brightnes
-  if (settings.brightness_auto == 0) return settings.brightness;
+  if (settings.brightness_mode == 0) return settings.brightness;
+
+  // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
+  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
 
   // if day and night start time is equels it means it's always day, return day brightness
-  if(settings.night_start == settings.day_start) return settings.brightness_day;
+  if (settings.night_start == settings.day_start) return settings.brightness_day;
 
   int currentHour = timeClient.hour();
 
@@ -3199,13 +3486,16 @@ int getCurrentBrightnes() {
 
 //--Websocket process start
 void websocketProcess() {
-  while (!client_websocket.available()) {
+  if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+    mapReconnect();
+    websocketReconnect = true;
+  }
+  if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
+    rebootDevice(3000, true);
+  }
+  if (!client_websocket.available() or websocketReconnect) {
     Serial.println("Reconnecting...");
-    if (millis() - websocketLastPingTime > settings.ws_alert_time) {
-      mapReconnect();
-    }
     socketConnect();
-    delay(3000);
   }
 }
 
@@ -3296,7 +3586,9 @@ void socketConnect() {
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl.c_str());
   if (client_websocket.available()) {
-    Serial.println((String) "connection time - " + (millis() - startTime) + "ms");
+    Serial.print("connection time - ");
+    Serial.print(millis() - startTime);
+    Serial.println("ms");
     String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
     Serial.println(combinedString.c_str());
     client_websocket.send(combinedString.c_str());
@@ -3304,8 +3596,8 @@ void socketConnect() {
     Serial.println(chipId.c_str());
     client_websocket.send(chipId.c_str());
     client_websocket.ping();
-    showServiceMessage("підключено!", "Сервер даних");
-    delay(1000);
+    websocketReconnect = false;
+    showServiceMessage("підключено!", "Сервер даних", 3000);
   } else {
     showServiceMessage("недоступний", "Сервер даних", 3000);
   }
@@ -3361,10 +3653,10 @@ int calculateOffsetDistrict(int initial_position) {
 
 HsbColor processAlarms(int led, int position) {
   HsbColor hue;
-  float local_brightness = settings.brightness / 200.0f;
+  float local_brightness = settings.current_brightness / 200.0f;
   int local_color;
   if (blink and settings.alarms_notify_mode == 2) {
-    local_brightness = settings.brightness / 600.0f;
+    local_brightness = settings.current_brightness / 600.0f;
   }
 
   float local_brightness_alert = settings.brightness_alert / 100.0f;
@@ -3383,13 +3675,13 @@ HsbColor processAlarms(int led, int position) {
       } else {
         color_switch = settings.color_clear;
       }
-      hue = HsbColor(color_switch / 360.0f, 1.0, settings.brightness * local_brightness_clear / 200.0f);
+      hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       break;
     case 1:
       if (position == local_district && homeAlertStart < 1) {
         parseHomeDistrictJson();
       }
-      hue = HsbColor(settings.color_alert / 360.0f, 1.0, settings.brightness * local_brightness_alert / 200.0f);
+      hue = HsbColor(settings.color_alert / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
       break;
     case 2:
       if (position == local_district) {
@@ -3420,7 +3712,7 @@ void checkMinuteOfSilence() {
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
     if (enableHA) {
-      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()].c_str());
+      haMapModeCurrent.setValue(mapModes[getCurrentMapMode()]);
     }
   }
 }
@@ -3442,9 +3734,9 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  float local_brightness = settings.brightness / 200.0f;
+  float local_brightness = settings.current_brightness / 200.0f;
   if (blink) {
-    local_brightness = settings.brightness / 600.0f;
+    local_brightness = settings.current_brightness / 600.0f;
   }
   HsbColor hue = HsbColor(64 / 360.0f, 1.0, local_brightness);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
@@ -3546,11 +3838,8 @@ void mapWeather() {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    //Serial.print(adapted_weather_leds[i]);
-    //Serial.print(" ");
-    strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]), 1.0, settings.brightness / 200.0f));
+    strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]), 1.0, settings.current_brightness / 200.0f));
   }
-  //Serial.println(" ");
   strip->Show();
 }
 
@@ -3570,7 +3859,7 @@ void mapFlag() {
     adapted_flag_leds[8 + offset] = lastValue;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.brightness / 200.0f));
+    strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.current_brightness / 200.0f));
   }
   strip->Show();
 }
@@ -3578,7 +3867,7 @@ void mapFlag() {
 void mapRandom() {
   int randomLed = random(26);
   int randomColor = random(360);
-  strip->SetPixelColor(randomLed, HsbColor(randomColor / 360.0f, 1.0, settings.brightness / 200.0f));
+  strip->SetPixelColor(randomLed, HsbColor(randomColor / 360.0f, 1.0, settings.current_brightness / 200.0f));
   strip->Show();
 }
 
@@ -3608,7 +3897,7 @@ int getCurrentMapMode() {
     alarmNow = false;
   }
   if (enableHA) {
-    haMapModeCurrent.setValue(mapModes[currentMapMode].c_str());
+    haMapModeCurrent.setValue(mapModes[currentMapMode]);
   }
   return currentMapMode;
 }
@@ -3623,7 +3912,7 @@ void WifiReconnect() {
 }
 
 void alertPinCycle() {
-  if (alarmNow  && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
     Serial.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
   }
@@ -3641,6 +3930,63 @@ void rebootCycle() {
   }
 }
 
+void bh1750LightSensorCycle() {
+  if (!bh1750Inited || !bh1750.measurementReady(true)) return;
+  lightInLuxes = bh1750.readLightLevel() * settings.light_sensor_factor;
+  // Serial.print("BH1750!\tLight: ");
+  // Serial.print(lightInLuxes);
+  // Serial.println(" lx");
+}
+
+void localTempHumSensorCycle() {
+
+  if (bme280Inited || bmp280Inited) {
+    localTemp = bme280.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
+    localPresure = bme280.pres(BME280::PresUnit_inHg) * 25.4 + settings.presure_correction;  //mmHg
+
+    if (bme280Inited) {
+      localHum = bme280.hum() + settings.hum_correction;
+    }
+
+    // Serial.print("BME280! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.print("%");
+    // Serial.print("\tPressure: ");
+    // Serial.print(localPresure);
+    // Serial.println("mmHg");
+    return;
+  }
+
+  if (sht3xInited && sht3x.read()) {
+    localTemp = sht3x.getTemperature() + settings.temp_correction;
+    localHum = sht3x.getHumidity() + settings.hum_correction;
+
+    // Serial.print("SHT3X! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.println("%");
+    return;
+  }
+
+  if (htu2xInited && htu2x.read()) {
+    localTemp = htu2x.getTemperature() + settings.temp_correction;
+    localHum = htu2x.getHumidity() + settings.hum_correction;
+
+    // Serial.print("HTU2X! Temp: ");
+    // Serial.print(localTemp);
+    // Serial.print("°C");
+    // Serial.print("\tHumidity: ");
+    // Serial.print(localHum);
+    // Serial.println("%");
+    return;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3649,6 +3995,7 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
+  initI2cTempSensors();
   initWifi();
   initTime();
 
@@ -3659,13 +4006,14 @@ void setup() {
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(doUpdate, 1000);
-  asyncEngine.setInterval(websocketProcess, 1000);
+  asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
+  asyncEngine.setInterval(bh1750LightSensorCycle, 2000);
+  asyncEngine.setInterval(localTempHumSensorCycle, 5000);
 }
 
 void loop() {
-  timeClient.tick();
   wm.process();
   asyncEngine.run();
   ArduinoOTA.handle();
@@ -3674,4 +4022,5 @@ void loop() {
     mqtt.loop();
   }
   client_websocket.poll();
+  syncTime(2);
 }
