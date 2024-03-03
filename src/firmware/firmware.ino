@@ -17,7 +17,7 @@
 #include <SHT2x.h>
 #include <NTPtime.h>
 
-const PROGMEM char* VERSION = "3.6";
+const PROGMEM char* VERSION = "3.7";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
