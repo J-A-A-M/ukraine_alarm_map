@@ -17,7 +17,7 @@
 #include <SHT2x.h>
 #include <NTPtime.h>
 
-const PROGMEM char* VERSION = "3.7";
+const PROGMEM char* VERSION = "3.6.1-b77";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
@@ -31,23 +31,23 @@ struct Settings {
   int           reservedpin            = 27;
 
   // ------- web config start
-  String  devicename             = "Alarm Map";
-  String  devicedescription      = "Alarm Map Informer";
-  String  broadcastname          = "alarmmap";
-  String  serverhost             = "alerts.net.ua";
+  char    devicename[30]         = "Alarm Map";
+  char    devicedescription[50]  = "Alarm Map Informer";
+  char    broadcastname[30]      = "alarmmap";
+  char    serverhost[30]         = "alerts.net.ua";
   int     websocket_port         = 38440;
   int     updateport             = 8090;
-  String  bin_name               = String(VERSION) + ".bin";
-  String  identifier             = "github";
+  char    bin_name[50]           = "";
+  char    identifier[50]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
   int     alertpin               = 34;
   int     lightpin               = 32;
   int     ha_mqttport            = 1883;
-  String  ha_mqttuser            = "";
-  String  ha_mqttpassword        = "";
-  String  ha_brokeraddress       = "";
+  char    ha_mqttuser[30]        = "";
+  char    ha_mqttpassword[50]    = "";
+  char    ha_brokeraddress[30]   = "";
   int     current_brightness     = 50;
   int     brightness             = 50;
   int     brightness_day         = 50;
@@ -142,8 +142,8 @@ SHT31             sht3x;
 HTU20             htu2x;
 
 struct ServiceMessage {
-  String title;
-  String message;
+  const char* title;
+  const char* message;
   int textSize;
   long endTime;
   bool expired;
@@ -198,7 +198,7 @@ int d25[] PROGMEM = { 25, 7 };
 
 int counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
-std::vector<const PROGMEM char*> districts PROGMEM = {
+const PROGMEM char* districts[] PROGMEM = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -227,7 +227,7 @@ std::vector<const PROGMEM char*> districts PROGMEM = {
   "Київ"
 };
 
-std::vector<const PROGMEM char*> districtsAlphabetical PROGMEM = {
+const PROGMEM char* districtsAlphabetical[] PROGMEM = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -405,6 +405,7 @@ long    homeAlertStart = 0;
 int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
+char    newFwVersion[20];
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
@@ -582,13 +583,13 @@ void servicePin(int pin, uint8_t status, bool force) {
 
 void initSettings() {
   Serial.println("Init settings");
-  preferences.begin("storage", false);
+  preferences.begin("storage", true);
 
-  settings.devicename             = preferences.getString("dn", settings.devicename);
-  settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
-  settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
-  settings.serverhost             = preferences.getString("host", settings.serverhost);
-  settings.identifier             = preferences.getString("id", settings.identifier);
+  preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
+  preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
+  preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
+  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("id", settings.identifier, sizeof(settings.identifier));
   settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
@@ -618,10 +619,10 @@ void initSettings() {
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
-  settings.ha_brokeraddress       = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
+  preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
   settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  settings.ha_mqttuser            = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
-  settings.ha_mqttpassword        = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
+  preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
+  preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
   settings.display_width          = preferences.getInt("dw", settings.display_width);
   settings.display_height         = preferences.getInt("dh", settings.display_height);
   settings.day_start              = preferences.getInt("ds", settings.day_start);
@@ -649,8 +650,9 @@ void initSettings() {
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
-  Serial.println(getFwVersion(currentFirmware));
+  char version[20];
+  fillFwVersion(version, currentFirmware);
+  Serial.printf("Current firmware version: %s\n", version);
 }
 
 void InitAlertPin() {
@@ -738,16 +740,27 @@ void printNtpStatus() {
     }
 }
 
-void displayMessage(String message, int messageTextSize, String title = "") {
+void displayMessage(const char* message, int messageTextSize, const char* title = "") {
   display.clearDisplay();
   int bound = 0;
-  if (title.length() > 0) {
+  if (strlen(title) > 0) {
+    char cyrTitle[strlen(title) * 2];
     display.setCursor(0, 0);
     display.setTextSize(1);
-    display.println(utf8cyr(title));
+    utf8cyr(cyrTitle, title);
+    display.println(cyrTitle);
     bound = 4 + messageTextSize;
   }
   displayCenter(message, bound, messageTextSize);
+}
+
+void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
+  serviceMessage.title = title;
+  serviceMessage.message = message;
+  serviceMessage.textSize = getTextSizeToFitDisplay(message);
+  serviceMessage.endTime = millis() + duration;
+  serviceMessage.expired = false;
+  displayCycle();
 }
 
 void rebootDevice(int time = 2000, bool async = false) {
@@ -755,7 +768,7 @@ void rebootDevice(int time = 2000, bool async = false) {
     needRebootWithDelay = time;
     return;
   }
-  showServiceMessage("Перезавантаження..", time);
+  showServiceMessage("Перезавантаження..", "", time);
   delay(time);
   ESP.restart();
 }
@@ -775,9 +788,10 @@ void initWifi() {
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setConfigPortalTimeout(180);
   servicePin(settings.wifipin, LOW, false);
-  showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = String(settings.apssid) + "_" + chipID;
-  if (!wm.autoConnect(apssid.c_str())) {
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
+  char apssid[20];
+  sprintf(apssid, "%s_%s", settings.apssid, chipID);
+  if (!wm.autoConnect(apssid)) {
     Serial.println("Reboot");
     rebootDevice(5000);
     return;
@@ -794,18 +808,17 @@ void initWifi() {
   initBroadcast();
   socketConnect();
   initHA();
-  showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
+  showServiceMessage(WiFi.localIP().toString().c_str(), "IP-адреса мапи:", 5000);
 }
 
 void apCallback(WiFiManager* wifiManager) {
-  String title = "Підключіться до WiFi:";
-  String message = wifiManager->getConfigPortalSSID();
-  displayMessage(message, getTextSizeToFitDisplay(message), title);
+  const char* message = wifiManager->getConfigPortalSSID().c_str();
+  displayMessage(message, getTextSizeToFitDisplay(message), "Підключіться до WiFi:");
   WiFi.onEvent(wifiEvents);
 }
 
 void saveConfigCallback() {
-  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Збережено AP:");
   delay(2000);
   rebootDevice();
 }
@@ -813,9 +826,12 @@ void saveConfigCallback() {
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      displayMessage(WiFi.softAPIP().toString(), getTextSizeToFitDisplay(WiFi.softAPIP().toString()), "Введіть у браузері:");
+    {
+      const char* ipAddress = WiFi.softAPIP().toString().c_str();
+      displayMessage(ipAddress, getTextSizeToFitDisplay(ipAddress), "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
       break;
+    }
     default:
       break;
   }
@@ -836,7 +852,8 @@ void initUpdates() {
 
 void showUpdateProgress(size_t progress, size_t total) {
   if (total == 0) return;
-  String progressText = String(progress / (total / 100)) + "%";
+  char progressText[5];
+  sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
 }
 
@@ -902,21 +919,21 @@ void initHA() {
   if (!wifiReconnect) {
     Serial.println("Init Home assistant API");
 
-    char* deviceName             = new char[settings.devicename.length() + 1];
-    char* deviceDescr            = new char[settings.devicedescription.length() + 1];
-    char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
-    char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
-    char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
+    // char* deviceName             = new char[settings.devicename.length() + 1];
+    // char* deviceDescr            = new char[settings.devicedescription.length() + 1];
+    // char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
+    // char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
+    // char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
 
-    strcpy(deviceName, settings.devicename.c_str());
-    strcpy(deviceDescr, settings.devicedescription.c_str());
-    strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
-    strcpy(mqttUser, settings.ha_mqttuser.c_str());
-    strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
+    // strcpy(deviceName, settings.devicename.c_str());
+    // strcpy(deviceDescr, settings.devicedescription.c_str());
+    // strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
+    // strcpy(mqttUser, settings.ha_mqttuser.c_str());
+    // strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
 
     IPAddress brokerAddr;
 
-    if (!brokerAddr.fromString(brokerAddress)) {
+    if (!brokerAddr.fromString(settings.ha_brokeraddress)) {
       Serial.println("Invalid IP-address format!");
       enableHA = false;
     } else {
@@ -927,12 +944,13 @@ void initHA() {
       byte mac[6];
       WiFi.macAddress(mac);
       device.setUniqueId(mac, sizeof(mac));
-      device.setName(deviceName);
+      device.setName(settings.devicename);
       device.setSoftwareVersion(settings.softwareversion);
       device.setManufacturer("v00g100skr");
-      device.setModel(deviceDescr);
+      device.setModel(settings.devicedescription);
       // Doesn't work right now. Try on next arduino HA release.
-      // const char* deviceUrl = ((String) "http://"+ WiFi.localIP().toString() + ":80/").c_str();
+      // char deviceUrl[50];
+      // sprintf(deviceUrl, "http://%s:80", WiFi.localIP().toString());
       // Serial.println(deviceUrl);
       // device.setConfigurationUrl(deviceUrl);
       device.enableExtendedUniqueIds();
@@ -1037,7 +1055,7 @@ void initHA() {
 
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
-      mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
+      mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
     }
   }
 }
@@ -1169,8 +1187,10 @@ void initDisplay() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
-  String text1 = utf8cyr("Just Another");
-  String text2 = utf8cyr("Alert Map ");
+  char text1[15];
+  char text2[15];
+  utf8cyr(text1, "Just Another");
+  utf8cyr(text2, "Alert Map");
   int16_t x;
   int16_t y;
   uint16_t width;
@@ -1267,8 +1287,8 @@ void saveLatestFirmware() {
   }
   latestFirmware = firmware;
   fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
-  Serial.print("Latest firmware version: ");
-  Serial.println(getFwVersion(latestFirmware));
+  fillFwVersion(newFwVersion, latestFirmware);
+  Serial.printf("Latest firmware version: %s\n", newFwVersion);
   Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
 
@@ -1308,9 +1328,10 @@ void parseHomeDistrictJson() {
   if ((timeClient.unixGMT() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
   lastHomeDistrictSync = timeClient.unixGMT();
-  String combinedString = "district:" + String(settings.home_district);
-  Serial.println(combinedString.c_str());
-  client_websocket.send(combinedString.c_str());
+  char districtRequest[15];
+  sprintf(districtRequest, "district:%d", settings.home_district);
+  Serial.println(districtRequest);
+  client_websocket.send(districtRequest);
 }
 
 void doUpdate() {
@@ -1612,12 +1633,13 @@ void saveHomeDistrict(int newHomeDistrict) {
 }
 
 //--Display start
-void displayCenter(String text, int bound, int text_size) {
+void displayCenter(const char* text, int bound, int text_size) {
   int16_t x;
   int16_t y;
   uint16_t width;
   uint16_t height;
-  String utf8Text = utf8cyr(text);
+  char utf8Text[strlen(text) * 2];
+  utf8cyr(utf8Text, text);
   display.setCursor(0, 0);
   display.setTextSize(text_size);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
@@ -1626,14 +1648,15 @@ void displayCenter(String text, int bound, int text_size) {
   display.display();
 }
 
-int getTextSizeToFitDisplay(String text) {
+int getTextSizeToFitDisplay(const char* text) {
   int16_t x;
   int16_t y;
   uint16_t textWidth;
   uint16_t height;
 
   display.setTextWrap(false);
-  String utf8Text = utf8cyr(text);
+  char utf8Text[strlen(text)]; 
+  utf8cyr(utf8Text, text);
   display.setCursor(0, 0);
   display.setTextSize(4);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
@@ -1662,13 +1685,12 @@ int getTextSizeToFitDisplay(String text) {
   }
 }
 
-String utf8cyr(String source) {
+void utf8cyr(char* target, const char* source) {
   int i, k;
-  String target;
   unsigned char n;
   char m[2] = { '0', '\0' };
 
-  k = source.length();
+  k = strlen(source);
   i = 0;
   while (i < k) {
     n = source[i];
@@ -1699,30 +1721,8 @@ String utf8cyr(String source) {
       }
     }
     m[0] = n;
-    target = target + String(m);
+    strcat(target, m);
   }
-  return target;
-}
-
-void showServiceMessage(String message) {
-  showServiceMessage(message, "");
-}
-
-void showServiceMessage(String message, int duration) {
-  showServiceMessage(message, "", duration);
-}
-
-void showServiceMessage(String message, String title) {
-  showServiceMessage(message, title, 2000);
-}
-
-void showServiceMessage(String message, String title, int duration) {
-  serviceMessage.title = title;
-  serviceMessage.message = message;
-  serviceMessage.textSize = getTextSizeToFitDisplay(message);
-  serviceMessage.endTime = millis() + duration;
-  serviceMessage.expired = false;
-  displayCycle();
 }
 
 void serviceMessageUpdate() {
@@ -1817,24 +1817,24 @@ void displayMinuteOfSilence() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   int textSize;
-  String text1;
-  String text2;
-  String text3;
+  char text1[20];
+  char text2[20];
+  char text3[20];
   int gap = 40;
   if (remainder < toggleTime) {
     textSize = 1;
-    text1 = utf8cyr("Шана");
-    text2 = utf8cyr("Полеглим");
-    text3 = utf8cyr("Героям!");
+    utf8cyr(text1, "Шана");
+    utf8cyr(text2, "Полеглим");
+    utf8cyr(text3, "Героям!");
   } else if (remainder < toggleTime * 2) {
     textSize = 2;
-    text1 = utf8cyr("Слава");
-    text3 = utf8cyr("Україні!");
+    utf8cyr(text1, "Слава");
+    utf8cyr(text3, "Україні!");
     gap = 32;
   } else {
     textSize = 2;
-    text1 = utf8cyr("Смерть");
-    text3 = utf8cyr("ворогам!");
+    utf8cyr(text1, "Смерть");
+    utf8cyr(text3, "ворогам!");
     gap = 32;
   }
   display.setTextSize(textSize);
@@ -1858,94 +1858,95 @@ void displayServiceMessage(ServiceMessage message) {
 }
 
 void showHomeAlertInfo() {
-  int toggleTime = 5;  // seconds
+  int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 2);
-  String title;
+  char title[50];
   if (remainder < toggleTime) {
-    title = "Тривога триває:";
+    strcpy(title, "Тривога триває:");
   } else {
-    title = districts[settings.home_district];
+    strcpy(title, districts[settings.home_district]);
   }
-  String message = getStringFromTimer(timeClient.unixGMT() - homeAlertStart - timeOffset);
+  char message[15];
+  fillFromTimer(message, timeClient.unixGMT() - homeAlertStart - timeOffset);
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
-String getFwVersion(Firmware firmware) {
-  String version = String(firmware.major) + "." + firmware.minor;
+void fillFwVersion(char* result, Firmware firmware) {
+  char patch[5];
   if (firmware.patch > 0) {
-    version += ".";
-    version += firmware.patch;
+    sprintf(patch, ".%d", firmware.patch);
   }
+  char beta[5];
   if (firmware.isBeta) {
-    version += "-b";
-    version += firmware.betaBuild;
+    sprintf(beta, "-b%d", firmware.betaBuild);
   }
-  return version;
+  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+
 }
 
 void showNewFirmwareNotification() {
-  int toggleTime = 5;  // seconds
+  int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 2);
-  String title;
-  String message;
+  char title[50];
+  char message[50];
   if (remainder < toggleTime) {
-    title = "Доступне оновлення:";
-    message = getFwVersion(latestFirmware);
+    strcpy(title, "Доступне оновлення:");
+    strcpy(message, newFwVersion);
   } else if (settings.button_mode == 0) {
-    title = "Введіть у браузері:";
-    message = WiFi.localIP().toString();
+    strcpy(title, "Введіть у браузері:");
+    strcpy(message, WiFi.localIP().toString().c_str());
   } else {
-    title = "Для оновл. натисніть";
-    message = (String) "та тримайте кнопку " + (char)24;
+    strcpy(title, "Для оновл. натисніть");
+    sprintf(message, "та тримайте кнопку %c", (char)24);
   }
   
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
 void showClock() {
-  String time = timeClient.unixToString(String("hh") + getDivider() + "mm");
-  String date = timeClient.unixToString("DSTRUA DD.MM.YYYY");
+  char time[7];
+  sprintf(time, "%02d%c%02d", timeClient.hour(), getDivider(), timeClient.minute());
+  const char* date = timeClient.unixToString("DSTRUA DD.MM.YYYY").c_str();
   displayMessage(time, getTextSizeToFitDisplay(time), date);
 }
 
 void showTemp() {
-  char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
-  dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  String temp = String(roundedTemp) + (char)128 + "C";
-  displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
+  char message[10];
+  sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
+  displayMessage(message, getTextSizeToFitDisplay(message), districts[settings.home_district]);
 }
 
 void showTechInfo() {
   int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 6);
-  String title;
-  String message;
+  char title[35];
+  char message[25];
   // IP address
   if (remainder < toggleTime) {
-    title = "IP-адреса мапи:";
-    message = WiFi.localIP().toString();
+    strcpy(title, "IP-адреса мапи:");
+    strcpy(message, WiFi.localIP().toString().c_str());
     // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
-    title = "Сигнал WiFi:";
-    message += rssi;
-    message += " dBm";
+    strcpy(title, "Сигнал WiFi:");
+    sprintf(message, "%d dBm", rssi);
     // Uptime
   } else if (remainder < toggleTime * 3) {
-    title = "Час роботи:";
-    message = getStringFromTimer(millis() / 1000);
+    strcpy(title, "Час роботи:");
+    fillFromTimer(message, millis() / 1000);
     // map-API status
   } else if (remainder < toggleTime * 4) {
-    title = "Статус map-API:";
-    message = apiConnected ? "Підключено" : "Відключено";
+    strcpy(title, "Статус map-API:");
+    strcpy(message, apiConnected ? "Підключено" : "Відключено");
     // HA Status
   } else if (remainder < toggleTime * 5) {
-    title = "Home Assistant:";
-    message = haConnected ? "Підключено" : "Відключено";
+    strcpy(title, "Home Assistant:");
+    strcpy(message, haConnected ? "Підключено" : "Відключено");
+    // Fw version
   } else {
-    title = "Версія прошивки:";
-    message = VERSION;
+    strcpy(title, "Версія прошивки:");
+    strcpy(message, VERSION);
   }
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
@@ -1964,24 +1965,20 @@ void showClimate() {
 }
 
 void showLocalTemp() {
-  char roundedTemp[5];
-  dtostrf(localTemp, 5, 1, roundedTemp);
-  String message = String(roundedTemp) + (char)128 + "C";
+  char message[10];
+  sprintf(message, "%.1f%cC", localTemp, (char)128);
   displayMessage(message, getTextSizeToFitDisplay(message), "Температура");
 }
 
 void showLocalHum() {
-  char roundedHum[5];
-  dtostrf(localHum, 5, 1, roundedHum);
-  String message = String(roundedHum) + "%";
-
+  char message[10];
+  sprintf(message, "%.1f%%", localHum);
   displayMessage(message, getTextSizeToFitDisplay(message), "Вологість");
 }
 
 void showLocalPresure() {
-  char roundedPres[6];
-  dtostrf(localPresure, 6, 1, roundedPres);
-  String message = String(roundedPres) + "mmHg";
+  char message[12];
+  sprintf(message, "%.1fmmHg", localPresure);
   displayMessage(message, getTextSizeToFitDisplay(message), "Тиск");
 }
 
@@ -2008,31 +2005,21 @@ int getClimateInfoSize() {
   return size;
 }
 
-String getStringFromTimer(long timerSeconds) {
-  String message;
+void fillFromTimer(char* result, long timerSeconds) {
   unsigned long seconds = timerSeconds;
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
   if (hours >= 99) {
-    return "99+ год.";
+    strcpy(result, "99+ год.");
   } else {
-    String message;
     seconds %= 60;
     minutes %= 60;
-    String divider = getDivider();
+    char divider = getDivider();
     if (hours > 0) {
-      if (hours < 10) message += "0";
-      message += hours;
-      message += divider;
+      sprintf(result, "%02d%c%02d", hours, divider, minutes);
+    } else {
+      sprintf(result, "%02d%c%02d", minutes, divider, seconds);
     }
-    if (minutes < 10) message += "0";
-    message += minutes;
-    if (hours == 0) {
-      message += divider;
-      if (seconds < 10) message += "0";
-      message += seconds;
-    }
-    return message;
   }
 }
 
@@ -2054,12 +2041,12 @@ void showSwitchingModes() {
   }
 }
 
-String getDivider() {
+char getDivider() {
   // Change every second
   if (timeClient.second() % 2 == 0) {
-    return ":";
+    return ':';
   } else {
-    return " ";
+    return ' ';
   }
 }
 //--Display end
@@ -2137,7 +2124,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<head>";
   html += "    <meta charset='UTF-8'>";
   html += "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-  html += "    <title>" + settings.devicename + "</title>";
+  html += "    <title>" + String(settings.devicename) + "</title>";
   html += "    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>";
   html += "    <style>";
   html += "        body { background-color: #4396ff; }";
@@ -2152,7 +2139,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</head>";
   html += "<body>";
   html += "    <div class='container mt-3'  id='accordion'>";
-  html += "        <h2 class='text-center'>" + settings.devicedescription + " ";
+  html += "        <h2 class='text-center'>" + String(settings.devicedescription) + " ";
   html += settings.softwareversion;
   html += "        </h2>";
   html += "        <div class='row'>";
@@ -2200,7 +2187,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "           <div class='col-md-6 offset-md-3'>";
     html += "              <div class='row'>";
     html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + String(newFwVersion) + "'>" + newFwVersion + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
     html += "                </div>";
     html += "              </div>";
     html += "            </div>";
@@ -2468,7 +2455,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox3'>Домашній регіон</label>";
   html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < districtsAlphabetical.size(); alphabet++) {
+  for (int alphabet = 0; alphabet < 26; alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
     html += "<option value='";
     html += num;
@@ -2576,7 +2563,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
+  html += "                        <input type='text' name='ha_brokeraddress' class='form-control' maxlength='30' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>";
@@ -2584,15 +2571,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_mqttuser' class='form-control' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
+  html += "                        <input type='text' name='ha_mqttuser' class='form-control' maxlength='30' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
+  html += "                        <input type='text' name='ha_mqttpassword' class='form-control' maxlength='50' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField7'>Адреса сервера даних</label>";
-  html += "                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
+  html += "                        <input type='text' name='serverhost' class='form-control' maxlength='30' id='inputField7' value='" + String(settings.serverhost) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField8'>Порт WebSockets</label>";
@@ -2604,15 +2591,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField9'>Назва пристрою</label>";
-  html += "                        <input type='text' name='devicename' class='form-control' id='inputField9' value='" + String(settings.devicename) + "'>";
+  html += "                        <input type='text' name='devicename' class='form-control' maxlength='30' id='inputField9' value='" + String(settings.devicename) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField10'>Опис пристрою</label>";
-  html += "                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
+  html += "                        <input type='text' name='devicedescription' class='form-control' maxlength='50' id='inputField10' value='" + String(settings.devicedescription) + "'>";
   html += "                    </div>";
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField11'>Локальна адреса в мережі (" + String(settings.broadcastname) + ".local) </label>";
-  html += "                        <input type='text' name='broadcastname' class='form-control' id='inputField11' value='" + String(settings.broadcastname) + "'>";
+  html += "                        <input type='text' name='broadcastname' class='form-control' maxlength='30' id='inputField11' value='" + String(settings.broadcastname) + "'>";
   html += "                    </div>";
   if (settings.legacy) {
     html += "                    <div class='form-group'>";
@@ -2827,6 +2814,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    </script>";
   html += "</body>";
   html += "</html>";
+  Serial.printf("Html text size - %d bytes", html.length());
   request->send(200, "text/html", html);
 }
 
@@ -2860,7 +2848,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
   Serial.println("do_update triggered");
   initUpdate = true;
   if (request->hasParam("bin_name", true)) {
-    settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
+    const char* bin_name = request->getParam("bin_name", true)->value().c_str();
+    strcpy(settings.bin_name, bin_name);
   }
   request->redirect("/");
 }
@@ -3203,9 +3192,10 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     }
   }
   if (request->hasParam("ha_brokeraddress", true)) {
-    if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress) {
+    const char* haBrokerAddress = request->getParam("ha_brokeraddress", true)->value().c_str();
+    if (strcmp(haBrokerAddress, settings.ha_brokeraddress) != 0) {
       reboot = true;
-      settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
+      strcpy(settings.ha_brokeraddress, haBrokerAddress);
       preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
       Serial.println("ha_brokeraddress commited to preferences");
     }
@@ -3219,50 +3209,55 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     }
   }
   if (request->hasParam("ha_mqttuser", true)) {
-    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
+    const char* haMqttUser = request->getParam("ha_mqttuser", true)->value().c_str();
+    if (strcmp(haMqttUser, settings.ha_mqttuser) != 0) {
       reboot = true;
-      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
+      strcpy(settings.ha_mqttuser, haMqttUser);
       preferences.putString("ha_mqttuser", settings.ha_mqttuser);
       Serial.println("ha_mqttuser commited to preferences");
     }
   }
   if (request->hasParam("ha_mqttpassword", true)) {
-    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
+    const char* haMqttPassword = request->getParam("ha_mqttpassword", true)->value().c_str();
+    if (strcmp(haMqttPassword, settings.ha_mqttpassword) != 0) {
       reboot = true;
-      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
+      strcpy(settings.ha_mqttpassword, haMqttPassword);
       preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
       Serial.println("ha_mqttpassword commited to preferences");
     }
   }
   if (request->hasParam("devicename", true)) {
-    if (request->getParam("devicename", true)->value() != settings.devicename) {
+    const char* devicename = request->getParam("devicename", true)->value().c_str();
+    if (strcmp(devicename, settings.devicename) != 0) {
       reboot = true;
-      settings.devicename = request->getParam("devicename", true)->value();
+      strcpy(settings.devicename, devicename);
       preferences.putString("dn", settings.devicename);
       Serial.println("devicename commited to preferences");
     }
   }
   if (request->hasParam("devicedescription", true)) {
-    if (request->getParam("devicedescription", true)->value() != settings.devicedescription) {
+    const char* deviceDescription = request->getParam("devicedescription", true)->value().c_str();
+    if (strcmp(deviceDescription, settings.devicedescription) != 0) {
       reboot = true;
-      settings.devicedescription = request->getParam("devicedescription", true)->value();
+      strcpy(settings.devicedescription, deviceDescription);
       preferences.putString("dd", settings.devicedescription);
       Serial.println("devicedescription commited to preferences");
     }
   }
   if (request->hasParam("broadcastname", true)) {
-    if (request->getParam("broadcastname", true)->value() != settings.broadcastname) {
+    const char* broadcastName = request->getParam("broadcastname", true)->value().c_str();
+    if (strcmp(broadcastName, settings.broadcastname) != 0) {
       reboot = true;
-      settings.broadcastname = request->getParam("broadcastname", true)->value();
+      strcpy(settings.broadcastname, broadcastName);
       preferences.putString("bn", settings.broadcastname);
       Serial.println("broadcastname commited to preferences");
     }
   }
   if (request->hasParam("serverhost", true)) {
-    String local_host = String(settings.serverhost);
-    if (request->getParam("serverhost", true)->value() != local_host) {
+    const char* serverHost = request->getParam("serverhost", true)->value().c_str();
+    if (strcmp(serverHost, settings.serverhost) != 0) {
       reboot = true;
-      settings.serverhost = strdup(request->getParam("serverhost", true)->value().c_str());
+      strcpy(settings.serverhost, serverHost);
       preferences.putString("host", request->getParam("serverhost", true)->value());
       Serial.println("serverhost commited to preferences");
     }
@@ -3582,19 +3577,22 @@ void socketConnect() {
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
-  String webSocketUrl = "ws://" + String(settings.serverhost) + ":" + String(settings.websocket_port) + "/data_v1";
+  char webSocketUrl[100];
+  sprintf(webSocketUrl, "ws://%s:%d/data_v1", settings.serverhost, settings.websocket_port);
   Serial.println(webSocketUrl);
-  client_websocket.connect(webSocketUrl.c_str());
+  client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
     Serial.print("connection time - ");
     Serial.print(millis() - startTime);
     Serial.println("ms");
-    String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
-    Serial.println(combinedString.c_str());
-    client_websocket.send(combinedString.c_str());
-    String chipId = "chip_id:" + chipID;
-    Serial.println(chipId.c_str());
-    client_websocket.send(chipId.c_str());
+    char firmwareInfo[100];
+    sprintf(firmwareInfo, "firmware:%s_%s", settings.softwareversion, settings.identifier);
+    Serial.println(firmwareInfo);
+    client_websocket.send(firmwareInfo);
+    char chipIdInfo[25];
+    sprintf(chipIdInfo, "chip_id:%s", chipID);
+    Serial.println(chipIdInfo);
+    client_websocket.send(chipIdInfo);
     client_websocket.ping();
     websocketReconnect = false;
     showServiceMessage("підключено!", "Сервер даних", 3000);
