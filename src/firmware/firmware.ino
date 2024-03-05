@@ -744,7 +744,7 @@ void displayMessage(const char* message, int messageTextSize, const char* title 
   display.clearDisplay();
   int bound = 0;
   if (strlen(title) > 0) {
-    char cyrTitle[strlen(title) * 2];
+    char cyrTitle[strlen(title)];
     display.setCursor(0, 0);
     display.setTextSize(1);
     utf8cyr(cyrTitle, title);
@@ -808,7 +808,7 @@ void initWifi() {
   initBroadcast();
   socketConnect();
   initHA();
-  showServiceMessage(WiFi.localIP().toString().c_str(), "IP-адреса мапи:", 5000);
+  showServiceMessage(WiFi.localIP().toString().c_str(), "IP-адреса мапи:", 3000);
 }
 
 void apCallback(WiFiManager* wifiManager) {
@@ -1310,7 +1310,7 @@ bool firstIsNewer(Firmware first, Firmware second) {
   return false;
 }
 
-JsonDocument parseJson(String payload) {
+JsonDocument parseJson(const char* payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
@@ -1638,7 +1638,7 @@ void displayCenter(const char* text, int bound, int text_size) {
   int16_t y;
   uint16_t width;
   uint16_t height;
-  char utf8Text[strlen(text) * 2];
+  char utf8Text[strlen(text)];
   utf8cyr(utf8Text, text);
   display.setCursor(0, 0);
   display.setTextSize(text_size);
@@ -1689,6 +1689,7 @@ void utf8cyr(char* target, const char* source) {
   int i, k;
   unsigned char n;
   char m[2] = { '0', '\0' };
+  strcpy(target, "");
 
   k = strlen(source);
   i = 0;
@@ -3497,7 +3498,7 @@ void websocketProcess() {
 void onMessageCallback(WebsocketsMessage message) {
   Serial.print("Got Message: ");
   Serial.println(message.data());
-  JsonDocument data = parseJson(message.data());
+  JsonDocument data = parseJson(message.data().c_str());
   String payload = data["payload"];
   if (!payload.isEmpty()) {
     if (payload == "ping") {
