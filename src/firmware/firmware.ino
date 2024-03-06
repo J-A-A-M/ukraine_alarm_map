@@ -1,20 +1,33 @@
+#define ARDUINO_OTA_ENABLED 0
+#define DISPLAY_ENABLED 1
+#define CLIMATE_SENSORS_ENABLED 1
+#define BH1750_ENABLED 1
+
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <async.h>
+#if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
+#endif
 #include <ArduinoHA.h>
 #include <NeoPixelBus.h>
+#if DISPLAY_ENABLED
 #include <Adafruit_SSD1306.h>
+#endif
 #include <HTTPUpdate.h>
 #include <vector>
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
+#if BH1750_ENABLED
 #include <BH1750.h>
+#endif
+#if CLIMATE_SENSORS_ENABLED
 #include <BME280I2C.h>
 #include <SHT31.h>
 #include <SHT2x.h>
+#endif
 #include <NTPtime.h>
 
 const PROGMEM char* VERSION = "3.7";
@@ -90,6 +103,7 @@ struct Settings {
   // -------  1 - Clock
   // -------  2 - Home District Temperature
   // -------  3 - Tech info
+  // -------  4 - Climate (if sensor installed)
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
@@ -135,11 +149,17 @@ AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
+#if DISPLAY_ENABLED
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+#endif
+#if BH1750_ENABLED
 BH1750            bh1750;
+#endif
+#if CLIMATE_SENSORS_ENABLED
 BME280I2C         bme280;
 SHT31             sht3x;
 HTU20             htu2x;
+#endif
 
 struct ServiceMessage {
   const char* title;
@@ -166,7 +186,6 @@ int legacy_flag_leds[26] PROGMEM = {
   180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
   180, 180, 60, 60, 60, 60, 180
 };
-
 
 int d0[] PROGMEM = { 0, 1, 3 };
 int d1[] PROGMEM = { 1, 0, 2, 3, 24 };
@@ -418,15 +437,14 @@ bool    nightMode = false;
 int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 bool    bh1750Inited = false;
+float   lightInLuxes = -1;
 bool    bme280Inited = false;
 bool    bmp280Inited = false;
 bool    sht3xInited = false;
 bool    htu2xInited = false;
-float   lightInLuxes = -1;
 float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
-
 
 #define BR_LEVELS_COUNT 20
 int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
@@ -740,7 +758,12 @@ void printNtpStatus() {
     }
 }
 
-void displayMessage(const char* message, int messageTextSize, const char* title = "") {
+
+void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
+#if DISPLAY_ENABLED
+  if (messageTextSize == -1) {
+    messageTextSize = getTextSizeToFitDisplay(message);
+  }
   display.clearDisplay();
   int bound = 0;
   if (strlen(title) > 0) {
@@ -752,15 +775,18 @@ void displayMessage(const char* message, int messageTextSize, const char* title 
     bound = 4 + messageTextSize;
   }
   displayCenter(message, bound, messageTextSize);
+#endif
 }
 
 void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
+#if DISPLAY_ENABLED
   serviceMessage.title = title;
   serviceMessage.message = message;
   serviceMessage.textSize = getTextSizeToFitDisplay(message);
   serviceMessage.endTime = millis() + duration;
   serviceMessage.expired = false;
   displayCycle();
+#endif
 }
 
 void rebootDevice(int time = 2000, bool async = false) {
@@ -813,7 +839,7 @@ void initWifi() {
 
 void apCallback(WiFiManager* wifiManager) {
   const char* message = wifiManager->getConfigPortalSSID().c_str();
-  displayMessage(message, getTextSizeToFitDisplay(message), "Підключіться до WiFi:");
+  displayMessage(message, "Підключіться до WiFi:");
   WiFi.onEvent(wifiEvents);
 }
 
@@ -828,7 +854,7 @@ static void wifiEvents(WiFiEvent_t event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
     {
       const char* ipAddress = WiFi.softAPIP().toString().c_str();
-      displayMessage(ipAddress, getTextSizeToFitDisplay(ipAddress), "Введіть у браузері:");
+      displayMessage(ipAddress, "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
       break;
     }
@@ -838,11 +864,13 @@ static void wifiEvents(WiFiEvent_t event) {
 }
 
 void initUpdates() {
+  #if ARDUINO_OTA_ENABLED
   ArduinoOTA.onStart(showUpdateStart);
   ArduinoOTA.onEnd(showUpdateEnd);
   ArduinoOTA.onProgress(showUpdateProgress);
   ArduinoOTA.onError(showOtaUpdateErrorMessage);
   ArduinoOTA.begin();
+  #endif
   Update.onProgress(showUpdateProgress);
   httpUpdate.onStart(showUpdateStart);
   httpUpdate.onEnd(showUpdateEnd);
@@ -867,6 +895,7 @@ void showUpdateEnd() {
   delay(1000);
 }
 
+#if ARDUINO_OTA_ENABLED
 void showOtaUpdateErrorMessage(ota_error_t error) {
   switch (error) {
     case OTA_AUTH_ERROR:
@@ -883,6 +912,7 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
       break;
   }
 }
+#endif
 
 void showHttpUpdateErrorMessage(int error) {
   switch (error) {
@@ -918,18 +948,6 @@ void initBroadcast() {
 void initHA() {
   if (!wifiReconnect) {
     Serial.println("Init Home assistant API");
-
-    // char* deviceName             = new char[settings.devicename.length() + 1];
-    // char* deviceDescr            = new char[settings.devicedescription.length() + 1];
-    // char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
-    // char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
-    // char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
-
-    // strcpy(deviceName, settings.devicename.c_str());
-    // strcpy(deviceDescr, settings.devicedescription.c_str());
-    // strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
-    // strcpy(mqttUser, settings.ha_mqttuser.c_str());
-    // strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
 
     IPAddress brokerAddr;
 
@@ -1177,8 +1195,10 @@ int getRealDisplayMode(int displayMode) {
   return 0;
 }
 
-void initDisplay() {
 
+
+void initDisplay() {
+#if DISPLAY_ENABLED
   display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.display();
@@ -1204,17 +1224,28 @@ void initDisplay() {
   display.print(settings.softwareversion);
   display.display();
   delay(3000);
+#endif
 }
 
+
 void initI2cTempSensors() {
+#if BH1750_ENABLED || CLIMATE_SENSORS_ENABLED
   Wire.begin();
+#endif
+#if BH1750_ENABLED
   initBh1750LightSensor();
+#endif
+  // used also for analog light sensor
+  distributeBrightnessLevels();
+#if CLIMATE_SENSORS_ENABLED
   initSht3xTempSensor();
   initHtu2xTempSensor();
   initBme280TempSensor();
   initDisplayModes();
+#endif
 }
 
+#if BH1750_ENABLED
 void initBh1750LightSensor() {
   bh1750Inited = bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2);
   if (bh1750Inited) {
@@ -1224,10 +1255,10 @@ void initBh1750LightSensor() {
   } else {
     Serial.println("Not found BH1750 light sensor!");
   }
-  // Distribute brightness levels
-  distributeBrightnessLevels();
 }
+#endif
 
+#if CLIMATE_SENSORS_ENABLED
 void initSht3xTempSensor() {
   sht3xInited = sht3x.begin();
   if (sht3xInited) {
@@ -1272,7 +1303,21 @@ void initDisplayModes() {
     saveDisplayMode(9);
   }
 }
+#endif
 //--Init end
+
+void fillFwVersion(char* result, Firmware firmware) {
+  char patch[5] = "";
+  if (firmware.patch > 0) {
+    sprintf(patch, ".%d", firmware.patch);
+  }
+  char beta[5] = "";
+  if (firmware.isBeta) {
+    sprintf(beta, "-b%d", firmware.betaBuild);
+  }
+  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+
+}
 
 //--Update
 void saveLatestFirmware() {
@@ -1633,6 +1678,51 @@ void saveHomeDistrict(int newHomeDistrict) {
 }
 
 //--Display start
+void displayCycle() {
+
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
+#if DISPLAY_ENABLED
+
+  // update service message expiration
+  serviceMessageUpdate();
+
+  // Show service message if not expired (Always show, it's short message)
+  if (!serviceMessage.expired) {
+    displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  // Show Minute of silence mode if activated. (Priority - 0)
+  if (minuteOfSilence) {
+    displayMinuteOfSilence();
+    return;
+  }
+
+  // Show Home Alert Time Info if enabled in settings and we have alert start time (Priority - 1)
+  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
+    showHomeAlertInfo();
+    return;
+  }
+
+  // Turn off display, if activated (Priority - 2)
+  if (isDisplayOff) {
+    clearDisplay();
+    return;
+  }
+
+  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
+    showNewFirmwareNotification();
+    return;
+  }
+
+  // Show selected display mode in other cases (Priority - last)
+  displayByMode(settings.display_mode);
+#endif
+}
+
+#if DISPLAY_ENABLED
 void displayCenter(const char* text, int bound, int text_size) {
   int16_t x;
   int16_t y;
@@ -1732,48 +1822,6 @@ void serviceMessageUpdate() {
   }
 }
 
-void displayCycle() {
-
-  // check if we need activate "minute of silence mode"
-  checkMinuteOfSilence();
-
-  // update service message expiration
-  serviceMessageUpdate();
-
-  // Show service message if not expired (Always show, it's short message)
-  if (!serviceMessage.expired) {
-    displayServiceMessage(serviceMessage);
-    return;
-  }
-
-  // Show Minute of silence mode if activated. (Priority - 0)
-  if (minuteOfSilence) {
-    displayMinuteOfSilence();
-    return;
-  }
-
-  // Show Home Alert Time Info if enabled in settings and we have alert start time (Priority - 1)
-  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
-    showHomeAlertInfo();
-    return;
-  }
-
-  // Turn off display, if activated (Priority - 2)
-  if (isDisplayOff) {
-    clearDisplay();
-    return;
-  }
-
-  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
-    showNewFirmwareNotification();
-    return;
-  }
-
-  // Show selected display mode in other cases (Priority - last)
-  displayByMode(settings.display_mode);
-}
-
 void displayByMode(int mode) {
   switch (mode) {
     // Display Mode Off
@@ -1855,7 +1903,7 @@ void displayMinuteOfSilence() {
 }
 
 void displayServiceMessage(ServiceMessage message) {
-  displayMessage(message.message, message.textSize, message.title);
+  displayMessage(message.message, message.title, message.textSize);
 }
 
 void showHomeAlertInfo() {
@@ -1870,20 +1918,7 @@ void showHomeAlertInfo() {
   char message[15];
   fillFromTimer(message, timeClient.unixGMT() - homeAlertStart - timeOffset);
 
-  displayMessage(message, getTextSizeToFitDisplay(message), title);
-}
-
-void fillFwVersion(char* result, Firmware firmware) {
-  char patch[5] = "";
-  if (firmware.patch > 0) {
-    sprintf(patch, ".%d", firmware.patch);
-  }
-  char beta[5] = "";
-  if (firmware.isBeta) {
-    sprintf(beta, "-b%d", firmware.betaBuild);
-  }
-  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
-
+  displayMessage(message, title);
 }
 
 void showNewFirmwareNotification() {
@@ -1902,21 +1937,21 @@ void showNewFirmwareNotification() {
     sprintf(message, "та тримайте кнопку %c", (char)24);
   }
   
-  displayMessage(message, getTextSizeToFitDisplay(message), title);
+  displayMessage(message, title);
 }
 
 void showClock() {
   char time[7];
   sprintf(time, "%02d%c%02d", timeClient.hour(), getDivider(), timeClient.minute());
   const char* date = timeClient.unixToString("DSTRUA DD.MM.YYYY").c_str();
-  displayMessage(time, getTextSizeToFitDisplay(time), date);
+  displayMessage(time, date);
 }
 
 void showTemp() {
   int position = calculateOffset(settings.home_district);
   char message[10];
   sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
-  displayMessage(message, getTextSizeToFitDisplay(message), districts[settings.home_district]);
+  displayMessage(message, districts[settings.home_district]);
 }
 
 void showTechInfo() {
@@ -1950,7 +1985,7 @@ void showTechInfo() {
     strcpy(message, VERSION);
   }
 
-  displayMessage(message, getTextSizeToFitDisplay(message), title);
+  displayMessage(message, title);
 }
 
 void showClimate() {
@@ -1968,19 +2003,19 @@ void showClimate() {
 void showLocalTemp() {
   char message[10];
   sprintf(message, "%.1f%cC", localTemp, (char)128);
-  displayMessage(message, getTextSizeToFitDisplay(message), "Температура");
+  displayMessage(message, "Температура");
 }
 
 void showLocalHum() {
   char message[10];
   sprintf(message, "%.1f%%", localHum);
-  displayMessage(message, getTextSizeToFitDisplay(message), "Вологість");
+  displayMessage(message, "Вологість");
 }
 
 void showLocalPresure() {
   char message[12];
   sprintf(message, "%.1fmmHg", localPresure);
-  displayMessage(message, getTextSizeToFitDisplay(message), "Тиск");
+  displayMessage(message, "Тиск");
 }
 
 void showLocalClimateInfo(int index) {
@@ -2051,6 +2086,7 @@ char getDivider() {
   }
 }
 //--Display end
+#endif
 
 Firmware parseFirmwareVersion(const char *version) {
 
@@ -2374,6 +2410,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
   html += "                    </div>";
+  #if DISPLAY_ENABLED
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
   html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
@@ -2393,6 +2430,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
   html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html += "                    </div>";
+  #endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
     html += "                    <div class='form-group'>";
     html += "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>" + floatToString(settings.temp_correction) + "</span> °C</label>";
@@ -2454,6 +2492,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += "                        </select>";
   html += "                    </div>";
+  #if DISPLAY_ENABLED
   html += "                    <div class='form-group form-check'>";
   html += "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox3'";
   if (settings.home_alert_time == 1) html += " checked";
@@ -2462,6 +2501,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          Показувати тривалість тривоги у дом. регіоні";
   html += "                        </label>";
   html += "                    </div>";
+  #endif
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>";
   html += "                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>";
@@ -2476,6 +2516,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += ">Колір + зміна яскравості</option>";
   html += "                        </select>";
   html += "                    </div>";
+#if DISPLAY_ENABLED
   if (settings.legacy) {
     html += "                    <div class='form-group'>";
     html += "                        <label for='selectBox7'>Розмір дисплея</label>";
@@ -2489,6 +2530,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        </select>";
     html += "                    </div>";
   }
+#endif
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
@@ -2672,8 +2714,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'";
-   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'";
+  #if DISPLAY_ENABLED
+  html += ", 'slider17'";
+  #endif
+  html += ", 'slider18', 'slider19', 'slider20'";
+  if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
     html += ", 'slider21'";
   }
   if (sht3xInited || bme280Inited || htu2xInited) {
@@ -3414,9 +3460,10 @@ void autoBrightnessUpdate() {
 }
 
 int getBrightnessFromSensor() {
-
+#if BH1750_ENABLED
   // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
   if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 500)];
+#endif
 
   // reads the input on analog pin (value between 0 and 4095)
   int analogValue = analogRead(settings.lightpin) * settings.light_sensor_factor;
@@ -3560,7 +3607,7 @@ void onEventsCallback(WebsocketsEvent event, String data) {
 
 void socketConnect() {
   Serial.println("connection start...");
-  showServiceMessage("підключення..", "Сервер даних");
+  showServiceMessage("підключення...", "Сервер даних");
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
@@ -3916,14 +3963,17 @@ void rebootCycle() {
 }
 
 void bh1750LightSensorCycle() {
+#if BH1750_ENABLED
   if (!bh1750Inited || !bh1750.measurementReady(true)) return;
   lightInLuxes = bh1750.readLightLevel() * settings.light_sensor_factor;
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
   // Serial.println(" lx");
+#endif
 }
 
 void localTempHumSensorCycle() {
+#if CLIMATE_SENSORS_ENABLED
 
   if (bme280Inited || bmp280Inited) {
     localTemp = bme280.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
@@ -3970,6 +4020,7 @@ void localTempHumSensorCycle() {
     // Serial.println("%");
     return;
   }
+#endif
 }
 
 void setup() {
@@ -4001,7 +4052,9 @@ void setup() {
 void loop() {
   wm.process();
   asyncEngine.run();
+  #if ARDUINO_OTA_ENABLED
   ArduinoOTA.handle();
+  #endif
   buttonUpdate();
   if (enableHA) {
     mqtt.loop();
