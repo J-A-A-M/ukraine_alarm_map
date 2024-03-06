@@ -31,23 +31,23 @@ struct Settings {
   int           reservedpin            = 27;
 
   // ------- web config start
-  String  devicename             = "Alarm Map";
-  String  devicedescription      = "Alarm Map Informer";
-  String  broadcastname          = "alarmmap";
-  String  serverhost             = "alerts.net.ua";
+  char    devicename[30]         = "Alarm Map";
+  char    devicedescription[50]  = "Alarm Map Informer";
+  char    broadcastname[30]      = "alarmmap";
+  char    serverhost[30]         = "alerts.net.ua";
   int     websocket_port         = 38440;
   int     updateport             = 8090;
-  String  bin_name               = String(VERSION) + ".bin";
-  String  identifier             = "github";
+  char    bin_name[50]           = "";
+  char    identifier[50]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     buttonpin              = 15;
   int     alertpin               = 34;
   int     lightpin               = 32;
   int     ha_mqttport            = 1883;
-  String  ha_mqttuser            = "";
-  String  ha_mqttpassword        = "";
-  String  ha_brokeraddress       = "";
+  char    ha_mqttuser[30]        = "";
+  char    ha_mqttpassword[50]    = "";
+  char    ha_brokeraddress[30]   = "";
   int     current_brightness     = 50;
   int     brightness             = 50;
   int     brightness_day         = 50;
@@ -142,8 +142,8 @@ SHT31             sht3x;
 HTU20             htu2x;
 
 struct ServiceMessage {
-  String title;
-  String message;
+  const char* title;
+  const char* message;
   int textSize;
   long endTime;
   bool expired;
@@ -198,7 +198,7 @@ int d25[] PROGMEM = { 25, 7 };
 
 int counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
-std::vector<const PROGMEM char*> districts PROGMEM = {
+const PROGMEM char* districts[] PROGMEM = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -227,7 +227,7 @@ std::vector<const PROGMEM char*> districts PROGMEM = {
   "Київ"
 };
 
-std::vector<const PROGMEM char*> districtsAlphabetical PROGMEM = {
+const PROGMEM char* districtsAlphabetical[] PROGMEM = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -405,6 +405,7 @@ long    homeAlertStart = 0;
 int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
+char    newFwVersion[20];
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
@@ -582,13 +583,13 @@ void servicePin(int pin, uint8_t status, bool force) {
 
 void initSettings() {
   Serial.println("Init settings");
-  preferences.begin("storage", false);
+  preferences.begin("storage", true);
 
-  settings.devicename             = preferences.getString("dn", settings.devicename);
-  settings.devicedescription      = preferences.getString("dd", settings.devicedescription);
-  settings.broadcastname          = preferences.getString("bn", settings.broadcastname);
-  settings.serverhost             = preferences.getString("host", settings.serverhost);
-  settings.identifier             = preferences.getString("id", settings.identifier);
+  preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
+  preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
+  preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
+  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("id", settings.identifier, sizeof(settings.identifier));
   settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
@@ -618,10 +619,10 @@ void initSettings() {
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
-  settings.ha_brokeraddress       = preferences.getString("ha_brokeraddr", settings.ha_brokeraddress);
+  preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
   settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  settings.ha_mqttuser            = preferences.getString("ha_mqttuser", settings.ha_mqttuser);
-  settings.ha_mqttpassword        = preferences.getString("ha_mqttpass", settings.ha_mqttpassword);
+  preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
+  preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
   settings.display_width          = preferences.getInt("dw", settings.display_width);
   settings.display_height         = preferences.getInt("dh", settings.display_height);
   settings.day_start              = preferences.getInt("ds", settings.day_start);
@@ -649,8 +650,9 @@ void initSettings() {
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  Serial.print("Current firmware version: ");
-  Serial.println(getFwVersion(currentFirmware));
+  char currentVersion[20];
+  fillFwVersion(currentVersion, currentFirmware);
+  Serial.printf("Current firmware version: %s\n", currentVersion);
 }
 
 void InitAlertPin() {
@@ -738,16 +740,27 @@ void printNtpStatus() {
     }
 }
 
-void displayMessage(String message, int messageTextSize, String title = "") {
+void displayMessage(const char* message, int messageTextSize, const char* title = "") {
   display.clearDisplay();
   int bound = 0;
-  if (title.length() > 0) {
+  if (strlen(title) > 0) {
+    char cyrTitle[strlen(title)];
     display.setCursor(0, 0);
     display.setTextSize(1);
-    display.println(utf8cyr(title));
+    utf8cyr(cyrTitle, title);
+    display.println(cyrTitle);
     bound = 4 + messageTextSize;
   }
   displayCenter(message, bound, messageTextSize);
+}
+
+void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
+  serviceMessage.title = title;
+  serviceMessage.message = message;
+  serviceMessage.textSize = getTextSizeToFitDisplay(message);
+  serviceMessage.endTime = millis() + duration;
+  serviceMessage.expired = false;
+  displayCycle();
 }
 
 void rebootDevice(int time = 2000, bool async = false) {
@@ -755,7 +768,7 @@ void rebootDevice(int time = 2000, bool async = false) {
     needRebootWithDelay = time;
     return;
   }
-  showServiceMessage("Перезавантаження..", time);
+  showServiceMessage("Перезавантаження..", "", time);
   delay(time);
   ESP.restart();
 }
@@ -775,9 +788,10 @@ void initWifi() {
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setConfigPortalTimeout(180);
   servicePin(settings.wifipin, LOW, false);
-  showServiceMessage(wm.getWiFiSSID(true), "Підключення до:", 5000);
-  String apssid = String(settings.apssid) + "_" + chipID;
-  if (!wm.autoConnect(apssid.c_str())) {
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
+  char apssid[20];
+  sprintf(apssid, "%s_%s", settings.apssid, chipID);
+  if (!wm.autoConnect(apssid)) {
     Serial.println("Reboot");
     rebootDevice(5000);
     return;
@@ -794,18 +808,17 @@ void initWifi() {
   initBroadcast();
   socketConnect();
   initHA();
-  showServiceMessage(WiFi.localIP().toString(), "IP-адреса мапи:", 5000);
+  showServiceMessage(WiFi.localIP().toString().c_str(), "IP-адреса мапи:", 3000);
 }
 
 void apCallback(WiFiManager* wifiManager) {
-  String title = "Підключіться до WiFi:";
-  String message = wifiManager->getConfigPortalSSID();
-  displayMessage(message, getTextSizeToFitDisplay(message), title);
+  const char* message = wifiManager->getConfigPortalSSID().c_str();
+  displayMessage(message, getTextSizeToFitDisplay(message), "Підключіться до WiFi:");
   WiFi.onEvent(wifiEvents);
 }
 
 void saveConfigCallback() {
-  showServiceMessage(wm.getWiFiSSID(true), "Збережено AP:");
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Збережено AP:");
   delay(2000);
   rebootDevice();
 }
@@ -813,9 +826,12 @@ void saveConfigCallback() {
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      displayMessage(WiFi.softAPIP().toString(), getTextSizeToFitDisplay(WiFi.softAPIP().toString()), "Введіть у браузері:");
+    {
+      const char* ipAddress = WiFi.softAPIP().toString().c_str();
+      displayMessage(ipAddress, getTextSizeToFitDisplay(ipAddress), "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
       break;
+    }
     default:
       break;
   }
@@ -836,7 +852,8 @@ void initUpdates() {
 
 void showUpdateProgress(size_t progress, size_t total) {
   if (total == 0) return;
-  String progressText = String(progress / (total / 100)) + "%";
+  char progressText[5];
+  sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
 }
 
@@ -902,21 +919,21 @@ void initHA() {
   if (!wifiReconnect) {
     Serial.println("Init Home assistant API");
 
-    char* deviceName             = new char[settings.devicename.length() + 1];
-    char* deviceDescr            = new char[settings.devicedescription.length() + 1];
-    char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
-    char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
-    char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
+    // char* deviceName             = new char[settings.devicename.length() + 1];
+    // char* deviceDescr            = new char[settings.devicedescription.length() + 1];
+    // char* brokerAddress          = new char[settings.ha_brokeraddress.length() + 1];
+    // char* mqttUser               = new char[settings.ha_mqttuser.length() + 1];
+    // char* mqttPassword           = new char[settings.ha_mqttpassword.length() + 1];
 
-    strcpy(deviceName, settings.devicename.c_str());
-    strcpy(deviceDescr, settings.devicedescription.c_str());
-    strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
-    strcpy(mqttUser, settings.ha_mqttuser.c_str());
-    strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
+    // strcpy(deviceName, settings.devicename.c_str());
+    // strcpy(deviceDescr, settings.devicedescription.c_str());
+    // strcpy(brokerAddress, settings.ha_brokeraddress.c_str());
+    // strcpy(mqttUser, settings.ha_mqttuser.c_str());
+    // strcpy(mqttPassword, settings.ha_mqttpassword.c_str());
 
     IPAddress brokerAddr;
 
-    if (!brokerAddr.fromString(brokerAddress)) {
+    if (!brokerAddr.fromString(settings.ha_brokeraddress)) {
       Serial.println("Invalid IP-address format!");
       enableHA = false;
     } else {
@@ -927,12 +944,13 @@ void initHA() {
       byte mac[6];
       WiFi.macAddress(mac);
       device.setUniqueId(mac, sizeof(mac));
-      device.setName(deviceName);
+      device.setName(settings.devicename);
       device.setSoftwareVersion(settings.softwareversion);
       device.setManufacturer("v00g100skr");
-      device.setModel(deviceDescr);
+      device.setModel(settings.devicedescription);
       // Doesn't work right now. Try on next arduino HA release.
-      // const char* deviceUrl = ((String) "http://"+ WiFi.localIP().toString() + ":80/").c_str();
+      // char deviceUrl[50];
+      // sprintf(deviceUrl, "http://%s:80", WiFi.localIP().toString());
       // Serial.println(deviceUrl);
       // device.setConfigurationUrl(deviceUrl);
       device.enableExtendedUniqueIds();
@@ -1037,7 +1055,7 @@ void initHA() {
 
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
-      mqtt.begin(brokerAddr, settings.ha_mqttport, mqttUser, mqttPassword);
+      mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
     }
   }
 }
@@ -1169,8 +1187,10 @@ void initDisplay() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
-  String text1 = utf8cyr("Just Another");
-  String text2 = utf8cyr("Alert Map ");
+  char text1[15];
+  char text2[15];
+  utf8cyr(text1, "Just Another");
+  utf8cyr(text2, "Alert Map");
   int16_t x;
   int16_t y;
   uint16_t width;
@@ -1260,15 +1280,15 @@ void saveLatestFirmware() {
   Firmware firmware;
   for (String& filename : tempBinList) {
     if (filename.startsWith("latest")) continue;
-    Firmware parsedFirmware = parseFirmwareVersion(filename);
+    Firmware parsedFirmware = parseFirmwareVersion(filename.c_str());
     if (firstIsNewer(parsedFirmware, firmware)) {
       firmware = parsedFirmware;
     }
   }
   latestFirmware = firmware;
   fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
-  Serial.print("Latest firmware version: ");
-  Serial.println(getFwVersion(latestFirmware));
+  fillFwVersion(newFwVersion, latestFirmware);
+  Serial.printf("Latest firmware version: %s\n", newFwVersion);
   Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
 
@@ -1290,7 +1310,7 @@ bool firstIsNewer(Firmware first, Firmware second) {
   return false;
 }
 
-JsonDocument parseJson(String payload) {
+JsonDocument parseJson(const char* payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
@@ -1308,9 +1328,10 @@ void parseHomeDistrictJson() {
   if ((timeClient.unixGMT() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
   // Save sync time
   lastHomeDistrictSync = timeClient.unixGMT();
-  String combinedString = "district:" + String(settings.home_district);
-  Serial.println(combinedString.c_str());
-  client_websocket.send(combinedString.c_str());
+  char districtRequest[15];
+  sprintf(districtRequest, "district:%d", settings.home_district);
+  Serial.println(districtRequest);
+  client_websocket.send(districtRequest);
 }
 
 void doUpdate() {
@@ -1320,13 +1341,13 @@ void doUpdate() {
   }
 }
 
-void downloadAndUpdateFw(String binFileName, bool isBeta) {
+void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
   Serial.println("Building spiffs url...");
-  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName.c_str());
+  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
   Serial.println("Building firmware url...");
-  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName.c_str());
+  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
 
   Serial.printf("Spiffs url: %s\n", spiffUrlChar);
   t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
@@ -1612,12 +1633,13 @@ void saveHomeDistrict(int newHomeDistrict) {
 }
 
 //--Display start
-void displayCenter(String text, int bound, int text_size) {
+void displayCenter(const char* text, int bound, int text_size) {
   int16_t x;
   int16_t y;
   uint16_t width;
   uint16_t height;
-  String utf8Text = utf8cyr(text);
+  char utf8Text[strlen(text)];
+  utf8cyr(utf8Text, text);
   display.setCursor(0, 0);
   display.setTextSize(text_size);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
@@ -1626,14 +1648,15 @@ void displayCenter(String text, int bound, int text_size) {
   display.display();
 }
 
-int getTextSizeToFitDisplay(String text) {
+int getTextSizeToFitDisplay(const char* text) {
   int16_t x;
   int16_t y;
   uint16_t textWidth;
   uint16_t height;
 
   display.setTextWrap(false);
-  String utf8Text = utf8cyr(text);
+  char utf8Text[strlen(text)]; 
+  utf8cyr(utf8Text, text);
   display.setCursor(0, 0);
   display.setTextSize(4);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
@@ -1662,13 +1685,13 @@ int getTextSizeToFitDisplay(String text) {
   }
 }
 
-String utf8cyr(String source) {
+void utf8cyr(char* target, const char* source) {
   int i, k;
-  String target;
   unsigned char n;
   char m[2] = { '0', '\0' };
+  strcpy(target, "");
 
-  k = source.length();
+  k = strlen(source);
   i = 0;
   while (i < k) {
     n = source[i];
@@ -1699,30 +1722,8 @@ String utf8cyr(String source) {
       }
     }
     m[0] = n;
-    target = target + String(m);
+    strcat(target, m);
   }
-  return target;
-}
-
-void showServiceMessage(String message) {
-  showServiceMessage(message, "");
-}
-
-void showServiceMessage(String message, int duration) {
-  showServiceMessage(message, "", duration);
-}
-
-void showServiceMessage(String message, String title) {
-  showServiceMessage(message, title, 2000);
-}
-
-void showServiceMessage(String message, String title, int duration) {
-  serviceMessage.title = title;
-  serviceMessage.message = message;
-  serviceMessage.textSize = getTextSizeToFitDisplay(message);
-  serviceMessage.endTime = millis() + duration;
-  serviceMessage.expired = false;
-  displayCycle();
 }
 
 void serviceMessageUpdate() {
@@ -1817,24 +1818,24 @@ void displayMinuteOfSilence() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   int textSize;
-  String text1;
-  String text2;
-  String text3;
+  char text1[20];
+  char text2[20];
+  char text3[20];
   int gap = 40;
   if (remainder < toggleTime) {
     textSize = 1;
-    text1 = utf8cyr("Шана");
-    text2 = utf8cyr("Полеглим");
-    text3 = utf8cyr("Героям!");
+    utf8cyr(text1, "Шана");
+    utf8cyr(text2, "Полеглим");
+    utf8cyr(text3, "Героям!");
   } else if (remainder < toggleTime * 2) {
     textSize = 2;
-    text1 = utf8cyr("Слава");
-    text3 = utf8cyr("Україні!");
+    utf8cyr(text1, "Слава");
+    utf8cyr(text3, "Україні!");
     gap = 32;
   } else {
     textSize = 2;
-    text1 = utf8cyr("Смерть");
-    text3 = utf8cyr("ворогам!");
+    utf8cyr(text1, "Смерть");
+    utf8cyr(text3, "ворогам!");
     gap = 32;
   }
   display.setTextSize(textSize);
@@ -1858,94 +1859,95 @@ void displayServiceMessage(ServiceMessage message) {
 }
 
 void showHomeAlertInfo() {
-  int toggleTime = 5;  // seconds
+  int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 2);
-  String title;
+  char title[50];
   if (remainder < toggleTime) {
-    title = "Тривога триває:";
+    strcpy(title, "Тривога триває:");
   } else {
-    title = districts[settings.home_district];
+    strcpy(title, districts[settings.home_district]);
   }
-  String message = getStringFromTimer(timeClient.unixGMT() - homeAlertStart - timeOffset);
+  char message[15];
+  fillFromTimer(message, timeClient.unixGMT() - homeAlertStart - timeOffset);
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
-String getFwVersion(Firmware firmware) {
-  String version = String(firmware.major) + "." + firmware.minor;
+void fillFwVersion(char* result, Firmware firmware) {
+  char patch[5] = "";
   if (firmware.patch > 0) {
-    version += ".";
-    version += firmware.patch;
+    sprintf(patch, ".%d", firmware.patch);
   }
+  char beta[5] = "";
   if (firmware.isBeta) {
-    version += "-b";
-    version += firmware.betaBuild;
+    sprintf(beta, "-b%d", firmware.betaBuild);
   }
-  return version;
+  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+
 }
 
 void showNewFirmwareNotification() {
-  int toggleTime = 5;  // seconds
+  int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 2);
-  String title;
-  String message;
+  char title[50];
+  char message[50];
   if (remainder < toggleTime) {
-    title = "Доступне оновлення:";
-    message = getFwVersion(latestFirmware);
+    strcpy(title, "Доступне оновлення:");
+    strcpy(message, newFwVersion);
   } else if (settings.button_mode == 0) {
-    title = "Введіть у браузері:";
-    message = WiFi.localIP().toString();
+    strcpy(title, "Введіть у браузері:");
+    strcpy(message, WiFi.localIP().toString().c_str());
   } else {
-    title = "Для оновл. натисніть";
-    message = (String) "та тримайте кнопку " + (char)24;
+    strcpy(title, "Для оновл. натисніть");
+    sprintf(message, "та тримайте кнопку %c", (char)24);
   }
   
   displayMessage(message, getTextSizeToFitDisplay(message), title);
 }
 
 void showClock() {
-  String time = timeClient.unixToString(String("hh") + getDivider() + "mm");
-  String date = timeClient.unixToString("DSTRUA DD.MM.YYYY");
+  char time[7];
+  sprintf(time, "%02d%c%02d", timeClient.hour(), getDivider(), timeClient.minute());
+  const char* date = timeClient.unixToString("DSTRUA DD.MM.YYYY").c_str();
   displayMessage(time, getTextSizeToFitDisplay(time), date);
 }
 
 void showTemp() {
-  char roundedTemp[4];
   int position = calculateOffset(settings.home_district);
-  dtostrf(weather_leds[position], 3, 1, roundedTemp);
-  String temp = String(roundedTemp) + (char)128 + "C";
-  displayMessage(temp, getTextSizeToFitDisplay(temp), districts[settings.home_district]);
+  char message[10];
+  sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
+  displayMessage(message, getTextSizeToFitDisplay(message), districts[settings.home_district]);
 }
 
 void showTechInfo() {
   int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 6);
-  String title;
-  String message;
+  char title[35];
+  char message[25];
   // IP address
   if (remainder < toggleTime) {
-    title = "IP-адреса мапи:";
-    message = WiFi.localIP().toString();
+    strcpy(title, "IP-адреса мапи:");
+    strcpy(message, WiFi.localIP().toString().c_str());
     // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
-    title = "Сигнал WiFi:";
-    message += rssi;
-    message += " dBm";
+    strcpy(title, "Сигнал WiFi:");
+    sprintf(message, "%d dBm", rssi);
     // Uptime
   } else if (remainder < toggleTime * 3) {
-    title = "Час роботи:";
-    message = getStringFromTimer(millis() / 1000);
+    strcpy(title, "Час роботи:");
+    fillFromTimer(message, millis() / 1000);
     // map-API status
   } else if (remainder < toggleTime * 4) {
-    title = "Статус map-API:";
-    message = apiConnected ? "Підключено" : "Відключено";
+    strcpy(title, "Статус map-API:");
+    strcpy(message, apiConnected ? "Підключено" : "Відключено");
     // HA Status
   } else if (remainder < toggleTime * 5) {
-    title = "Home Assistant:";
-    message = haConnected ? "Підключено" : "Відключено";
+    strcpy(title, "Home Assistant:");
+    strcpy(message, haConnected ? "Підключено" : "Відключено");
+    // Fw version
   } else {
-    title = "Версія прошивки:";
-    message = VERSION;
+    strcpy(title, "Версія прошивки:");
+    strcpy(message, VERSION);
   }
 
   displayMessage(message, getTextSizeToFitDisplay(message), title);
@@ -1964,24 +1966,20 @@ void showClimate() {
 }
 
 void showLocalTemp() {
-  char roundedTemp[5];
-  dtostrf(localTemp, 5, 1, roundedTemp);
-  String message = String(roundedTemp) + (char)128 + "C";
+  char message[10];
+  sprintf(message, "%.1f%cC", localTemp, (char)128);
   displayMessage(message, getTextSizeToFitDisplay(message), "Температура");
 }
 
 void showLocalHum() {
-  char roundedHum[5];
-  dtostrf(localHum, 5, 1, roundedHum);
-  String message = String(roundedHum) + "%";
-
+  char message[10];
+  sprintf(message, "%.1f%%", localHum);
   displayMessage(message, getTextSizeToFitDisplay(message), "Вологість");
 }
 
 void showLocalPresure() {
-  char roundedPres[6];
-  dtostrf(localPresure, 6, 1, roundedPres);
-  String message = String(roundedPres) + "mmHg";
+  char message[12];
+  sprintf(message, "%.1fmmHg", localPresure);
   displayMessage(message, getTextSizeToFitDisplay(message), "Тиск");
 }
 
@@ -2008,31 +2006,21 @@ int getClimateInfoSize() {
   return size;
 }
 
-String getStringFromTimer(long timerSeconds) {
-  String message;
+void fillFromTimer(char* result, long timerSeconds) {
   unsigned long seconds = timerSeconds;
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
   if (hours >= 99) {
-    return "99+ год.";
+    strcpy(result, "99+ год.");
   } else {
-    String message;
     seconds %= 60;
     minutes %= 60;
-    String divider = getDivider();
+    char divider = getDivider();
     if (hours > 0) {
-      if (hours < 10) message += "0";
-      message += hours;
-      message += divider;
+      sprintf(result, "%02d%c%02d", hours, divider, minutes);
+    } else {
+      sprintf(result, "%02d%c%02d", minutes, divider, seconds);
     }
-    if (minutes < 10) message += "0";
-    message += minutes;
-    if (hours == 0) {
-      message += divider;
-      if (seconds < 10) message += "0";
-      message += seconds;
-    }
-    return message;
   }
 }
 
@@ -2054,54 +2042,40 @@ void showSwitchingModes() {
   }
 }
 
-String getDivider() {
+char getDivider() {
   // Change every second
   if (timeClient.second() % 2 == 0) {
-    return ":";
+    return ':';
   } else {
-    return " ";
+    return ' ';
   }
 }
 //--Display end
 
-Firmware parseFirmwareVersion(String version) {
-
-  String parts[4];
-  int count = 0;
-
-  while (version.length() > 0) {
-    int index = version.indexOf('.');
-    if (index == -1) {
-      // No dot found
-      parts[count++] = version;
-      break;
-    } else {
-      parts[count++] = version.substring(0, index);
-      version = version.substring(index + 1);
-    }
-  }
+Firmware parseFirmwareVersion(const char *version) {
 
   Firmware firmware;
 
-  firmware.major = atoi(parts[0].c_str());
-  if (parts[1].indexOf("-b") > 0) {
-    int indexOfBeta = parts[1].indexOf("-b");
-    firmware.minor = atoi(parts[1].substring(0, indexOfBeta).c_str());
-    firmware.isBeta = true;
-    firmware.betaBuild = atoi(parts[1].substring(indexOfBeta + 2, parts[1].length()).c_str());
-  } else {
-    firmware.minor = atoi(parts[1].c_str());
+  char* versionCopy = strdup(version);
+  char* token = strtok(versionCopy, ".-");
+
+  while (token) {
+    if (isdigit(token[0])) {
+      if (firmware.major == 0)
+        firmware.major = atoi(token);
+      else if (firmware.minor == 0)
+        firmware.minor = atoi(token);
+      else if (firmware.patch == 0)
+        firmware.patch = atoi(token);
+    } else if (firmware.betaBuild == 0 && token[0] == 'b' && strcmp(token, "bin") != 0) {
+      firmware.isBeta = true;
+      firmware.betaBuild = atoi(token + 1); // Skip the 'b' character
+    }
+    token = strtok(NULL, ".-");
   }
-  if (parts[2] == "bin" || parts[2] == NULL) {
-    firmware.patch = 0;
-  } else if (parts[2].indexOf("-b") > 0) {
-    int indexOfBeta = parts[2].indexOf("-b");
-    firmware.patch = atoi(parts[2].substring(0, indexOfBeta).c_str());
-    firmware.isBeta = true;
-    firmware.betaBuild = atoi(parts[2].substring(indexOfBeta + 2, parts[2].length()).c_str());
-  } else {
-    firmware.patch = atoi(parts[2].c_str());
-  }
+
+  free(versionCopy);
+
   return firmware;
 }
 
@@ -2120,714 +2094,1038 @@ void setupRouting() {
   Serial.println("Webportal running");
 }
 
-String disableRange(bool isDisabled) {
+const char* disableRange(bool isDisabled) {
   return isDisabled ? " disabled" : "";
 }
 
-String floatToString(float value, int prec) {
-  char result[10];
-  dtostrf(value, 2 + prec, prec, result);
-  return String(result);
+void fillWithFloat(char* result, float value) {
+  sprintf(result, "%.1f", value);
 }
 
 void handleRoot(AsyncWebServerRequest* request) {
-  String html;
-  html += "<!DOCTYPE html>";
-  html += "<html lang='en'>";
-  html += "<head>";
-  html += "    <meta charset='UTF-8'>";
-  html += "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-  html += "    <title>" + settings.devicename + "</title>";
-  html += "    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>";
-  html += "    <style>";
-  html += "        body { background-color: #4396ff; }";
-  html += "        .btn {margin-bottom: 0.25rem;}";
-  html += "        .container { padding: 20px; }";
-  html += "        label { font-weight: bold; }";
-  html += "        #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }";
-  html += "        .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
-  html += "        .full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
-  html += "        .box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
-  html += "    </style>";
-  html += "</head>";
-  html += "<body>";
-  html += "    <div class='container mt-3'  id='accordion'>";
-  html += "        <h2 class='text-center'>" + settings.devicedescription + " ";
-  html += settings.softwareversion;
-  html += "        </h2>";
-  html += "        <div class='row'>";
-  html += "            <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                <div class='box_yellow col-md-12 mt-2'>";
-  html += "                <img class='full-screen-img' src='http://alerts.net.ua/";
+  static char html[36000];
+  strcpy(html, "");
+
+  strcat(html, "<!DOCTYPE html>");
+  strcat(html, "<html lang='en'>");
+  strcat(html, "<head>");
+  strcat(html, "    <meta charset='UTF-8'>");
+  strcat(html, "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+  strcat(html, "    <title>");
+  strcat(html, settings.devicename);
+  strcat(html, "</title>");
+  strcat(html, "    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>");
+  strcat(html, "    <style>");
+  strcat(html, "        body { background-color: #4396ff; }");
+  strcat(html, "        .btn {margin-bottom: 0.25rem;}");
+  strcat(html, "        .container { padding: 20px; }");
+  strcat(html, "        label { font-weight: bold; }");
+  strcat(html, "        #sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }");
+  strcat(html, "        .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }");
+  strcat(html, "        .full-screen-img {width: 100%;height: 100%;object-fit: cover;}");
+  strcat(html, "        .box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }");
+  strcat(html, "    </style>");
+  strcat(html, "</head>");
+  strcat(html, "<body>");
+  strcat(html, "    <div class='container mt-3'  id='accordion'>");
+  strcat(html, "        <h2 class='text-center'>");
+  strcat(html, settings.devicedescription);
+  strcat(html, " ");
+  strcat(html, settings.softwareversion);
+  strcat(html, "        </h2>");
+  strcat(html, "        <div class='row'>");
+  strcat(html, "            <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                <img class='full-screen-img' src='http://alerts.net.ua/");
   switch (getCurrentMapMode()) {
     case 0:
-      html += "off_map.png";
+      strcat(html, "off_map.png");
       break;
     case 2:
-      html += "weather_map.png";
+      strcat(html, "weather_map.png");
       break;
     case 3:
-      html += "flag_map.png";
+      strcat(html, "flag_map.png");
       break;
     case 4:
-      html += "random_map.png";
+      strcat(html, "random_map.png");
       break;
     case 5:
-      html += "lamp_map.png";
+      strcat(html, "lamp_map.png");
       break;
     default:
-      html += "alerts_map.png";
+      strcat(html, "alerts_map.png");
   }
-  html += "'>";
-  html += "                </div>";
-  html += "              </div>";
-  html += "            </div>";
-  html += "        </div>";
-  html += "        <div class='row'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <h5>Локальна IP-адреса: ";
-  html += WiFi.localIP().toString();
-  html += "                    </h5>";
-  html += "                </div>";
-  html += "              </div>";
-  html += "            </div>";
-  html += "        </div>";
+  strcat(html, "'>");
+  strcat(html, "                </div>");
+  strcat(html, "              </div>");
+  strcat(html, "            </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        <div class='row'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <h5>Локальна IP-адреса: ");
+  strcat(html, WiFi.localIP().toString().c_str());
+  strcat(html, "                    </h5>");
+  strcat(html, "                </div>");
+  strcat(html, "              </div>");
+  strcat(html, "            </div>");
+  strcat(html, "        </div>");
   if (fwUpdateAvailable) {
-    html += "        <div class='row'>";
-    html += "           <div class='col-md-6 offset-md-3'>";
-    html += "              <div class='row'>";
-    html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + getFwVersion(latestFirmware) + "'>" + getFwVersion(latestFirmware) + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
-    html += "                </div>";
-    html += "              </div>";
-    html += "            </div>";
-    html += "        </div>";
+    strcat(html, "        <div class='row'>");
+    strcat(html, "           <div class='col-md-6 offset-md-3'>");
+    strcat(html, "              <div class='row'>");
+    strcat(html, "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>");
+    strcat(html, "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/");
+    strcat(html, newFwVersion);
+    strcat(html, "'>");
+    strcat(html, newFwVersion);
+    strcat(html, "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>");
+    strcat(html, "                </div>");
+    strcat(html, "              </div>");
+    strcat(html, "            </div>");
+    strcat(html, "        </div>");
   }
-  html += "        <div class='row'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
-  html += "                         Яскравість";
-  html += "                    </button>";
-  html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseColors' aria-expanded='false' aria-controls='collapseColors'>";
-  html += "                         Кольори";
-  html += "                    </button>";
-  html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseWeather' aria-expanded='false' aria-controls='collapseWeather'>";
-  html += "                         Погода";
-  html += "                    </button>";
-  html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>";
-  html += "                         Режими";
-  html += "                    </button>";
-  html += "                    <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
-  html += "                         DEV";
-  html += "                    </button>";
-  html += "                    <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#collapseFirmware' aria-expanded='false' aria-controls='collapseFirmware'>";
-  html += "                         Прошивка";
-  html += "                    </button>";
-  html += "                </div>";
-  html += "              </div>";
-  html += "            </div>";
-  html += "        </div>";
-  html += "        <form action='/saveBrightness' method='POST'>";
-  html += "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Загальна: <span id='sliderValue1'>" + String(settings.brightness) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='" + String(settings.brightness) + "'" + disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2) + ">";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Денна: <span id='sliderValue13'>" + String(settings.brightness_day) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='" + String(settings.brightness_day) + "'" + disableRange(settings.brightness_mode == 0) + ">";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Нічна: <span id='sliderValue14'>" + String(settings.brightness_night) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='" + String(settings.brightness_night) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>" + String(settings.day_start) + "</span> година</label>";
-  html += "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='" + String(settings.day_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>" + String(settings.night_start) + "</span> година</label>";
-  html += "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='" + String(settings.night_start) + "'" + disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2) + ">";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox12'>Автоматична яскравість</label>";
-  html += "                        <select name='brightness_auto' class='form-control' id='selectBox12'>";
+  strcat(html, "        <div class='row'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>");
+  strcat(html, "                         Яскравість");
+  strcat(html, "                    </button>");
+  strcat(html, "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseColors' aria-expanded='false' aria-controls='collapseColors'>");
+  strcat(html, "                         Кольори");
+  strcat(html, "                    </button>");
+  strcat(html, "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseWeather' aria-expanded='false' aria-controls='collapseWeather'>");
+  strcat(html, "                         Погода");
+  strcat(html, "                    </button>");
+  strcat(html, "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>");
+  strcat(html, "                         Режими");
+  strcat(html, "                    </button>");
+  strcat(html, "                    <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>");
+  strcat(html, "                         DEV");
+  strcat(html, "                    </button>");
+  strcat(html, "                    <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#collapseFirmware' aria-expanded='false' aria-controls='collapseFirmware'>");
+  strcat(html, "                         Прошивка");
+  strcat(html, "                    </button>");
+  strcat(html, "                </div>");
+  strcat(html, "              </div>");
+  strcat(html, "            </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        <form action='/saveBrightness' method='POST'>");
+  strcat(html, "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider1'>Загальна: <span id='sliderValue1'>");
+  
+  static char brightness[3];
+  sprintf(brightness, "%d", settings.brightness);
+  
+  strcat(html, brightness);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness' class='form-control-range' id='slider1' min='0' max='100' value='");
+  strcat(html, brightness);
+  strcat(html, "'");
+  strcat(html, disableRange(settings.brightness_mode == 1 || settings.brightness_mode == 2));
+  strcat(html, ">");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider1'>Денна: <span id='sliderValue13'>");
+
+  static char brightness_day[3];
+  sprintf(brightness_day, "%d", settings.brightness_day);
+
+  strcat(html, brightness_day);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_day' class='form-control-range' id='slider13' min='0' max='100' value='");
+  strcat(html, brightness_day);
+  strcat(html, "'");
+  strcat(html, disableRange(settings.brightness_mode == 0));
+  strcat(html, ">");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider1'>Нічна: <span id='sliderValue14'>");
+
+  static char brightness_night[3];
+  sprintf(brightness_night, "%d", settings.brightness_night);
+
+  strcat(html, brightness_night);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_night' class='form-control-range' id='slider14' min='0' max='100' value='");
+  strcat(html, brightness_night);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider1'>Початок дня: <span id='sliderValue15'>");
+
+  static char day_start[2];
+  sprintf(day_start, "%d", settings.day_start);
+
+  strcat(html, day_start);
+  strcat(html, "</span> година</label>");
+  strcat(html, "                        <input type='range' name='day_start' class='form-control-range' id='slider15' min='0' max='24' value='");
+  strcat(html, day_start);
+  strcat(html, "'");
+  strcat(html, disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2));
+  strcat(html, ">");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider1'>Початок ночі: <span id='sliderValue16'>");
+
+  static char night_start[2];
+  sprintf(night_start, "%d", settings.night_start);
+
+  strcat(html, night_start);
+  strcat(html, "</span> година</label>");
+  strcat(html, "                        <input type='range' name='night_start' class='form-control-range' id='slider16' min='0' max='24' value='");
+  strcat(html, night_start);
+  strcat(html, "'");
+  strcat(html, disableRange(settings.brightness_mode == 0 || settings.brightness_mode == 2));
+  strcat(html, ">");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox12'>Автоматична яскравість</label>");
+  strcat(html, "                        <select name='brightness_auto' class='form-control' id='selectBox12'>");
   for (int i = 0; i < autoBrightnessOptions.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.brightness_mode == i) html += " selected";
-    html += ">";
-    html += autoBrightnessOptions[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.brightness_mode == i) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html, autoBrightnessOptions[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>" + String(settings.brightness_alert) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='" + String(settings.brightness_alert) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider10'>Області без тривог: <span id='sliderValue10'>" + String(settings.brightness_clear) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_clear' class='form-control-range' id='slider10' min='0' max='100' value='" + String(settings.brightness_clear) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider11'>Нові тривоги: <span id='sliderValue11'>" + String(settings.brightness_new_alert) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_new_alert' class='form-control-range' id='slider11' min='0' max='100' value='" + String(settings.brightness_new_alert) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>" + String(settings.brightness_alert_over) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='" + String(settings.brightness_alert_over) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider24'>Коефіцієнт чутливості сенсора освітлення: <span id='sliderValue24'>" + floatToString(settings.light_sensor_factor, 1) + "</span></label>";
-  html += "                        <input type='range' name='light_sensor_factor' class='form-control-range' id='slider24' min='0.1' max='10' step='0.1' value='" + String(settings.light_sensor_factor) + "'>";
-  html += "                    </div>";
-  html += "                    <p class='text-info'>Коефіцієнт чутливості працює наступним чином: Значення менше 1 - знижує чутливість, більше 1 - підвищує. Формула для розрахунку - <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.<br>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "        </form>";
-  html += "        <form action='/saveColors' method='POST'>";
-  html += "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider3'>Області з тривогами: <span id='sliderValue3'>" + String(settings.color_alert) + "</span></label>";
-  html += "                        <input type='range' name='color_alert' class='form-control-range' id='slider3' min='0' max='360' value='" + String(settings.color_alert) + "'>";
-  html += "                        <div class='color-box' id='colorBox1'></div>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider4'>Області без тривог: <span id='sliderValue4'>" + String(settings.color_clear) + "</span></label>";
-  html += "                        <input type='range' name='color_clear' class='form-control-range' id='slider4' min='0' max='360' value='" + String(settings.color_clear) + "'>";
-  html += "                        <div class='color-box' id='colorBox2'></div>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider5'>Нові тривоги: <span id='sliderValue5'>" + String(settings.color_new_alert) + "</span></label>";
-  html += "                        <input type='range' name='color_new_alert' class='form-control-range' id='slider5' min='0' max='360' value='" + String(settings.color_new_alert) + "'>";
-  html += "                        <div class='color-box' id='colorBox3'></div>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider6'>Відбій тривог: <span id='sliderValue6'>" + String(settings.color_alert_over) + "</span></label>";
-  html += "                        <input type='range' name='color_alert_over' class='form-control-range' id='slider6' min='0' max='360' value='" + String(settings.color_alert_over) + "'>";
-  html += "                        <div class='color-box' id='colorBox4'></div>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider7'>Домашній регіон: <span id='sliderValue7'>" + String(settings.color_home_district) + "</span></label>";
-  html += "                        <input type='range' name='color_home_district' class='form-control-range' id='slider7' min='0' max='360' value='" + String(settings.color_home_district) + "'>";
-  html += "                        <div class='color-box' id='colorBox5'></div>";
-  html += "                    </div>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "        </form>";
-  html += "        <form action='/saveWeather' method='POST'>";
-  html += "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>" + String(settings.weather_min_temp) + "</span>°C</label>";
-  html += "                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider18' min='-20' max='10' value='" + String(settings.weather_min_temp) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>" + String(settings.weather_max_temp) + "</span>°C</label>";
-  html += "                        <input type='range' name='weather_max_temp' class='form-control-range' id='slider8' min='11' max='40' value='" + String(settings.weather_max_temp) + "'>";
-  html += "                    </div>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "        </form>";
-  html += "        <form action='/saveModes' method='POST'>";
-  html += "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider9'>Області з тривогами: <span id='sliderValue9'>");
+  
+  static char brightness_alert[3];
+  sprintf(brightness_alert, "%d", settings.brightness_alert);
+
+  strcat(html, brightness_alert);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_alert' class='form-control-range' id='slider9' min='0' max='100' value='");
+  strcat(html, brightness_alert);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider10'>Області без тривог: <span id='sliderValue10'>");
+
+  static char brightness_clear[3];
+  sprintf(brightness_clear, "%d", settings.brightness_clear);
+
+  strcat(html, brightness_clear);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_clear' class='form-control-range' id='slider10' min='0' max='100' value='");
+  strcat(html, brightness_clear);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider11'>Нові тривоги: <span id='sliderValue11'>");
+
+  static char brightness_new_alert[3];
+  sprintf(brightness_new_alert, "%d", settings.brightness_new_alert);
+
+  strcat(html, brightness_new_alert);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_new_alert' class='form-control-range' id='slider11' min='0' max='100' value='");
+  strcat(html, brightness_new_alert);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider12'>Відбій тривог: <span id='sliderValue12'>");
+
+  static char brightness_alert_over[3];
+  sprintf(brightness_alert_over, "%d", settings.brightness_alert_over);
+
+  strcat(html, brightness_alert_over);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_alert_over' class='form-control-range' id='slider12' min='0' max='100' value='");
+  strcat(html, brightness_alert_over);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider24'>Коефіцієнт чутливості сенсора освітлення: <span id='sliderValue24'>");
+
+  char lightFactor[5];
+  fillWithFloat(lightFactor, settings.light_sensor_factor);
+
+  strcat(html, lightFactor);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='light_sensor_factor' class='form-control-range' id='slider24' min='0.1' max='10' step='0.1' value='");
+  strcat(html, lightFactor);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <p class='text-info'>Коефіцієнт чутливості працює наступним чином: Значення менше 1 - знижує чутливість, більше 1 - підвищує. Формула для розрахунку - <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.<br>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
+  strcat(html, "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                 </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        </form>");
+  strcat(html, "        <form action='/saveColors' method='POST'>");
+  strcat(html, "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider3'>Області з тривогами: <span id='sliderValue3'>");
+
+  static char color_alert[3];
+  sprintf(color_alert, "%d", settings.color_alert);
+
+  strcat(html, color_alert);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='color_alert' class='form-control-range' id='slider3' min='0' max='360' value='");
+  strcat(html, color_alert);
+  strcat(html, "'>");
+  strcat(html, "                        <div class='color-box' id='colorBox1'></div>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider4'>Області без тривог: <span id='sliderValue4'>");
+
+  static char color_clear[3];
+  sprintf(color_clear, "%d", settings.color_clear);
+
+  strcat(html, color_clear);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='color_clear' class='form-control-range' id='slider4' min='0' max='360' value='");
+  strcat(html, color_clear);
+  strcat(html, "'>");
+  strcat(html, "                        <div class='color-box' id='colorBox2'></div>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider5'>Нові тривоги: <span id='sliderValue5'>");
+
+  static char color_new_alert[3];
+  sprintf(color_new_alert, "%d", settings.color_new_alert);
+
+  strcat(html, color_new_alert);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='color_new_alert' class='form-control-range' id='slider5' min='0' max='360' value='");
+  strcat(html, color_new_alert);
+  strcat(html, "'>");
+  strcat(html, "                        <div class='color-box' id='colorBox3'></div>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider6'>Відбій тривог: <span id='sliderValue6'>");
+
+  static char color_alert_over[3];
+  sprintf(color_alert_over, "%d", settings.color_alert_over);
+
+  strcat(html, color_alert_over);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='color_alert_over' class='form-control-range' id='slider6' min='0' max='360' value='");
+  strcat(html, color_alert_over);
+  strcat(html, "'>");
+  strcat(html, "                        <div class='color-box' id='colorBox4'></div>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider7'>Домашній регіон: <span id='sliderValue7'>");
+
+  static char color_home_district[3];
+  sprintf(color_home_district, "%d", settings.color_home_district);
+
+  strcat(html, color_home_district);
+  strcat(html, "</span></label>");
+  strcat(html, "                        <input type='range' name='color_home_district' class='form-control-range' id='slider7' min='0' max='360' value='");
+  strcat(html, color_home_district);
+  strcat(html, "'>");
+  strcat(html, "                        <div class='color-box' id='colorBox5'></div>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                 </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        </form>");
+  strcat(html, "        <form action='/saveWeather' method='POST'>");
+  strcat(html, "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider18'>Нижній рівень температури: <span id='sliderValue18'>");
+
+  static char weather_min_temp[3];
+  sprintf(weather_min_temp, "%d", settings.weather_min_temp);
+
+  strcat(html, weather_min_temp);
+  strcat(html, "</span>°C</label>");
+  strcat(html, "                        <input type='range' name='weather_min_temp' class='form-control-range' id='slider18' min='-20' max='10' value='");
+  strcat(html, weather_min_temp);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider8'>Верхній рівень температури: <span id='sliderValue8'>");
+
+  static char weather_max_temp[2];
+  sprintf(weather_max_temp, "%d", settings.weather_max_temp);
+
+  strcat(html, weather_max_temp);
+  strcat(html, "</span>°C</label>");
+  strcat(html, "                        <input type='range' name='weather_max_temp' class='form-control-range' id='slider8' min='11' max='40' value='");
+  strcat(html, weather_max_temp);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                 </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        </form>");
+  strcat(html, "        <form action='/saveModes' method='POST'>");
+  strcat(html, "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
   if (settings.legacy) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='selectBox1'>Режим діода 'Київська область'</label>";
-    html += "                        <select name='kyiv_district_mode' class='form-control' id='selectBox1'>";
-    html += "<option value='1'";
-    if (settings.kyiv_district_mode == 1) html += " selected";
-    html += ">Київська область</option>";
-    html += "<option value='2'";
-    if (settings.kyiv_district_mode == 2) html += " selected";
-    html += ">Київ</option>";
-    html += "<option value='3'";
-    if (settings.kyiv_district_mode == 3) html += " selected";
-    html += ">Київська область + Київ (2 діода)</option>";
-    html += "<option value='4'";
-    if (settings.kyiv_district_mode == 4) html += " selected";
-    html += ">Київська область + Київ (1 діод)</option>";
-    html += "                        </select>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='selectBox1'>Режим діода 'Київська область'</label>");
+    strcat(html, "                        <select name='kyiv_district_mode' class='form-control' id='selectBox1'>");
+    strcat(html, "<option value='1'");
+    if (settings.kyiv_district_mode == 1) strcat(html, " selected");
+    strcat(html, ">Київська область</option>");
+    strcat(html, "<option value='2'");
+    if (settings.kyiv_district_mode == 2) strcat(html, " selected");
+    strcat(html, ">Київ</option>");
+    strcat(html, "<option value='3'");
+    if (settings.kyiv_district_mode == 3) strcat(html, " selected");
+    strcat(html, ">Київська область + Київ (2 діода)</option>");
+    strcat(html, "<option value='4'");
+    if (settings.kyiv_district_mode == 4) strcat(html, " selected");
+    strcat(html, ">Київська область + Київ (1 діод)</option>");
+    strcat(html, "                        </select>");
+    strcat(html, "                    </div>");
   }
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox2'>Режим мапи</label>";
-  html += "                        <select name='map_mode' class='form-control' id='selectBox2'>";
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox2'>Режим мапи</label>");
+  strcat(html, "                        <select name='map_mode' class='form-control' id='selectBox2'>");
   for (int i = 0; i < mapModes.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.map_mode == i) html += " selected";
-    html += ">";
-    html += mapModes[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.map_mode == i) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  mapModes[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                       <label for='slider19'>Колір режиму \"Лампа\": <span id='sliderValue19'>0</span></label><br/>";
-  html += "                       <div class='color-box' id='colorBox17'></div>";
-  html += "                       <input type='range' name='color_lamp' class='form-control-range' id='slider19' min='0' max='360' value='0'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
-  html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox5'>Режим дисплея</label>";
-  html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                       <label for='slider19'>Колір режиму \"Лампа\": <span id='sliderValue19'>0</span></label><br/>");
+  strcat(html, "                       <div class='color-box' id='colorBox17'></div>");
+  strcat(html, "                       <input type='range' name='color_lamp' class='form-control-range' id='slider19' min='0' max='360' value='0'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>");
+
+  static char ha_light_brightness[3];
+  sprintf(ha_light_brightness, "%d", settings.ha_light_brightness);
+
+  strcat(html, ha_light_brightness);
+  strcat(html, "</span>%</label>");
+  strcat(html, "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='");
+  strcat(html, ha_light_brightness);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox5'>Режим дисплея</label>");
+  strcat(html, "                        <select name='display_mode' class='form-control' id='selectBox5'>");
   for (int i = 0; i < displayModes.size(); i++) {
     int num = getRealDisplayMode(i);
-    html += "<option value='";
-    html += num;
-    html += "'";
-    if (settings.display_mode == num) html += " selected";
-    html += ">";
-    html += displayModes[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char numStr[3];
+    sprintf(numStr, "%d", num);
+
+    strcat(html, numStr);
+    strcat(html, "'");
+    if (settings.display_mode == num) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  displayModes[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
-  html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
-  html += "                    </div>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>");
+
+  static char display_mode_time[2];
+  sprintf(display_mode_time, "%d", settings.display_mode_time);
+
+  strcat(html, display_mode_time);
+  strcat(html, "</span> секунд</label>");
+  strcat(html, "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='");
+  strcat(html, display_mode_time);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>" + floatToString(settings.temp_correction, 1) + "</span> °C</label>";
-    html += "                        <input type='range' name='temp_correction' class='form-control-range' id='slider21' min='-10' max='10' step='0.1' value='" + String(settings.temp_correction) + "'>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>");
+    
+    char tempCorrection[7];
+    fillWithFloat(tempCorrection, settings.temp_correction);
+
+    strcat(html, tempCorrection);
+    strcat(html, "</span> °C</label>");
+    strcat(html, "                        <input type='range' name='temp_correction' class='form-control-range' id='slider21' min='-10' max='10' step='0.1' value='");
+    strcat(html, tempCorrection);
+    strcat(html, "'>");
+    strcat(html, "                    </div>");
   }
   if (sht3xInited || bme280Inited || htu2xInited) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='slider22'>Корегування вологості: <span id='sliderValue22'>" + floatToString(settings.hum_correction, 1) + "</span> %</label>";
-    html += "                        <input type='range' name='hum_correction' class='form-control-range' id='slider22' min='-20' max='20' step='0.5' value='" + String(settings.hum_correction) + "'>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='slider22'>Корегування вологості: <span id='sliderValue22'>");
+
+    char humCorrection[7];
+    fillWithFloat(humCorrection, settings.hum_correction);
+
+    strcat(html, humCorrection);
+    strcat(html, "</span> %</label>");
+    strcat(html, "                        <input type='range' name='hum_correction' class='form-control-range' id='slider22' min='-20' max='20' step='0.5' value='");
+    strcat(html, humCorrection);
+    strcat(html, "'>");
+    strcat(html, "                    </div>");
   }
   if (bme280Inited || bmp280Inited) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='slider23'>Корегування тиску: <span id='sliderValue23'>" + floatToString(settings.presure_correction, 1) + "</span> мм.рт.ст.</label>";
-    html += "                        <input type='range' name='presure_correction' class='form-control-range' id='slider23' min='-50' max='50' step='0.5' value='" + String(settings.presure_correction) + "'>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='slider23'>Корегування тиску: <span id='sliderValue23'>");
+
+    char pressureCorrection[7];
+    fillWithFloat(pressureCorrection, settings.presure_correction);
+
+    strcat(html, pressureCorrection);
+    strcat(html, "</span> мм.рт.ст.</label>");
+    strcat(html, "                        <input type='range' name='presure_correction' class='form-control-range' id='slider23' min='-50' max='50' step='0.5' value='");
+    strcat(html, pressureCorrection);
+    strcat(html, "'>");
+    strcat(html, "                    </div>");
   }
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>";
-  html += "                        <select name='button_mode' class='form-control' id='selectBox6'>";
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>");
+  strcat(html, "                        <select name='button_mode' class='form-control' id='selectBox6'>");
   for (int i = 0; i < singleClickOptions.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.button_mode == i) html += " selected";
-    html += ">";
-    html += singleClickOptions[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.button_mode == i) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  singleClickOptions[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox10'>Режим кнопки (Long Click)</label>";
-  html += "                        <select name='button_mode_long' class='form-control' id='selectBox10'>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox10'>Режим кнопки (Long Click)</label>");
+  strcat(html, "                        <select name='button_mode_long' class='form-control' id='selectBox10'>");
   for (int i = 0; i < longClickOptions.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.button_mode_long == i) html += " selected";
-    html += ">";
-    html += longClickOptions[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.button_mode_long == i) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  longClickOptions[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox3'>Домашній регіон</label>";
-  html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < districtsAlphabetical.size(); alphabet++) {
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox3'>Домашній регіон</label>");
+  strcat(html, "                        <select name='home_district' class='form-control' id='selectBox3'>");
+  for (int alphabet = 0; alphabet < 26; alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
-    html += "<option value='";
-    html += num;
-    html += "'";
-    if (settings.home_district == num) html += " selected";
-    html += ">";
-    html += districtsAlphabetical[alphabet];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char numStr[3];
+    sprintf(numStr, "%d", num);
+
+    strcat(html, numStr);
+    strcat(html, "'");
+    if (settings.home_district == num) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  districtsAlphabetical[alphabet]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox3'";
-  if (settings.home_alert_time == 1) html += " checked";
-  html += ">";
-  html += "                        <label class='form-check-label' for='checkbox3'>";
-  html += "                          Показувати тривалість тривоги у дом. регіоні";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>";
-  html += "                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>";
-  html += "<option value='0'";
-  if (settings.alarms_notify_mode == 0) html += " selected";
-  html += ">Вимкнено</option>";
-  html += "<option value='1'";
-  if (settings.alarms_notify_mode == 1) html += " selected";
-  html += ">Колір</option>";
-  html += "<option value='2'";
-  if (settings.alarms_notify_mode == 2) html += " selected";
-  html += ">Колір + зміна яскравості</option>";
-  html += "                        </select>";
-  html += "                    </div>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group form-check'>");
+  strcat(html, "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox3'");
+  if (settings.home_alert_time == 1) strcat(html, " checked");
+  strcat(html, ">");
+  strcat(html, "                        <label class='form-check-label' for='checkbox3'>");
+  strcat(html, "                          Показувати тривалість тривоги у дом. регіоні");
+  strcat(html, "                        </label>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>");
+  strcat(html, "                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>");
+  strcat(html, "<option value='0'");
+  if (settings.alarms_notify_mode == 0) strcat(html, " selected");
+  strcat(html, ">Вимкнено</option>");
+  strcat(html, "<option value='1'");
+  if (settings.alarms_notify_mode == 1) strcat(html, " selected");
+  strcat(html, ">Колір</option>");
+  strcat(html, "<option value='2'");
+  if (settings.alarms_notify_mode == 2) strcat(html, " selected");
+  strcat(html, ">Колір + зміна яскравості</option>");
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
   if (settings.legacy) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='selectBox7'>Розмір дисплея</label>";
-    html += "                        <select name='display_height' class='form-control' id='selectBox7'>";
-    html += "<option value='32'";
-    if (settings.display_height == 32) html += " selected";
-    html += ">128*32</option>";
-    html += "<option value='64'";
-    if (settings.display_height == 64) html += " selected";
-    html += ">128*64</option>";
-    html += "                        </select>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='selectBox7'>Розмір дисплея</label>");
+    strcat(html, "                        <select name='display_height' class='form-control' id='selectBox7'>");
+    strcat(html, "<option value='32'");
+    if (settings.display_height == 32) strcat(html, " selected");
+    strcat(html, ">128*32</option>");
+    strcat(html, "<option value='64'");
+    if (settings.display_height == 64) strcat(html, " selected");
+    strcat(html, ">128*64</option>");
+    strcat(html, "                        </select>");
+    strcat(html, "                    </div>");
   }
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
-  html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>");
+  strcat(html, "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>");
   for (int i = 0; i < autoAlarms.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.alarms_auto_switch == i) html += " selected";
-    html += ">";
-    html += autoAlarms[i];
-    html += "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.alarms_auto_switch == i) strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html,  autoAlarms[i]);
+    strcat(html, "</option>");
   }
-  html += "                        </select>";
-  html += "                    </div>";
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
   if (!settings.legacy) {
-    html += "                    <div class='form-group form-check'>";
-    html += "                        <input name='service_diodes_mode' type='checkbox' class='form-check-input' id='checkbox4'";
-    if (settings.service_diodes_mode == 1) html += " checked";
-    html += ">";
-    html += "                        <label class='form-check-label' for='checkbox4'>";
-    html += "                          Ввімкнути сервісні діоди на задній частині плати";
-    html += "                        </label>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group form-check'>");
+    strcat(html, "                        <input name='service_diodes_mode' type='checkbox' class='form-check-input' id='checkbox4'");
+    if (settings.service_diodes_mode == 1) strcat(html, " checked");
+    strcat(html, ">");
+    strcat(html, "                        <label class='form-check-label' for='checkbox4'>");
+    strcat(html, "                          Ввімкнути сервісні діоди на задній частині плати");
+    strcat(html, "                        </label>");
+    strcat(html, "                    </div>");
   }
-  html += "                    <div class='form-group form-check'>";
-  html += "                        <input name='min_of_silence' type='checkbox' class='form-check-input' id='checkbox6'";
-  if (settings.min_of_silence == 1) html += " checked";
-  html += ">";
-  html += "                        <label class='form-check-label' for='checkbox6'>";
-  html += "                          Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)";
-  html += "                        </label>";
-  html += "                    </div>";
-  html += "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "        </form>";
-  html += "        <form action='/saveDev' method='POST'>";
-  html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                    <b>";
-  html += "                      <p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
-  html += "                      <p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
-  html += "                      <p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
-  html += "                    </b>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox8'>Режим прошивки</label>";
-  html += "                        <select name='legacy' class='form-control' id='selectBox8'>";
-  html += "<option value='0'";
-  if (settings.legacy == 1) html += " selected";
-  html += ">Плата JAAM</option>";
-  html += "<option value='1'";
-  if (settings.legacy == 1) html += " selected";
-  html += ">Класична (початок на Закарпатті)</option>";
-  html += "                        </select>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_brokeraddress' class='form-control' id='inputField1' placeholder='' value='" + String(settings.ha_brokeraddress) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_mqttport' class='form-control' id='inputField2' value='" + String(settings.ha_mqttport) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_mqttuser' class='form-control' id='inputField3' value='" + String(settings.ha_mqttuser) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
-  html += "                        <input type='text' name='ha_mqttpassword' class='form-control' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField7'>Адреса сервера даних</label>";
-  html += "                        <input type='text' name='serverhost' class='form-control' id='inputField7' value='" + String(settings.serverhost) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField8'>Порт WebSockets</label>";
-  html += "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='" + String(settings.websocket_port) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField8'>Порт сервера прошивок</label>";
-  html += "                        <input type='text' name='updateport' class='form-control' id='inputField8' value='" + String(settings.updateport) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField9'>Назва пристрою</label>";
-  html += "                        <input type='text' name='devicename' class='form-control' id='inputField9' value='" + String(settings.devicename) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField10'>Опис пристрою</label>";
-  html += "                        <input type='text' name='devicedescription' class='form-control' id='inputField10' value='" + String(settings.devicedescription) + "'>";
-  html += "                    </div>";
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='inputField11'>Локальна адреса в мережі (" + String(settings.broadcastname) + ".local) </label>";
-  html += "                        <input type='text' name='broadcastname' class='form-control' id='inputField11' value='" + String(settings.broadcastname) + "'>";
-  html += "                    </div>";
+  strcat(html, "                    <div class='form-group form-check'>");
+  strcat(html, "                        <input name='min_of_silence' type='checkbox' class='form-check-input' id='checkbox6'");
+  if (settings.min_of_silence == 1) strcat(html, " checked");
+  strcat(html, ">");
+  strcat(html, "                        <label class='form-check-label' for='checkbox6'>");
+  strcat(html, "                          Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  strcat(html, "                        </label>");
+  strcat(html, "                    </div>");
+  strcat(html, "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                 </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        </form>");
+  strcat(html, "        <form action='/saveDev' method='POST'>");
+  strcat(html, "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                    <b>");
+  strcat(html, "                      <p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>");
+  strcat(html, "                      <p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
+  strcat(html, "                      <p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
+  strcat(html, "                    </b>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='selectBox8'>Режим прошивки</label>");
+  strcat(html, "                        <select name='legacy' class='form-control' id='selectBox8'>");
+  strcat(html, "<option value='0'");
+  if (settings.legacy == 1) strcat(html, " selected");
+  strcat(html, ">Плата JAAM</option>");
+  strcat(html, "<option value='1'");
+  if (settings.legacy == 1) strcat(html, " selected");
+  strcat(html, ">Класична (початок на Закарпатті)</option>");
+  strcat(html, "                        </select>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField1'> Адреса mqtt-сервера Home Assistant</label>");
+  strcat(html, "                        <input type='text' name='ha_brokeraddress' class='form-control' maxlength='30' id='inputField1' placeholder='' value='");
+  strcat(html, settings.ha_brokeraddress);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField2'>Порт mqtt-сервера Home Assistant</label>");
+  strcat(html, "                        <input type='text' name='ha_mqttport' class='form-control' id='inputField2' value='");
+  
+  static char ha_mqttport[7];
+  sprintf(ha_mqttport, "%d", settings.ha_mqttport);
+
+  strcat(html, ha_mqttport);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField3'>Юзер mqtt-сервера Home Assistant</label>");
+  strcat(html, "                        <input type='text' name='ha_mqttuser' class='form-control' maxlength='30' id='inputField3' value='");
+  strcat(html, settings.ha_mqttuser);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>");
+  strcat(html, "                        <input type='text' name='ha_mqttpassword' class='form-control' maxlength='50' id='inputField4' value='");
+  strcat(html, settings.ha_mqttpassword);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField7'>Адреса сервера даних</label>");
+  strcat(html, "                        <input type='text' name='serverhost' class='form-control' maxlength='30' id='inputField7' value='");
+  strcat(html, settings.serverhost);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField8'>Порт WebSockets</label>");
+  strcat(html, "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='");
+    
+  static char websocket_port[7];
+  sprintf(websocket_port, "%d", settings.websocket_port);
+
+  strcat(html, websocket_port);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField8'>Порт сервера прошивок</label>");
+  strcat(html, "                        <input type='text' name='updateport' class='form-control' id='inputField8' value='");
+      
+  static char updateport[7];
+  sprintf(updateport, "%d", settings.updateport);
+
+  strcat(html, updateport);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField9'>Назва пристрою</label>");
+  strcat(html, "                        <input type='text' name='devicename' class='form-control' maxlength='30' id='inputField9' value='");
+  strcat(html, settings.devicename);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField10'>Опис пристрою</label>");
+  strcat(html, "                        <input type='text' name='devicedescription' class='form-control' maxlength='50' id='inputField10' value='");
+  strcat(html, settings.devicedescription);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
+  strcat(html, "                    <div class='form-group'>");
+  strcat(html, "                        <label for='inputField11'>Локальна адреса в мережі (");
+  strcat(html, settings.broadcastname);
+  strcat(html, ".local) </label>");
+  strcat(html, "                        <input type='text' name='broadcastname' class='form-control' maxlength='30' id='inputField11' value='");
+  strcat(html, settings.broadcastname);
+  strcat(html, "'>");
+  strcat(html, "                    </div>");
   if (settings.legacy) {
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='inputField5'>Керуючий пін лед-стрічки</label>";
-    html += "                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
-    html += "                    </div>";
-    html += "                    <div class='form-group'>";
-    html += "                        <label for='inputField5'>Керуючий пін кнопки</label>";
-    html += "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
-    html += "                    </div>";
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='inputField5'>Керуючий пін лед-стрічки</label>");
+    strcat(html, "                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='");
+          
+    static char pixelpin[3];
+    sprintf(pixelpin, "%d", settings.pixelpin);
+
+    strcat(html, pixelpin);
+    strcat(html, "'>");
+    strcat(html, "                    </div>");
+    strcat(html, "                    <div class='form-group'>");
+    strcat(html, "                        <label for='inputField5'>Керуючий пін кнопки</label>");
+    strcat(html, "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='");
+              
+    static char buttonpin[3];
+    sprintf(buttonpin, "%d", settings.buttonpin);
+
+    strcat(html, buttonpin);
+    strcat(html, "'>");
+    strcat(html, "                    </div>");
   }
-  html += "                      <div class='form-group'>";
-  html += "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>";
-  html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
-  html += "                      </div>";
-  html += "                      <div class='form-group form-check'>";
-  html += "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox6'";
-  if (settings.enable_pin_on_alert == 1) html += " checked";
-  html += ">";
-  html += "                          <label class='form-check-label' for='checkbox6'>";
-  html += "                            Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні";
-  html += "                          </label>";
-  html += "                      </div>";
-  html += "                      <div class='form-group'>";
-  html += "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>";
-  html += "                          <input type='text' name='lightpin' class='form-control' id='inputField12' value='" + String(settings.lightpin) + "'>";
-  html += "                      </div>";
-  html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                 </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "        </form>";
-  html += "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
-  html += "              <div class='row'>";
-  html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += "                       <form action='/saveFirmware' method='POST'>";
-  html += "                          <div class='form-group form-check'>";
-  html += "                              <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'";
-  if (settings.new_fw_notification == 1) html += " checked";
-  html += ">";
-  html += "                              <label class='form-check-label' for='checkbox5'>";
-  html += "                                  Сповіщення про нові прошивки на екрані";
-  html += "                              </label>";
-  html += "                          </div>";
-  html += "                          <div class='form-group'>";
-  html += "                              <label for='selectBox11'>Канал оновлення прошивок</label>";
-  html += "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>";
+  strcat(html, "                      <div class='form-group'>");
+  strcat(html, "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>");
+  strcat(html, "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='");
+                
+  static char alertpin[3];
+  sprintf(alertpin, "%d", settings.alertpin);
+
+  strcat(html, alertpin);
+  strcat(html, "'>");
+  strcat(html, "                      </div>");
+  strcat(html, "                      <div class='form-group form-check'>");
+  strcat(html, "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox6'");
+  if (settings.enable_pin_on_alert == 1) strcat(html, " checked");
+  strcat(html, ">");
+  strcat(html, "                          <label class='form-check-label' for='checkbox6'>");
+  strcat(html, "                            Замикати пін ");
+  strcat(html, alertpin);
+  strcat(html, " при тривозі у дом. регіоні");
+  strcat(html, "                          </label>");
+  strcat(html, "                      </div>");
+  strcat(html, "                      <div class='form-group'>");
+  strcat(html, "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>");
+  strcat(html, "                          <input type='text' name='lightpin' class='form-control' id='inputField12' value='");
+                
+  static char lightpin[3];
+  sprintf(lightpin, "%d", settings.lightpin);
+
+  strcat(html, lightpin);
+  strcat(html, "'>");
+  strcat(html, "                      </div>");
+  strcat(html, "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                 </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "        </form>");
+  strcat(html, "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>");
+  strcat(html, "           <div class='col-md-6 offset-md-3'>");
+  strcat(html, "              <div class='row'>");
+  strcat(html, "                 <div class='box_yellow col-md-12 mt-2'>");
+  strcat(html, "                       <form action='/saveFirmware' method='POST'>");
+  strcat(html, "                          <div class='form-group form-check'>");
+  strcat(html, "                              <input name='new_fw_notification' type='checkbox' class='form-check-input' id='checkbox5'");
+  if (settings.new_fw_notification == 1) strcat(html, " checked");
+  strcat(html, ">");
+  strcat(html, "                              <label class='form-check-label' for='checkbox5'>");
+  strcat(html, "                                  Сповіщення про нові прошивки на екрані");
+  strcat(html, "                              </label>");
+  strcat(html, "                          </div>");
+  strcat(html, "                          <div class='form-group'>");
+  strcat(html, "                              <label for='selectBox11'>Канал оновлення прошивок</label>");
+  strcat(html, "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>");
   for (int i = 0; i < fwUpdateChannels.size(); i++) {
-    html += "<option value='";
-    html += i;
-    html += "'";
-    if (settings.fw_update_channel == i) html += " selected";
-    html += ">" + String(fwUpdateChannels[i]) + "</option>";
+    strcat(html, "<option value='");
+
+    char index[2];
+    sprintf(index, "%d", i);
+
+    strcat(html, index);
+    strcat(html, "'");
+    if (settings.fw_update_channel == i) strcat(html, " selected");
+    strcat(html, ">");
+  strcat(html, fwUpdateChannels[i]);
+  strcat(html, "</option>");
   }
-  html += "                              </select>";
-  html += "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
-  html += "                          </div>";
-  html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "                       </form>";
-  html += "                       <form action='/update' method='POST'>";
-  html += "                          <div class='form-group'>";
-  html += "                              <label for='selectBox9'>Файл прошивки</label>";
-  html += "                              <select name='bin_name' class='form-control' id='selectBox9'>";
+  strcat(html, "                              </select>");
+  strcat(html, "                              <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>");
+  strcat(html, "                          </div>");
+  strcat(html, "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  strcat(html, "                       </form>");
+  strcat(html, "                       <form action='/update' method='POST'>");
+  strcat(html, "                          <div class='form-group'>");
+  strcat(html, "                              <label for='selectBox9'>Файл прошивки</label>");
+  strcat(html, "                              <select name='bin_name' class='form-control' id='selectBox9'>");
   std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
   for (String& filename : tempBinList) {
-    html += "<option value='" + filename + "'";
-    if (filename == "latest.bin" || filename == "latest_beta.bin") html += " selected";
-    html += ">" + filename + "</option>";
+    strcat(html, "<option value='");
+    strcat(html, filename.c_str());
+    strcat(html, "'");
+    if (filename == "latest.bin" || filename == "latest_beta.bin") strcat(html, " selected");
+    strcat(html, ">");
+    strcat(html, filename.c_str());
+    strcat(html, "</option>");
   }
-  html += "                              </select>";
-  html += "                          </div>";
-  html += "                          <button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>";
-  html += "                       </form>";
-  html += "                    </div>";
-  html += "              </div>";
-  html += "           </div>";
-  html += "        </div>";
-  html += "    </div>";
-  html += "    </form>";
-  html += "    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
-  html += "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
-  html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
-  html += "    <script>";
-  html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'";
+  strcat(html, "                              </select>");
+  strcat(html, "                          </div>");
+  strcat(html, "                          <button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>");
+  strcat(html, "                       </form>");
+  strcat(html, "                    </div>");
+  strcat(html, "              </div>");
+  strcat(html, "           </div>");
+  strcat(html, "        </div>");
+  strcat(html, "    </div>");
+  strcat(html, "    </form>");
+  strcat(html, "    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
+  strcat(html, "    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
+  strcat(html, "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
+  strcat(html, "    <script>");
+  strcat(html, "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16', 'slider17', 'slider18', 'slider19', 'slider20'");
    if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
-    html += ", 'slider21'";
+    strcat(html, ", 'slider21'");
   }
   if (sht3xInited || bme280Inited || htu2xInited) {
-    html += ", 'slider22'";
+    strcat(html, ", 'slider22'");
   }
   if (bme280Inited || bmp280Inited) {
-    html += ", 'slider23'";
+    strcat(html, ", 'slider23'");
   }
-  html += ", 'slider24'];";
-  html += "";
-  html += "        sliders.forEach(slider => {";
-  html += "            const sliderElem = document.getElementById(slider);";
-  html += "            const sliderValueElem = document.getElementById(slider.replace('slider', 'sliderValue'));";
-  html += "            sliderElem.addEventListener('input', () => sliderValueElem.textContent = sliderElem.value);";
-  html += "        });";
-  html += "";
-  html += "        function updateColorBox(boxId, hue) {";
-  html += "            const rgbColor = hsbToRgb(hue, 100, 100);";
-  html += "            document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;";
-  html += "        }";
-  html += "";
-  html += "        const initialHue1 = parseInt(slider3.value);";
-  html += "        const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);";
-  html += "        document.getElementById('colorBox1').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
-  html += "";
-  html += "        const initialHue2 = parseInt(slider4.value);";
-  html += "        const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);";
-  html += "        document.getElementById('colorBox2').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
-  html += "";
-  html += "        const initialHue3 = parseInt(slider5.value);";
-  html += "        const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);";
-  html += "        document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
-  html += "";
-  html += "        const initialHue4 = parseInt(slider6.value);";
-  html += "        const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
-  html += "        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
-  html += "";
-  html += "        const initialHue5 = parseInt(slider7.value);";
-  html += "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
-  html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
-  html += "";
-  html += "        const initialRgbColor6 = { r: " + String(settings.ha_light_r) + ", g: " + String(settings.ha_light_g) + ", b: " + String(settings.ha_light_b) + " };";
-  html += "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
-  html += "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
-  html += "        document.getElementById('slider19').value = initialHue6;";
-  html += "        document.getElementById('sliderValue19').textContent = initialHue6;";
-  html += "";
-  html += "        function hsbToRgb(h, s, b) {";
-  html += "            h /= 360;";
-  html += "            s /= 100;";
-  html += "            b /= 100;";
-  html += "";
-  html += "            let r, g, bl;";
-  html += "";
-  html += "            if (s === 0) {";
-  html += "                r = g = bl = b;";
-  html += "            } else {";
-  html += "                const i = Math.floor(h * 6);";
-  html += "                const f = h * 6 - i;";
-  html += "                const p = b * (1 - s);";
-  html += "                const q = b * (1 - f * s);";
-  html += "                const t = b * (1 - (1 - f) * s);";
-  html += "";
-  html += "                switch (i % 6) {";
-  html += "                    case 0: r = b, g = t, bl = p; break;";
-  html += "                    case 1: r = q, g = b, bl = p; break;";
-  html += "                    case 2: r = p, g = b, bl = t; break;";
-  html += "                    case 3: r = p, g = q, bl = b; break;";
-  html += "                    case 4: r = t, g = p, bl = b; break;";
-  html += "                    case 5: r = b, g = p, bl = q; break;";
-  html += "                }";
-  html += "            }";
-  html += "";
-  html += "            return {";
-  html += "                r: Math.round(r * 255),";
-  html += "                g: Math.round(g * 255),";
-  html += "                b: Math.round(bl * 255)";
-  html += "            };";
-  html += "        }";
-  html += "";
-  html += "        function rgbToHue(r, g, b) {";
-  html += "            var h;";
-  html += "            r /= 255, g /= 255, b /= 255;";
-  html += "            var max = Math.max(r, g, b), min = Math.min(r, g, b);";
-  html += "            if (max-min == 0) {";
-  html += "                return 0;";
-  html += "            }";
-  html += "            if (max == r) {";
-  html += "                h = (g-b)/(max-min);";
-  html += "            }";
-  html += "            else if (max == g) {";
-  html += "                h = 2 +(b-r)/(max-min);";
-  html += "            }";
-  html += "            else if (max == b) {";
-  html += "                h = 4 + (r-g)/(max-min);";
-  html += "            }";
-  html += "            h = h*60;";
-  html += "            h %= 360;";
-  html += "            if (h < 0) {";
-  html += "                h += 360;";
-  html += "            }";
-  html += "            return Math.round(h);";
-  html += "        }";
-  html += "";
-  html += "        sliders.slice(1).forEach((slider, index) => {";
-  html += "            const sliderElem = document.getElementById(slider);";
-  html += "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));";
-  html += "            sliderElem.addEventListener('input', () => {";
-  html += "                const hue = parseInt(sliderElem.value);";
-  html += "                updateColorBox(colorBoxElem.id, hue);";
-  html += "                document.getElementById(slider.replace('slider', 'sliderValue')).textContent = hue;";
-  html += "            });";
-  html += "        });";
-  html += "";
-  html += "        $('select[name=brightness_auto]').change(function() {";
-  html += "            const selectedOption =  $(this).val();";
-  html += "            console.log('Selected auto_brightness option: '.concat(selectedOption));";
-  html += "            $('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);";
-  html += "            $('input[name=brightness_day]').prop('disabled', selectedOption == 0);";
-  html += "            $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
-  html += "            $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
-  html += "        });";
+  strcat(html, ", 'slider24'];");
+  strcat(html, "");
+  strcat(html, "        sliders.forEach(slider => {");
+  strcat(html, "            const sliderElem = document.getElementById(slider);");
+  strcat(html, "            const sliderValueElem = document.getElementById(slider.replace('slider', 'sliderValue'));");
+  strcat(html, "            sliderElem.addEventListener('input', () => sliderValueElem.textContent = sliderElem.value);");
+  strcat(html, "        });");
+  strcat(html, "");
+  strcat(html, "        function updateColorBox(boxId, hue) {");
+  strcat(html, "            const rgbColor = hsbToRgb(hue, 100, 100);");
+  strcat(html, "            document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;");
+  strcat(html, "        }");
+  strcat(html, "");
+  strcat(html, "        const initialHue1 = parseInt(slider3.value);");
+  strcat(html, "        const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);");
+  strcat(html, "        document.getElementById('colorBox1').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;");
+  strcat(html, "");
+  strcat(html, "        const initialHue2 = parseInt(slider4.value);");
+  strcat(html, "        const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);");
+  strcat(html, "        document.getElementById('colorBox2').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;");
+  strcat(html, "");
+  strcat(html, "        const initialHue3 = parseInt(slider5.value);");
+  strcat(html, "        const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);");
+  strcat(html, "        document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;");
+  strcat(html, "");
+  strcat(html, "        const initialHue4 = parseInt(slider6.value);");
+  strcat(html, "        const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);");
+  strcat(html, "        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;");
+  strcat(html, "");
+  strcat(html, "        const initialHue5 = parseInt(slider7.value);");
+  strcat(html, "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);");
+  strcat(html, "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;");
+  strcat(html, "");
+  strcat(html, "        const initialRgbColor6 = { r: ");
+
+    static char ha_light_r[3];
+    sprintf(ha_light_r, "%d", settings.ha_light_r);
+
+  strcat(html, ha_light_r);
+  strcat(html, ", g: ");
+
+    static char ha_light_g[3];
+    sprintf(ha_light_g, "%d", settings.ha_light_g);
+
+  strcat(html, ha_light_g);
+  strcat(html, ", b: ");
+
+    static char ha_light_b[3];
+    sprintf(ha_light_b, "%d", settings.ha_light_b);
+
+  strcat(html, ha_light_b);
+  strcat(html, " };");
+  strcat(html, "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;");
+  strcat(html, "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);");
+  strcat(html, "        document.getElementById('slider19').value = initialHue6;");
+  strcat(html, "        document.getElementById('sliderValue19').textContent = initialHue6;");
+  strcat(html, "");
+  strcat(html, "        function hsbToRgb(h, s, b) {");
+  strcat(html, "            h /= 360;");
+  strcat(html, "            s /= 100;");
+  strcat(html, "            b /= 100;");
+  strcat(html, "");
+  strcat(html, "            let r, g, bl;");
+  strcat(html, "");
+  strcat(html, "            if (s === 0) {");
+  strcat(html, "                r = g = bl = b;");
+  strcat(html, "            } else {");
+  strcat(html, "                const i = Math.floor(h * 6);");
+  strcat(html, "                const f = h * 6 - i;");
+  strcat(html, "                const p = b * (1 - s);");
+  strcat(html, "                const q = b * (1 - f * s);");
+  strcat(html, "                const t = b * (1 - (1 - f) * s);");
+  strcat(html, "");
+  strcat(html, "                switch (i % 6) {");
+  strcat(html, "                    case 0: r = b, g = t, bl = p; break;");
+  strcat(html, "                    case 1: r = q, g = b, bl = p; break;");
+  strcat(html, "                    case 2: r = p, g = b, bl = t; break;");
+  strcat(html, "                    case 3: r = p, g = q, bl = b; break;");
+  strcat(html, "                    case 4: r = t, g = p, bl = b; break;");
+  strcat(html, "                    case 5: r = b, g = p, bl = q; break;");
+  strcat(html, "                }");
+  strcat(html, "            }");
+  strcat(html, "");
+  strcat(html, "            return {");
+  strcat(html, "                r: Math.round(r * 255),");
+  strcat(html, "                g: Math.round(g * 255),");
+  strcat(html, "                b: Math.round(bl * 255)");
+  strcat(html, "            };");
+  strcat(html, "        }");
+  strcat(html, "");
+  strcat(html, "        function rgbToHue(r, g, b) {");
+  strcat(html, "            var h;");
+  strcat(html, "            r /= 255, g /= 255, b /= 255;");
+  strcat(html, "            var max = Math.max(r, g, b), min = Math.min(r, g, b);");
+  strcat(html, "            if (max-min == 0) {");
+  strcat(html, "                return 0;");
+  strcat(html, "            }");
+  strcat(html, "            if (max == r) {");
+  strcat(html, "                h = (g-b)/(max-min);");
+  strcat(html, "            }");
+  strcat(html, "            else if (max == g) {");
+  strcat(html, "                h = 2 +(b-r)/(max-min);");
+  strcat(html, "            }");
+  strcat(html, "            else if (max == b) {");
+  strcat(html, "                h = 4 + (r-g)/(max-min);");
+  strcat(html, "            }");
+  strcat(html, "            h = h*60;");
+  strcat(html, "            h %= 360;");
+  strcat(html, "            if (h < 0) {");
+  strcat(html, "                h += 360;");
+  strcat(html, "            }");
+  strcat(html, "            return Math.round(h);");
+  strcat(html, "        }");
+  strcat(html, "");
+  strcat(html, "        sliders.slice(1).forEach((slider, index) => {");
+  strcat(html, "            const sliderElem = document.getElementById(slider);");
+  strcat(html, "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));");
+  strcat(html, "            sliderElem.addEventListener('input', () => {");
+  strcat(html, "                const hue = parseInt(sliderElem.value);");
+  strcat(html, "                updateColorBox(colorBoxElem.id, hue);");
+  strcat(html, "                document.getElementById(slider.replace('slider', 'sliderValue')).textContent = hue;");
+  strcat(html, "            });");
+  strcat(html, "        });");
+  strcat(html, "");
+  strcat(html, "        $('select[name=brightness_auto]').change(function() {");
+  strcat(html, "            const selectedOption =  $(this).val();");
+  strcat(html, "            console.log('Selected auto_brightness option: '.concat(selectedOption));");
+  strcat(html, "            $('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);");
+  strcat(html, "            $('input[name=brightness_day]').prop('disabled', selectedOption == 0);");
+  strcat(html, "            $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);");
+  strcat(html, "            $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);");
+  strcat(html, "        });");
 
 
-  html += "    </script>";
-  html += "</body>";
-  html += "</html>";
-  request->send(200, "text/html", html);
+  strcat(html, "    </script>");
+  strcat(html, "</body>");
+  strcat(html, "</html>");
+  Serial.printf("Html text size - %d bytes\n", strlen(html));
+ AsyncWebServerResponse *response = request->beginResponse(
+  "text/html",
+  strlen_P(html),
+  [](uint8_t *buffer, size_t maxLen, size_t alreadySent) -> size_t {
+    if (strlen_P(html+alreadySent)>maxLen) {
+      // We have more to read than fits in maxLen Buffer
+      memcpy_P((char*)buffer, html+alreadySent, maxLen);
+      return maxLen;
+    }
+    // Ok, last chunk
+    memcpy_P((char*)buffer, html+alreadySent, strlen_P(html+alreadySent));
+    return strlen_P(html+alreadySent); // Return from here to end of indexhtml
+  }
+);
+request->send(response);   
+  // request->send_P(200, "text/html", html, sizeof(html));
 }
 
 HALight::RGBColor hue2rgb(int hue) {
@@ -2860,7 +3158,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
   Serial.println("do_update triggered");
   initUpdate = true;
   if (request->hasParam("bin_name", true)) {
-    settings.bin_name = strdup(request->getParam("bin_name", true)->value().c_str());
+    const char* bin_name = request->getParam("bin_name", true)->value().c_str();
+    strcpy(settings.bin_name, bin_name);
   }
   request->redirect("/");
 }
@@ -3203,9 +3502,10 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     }
   }
   if (request->hasParam("ha_brokeraddress", true)) {
-    if (request->getParam("ha_brokeraddress", true)->value() != settings.ha_brokeraddress) {
+    const char* haBrokerAddress = request->getParam("ha_brokeraddress", true)->value().c_str();
+    if (strcmp(haBrokerAddress, settings.ha_brokeraddress) != 0) {
       reboot = true;
-      settings.ha_brokeraddress = request->getParam("ha_brokeraddress", true)->value();
+      strcpy(settings.ha_brokeraddress, haBrokerAddress);
       preferences.putString("ha_brokeraddr", settings.ha_brokeraddress);
       Serial.println("ha_brokeraddress commited to preferences");
     }
@@ -3219,50 +3519,55 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     }
   }
   if (request->hasParam("ha_mqttuser", true)) {
-    if (request->getParam("ha_mqttuser", true)->value() != settings.ha_mqttuser) {
+    const char* haMqttUser = request->getParam("ha_mqttuser", true)->value().c_str();
+    if (strcmp(haMqttUser, settings.ha_mqttuser) != 0) {
       reboot = true;
-      settings.ha_mqttuser = request->getParam("ha_mqttuser", true)->value();
+      strcpy(settings.ha_mqttuser, haMqttUser);
       preferences.putString("ha_mqttuser", settings.ha_mqttuser);
       Serial.println("ha_mqttuser commited to preferences");
     }
   }
   if (request->hasParam("ha_mqttpassword", true)) {
-    if (request->getParam("ha_mqttpassword", true)->value() != settings.ha_mqttpassword) {
+    const char* haMqttPassword = request->getParam("ha_mqttpassword", true)->value().c_str();
+    if (strcmp(haMqttPassword, settings.ha_mqttpassword) != 0) {
       reboot = true;
-      settings.ha_mqttpassword = request->getParam("ha_mqttpassword", true)->value();
+      strcpy(settings.ha_mqttpassword, haMqttPassword);
       preferences.putString("ha_mqttpass", settings.ha_mqttpassword);
       Serial.println("ha_mqttpassword commited to preferences");
     }
   }
   if (request->hasParam("devicename", true)) {
-    if (request->getParam("devicename", true)->value() != settings.devicename) {
+    const char* devicename = request->getParam("devicename", true)->value().c_str();
+    if (strcmp(devicename, settings.devicename) != 0) {
       reboot = true;
-      settings.devicename = request->getParam("devicename", true)->value();
+      strcpy(settings.devicename, devicename);
       preferences.putString("dn", settings.devicename);
       Serial.println("devicename commited to preferences");
     }
   }
   if (request->hasParam("devicedescription", true)) {
-    if (request->getParam("devicedescription", true)->value() != settings.devicedescription) {
+    const char* deviceDescription = request->getParam("devicedescription", true)->value().c_str();
+    if (strcmp(deviceDescription, settings.devicedescription) != 0) {
       reboot = true;
-      settings.devicedescription = request->getParam("devicedescription", true)->value();
+      strcpy(settings.devicedescription, deviceDescription);
       preferences.putString("dd", settings.devicedescription);
       Serial.println("devicedescription commited to preferences");
     }
   }
   if (request->hasParam("broadcastname", true)) {
-    if (request->getParam("broadcastname", true)->value() != settings.broadcastname) {
+    const char* broadcastName = request->getParam("broadcastname", true)->value().c_str();
+    if (strcmp(broadcastName, settings.broadcastname) != 0) {
       reboot = true;
-      settings.broadcastname = request->getParam("broadcastname", true)->value();
+      strcpy(settings.broadcastname, broadcastName);
       preferences.putString("bn", settings.broadcastname);
       Serial.println("broadcastname commited to preferences");
     }
   }
   if (request->hasParam("serverhost", true)) {
-    String local_host = String(settings.serverhost);
-    if (request->getParam("serverhost", true)->value() != local_host) {
+    const char* serverHost = request->getParam("serverhost", true)->value().c_str();
+    if (strcmp(serverHost, settings.serverhost) != 0) {
       reboot = true;
-      settings.serverhost = strdup(request->getParam("serverhost", true)->value().c_str());
+      strcpy(settings.serverhost, serverHost);
       preferences.putString("host", request->getParam("serverhost", true)->value());
       Serial.println("serverhost commited to preferences");
     }
@@ -3502,7 +3807,7 @@ void websocketProcess() {
 void onMessageCallback(WebsocketsMessage message) {
   Serial.print("Got Message: ");
   Serial.println(message.data());
-  JsonDocument data = parseJson(message.data());
+  JsonDocument data = parseJson(message.data().c_str());
   String payload = data["payload"];
   if (!payload.isEmpty()) {
     if (payload == "ping") {
@@ -3582,19 +3887,22 @@ void socketConnect() {
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
-  String webSocketUrl = "ws://" + String(settings.serverhost) + ":" + String(settings.websocket_port) + "/data_v1";
+  char webSocketUrl[100];
+  sprintf(webSocketUrl, "ws://%s:%d/data_v1", settings.serverhost, settings.websocket_port);
   Serial.println(webSocketUrl);
-  client_websocket.connect(webSocketUrl.c_str());
+  client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
     Serial.print("connection time - ");
     Serial.print(millis() - startTime);
     Serial.println("ms");
-    String combinedString = "firmware:" + String(settings.softwareversion) + "_" + settings.identifier;
-    Serial.println(combinedString.c_str());
-    client_websocket.send(combinedString.c_str());
-    String chipId = "chip_id:" + chipID;
-    Serial.println(chipId.c_str());
-    client_websocket.send(chipId.c_str());
+    char firmwareInfo[100];
+    sprintf(firmwareInfo, "firmware:%s_%s", settings.softwareversion, settings.identifier);
+    Serial.println(firmwareInfo);
+    client_websocket.send(firmwareInfo);
+    char chipIdInfo[25];
+    sprintf(chipIdInfo, "chip_id:%s", chipID);
+    Serial.println(chipIdInfo);
+    client_websocket.send(chipIdInfo);
     client_websocket.ping();
     websocketReconnect = false;
     showServiceMessage("підключено!", "Сервер даних", 3000);

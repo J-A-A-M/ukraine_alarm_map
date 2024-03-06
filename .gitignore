@@ -3,3 +3,4 @@
 /deploy/shared_data/
 .DS_Store
 .idea/
+src/firmware/.vscode
