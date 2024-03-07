@@ -4,7 +4,7 @@
 #define SHT2X_ENABLED 1
 #define SHT3X_ENABLED 1
 #define BH1750_ENABLED 1
-#define BUZZER_ENABLED 0
+#define BUZZER_ENABLED 1
 
 #include <Preferences.h>
 #include <WiFiManager.h>
@@ -188,56 +188,56 @@ struct ServiceMessage {
   const char* message;
   int textSize;
   long endTime;
-  bool expired;
+  int expired;
 };
 
 ServiceMessage serviceMessage;
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
-int     alarm_leds[26];
-double  weather_leds[26];
-int     flag_leds[26];
+uint8_t   alarm_leds[26];
+float     weather_leds[26];
+uint8_t   flag_leds[26];
 // int     flag_leds[26] = {
 //   60,60,60,180,180,60,60,60,60,60,60,
 //   60,180,180,180,180,180,180,
 //   180,180,180,60,60,60,60,180
 // };
-int legacy_flag_leds[26] PROGMEM = {
+const uint8_t legacy_flag_leds[26] PROGMEM = {
   60, 60, 60, 180, 180, 180, 180, 180, 180,
   180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
   180, 180, 60, 60, 60, 60, 180
 };
 
-int d0[] PROGMEM = { 0, 1, 3 };
-int d1[] PROGMEM = { 1, 0, 2, 3, 24 };
-int d2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
-int d3[] PROGMEM = { 3, 0, 1, 2, 4 };
-int d4[] PROGMEM = { 4, 2, 3, 5 };
-int d5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
-int d6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
-int d7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
-int d8[] PROGMEM = { 8, 7, 9, 19, 20 };
-int d9[] PROGMEM = { 9, 8, 10, 19 };
-int d10[] PROGMEM = { 10, 9, 12, 18, 19 };
-int d11[] PROGMEM = { 11, 10, 12 };
-int d12[] PROGMEM = { 12, 10, 13, 18 };
-int d13[] PROGMEM = { 13, 12, 14, 18 };
-int d14[] PROGMEM = { 14, 13, 17, 18 };
-int d15[] PROGMEM = { 15, 14 };
-int d16[] PROGMEM = { 16, 17, 20, 21, 22 };
-int d17[] PROGMEM = { 17, 14, 16, 18, 21 };
-int d18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
-int d19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
-int d20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
-int d21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
-int d22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
-int d23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
-int d24[] PROGMEM = { 24, 1, 2, 22, 23 };
-int d25[] PROGMEM = { 25, 7 };
+const uint8_t d0[] PROGMEM = { 0, 1, 3 };
+const uint8_t d1[] PROGMEM = { 1, 0, 2, 3, 24 };
+const uint8_t d2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
+const uint8_t d3[] PROGMEM = { 3, 0, 1, 2, 4 };
+const uint8_t d4[] PROGMEM = { 4, 2, 3, 5 };
+const uint8_t d5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
+const uint8_t d6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
+const uint8_t d7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
+const uint8_t d8[] PROGMEM = { 8, 7, 9, 19, 20 };
+const uint8_t d9[] PROGMEM = { 9, 8, 10, 19 };
+const uint8_t d10[] PROGMEM = { 10, 9, 12, 18, 19 };
+const uint8_t d11[] PROGMEM = { 11, 10, 12 };
+const uint8_t d12[] PROGMEM = { 12, 10, 13, 18 };
+const uint8_t d13[] PROGMEM = { 13, 12, 14, 18 };
+const uint8_t d14[] PROGMEM = { 14, 13, 17, 18 };
+const uint8_t d15[] PROGMEM = { 15, 14 };
+const uint8_t d16[] PROGMEM = { 16, 17, 20, 21, 22 };
+const uint8_t d17[] PROGMEM = { 17, 14, 16, 18, 21 };
+const uint8_t d18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
+const uint8_t d19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
+const uint8_t d20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
+const uint8_t d21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
+const uint8_t d22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
+const uint8_t d23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
+const uint8_t d24[] PROGMEM = { 24, 1, 2, 22, 23 };
+const uint8_t d25[] PROGMEM = { 25, 7 };
 
 
-int counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
+const uint8_t counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
 const PROGMEM char* districts[] PROGMEM = {
   "Закарпатська обл.",
@@ -417,7 +417,7 @@ int numDistrictToAlphabet(int num) {
   }
 }
 
-int* neighboring_districts[] PROGMEM = {
+const uint8_t* neighboring_districts[] PROGMEM = {
   d0, d1, d2, d3, d4, d5, d6, d7, d8, d9,
   d10, d11, d12, d13, d14, d15, d16, d17, d18, d19,
   d20, d21, d22, d23, d24, d25
@@ -443,7 +443,6 @@ time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
-int     timeOffset = 0;
 time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
 char    newFwVersion[20];
@@ -1974,7 +1973,7 @@ void showHomeAlertInfo() {
     strcpy(title, districts[settings.home_district]);
   }
   char message[15];
-  fillFromTimer(message, timeClient.unixGMT() - homeAlertStart - timeOffset);
+  fillFromTimer(message, timeClient.unixGMT() - homeAlertStart);
 
   displayMessage(message, title);
 }
@@ -3913,9 +3912,9 @@ void checkMinuteOfSilence() {
 }
 
 float processWeather(int led) {
-  double minTemp = settings.weather_min_temp;
-  double maxTemp = settings.weather_max_temp;
-  double temp = led;
+  float minTemp = settings.weather_min_temp;
+  float maxTemp = settings.weather_max_temp;
+  float temp = led;
   float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
   if (normalizedValue > 1) {
     normalizedValue = 1;
