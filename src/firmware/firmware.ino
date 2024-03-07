@@ -1207,8 +1207,8 @@ void initDisplay() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
-  char text1[15];
-  char text2[15];
+  char text1[15] = "";
+  char text2[15] = "";
   utf8cyr(text1, "Just Another");
   utf8cyr(text2, "Alert Map");
   int16_t x;
@@ -1866,9 +1866,9 @@ void displayMinuteOfSilence() {
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   int textSize;
-  char text1[20];
-  char text2[20];
-  char text3[20];
+  char text1[20] = "";
+  char text2[20] = "";
+  char text3[20] = "";
   int gap = 40;
   if (remainder < toggleTime) {
     textSize = 1;
