@@ -1,7 +1,10 @@
 #define ARDUINO_OTA_ENABLED 0
 #define DISPLAY_ENABLED 1
-#define CLIMATE_SENSORS_ENABLED 1
+#define BME280_ENABLED 1
+#define SHT2X_ENABLED 1
+#define SHT3X_ENABLED 1
 #define BH1750_ENABLED 1
+#define BUZZER_ENABLED 0
 
 #include <Preferences.h>
 #include <WiFiManager.h>
@@ -23,12 +26,17 @@
 #if BH1750_ENABLED
 #include <BH1750.h>
 #endif
-#if CLIMATE_SENSORS_ENABLED
+#if BME280_ENABLED
 #include <BME280I2C.h>
-#include <SHT31.h>
-#include <SHT2x.h>
+#endif
+#if SHT2X_ENABLED || SHT3X_ENABLED
+#include <SHTSensor.h>
 #endif
 #include <NTPtime.h>
+#if BUZZER_ENABLED
+#include <melody_player.h>
+#include <melody_factory.h>
+#endif
 
 const PROGMEM char* VERSION = "3.7";
 
@@ -56,6 +64,7 @@ struct Settings {
   int     pixelpin               = 13;
   int     buttonpin              = 15;
   int     alertpin               = 34;
+  int     buzzerpin              = 33;
   int     lightpin               = 32;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[30]        = "";
@@ -87,6 +96,9 @@ struct Settings {
   int     ha_light_r             = 215;
   int     ha_light_g             = 7;
   int     ha_light_b             = 255;
+  bool    sound_on_startup       = false;
+  bool    sound_on_min_of_sl     = false;
+  bool    sound_on_home_alert    = false;
 
 
   // ------- Map Modes:
@@ -155,10 +167,21 @@ Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire
 #if BH1750_ENABLED
 BH1750            bh1750;
 #endif
-#if CLIMATE_SENSORS_ENABLED
+#if BME280_ENABLED
 BME280I2C         bme280;
-SHT31             sht3x;
-HTU20             htu2x;
+#endif
+#if SHT2X_ENABLED
+SHTSensor         htu2x(SHTSensor::SHT2X);
+#endif
+#if SHT3X_ENABLED
+SHTSensor         sht3x(SHTSensor::SHT3X);
+#endif
+#if BUZZER_ENABLED
+MelodyPlayer player(settings.buzzerpin);
+// const char starWars[] PROGMEM =  "StarWars:d=32,o=5,b=45,l=2,s=N:p,f#,f#,f#,8b.,8f#.6,e6,d#6,c#6,8b.6,16f#.6,e6,d#6,c#6,8b.6,16f#.6,e6,d#6,e6,8c#6";
+// const char missionImpossible[] PROGMEM =  "MissionImpossible:d=4,o=5,b=112:16g6,8p,16g6,8p,16f6,16p,16f#6,16p,16g6,8p,16g6,8p,16a#6,16p,16c7,16p,16g6,8p,16g6,8p,16f6,16p,16f#6,16p,16g6,8p,16g6,8p,16a#6,16p,16c7,16p,16a#6,16g6,2d6,32p,16a#6,16g6,2c#6,32p,16a#6,16g6,2c6,16p,16a#,16c6";
+
+const char nokiaTun[] PROGMEM =  "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 #endif
 
 struct ServiceMessage {
@@ -590,6 +613,25 @@ void initLegacy() {
   pinMode(settings.buttonpin, INPUT_PULLUP);
 }
 
+
+void initBuzzer() {
+#if BUZZER_ENABLED
+
+  player = MelodyPlayer(settings.buzzerpin, 0, HIGH);
+  if (settings.sound_on_startup) {
+    playMelody(nokiaTun);
+  }
+
+#endif
+}
+
+void playMelody(const char* melodyRtttl) {
+#if BUZZER_ENABLED
+  Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
+  player.playAsync(melody);
+#endif
+}
+
 void servicePin(int pin, uint8_t status, bool force) {
   if (!settings.legacy && settings.service_diodes_mode) {
     digitalWrite(pin, status);
@@ -648,6 +690,7 @@ void initSettings() {
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
   settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
@@ -664,6 +707,10 @@ void initSettings() {
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
   settings.presure_correction     = preferences.getFloat("lpc", settings.presure_correction);
   settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
+  settings.sound_on_startup       = preferences.getBool("sos", settings.sound_on_startup);
+  settings.sound_on_min_of_sl     = preferences.getBool("somos", settings.sound_on_min_of_sl);
+  settings.sound_on_home_alert    = preferences.getBool("soha", settings.sound_on_home_alert);
+
 
   preferences.end();
 
@@ -1229,7 +1276,7 @@ void initDisplay() {
 
 
 void initI2cTempSensors() {
-#if BH1750_ENABLED || CLIMATE_SENSORS_ENABLED
+#if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
   Wire.begin();
 #endif
 #if BH1750_ENABLED
@@ -1237,10 +1284,16 @@ void initI2cTempSensors() {
 #endif
   // used also for analog light sensor
   distributeBrightnessLevels();
-#if CLIMATE_SENSORS_ENABLED
-  initSht3xTempSensor();
-  initHtu2xTempSensor();
+#if BME280_ENABLED
   initBme280TempSensor();
+#endif
+#if SHT3X_ENABLED
+  initSht3xTempSensor();
+#endif
+#if SHT2X_ENABLED
+  initHtu2xTempSensor();
+#endif
+#if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
   initDisplayModes();
 #endif
 }
@@ -1258,25 +1311,29 @@ void initBh1750LightSensor() {
 }
 #endif
 
-#if CLIMATE_SENSORS_ENABLED
+#if SHT3X_ENABLED
 void initSht3xTempSensor() {
-  sht3xInited = sht3x.begin();
+  sht3xInited = sht3x.init();
   if (sht3xInited) {
     Serial.println("Found SHT3x temp/hum sensor! Success.");
   } else {
     Serial.println("Not found SHT3x temp/hum sensor!");
   }
 }
+#endif
 
+#if SHT2X_ENABLED
 void initHtu2xTempSensor() {
-  htu2xInited = htu2x.begin();
+  htu2xInited = htu2x.init();
   if (sht3xInited) {
     Serial.println("Found HTU2x temp/hum sensor! Success.");
   } else {
     Serial.println("Not found HTU2x temp/hum sensor!");
   }
 }
+#endif
 
+#if BME280_ENABLED
 void initBme280TempSensor() {
   bme280.begin();
   switch (bme280.chipModel()) {
@@ -1294,7 +1351,8 @@ void initBme280TempSensor() {
       Serial.println("Not found BME280 or BMP280!");
   }
 }
-
+#endif
+#if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
 void initDisplayModes() {
   if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
     displayModes.insert(displayModes.end() - 1, "Мікроклімат");
@@ -2123,6 +2181,7 @@ void setupRouting() {
   webserver.on("/saveColors", HTTP_POST, handleSaveColors);
   webserver.on("/saveWeather", HTTP_POST, handleSaveWeather);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
+  webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
   webserver.on("/saveDev", HTTP_POST, handleSaveDev);
   webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
   webserver.on("/update", HTTP_POST, handleUpdate);
@@ -2166,7 +2225,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += settings.softwareversion;
   html += "        </h2>";
   html += "        <div class='row'>";
-  html += "            <div class='col-md-6 offset-md-3'>";
+  html += "            <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                <div class='box_yellow col-md-12 mt-2'>";
   html += "                <img class='full-screen-img' src='http://alerts.net.ua/";
@@ -2195,7 +2254,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "            </div>";
   html += "        </div>";
   html += "        <div class='row'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <h5>Локальна IP-адреса: ";
@@ -2207,7 +2266,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </div>";
   if (fwUpdateAvailable) {
     html += "        <div class='row'>";
-    html += "           <div class='col-md-6 offset-md-3'>";
+    html += "           <div class='col-md-8 offset-md-2'>";
     html += "              <div class='row'>";
     html += "                 <div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
     html += "                    <h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/" + String(newFwVersion) + "'>" + newFwVersion + "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
@@ -2217,7 +2276,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "        </div>";
   }
   html += "        <div class='row'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
@@ -2232,6 +2291,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>";
   html += "                         Режими";
   html += "                    </button>";
+  #if BUZZER_ENABLED
+  html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseSounds' aria-expanded='false' aria-controls='collapseSounds'>";
+  html += "                         Звуки";
+  html += "                    </button>";
+  #endif
   html += "                    <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
   html += "                         DEV";
   html += "                    </button>";
@@ -2244,7 +2308,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </div>";
   html += "        <form action='/saveBrightness' method='POST'>";
   html += "        <div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
@@ -2310,7 +2374,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </form>";
   html += "        <form action='/saveColors' method='POST'>";
   html += "        <div class='row collapse' id='collapseColors' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
@@ -2346,7 +2410,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </form>";
   html += "        <form action='/saveWeather' method='POST'>";
   html += "        <div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <div class='form-group'>";
@@ -2365,7 +2429,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </form>";
   html += "        <form action='/saveModes' method='POST'>";
   html += "        <div class='row collapse' id='collapseModes' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   if (settings.legacy) {
@@ -2569,9 +2633,46 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
+  #if BUZZER_ENABLED
+  html += "        <form action='/saveSounds' method='POST'>";
+  html += "        <div class='row collapse' id='collapseSounds' data-parent='#accordion'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
+  html += "              <div class='row'>";
+  html += "                 <div class='box_yellow col-md-12 mt-2'>";
+  html += "                    <div class='form-group form-check'>";
+  html += "                          <input name='sound_on_startup' type='checkbox' class='form-check-input' id='checkbox8'";
+  if (settings.sound_on_startup) html += " checked";
+  html += ">";
+  html += "                          <label class='form-check-label' for='checkbox8'>";
+  html += "                            Відтворювати мелодію при старті мапи";
+  html += "                          </label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group form-check'>";
+  html += "                          <input name='sound_on_min_of_sl' type='checkbox' class='form-check-input' id='checkbox9'";
+  if (settings.sound_on_min_of_sl) html += " checked";
+  html += ">";
+  html += "                          <label class='form-check-label' for='checkbox9'>";
+  html += "                            Відтворювати звуки під час хвилини мовчання";
+  html += "                          </label>";
+  html += "                    </div>";
+  html += "                    <div class='form-group form-check'>";
+  html += "                          <input name='sound_on_home_alert' type='checkbox' class='form-check-input' id='checkbox9'";
+  if (settings.sound_on_home_alert) html += " checked";
+  html += ">";
+  html += "                          <label class='form-check-label' for='checkbox9'>";
+  html += "                            Звукове сповіщення при тривозі у домашньому регіоні";
+  html += "                          </label>";
+  html += "                    </div>";
+  html += "                       <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
+  html += "                 </div>";
+  html += "              </div>";
+  html += "           </div>";
+  html += "        </div>";
+  html += "        </form>";
+  #endif
   html += "        <form action='/saveDev' method='POST'>";
   html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <b>";
@@ -2636,7 +2737,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
     html += "                    </div>";
     html += "                    <div class='form-group'>";
-    html += "                        <label for='inputField5'>Керуючий пін кнопки</label>";
+    html += "                        <label for='inputField6'>Керуючий пін кнопки</label>";
     html += "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
     html += "                    </div>";
   }
@@ -2645,17 +2746,23 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
   html += "                      </div>";
   html += "                      <div class='form-group form-check'>";
-  html += "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox6'";
+  html += "                          <input name='enable_pin_on_alert' type='checkbox' class='form-check-input' id='checkbox7'";
   if (settings.enable_pin_on_alert == 1) html += " checked";
   html += ">";
-  html += "                          <label class='form-check-label' for='checkbox6'>";
+  html += "                          <label class='form-check-label' for='checkbox7'>";
   html += "                            Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні";
   html += "                          </label>";
   html += "                      </div>";
   html += "                      <div class='form-group'>";
   html += "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>";
-  html += "                          <input type='text' name='lightpin' class='form-control' id='inputField12' value='" + String(settings.lightpin) + "'>";
+  html += "                          <input type='text' name='lightpin' class='form-control' id='inputField13' value='" + String(settings.lightpin) + "'>";
   html += "                      </div>";
+  #if BUZZER_ENABLED
+  html += "                    <div class='form-group'>";
+  html += "                        <label for='inputField14'>Керуючий пін динаміка (buzzer)</label>";
+  html += "                        <input type='text' name='buzzerpin' class='form-control' id='inputField14' value='" + String(settings.buzzerpin) + "'>";
+  html += "                    </div>";
+  #endif
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2663,7 +2770,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        </div>";
   html += "        </form>";
   html += "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
-  html += "           <div class='col-md-6 offset-md-3'>";
+  html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                       <form action='/saveFirmware' method='POST'>";
@@ -3213,6 +3320,53 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   }
 }
 
+void handleSaveSounds(AsyncWebServerRequest* request) {
+  preferences.begin("storage", false);
+
+  if (request->hasParam("sound_on_startup", true)) {
+    if (!settings.sound_on_startup) {
+      settings.sound_on_startup = true;
+      preferences.putBool("sos", settings.sound_on_startup);
+      Serial.println("sound_on_startup enabled to preferences");
+    }
+  } else {
+    if (settings.sound_on_startup) {
+      settings.sound_on_startup = false;
+      preferences.putBool("sos", settings.sound_on_startup);
+      Serial.println("sound_on_startup disabled to preferences");
+    }
+  }
+  if (request->hasParam("sound_on_min_of_sl", true)) {
+    if (!settings.sound_on_min_of_sl) {
+      settings.sound_on_min_of_sl = true;
+      preferences.putBool("somos", settings.sound_on_min_of_sl);
+      Serial.println("sound_on_min_of_sl enabled to preferences");
+    }
+  } else {
+    if (settings.sound_on_min_of_sl) {
+      settings.sound_on_min_of_sl = false;
+      preferences.putBool("somos", settings.sound_on_min_of_sl);
+      Serial.println("sound_on_min_of_sl disabled to preferences");
+    }
+  }
+  if (request->hasParam("sound_on_home_alert", true)) {
+    if (!settings.sound_on_home_alert) {
+      settings.sound_on_home_alert = true;
+      preferences.putBool("soha", settings.sound_on_home_alert);
+      Serial.println("sound_on_home_alert enabled to preferences");
+    }
+  } else {
+    if (settings.sound_on_home_alert) {
+      settings.sound_on_home_alert = false;
+      preferences.putBool("soha", settings.sound_on_home_alert);
+      Serial.println("sound_on_home_alert disabled to preferences");
+    }
+  }
+
+  preferences.end();
+  request->redirect("/");
+}
+
 void handleSaveDev(AsyncWebServerRequest* request) {
   preferences.begin("storage", false);
   bool reboot = false;
@@ -3345,6 +3499,15 @@ void handleSaveDev(AsyncWebServerRequest* request) {
       preferences.putInt("lp", settings.lightpin);
       Serial.print("lightpin commited: ");
       Serial.println(settings.lightpin);
+    }
+  }
+  if (request->hasParam("buzzerpin", true)) {
+    if (request->getParam("buzzerpin", true)->value().toInt() != settings.buzzerpin) {
+      reboot = true;
+      settings.buzzerpin = request->getParam("buzzerpin", true)->value().toInt();
+      preferences.putInt("bzp", settings.buzzerpin);
+      Serial.print("buzzerpin commited: ");
+      Serial.println(settings.buzzerpin);
     }
   }
   if (request->hasParam("enable_pin_on_alert", true)) {
@@ -3973,7 +4136,7 @@ void bh1750LightSensorCycle() {
 }
 
 void localTempHumSensorCycle() {
-#if CLIMATE_SENSORS_ENABLED
+#if BME280_ENABLED
 
   if (bme280Inited || bmp280Inited) {
     localTemp = bme280.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
@@ -3994,8 +4157,9 @@ void localTempHumSensorCycle() {
     // Serial.println("mmHg");
     return;
   }
-
-  if (sht3xInited && sht3x.read()) {
+#endif
+#if SHT3X_ENABLED
+  if (sht3xInited && sht3x.readSample()) {
     localTemp = sht3x.getTemperature() + settings.temp_correction;
     localHum = sht3x.getHumidity() + settings.hum_correction;
 
@@ -4007,8 +4171,9 @@ void localTempHumSensorCycle() {
     // Serial.println("%");
     return;
   }
-
-  if (htu2xInited && htu2x.read()) {
+#endif
+#if SHT2X_ENABLED
+  if (htu2xInited && htu2x.readSample()) {
     localTemp = htu2x.getTemperature() + settings.temp_correction;
     localHum = htu2x.getHumidity() + settings.hum_correction;
 
@@ -4028,6 +4193,7 @@ void setup() {
 
   initSettings();
   initLegacy();
+  initBuzzer();
   InitAlertPin();
   initStrip();
   initDisplay();
