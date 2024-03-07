@@ -24,10 +24,10 @@
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #if BH1750_ENABLED
-#include <BH1750.h>
+#include <BH1750_WE.h>
 #endif
 #if BME280_ENABLED
-#include <BME280I2C.h>
+#include <forcedBMX280.h>
 #endif
 #if SHT2X_ENABLED || SHT3X_ENABLED
 #include <SHTSensor.h>
@@ -96,9 +96,9 @@ struct Settings {
   int     ha_light_r             = 215;
   int     ha_light_g             = 7;
   int     ha_light_b             = 255;
-  bool    sound_on_startup       = false;
-  bool    sound_on_min_of_sl     = false;
-  bool    sound_on_home_alert    = false;
+  int     sound_on_startup       = 0;
+  int     sound_on_min_of_sl     = 0;
+  int     sound_on_home_alert    = 0;
 
 
   // ------- Map Modes:
@@ -165,10 +165,10 @@ Async             asyncEngine = Async(20);
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 #endif
 #if BH1750_ENABLED
-BH1750            bh1750;
+BH1750_WE         bh1750;
 #endif
 #if BME280_ENABLED
-BME280I2C         bme280;
+ForcedBME280Float bme280;
 #endif
 #if SHT2X_ENABLED
 SHTSensor         htu2x(SHTSensor::SHT2X);
@@ -178,10 +178,9 @@ SHTSensor         sht3x(SHTSensor::SHT3X);
 #endif
 #if BUZZER_ENABLED
 MelodyPlayer player(settings.buzzerpin);
-// const char starWars[] PROGMEM =  "StarWars:d=32,o=5,b=45,l=2,s=N:p,f#,f#,f#,8b.,8f#.6,e6,d#6,c#6,8b.6,16f#.6,e6,d#6,c#6,8b.6,16f#.6,e6,d#6,e6,8c#6";
-// const char missionImpossible[] PROGMEM =  "MissionImpossible:d=4,o=5,b=112:16g6,8p,16g6,8p,16f6,16p,16f#6,16p,16g6,8p,16g6,8p,16a#6,16p,16c7,16p,16g6,8p,16g6,8p,16f6,16p,16f#6,16p,16g6,8p,16g6,8p,16a#6,16p,16c7,16p,16a#6,16g6,2d6,32p,16a#6,16g6,2c#6,32p,16a#6,16g6,2c6,16p,16a#,16c6";
-
-const char nokiaTun[] PROGMEM =  "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
+const char uaAnthem[]       PROGMEM  =  "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
+const char imperialMarch[]  PROGMEM  =  "ImperialMarch:o=5,d=4,b=200:2a4,32p,2a4,32p,2a4,32p,4f4,16f4,32p,8c5,16c5,2a4,32p,4f4,16f4,32p,8c5,16c5,2a4";
+const char nokiaTun[]       PROGMEM  =  "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 #endif
 
 struct ServiceMessage {
@@ -707,9 +706,9 @@ void initSettings() {
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
   settings.presure_correction     = preferences.getFloat("lpc", settings.presure_correction);
   settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
-  settings.sound_on_startup       = preferences.getBool("sos", settings.sound_on_startup);
-  settings.sound_on_min_of_sl     = preferences.getBool("somos", settings.sound_on_min_of_sl);
-  settings.sound_on_home_alert    = preferences.getBool("soha", settings.sound_on_home_alert);
+  settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
+  settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
+  settings.sound_on_home_alert    = preferences.getInt("soha", settings.sound_on_home_alert);
 
 
   preferences.end();
@@ -1300,8 +1299,9 @@ void initI2cTempSensors() {
 
 #if BH1750_ENABLED
 void initBh1750LightSensor() {
-  bh1750Inited = bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE_2);
+  bh1750Inited = bh1750.init();
   if (bh1750Inited) {
+    bh1750.setMode(CHM_2);
     delay(500); //waiting to get first measurement
     bh1750LightSensorCycle();
     Serial.println("Found BH1750 light sensor! Success.");
@@ -1336,12 +1336,12 @@ void initHtu2xTempSensor() {
 #if BME280_ENABLED
 void initBme280TempSensor() {
   bme280.begin();
-  switch (bme280.chipModel()) {
-    case BME280::ChipModel_BME280:
+  switch (bme280.getChipID()) {
+    case CHIP_ID_BME280:
       bme280Inited = true;
       Serial.println("Found BME280 temp/hum/presure sensor! Success.");
       break;
-    case BME280::ChipModel_BMP280:
+    case CHIP_ID_BMP280:
       bmp280Inited = true;
       Serial.println("Found BMP280 temp/presure sensor! No Humidity available.");
       break;
@@ -3325,40 +3325,40 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
 
   if (request->hasParam("sound_on_startup", true)) {
     if (!settings.sound_on_startup) {
-      settings.sound_on_startup = true;
-      preferences.putBool("sos", settings.sound_on_startup);
+      settings.sound_on_startup = 1;
+      preferences.putInt("sos", settings.sound_on_startup);
       Serial.println("sound_on_startup enabled to preferences");
     }
   } else {
     if (settings.sound_on_startup) {
-      settings.sound_on_startup = false;
-      preferences.putBool("sos", settings.sound_on_startup);
+      settings.sound_on_startup = 0;
+      preferences.putInt("sos", settings.sound_on_startup);
       Serial.println("sound_on_startup disabled to preferences");
     }
   }
   if (request->hasParam("sound_on_min_of_sl", true)) {
     if (!settings.sound_on_min_of_sl) {
-      settings.sound_on_min_of_sl = true;
-      preferences.putBool("somos", settings.sound_on_min_of_sl);
+      settings.sound_on_min_of_sl = 1;
+      preferences.putInt("somos", settings.sound_on_min_of_sl);
       Serial.println("sound_on_min_of_sl enabled to preferences");
     }
   } else {
     if (settings.sound_on_min_of_sl) {
-      settings.sound_on_min_of_sl = false;
-      preferences.putBool("somos", settings.sound_on_min_of_sl);
+      settings.sound_on_min_of_sl = 0;
+      preferences.putInt("somos", settings.sound_on_min_of_sl);
       Serial.println("sound_on_min_of_sl disabled to preferences");
     }
   }
   if (request->hasParam("sound_on_home_alert", true)) {
     if (!settings.sound_on_home_alert) {
-      settings.sound_on_home_alert = true;
-      preferences.putBool("soha", settings.sound_on_home_alert);
+      settings.sound_on_home_alert = 1;
+      preferences.putInt("soha", settings.sound_on_home_alert);
       Serial.println("sound_on_home_alert enabled to preferences");
     }
   } else {
     if (settings.sound_on_home_alert) {
-      settings.sound_on_home_alert = false;
-      preferences.putBool("soha", settings.sound_on_home_alert);
+      settings.sound_on_home_alert = 0;
+      preferences.putInt("soha", settings.sound_on_home_alert);
       Serial.println("sound_on_home_alert disabled to preferences");
     }
   }
@@ -4127,8 +4127,8 @@ void rebootCycle() {
 
 void bh1750LightSensorCycle() {
 #if BH1750_ENABLED
-  if (!bh1750Inited || !bh1750.measurementReady(true)) return;
-  lightInLuxes = bh1750.readLightLevel() * settings.light_sensor_factor;
+  if (!bh1750Inited) return;
+  lightInLuxes = bh1750.getLux() * settings.light_sensor_factor;
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
   // Serial.println(" lx");
@@ -4137,13 +4137,14 @@ void bh1750LightSensorCycle() {
 
 void localTempHumSensorCycle() {
 #if BME280_ENABLED
-
   if (bme280Inited || bmp280Inited) {
-    localTemp = bme280.temp(BME280::TempUnit_Celsius) + settings.temp_correction;
-    localPresure = bme280.pres(BME280::PresUnit_inHg) * 25.4 + settings.presure_correction;  //mmHg
+    bme280.takeForcedMeasurement();
+
+    localTemp = bme280.getTemperatureCelsiusAsFloat() + settings.temp_correction;
+    localPresure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.presure_correction;  //mmHg
 
     if (bme280Inited) {
-      localHum = bme280.hum() + settings.hum_correction;
+      localHum = bme280.getRelativeHumidityAsFloat() + settings.hum_correction;
     }
 
     // Serial.print("BME280! Temp: ");
