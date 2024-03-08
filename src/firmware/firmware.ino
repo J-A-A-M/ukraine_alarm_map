@@ -827,7 +827,8 @@ void printNtpStatus() {
     switch (timeClient.NTPstatus()) {
       case 0:
         Serial.println("OK");
-        Serial.printf("Current date and time: %s", timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
+        Serial.print("Current date and time: ");
+        Serial.println(timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
         break;
       case 1:
         Serial.println("NOT_STARTED");
