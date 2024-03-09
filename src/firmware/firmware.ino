@@ -1,4 +1,5 @@
 #define ARDUINO_OTA_ENABLED 0
+#define FW_UPDATE_ENABLED 1
 #define DISPLAY_ENABLED 1
 #define BME280_ENABLED 1
 #define SHT2X_ENABLED 1
@@ -19,7 +20,9 @@
 #if DISPLAY_ENABLED
 #include <Adafruit_SSD1306.h>
 #endif
+#if FW_UPDATE_ENABLED
 #include <HTTPUpdate.h>
+#endif
 #include <vector>
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
@@ -149,7 +152,9 @@ struct Firmware {
 };
 
 Firmware currentFirmware;
+#if FW_UPDATE_ENABLED
 Firmware latestFirmware;
+#endif
 
 using namespace websockets;
 
@@ -444,8 +449,10 @@ int     offset = 9;
 bool    initUpdate = false;
 long    homeAlertStart = 0;
 time_t  lastHomeDistrictSync = 0;
+#if FW_UPDATE_ENABLED
 bool    fwUpdateAvailable = false;
 char    newFwVersion[20];
+#endif
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
@@ -631,10 +638,12 @@ std::vector<const PROGMEM char*> longClickOptions PROGMEM = {
   "Перезавантаження пристрою"
 };
 
+#if FW_UPDATE_ENABLED
 std::vector<const PROGMEM char*> fwUpdateChannels PROGMEM = {
   "Production",
   "Beta"
 };
+#endif
 
 std::vector<const PROGMEM char*> autoBrightnessOptions PROGMEM = {
   "Вимкнено",
@@ -966,35 +975,20 @@ static void wifiEvents(WiFiEvent_t event) {
 }
 
 void initUpdates() {
-  #if ARDUINO_OTA_ENABLED
+#if ARDUINO_OTA_ENABLED
   ArduinoOTA.onStart(showUpdateStart);
   ArduinoOTA.onEnd(showUpdateEnd);
   ArduinoOTA.onProgress(showUpdateProgress);
   ArduinoOTA.onError(showOtaUpdateErrorMessage);
   ArduinoOTA.begin();
-  #endif
+#endif
+#if FW_UPDATE_ENABLED
   Update.onProgress(showUpdateProgress);
   httpUpdate.onStart(showUpdateStart);
   httpUpdate.onEnd(showUpdateEnd);
   httpUpdate.onProgress(showUpdateProgress);
   httpUpdate.onError(showHttpUpdateErrorMessage);
-}
-
-void showUpdateProgress(size_t progress, size_t total) {
-  if (total == 0) return;
-  char progressText[5];
-  sprintf(progressText, "%d%%", progress / (total / 100));
-  showServiceMessage(progressText, "Оновлення:");
-}
-
-void showUpdateStart() {
-  showServiceMessage("Починаємо!", "Оновлення:");
-  delay(1000);
-}
-
-void showUpdateEnd() {
-  showServiceMessage("Перезавантаження..", "Оновлення:");
-  delay(1000);
+#endif
 }
 
 #if ARDUINO_OTA_ENABLED
@@ -1016,6 +1010,26 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 }
 #endif
 
+#if FW_UPDATE_ENABLED || ARDUINO_OTA_ENABLED
+void showUpdateProgress(size_t progress, size_t total) {
+  if (total == 0) return;
+  char progressText[5];
+  sprintf(progressText, "%d%%", progress / (total / 100));
+  showServiceMessage(progressText, "Оновлення:");
+}
+
+void showUpdateStart() {
+  showServiceMessage("Починаємо!", "Оновлення:");
+  delay(1000);
+}
+
+void showUpdateEnd() {
+  showServiceMessage("Перезавантаження..", "Оновлення:");
+  delay(1000);
+}
+#endif
+
+#if FW_UPDATE_ENABLED
 void showHttpUpdateErrorMessage(int error) {
   switch (error) {
     case HTTP_UE_TOO_LESS_SPACE:
@@ -1032,6 +1046,7 @@ void showHttpUpdateErrorMessage(int error) {
       break;
   }
 }
+#endif
 
 void initBroadcast() {
   Serial.println("Init network device broadcast");
@@ -1404,6 +1419,7 @@ void fillFwVersion(char* result, Firmware firmware) {
 }
 
 //--Update
+#if FW_UPDATE_ENABLED
 void saveLatestFirmware() {
   std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
   Firmware firmware;
@@ -1438,6 +1454,7 @@ bool firstIsNewer(Firmware first, Firmware second) {
   }
   return false;
 }
+#endif
 
 JsonDocument parseJson(const char* payload) {
   JsonDocument doc;
@@ -1470,6 +1487,7 @@ void doUpdate() {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+#if FW_UPDATE_ENABLED
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
   Serial.println("Building spiffs url...");
@@ -1504,7 +1522,7 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
       }
       break;
   }
-
+#endif
 }
 //--Update end
 
@@ -1580,10 +1598,12 @@ void singleClick() {
 }
 
 void longClick() {
+#if FW_UPDATE_ENABLED
   if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
     downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
     return;
   }
+#endif
 
   handleClick(settings.button_mode_long);
 }
@@ -1853,11 +1873,13 @@ void displayCycle() {
     return;
   }
 
+#if FW_UPDATE_ENABLED
   // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
   if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
     showNewFirmwareNotification();
     return;
   }
+#endif
 
   // Show selected display mode in other cases (Priority - last)
   displayByMode(settings.display_mode);
@@ -2063,6 +2085,7 @@ void showHomeAlertInfo() {
   displayMessage(message, title);
 }
 
+#if FW_UPDATE_ENABLED
 void showNewFirmwareNotification() {
   int toggleTime = settings.display_mode_time;  // seconds
   int remainder = timeClient.second() % (toggleTime * 2);
@@ -2081,6 +2104,8 @@ void showNewFirmwareNotification() {
   
   displayMessage(message, title);
 }
+#endif
+
 
 void showClock() {
   char time[7];
@@ -2348,6 +2373,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "            </div>";
   html += "        </div>";
+#if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
     html += "        <div class='row'>";
     html += "           <div class='col-md-8 offset-md-2'>";
@@ -2359,6 +2385,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "            </div>";
     html += "        </div>";
   }
+#endif
   html += "        <div class='row'>";
   html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
@@ -2375,17 +2402,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>";
   html += "                         Режими";
   html += "                    </button>";
-  #if BUZZER_ENABLED
+#if BUZZER_ENABLED
   html += "                    <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseSounds' aria-expanded='false' aria-controls='collapseSounds'>";
   html += "                         Звуки";
   html += "                    </button>";
-  #endif
+#endif
   html += "                    <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
   html += "                         DEV";
   html += "                    </button>";
+#if FW_UPDATE_ENABLED
   html += "                    <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#collapseFirmware' aria-expanded='false' aria-controls='collapseFirmware'>";
   html += "                         Прошивка";
   html += "                    </button>";
+#endif
   html += "                </div>";
   html += "              </div>";
   html += "            </div>";
@@ -2558,7 +2587,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider20'>Яскравість режиму \"Лампа\": <span id='sliderValue20'>" + String(settings.ha_light_brightness) + "</span>%</label>";
   html += "                        <input type='range' name='brightness_lamp' class='form-control-range' id='slider20' min='1' max='100' value='" + String(settings.ha_light_brightness) + "'>";
   html += "                    </div>";
-  #if DISPLAY_ENABLED
+#if DISPLAY_ENABLED
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox5'>Режим дисплея</label>";
   html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
@@ -2578,7 +2607,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                        <label for='slider17'>Час перемикання дисплея: <span id='sliderValue17'>" + String(settings.display_mode_time) + "</span> секунд</label>";
   html += "                        <input type='range' name='display_mode_time' class='form-control-range' id='slider17' min='1' max='60' value='" + String(settings.display_mode_time) + "'>";
   html += "                    </div>";
-  #endif
+#endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
     html += "                    <div class='form-group'>";
     html += "                        <label for='slider21'>Корегування температури: <span id='sliderValue21'>" + floatToString(settings.temp_correction) + "</span> °C</label>";
@@ -2640,7 +2669,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += "                        </select>";
   html += "                    </div>";
-  #if DISPLAY_ENABLED
+#if DISPLAY_ENABLED
   html += "                    <div class='form-group form-check'>";
   html += "                        <input name='home_alert_time' type='checkbox' class='form-check-input' id='checkbox3'";
   if (settings.home_alert_time == 1) html += " checked";
@@ -2649,7 +2678,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          Показувати тривалість тривоги у дом. регіоні";
   html += "                        </label>";
   html += "                    </div>";
-  #endif
+#endif
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox4'>Відображення на мапі нових тривог та відбою</label>";
   html += "                        <select name='alarms_notify_mode' class='form-control' id='selectBox4'>";
@@ -2717,7 +2746,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  #if BUZZER_ENABLED
+#if BUZZER_ENABLED
   html += "        <form action='/saveSounds' method='POST'>";
   html += "        <div class='row collapse' id='collapseSounds' data-parent='#accordion'>";
   html += "           <div class='col-md-8 offset-md-2'>";
@@ -2753,7 +2782,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
-  #endif
+#endif
   html += "        <form action='/saveDev' method='POST'>";
   html += "        <div class='row collapse' id='collapseTech' data-parent='#accordion'>";
   html += "           <div class='col-md-8 offset-md-2'>";
@@ -2841,18 +2870,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>";
   html += "                          <input type='text' name='lightpin' class='form-control' id='inputField13' value='" + String(settings.lightpin) + "'>";
   html += "                      </div>";
-  #if BUZZER_ENABLED
+#if BUZZER_ENABLED
   html += "                    <div class='form-group'>";
   html += "                        <label for='inputField14'>Керуючий пін динаміка (buzzer)</label>";
   html += "                        <input type='text' name='buzzerpin' class='form-control' id='inputField14' value='" + String(settings.buzzerpin) + "'>";
   html += "                    </div>";
-  #endif
+#endif
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
   html += "        </form>";
+#if FW_UPDATE_ENABLED
   html += "        <div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
   html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
@@ -2899,6 +2929,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              </div>";
   html += "           </div>";
   html += "        </div>";
+#endif
   html += "    </div>";
   html += "    </form>";
   html += "    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
@@ -2906,9 +2937,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "    <script>";
   html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'";
-  #if DISPLAY_ENABLED
+#if DISPLAY_ENABLED
   html += ", 'slider17'";
-  #endif
+#endif
   html += ", 'slider18', 'slider19', 'slider20'";
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
     html += ", 'slider21'";
@@ -3412,6 +3443,7 @@ void onMessageCallback(WebsocketsMessage message) {
       for (int i = 0; i < 26; ++i) {
         weather_leds[calculateOffset(i)] = data["weather"][i];
       }
+#if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       Serial.println("Successfully parsed bins list");
       std::vector<String> tempFilenames;
@@ -3430,6 +3462,7 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       test_bin_list = tempFilenames;
       saveLatestFirmware();
+#endif
     } else if (payload == "district") {
       Serial.println("Successfully parsed district data");
       bool alertNow = data["district"]["alertnow"];
@@ -3922,9 +3955,9 @@ void setup() {
 void loop() {
   wm.process();
   asyncEngine.run();
-  #if ARDUINO_OTA_ENABLED
+#if ARDUINO_OTA_ENABLED
   ArduinoOTA.handle();
-  #endif
+#endif
   buttonUpdate();
   if (enableHA) {
     mqtt.loop();
