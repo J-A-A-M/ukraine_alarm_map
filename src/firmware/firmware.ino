@@ -177,9 +177,9 @@ SHTSensor         htu2x(SHTSensor::SHT2X);
 SHTSensor         sht3x(SHTSensor::SHT3X);
 #endif
 #if BUZZER_ENABLED
-MelodyPlayer player(settings.buzzerpin);
+MelodyPlayer* player;
 const char uaAnthem[]       PROGMEM  =  "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
-const char imperialMarch[]  PROGMEM  =  "ImperialMarch:o=5,d=4,b=200:2a4,32p,2a4,32p,2a4,32p,4f4,16f4,32p,8c5,16c5,2a4,32p,4f4,16f4,32p,8c5,16c5,2a4";
+const char imperialMarch[]  PROGMEM  =  "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
 const char nokiaTun[]       PROGMEM  =  "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 #endif
 
@@ -675,7 +675,7 @@ void initLegacy() {
 void initBuzzer() {
 #if BUZZER_ENABLED
 
-  player = MelodyPlayer(settings.buzzerpin, 0, HIGH);
+  player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
   if (settings.sound_on_startup) {
     playMelody(uaAnthem);
   }
@@ -686,7 +686,7 @@ void initBuzzer() {
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
   Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
-  player.playAsync(melody);
+  player->playAsync(melody);
 #endif
 }
 
