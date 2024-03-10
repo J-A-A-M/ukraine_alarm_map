@@ -183,9 +183,10 @@ SHTSensor         sht3x(SHTSensor::SHT3X);
 #endif
 #if BUZZER_ENABLED
 MelodyPlayer* player;
-const char uaAnthem[]       PROGMEM  =  "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
-const char imperialMarch[]  PROGMEM  =  "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
-const char nokiaTun[]       PROGMEM  =  "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
+const char uaAnthem[]       PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
+const char imperialMarch[]  PROGMEM = "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
+const char nokiaTun[]       PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
+const char clockBeep[]      PROGMEM = "Clock:d=4,o=4,b=250:g";
 #endif
 
 struct ServiceMessage {
@@ -459,6 +460,8 @@ bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
 bool    minuteOfSilence = false;
+bool    uaAnthemPlaying = false;
+short   clockBeepInterval = -1;
 bool    isMapOff = false;
 bool    isDisplayOff = false;
 bool    nightMode = false;
@@ -1841,17 +1844,16 @@ bool saveHomeDistrict(int newHomeDistrict) {
 
 //--Display start
 void displayCycle() {
-
-  // check if we need activate "minute of silence mode"
-  checkMinuteOfSilence();
 #if DISPLAY_ENABLED
-
-  // update service message expiration
-  serviceMessageUpdate();
 
   // Show service message if not expired (Always show, it's short message)
   if (!serviceMessage.expired) {
     displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  if (uaAnthemPlaying) {
+    showMinOfSilanceScreen(1);
     return;
   }
 
@@ -2026,6 +2028,17 @@ void clearDisplay() {
 void displayMinuteOfSilence() {
   int toggleTime = 3;  // seconds
   int remainder = timeClient.second() % (toggleTime * 3);
+
+  if (remainder < toggleTime) {
+    showMinOfSilanceScreen(0);
+  } else if (remainder < toggleTime * 2) {
+    showMinOfSilanceScreen(1);
+  } else {
+    showMinOfSilanceScreen(2);
+  }
+}
+
+void showMinOfSilanceScreen(int screen) {
   display.clearDisplay();
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
@@ -2034,21 +2047,28 @@ void displayMinuteOfSilence() {
   char text2[20] = "";
   char text3[20] = "";
   int gap = 40;
-  if (remainder < toggleTime) {
+  switch (screen)
+  {
+  case 0:
     textSize = 1;
     utf8cyr(text1, "Шана");
     utf8cyr(text2, "Полеглим");
     utf8cyr(text3, "Героям!");
-  } else if (remainder < toggleTime * 2) {
+    break;
+  case 1:
     textSize = 2;
     utf8cyr(text1, "Слава");
     utf8cyr(text3, "Україні!");
     gap = 32;
-  } else {
-    textSize = 2;
+    break;
+  case 2:
+   textSize = 2;
     utf8cyr(text1, "Смерть");
     utf8cyr(text3, "ворогам!");
     gap = 32;
+    break;
+  default:
+    break;
   }
   display.setTextSize(textSize);
 
@@ -3644,7 +3664,28 @@ void checkMinuteOfSilence() {
     if (enableHA) {
       haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
     }
+    // play clock beep every 2 sec during min of silence
+    if (minuteOfSilence && settings.sound_on_min_of_sl) {
+      clockBeepInterval = asyncEngine.setInterval(playClockBeep, 2000); // every 2 sec
+      }
+    // turn off clock beep
+    if (!minuteOfSilence && clockBeepInterval >= 0) {
+      asyncEngine.clearInterval(clockBeepInterval);
+    }
+    // play UA Anthem when min of silence ends
+    if (!minuteOfSilence && settings.sound_on_min_of_sl) {
+      playAnthemUa();
+      uaAnthemPlaying = true;
+    }
   }
+}
+
+void playClockBeep() {
+  playMelody(clockBeep);
+}
+
+void playAnthemUa() {
+  playMelody(uaAnthem);
 }
 
 float processWeather(int led) {
@@ -3802,7 +3843,7 @@ void mapRandom() {
 }
 
 int getCurrentMapMode() {
-  if (minuteOfSilence) return 3;
+  if (minuteOfSilence || uaAnthemPlaying) return 3; //ua flag
 
   int currentMapMode = isMapOff ? 0 : settings.map_mode;
   int position = settings.home_district;
@@ -3858,6 +3899,19 @@ void rebootCycle() {
     needRebootWithDelay = -1;
     rebootDevice(localDelay);
   }
+}
+
+void calculateStates() {
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
+
+  if (uaAnthemPlaying && !player->isPlaying()) {
+    uaAnthemPlaying = false;
+  }
+#if DISPLAY_ENABLED
+  // update service message expiration
+  serviceMessageUpdate();
+#endif
 }
 
 void bh1750LightSensorCycle() {
@@ -3950,6 +4004,7 @@ void setup() {
   asyncEngine.setInterval(rebootCycle, 500);
   asyncEngine.setInterval(bh1750LightSensorCycle, 2000);
   asyncEngine.setInterval(localTempHumSensorCycle, 5000);
+  asyncEngine.setInterval(calculateStates, 500);
 }
 
 void loop() {
