@@ -189,6 +189,14 @@ const char nokiaTun[]       PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6
 const char clockBeep[]      PROGMEM = "Clock:d=4,o=4,b=250:g";
 #endif
 
+enum SoundType {
+  START_UP,
+  MIN_OF_SILINCE,
+  REGULAR,
+  ALERT_ON,
+  ALERT_OFF
+};
+
 struct ServiceMessage {
   const char* title;
   const char* message;
@@ -245,7 +253,9 @@ const uint8_t d25[] PROGMEM = { 25, 7 };
 
 const uint8_t counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
 
-const PROGMEM char* districts[] PROGMEM = {
+#define DISTRICTS_COUNT 26
+
+const char* districts[DISTRICTS_COUNT] PROGMEM = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -274,7 +284,7 @@ const PROGMEM char* districts[] PROGMEM = {
   "Київ"
 };
 
-const PROGMEM char* districtsAlphabetical[] PROGMEM = {
+const char* districtsAlphabetical[DISTRICTS_COUNT] PROGMEM = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -423,7 +433,7 @@ int numDistrictToAlphabet(int num) {
   }
 }
 
-const uint8_t* neighboring_districts[] PROGMEM = {
+const uint8_t* neighboring_districts[DISTRICTS_COUNT] PROGMEM = {
   d0, d1, d2, d3, d4, d5, d6, d7, d8, d9,
   d10, d11, d12, d13, d14, d15, d16, d17, d18, d19,
   d20, d21, d22, d23, d24, d25
@@ -490,8 +500,12 @@ unsigned long releasedTime = 0;
 bool isPressing = false;
 bool isLongDetected = false;
 
-std::vector<String> bin_list;
-std::vector<String> test_bin_list;
+#define MAX_BINS_LIST_SIZE 10
+int binsCount = 0;
+char* bin_list[MAX_BINS_LIST_SIZE];
+
+int testBinsCount = 0;
+char*  test_bin_list[MAX_BINS_LIST_SIZE];
 
 char chipID[13];
 
@@ -593,11 +607,12 @@ void initHaVars() {
   sprintf(haToggleDisplayModeID, "%s_toggle_display_mode", chipID);
   haToggleDisplayMode = new HAButton(haToggleDisplayModeID);
 
-  sprintf(haShowHomeAlarmTimeID, "%s_light", chipID, HALight::BrightnessFeature | HALight::RGBFeature);
-  haLight = new HALight(haShowHomeAlarmTimeID);
+  sprintf(haLightID, "%s_light", chipID);
+  haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
 }
 
-std::vector<const PROGMEM char*> mapModes PROGMEM = {
+#define MAP_MODES_COUNT 6
+char* mapModes[MAP_MODES_COUNT] = {
   "Вимкнено",
   "Тривога",
   "Погода",
@@ -614,13 +629,15 @@ std::vector<const PROGMEM char*> displayModes PROGMEM = {
   "Перемикання"
 };
 
-std::vector<const PROGMEM char*> autoAlarms PROGMEM = {
+#define AUTO_ALARM_MODES_COUNT 3
+char* autoAlarms[AUTO_ALARM_MODES_COUNT] = {
   "Вимкнено",
   "Домашній та суміжні",
   "Лише домашній"
 };
 
-std::vector<const PROGMEM char*> singleClickOptions PROGMEM = {
+#define SINGLE_CLICK_OPTIONS_COUNT 7
+char* singleClickOptions[SINGLE_CLICK_OPTIONS_COUNT] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -630,7 +647,8 @@ std::vector<const PROGMEM char*> singleClickOptions PROGMEM = {
   "Увімк./Вимк. нічний режим"
 };
 
-std::vector<const PROGMEM char*> longClickOptions PROGMEM = {
+#define LONG_CLICK_OPTIONS_COUNT 8
+char* longClickOptions[LONG_CLICK_OPTIONS_COUNT] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -642,13 +660,15 @@ std::vector<const PROGMEM char*> longClickOptions PROGMEM = {
 };
 
 #if FW_UPDATE_ENABLED
-std::vector<const PROGMEM char*> fwUpdateChannels PROGMEM = {
+#define FW_UPDATE_CHANNELS_COUNT 2
+char* fwUpdateChannels[FW_UPDATE_CHANNELS_COUNT] = {
   "Production",
   "Beta"
 };
 #endif
 
-std::vector<const PROGMEM char*> autoBrightnessOptions PROGMEM = {
+#define AUTO_BRIGHTNESS_OPTIONS_COUNT 3
+char* autoBrightnessOptions[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
   "Вимкнено",
   "День/Ніч",
   "Сенсор освітлення"
@@ -686,12 +706,10 @@ void initLegacy() {
 
 void initBuzzer() {
 #if BUZZER_ENABLED
-
   player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
-  if (settings.sound_on_startup) {
+  if (needToPlaySound(START_UP)) {
     playMelody(uaAnthem);
   }
-
 #endif
 }
 
@@ -700,6 +718,24 @@ void playMelody(const char* melodyRtttl) {
   Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
   player->playAsync(melody);
 #endif
+}
+
+bool needToPlaySound(SoundType type) {
+#if BUZZER_ENABLED
+  switch (type) {
+  case START_UP:
+    return settings.sound_on_startup;
+  case MIN_OF_SILINCE:
+    return settings.sound_on_min_of_sl;
+  case ALERT_ON:
+    return settings.sound_on_home_alert;
+  case ALERT_OFF:
+    return false;
+  case REGULAR:
+    return false;
+  }
+#endif
+  return false;
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
@@ -1121,7 +1157,9 @@ void initHA() {
       haBrightness->setName("Brightness");
       haBrightness->setCurrentState(settings.brightness);
 
-      haMapMode->setOptions(getHaOptions(mapModes).c_str());
+      char mapModeOptions[sizeOfCharsArray(mapModes, MAP_MODES_COUNT) + MAP_MODES_COUNT];
+      getHaOptions(mapModeOptions, mapModes, MAP_MODES_COUNT);
+      haMapMode->setOptions(mapModeOptions);
       haMapMode->onCommand(onHaMapModeCommand);
       haMapMode->setIcon("mdi:map");
       haMapMode->setName("Map Mode");
@@ -1133,7 +1171,9 @@ void initHA() {
       haDisplayMode->setName("Display Mode");
       haDisplayMode->setCurrentState(getHaDisplayMode(settings.display_mode));
 
-      haAlarmsAuto->setOptions(getHaOptions(autoAlarms).c_str());
+      char autoAlarmsModeOptions[sizeOfCharsArray(autoAlarms, AUTO_ALARM_MODES_COUNT) + AUTO_ALARM_MODES_COUNT];
+      getHaOptions(autoAlarmsModeOptions, autoAlarms, AUTO_ALARM_MODES_COUNT);
+      haAlarmsAuto->setOptions(autoAlarmsModeOptions);
       haAlarmsAuto->onCommand(onhaAlarmsAutoCommand);
       haAlarmsAuto->setIcon("mdi:alert-outline");
       haAlarmsAuto->setName("Auto Alarm");
@@ -1146,7 +1186,9 @@ void initHA() {
       haMapApiConnect->setDeviceClass("connectivity");
       haMapApiConnect->setCurrentState(client_websocket.available());
 
-      haBrightnessAuto->setOptions(getHaOptions(autoBrightnessOptions).c_str());
+      char autoBrightnessOptionsString[sizeOfCharsArray(autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT) + AUTO_BRIGHTNESS_OPTIONS_COUNT];
+      getHaOptions(autoBrightnessOptionsString, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+      haBrightnessAuto->setOptions(autoBrightnessOptionsString);
       haBrightnessAuto->onCommand(onHaBrightnessAutoCommand);
       haBrightnessAuto->setIcon("mdi:brightness-auto");
       haBrightnessAuto->setName("Auto Brightness");
@@ -1215,6 +1257,26 @@ String getHaOptions(std::vector<const char*> list) {
       result += ";";
     }
     result += option;
+  }
+  return result;
+}
+
+void getHaOptions(char* result, char* options[], int optionsSize) {
+  strcpy(result, "");
+  for (int i = 0; i < optionsSize; i++) {
+    char* option = options[i];
+    if (i > 0) {
+      strcat(result, ";");
+    }
+    strcat(result, option);
+    Serial.println(result);
+  }
+}
+
+int sizeOfCharsArray(char* array[], int arraySize) {
+  int result = 0;
+  for (int i = 0; i < arraySize; i++) {
+    result += strlen(array[i]);
   }
   return result;
 }
@@ -1424,11 +1486,12 @@ void fillFwVersion(char* result, Firmware firmware) {
 //--Update
 #if FW_UPDATE_ENABLED
 void saveLatestFirmware() {
-  std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
-  Firmware firmware;
-  for (String& filename : tempBinList) {
-    if (filename.startsWith("latest")) continue;
-    Firmware parsedFirmware = parseFirmwareVersion(filename.c_str());
+  const int *count = settings.fw_update_channel ? &testBinsCount : &binsCount;
+  Firmware firmware = currentFirmware;
+  for (int i = 0; i < *count; i++) {
+    const char* filename = settings.fw_update_channel ? test_bin_list[i] : bin_list[i];
+    if (prefix("latest", filename)) continue;
+    Firmware parsedFirmware = parseFirmwareVersion(filename);
     if (firstIsNewer(parsedFirmware, firmware)) {
       firmware = parsedFirmware;
     }
@@ -1438,6 +1501,10 @@ void saveLatestFirmware() {
   fillFwVersion(newFwVersion, latestFirmware);
   Serial.printf("Latest firmware version: %s\n", newFwVersion);
   Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
+}
+
+bool prefix(const char *pre, const char *str) {
+    return strncmp(pre, str, strlen(pre)) == 0;
 }
 
 bool firstIsNewer(Firmware first, Firmware second) {
@@ -2467,7 +2534,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox12'>Автоматична яскравість</label>";
   html += "                        <select name='brightness_auto' class='form-control' id='selectBox12'>";
-  for (int i = 0; i < autoBrightnessOptions.size(); i++) {
+  for (int i = 0; i < AUTO_BRIGHTNESS_OPTIONS_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2587,7 +2654,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox2'>Режим мапи</label>";
   html += "                        <select name='map_mode' class='form-control' id='selectBox2'>";
-  for (int i = 0; i < mapModes.size(); i++) {
+  for (int i = 0; i < MAP_MODES_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2649,7 +2716,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox6'>Режим кнопки (Single Click)</label>";
   html += "                        <select name='button_mode' class='form-control' id='selectBox6'>";
-  for (int i = 0; i < singleClickOptions.size(); i++) {
+  for (int i = 0; i < SINGLE_CLICK_OPTIONS_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2663,7 +2730,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox10'>Режим кнопки (Long Click)</label>";
   html += "                        <select name='button_mode_long' class='form-control' id='selectBox10'>";
-  for (int i = 0; i < longClickOptions.size(); i++) {
+  for (int i = 0; i < LONG_CLICK_OPTIONS_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2677,7 +2744,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox3'>Домашній регіон</label>";
   html += "                        <select name='home_district' class='form-control' id='selectBox3'>";
-  for (int alphabet = 0; alphabet < 26; alphabet++) {
+  for (int alphabet = 0; alphabet < DISTRICTS_COUNT; alphabet++) {
     int num = alphabetDistrictToNum(alphabet);
     html += "<option value='";
     html += num;
@@ -2731,7 +2798,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <div class='form-group'>";
   html += "                        <label for='selectBox9'>Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні</label>";
   html += "                        <select name='alarms_auto_switch' class='form-control' id='selectBox9'>";
-  for (int i = 0; i < autoAlarms.size(); i++) {
+  for (int i = 0; i < AUTO_ALARM_MODES_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2919,7 +2986,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          <div class='form-group'>";
   html += "                              <label for='selectBox11'>Канал оновлення прошивок</label>";
   html += "                              <select name='fw_update_channel' class='form-control' id='selectBox11'>";
-  for (int i = 0; i < fwUpdateChannels.size(); i++) {
+  for (int i = 0; i < FW_UPDATE_CHANNELS_COUNT; i++) {
     html += "<option value='";
     html += i;
     html += "'";
@@ -2935,8 +3002,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                          <div class='form-group'>";
   html += "                              <label for='selectBox9'>Файл прошивки</label>";
   html += "                              <select name='bin_name' class='form-control' id='selectBox9'>";
-  std::vector<String> tempBinList = settings.fw_update_channel == 1 ? test_bin_list : bin_list;
-  for (String& filename : tempBinList) {
+  const int count = settings.fw_update_channel ? testBinsCount : binsCount;
+    for (int i = 0; i < count; i++) {
+    String filename = String(settings.fw_update_channel ? test_bin_list[i] : bin_list[i]);
     html += "<option value='" + filename + "'";
     if (filename == "latest.bin" || filename == "latest_beta.bin") html += " selected";
     html += ">" + filename + "</option>";
@@ -3308,7 +3376,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
 
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn");
-  saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc");
+  saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware);
   request->redirect("/");
 }
 //--Web server end
@@ -3465,22 +3533,10 @@ void onMessageCallback(WebsocketsMessage message) {
       }
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
-      Serial.println("Successfully parsed bins list");
-      std::vector<String> tempFilenames;
-      JsonArray arr = data["bins"].as<JsonArray>();
-      for (String filename : arr) {
-        tempFilenames.push_back(filename);
-      }
-      bin_list = tempFilenames;
+      fillBinList(data, "bins", bin_list, &binsCount);
       saveLatestFirmware();
     } else if (payload == "test_bins") {
-      Serial.println("Successfully parsed test_bins list");
-      std::vector<String> tempFilenames;
-      JsonArray arr = data["test_bins"].as<JsonArray>();
-      for (String filename : arr) {
-        tempFilenames.push_back(filename);
-      }
-      test_bin_list = tempFilenames;
+      fillBinList(data, "test_bins", test_bin_list, &testBinsCount);
       saveLatestFirmware();
 #endif
     } else if (payload == "district") {
@@ -3496,6 +3552,20 @@ void onMessageCallback(WebsocketsMessage message) {
     }
   }
 }
+
+#if FW_UPDATE_ENABLED
+void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
+  JsonArray arr = data[payloadKey].as<JsonArray>();
+  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
+  for (int i = 0; i < *binsCount; i++) {
+    const char* filename = arr[i].as<const char*>();
+    binsList[i] = new char[strlen(filename)];
+    strcpy(binsList[i], filename);
+    Serial.printf("%s[%d] = '%s'\n", payloadKey, i, binsList[i]);
+  }
+  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
+}
+#endif
 
 void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
@@ -3665,7 +3735,7 @@ void checkMinuteOfSilence() {
       haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
     }
     // play clock beep every 2 sec during min of silence
-    if (minuteOfSilence && settings.sound_on_min_of_sl) {
+    if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       clockBeepInterval = asyncEngine.setInterval(playClockBeep, 2000); // every 2 sec
       }
     // turn off clock beep
@@ -3673,7 +3743,7 @@ void checkMinuteOfSilence() {
       asyncEngine.clearInterval(clockBeepInterval);
     }
     // play UA Anthem when min of silence ends
-    if (!minuteOfSilence && settings.sound_on_min_of_sl) {
+    if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       playAnthemUa();
       uaAnthemPlaying = true;
     }
