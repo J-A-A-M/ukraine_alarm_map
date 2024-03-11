@@ -3422,10 +3422,10 @@ void connectStatuses() {
 void distributeBrightnessLevels() {
   int minBrightness = min(settings.brightness_day, settings.brightness_night);
   int maxBrightness = max(settings.brightness_day, settings.brightness_night);
-  int step = round(maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1);
+  float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
   Serial.print("Brightness levels: [");
   for (int i = 0; i < BR_LEVELS_COUNT; i++) {
-    brightnessLevels[i] = i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step;
+    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step);
     Serial.print(brightnessLevels[i]);
     if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
   }
@@ -3927,12 +3927,6 @@ int getCurrentMapMode() {
         currentMapMode = 1;
       }
   }
-  if (settings.enable_pin_on_alert) {
-    int ledStatus = alarm_leds[calculateOffset(position)];
-    alarmNow = (ledStatus == 1 || ledStatus == 3);
-  } else {
-    alarmNow = false;
-  }
   if (enableHA) {
     haMapModeCurrent->setValue(mapModes[currentMapMode]);
   }
@@ -3974,6 +3968,10 @@ void calculateStates() {
   if (uaAnthemPlaying && !player->isPlaying()) {
     uaAnthemPlaying = false;
   }
+
+  // check alert in home district
+  checkHomeDistrictAlerts();
+
 #if BUZZER_ENABLED
   checkCurrentTimeAndPlaySound();
 #endif
@@ -3981,6 +3979,24 @@ void calculateStates() {
   // update service message expiration
   serviceMessageUpdate();
 #endif
+}
+
+void checkHomeDistrictAlerts() {
+  int ledStatus = alarm_leds[calculateOffset(settings.home_district)];
+  bool localAlarmNow = (ledStatus == 1 || ledStatus == 3);
+  if (localAlarmNow != alarmNow) {
+    alarmNow = localAlarmNow;
+    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
+    if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
+
+    alertPinCycle();
+    
+    if (alarmNow) {
+      showServiceMessage("Тривога!", "У вашому регіоні", 5000);
+    } else {
+      showServiceMessage("Відбій!", "У вашому регіоні", 5000);
+    }
+  }
 }
 
 void checkCurrentTimeAndPlaySound() {
