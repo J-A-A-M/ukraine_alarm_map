@@ -504,6 +504,7 @@ bool    htu2xInited = false;
 float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
+int     beepHour = -1;
 
 #define BR_LEVELS_COUNT 20
 int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
@@ -753,7 +754,7 @@ void initBuzzer() {
 #if BUZZER_ENABLED
   player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
   if (needToPlaySound(START_UP)) {
-    playMelody(uaAnthem);
+    playMelody(START_UP);
   }
 #endif
 }
@@ -762,6 +763,28 @@ void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
   Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
   player->playAsync(melody);
+#endif
+}
+
+void playMelody(SoundType type) {
+#if BUZZER_ENABLED
+  switch (type) {
+  case START_UP:
+    playMelody(melodies[settings.melody_on_startup]);
+    break;
+  case MIN_OF_SILINCE:
+    playMelody(clockBeep);
+    break;
+  case ALERT_ON:
+    playMelody(melodies[settings.melody_on_alert]);
+    break;
+  case ALERT_OFF:
+    playMelody(melodies[settings.melody_on_alert_end]);
+    break;
+  case REGULAR:
+    playMelody(clockBeep);
+    break;
+  }
 #endif
 }
 
@@ -775,9 +798,9 @@ bool needToPlaySound(SoundType type) {
   case ALERT_ON:
     return settings.sound_on_alert;
   case ALERT_OFF:
-    return false;
+    return settings.sound_on_alert_end;
   case REGULAR:
-    return false;
+    return settings.sound_on_every_hour;
   }
 #endif
   return false;
@@ -3713,7 +3736,7 @@ void checkMinuteOfSilence() {
     }
     // play clock beep every 2 sec during min of silence
     if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
-      clockBeepInterval = asyncEngine.setInterval(playClockBeep, 2000); // every 2 sec
+      clockBeepInterval = asyncEngine.setInterval(playMinOfSilenceSound, 2000); // every 2 sec
       }
     // turn off clock beep
     if (!minuteOfSilence && clockBeepInterval >= 0) {
@@ -3721,18 +3744,14 @@ void checkMinuteOfSilence() {
     }
     // play UA Anthem when min of silence ends
     if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
-      playAnthemUa();
+      playMelody(uaAnthem);
       uaAnthemPlaying = true;
     }
   }
 }
 
-void playClockBeep() {
-  playMelody(clockBeep);
-}
-
-void playAnthemUa() {
-  playMelody(uaAnthem);
+void playMinOfSilenceSound() {
+  playMelody(MIN_OF_SILINCE);
 }
 
 float processWeather(int led) {
@@ -3955,10 +3974,20 @@ void calculateStates() {
   if (uaAnthemPlaying && !player->isPlaying()) {
     uaAnthemPlaying = false;
   }
+#if BUZZER_ENABLED
+  checkCurrentTimeAndPlaySound();
+#endif
 #if DISPLAY_ENABLED
   // update service message expiration
   serviceMessageUpdate();
 #endif
+}
+
+void checkCurrentTimeAndPlaySound() {
+  if (needToPlaySound(REGULAR) && beepHour != timeClient.hour() && timeClient.minute() == 0 && timeClient.second() == 0) {
+    beepHour = timeClient.hour();
+    playMelody(REGULAR);
+  }
 }
 
 void bh1750LightSensorCycle() {
