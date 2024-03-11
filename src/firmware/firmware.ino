@@ -107,6 +107,7 @@ struct Settings {
   int     sound_on_alert_end     = 0;
   int     melody_on_alert_end    = 2;
   int     sound_on_every_hour    = 0;
+  int     mute_sound_on_night    = 0;
 
 
   // ------- Map Modes:
@@ -518,6 +519,7 @@ unsigned long pressedTime  = 0;
 unsigned long releasedTime = 0;
 bool isPressing = false;
 bool isLongDetected = false;
+#define NIGHT_BRIGHTNESS_LEVEL 2
 
 #define MAX_BINS_LIST_SIZE 10
 int binsCount = 0;
@@ -790,6 +792,15 @@ void playMelody(SoundType type) {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
+  if (settings.mute_sound_on_night) {
+    // Night Mode activated by button
+    if (nightMode) return false;
+    // Night mode activated by time
+    if (settings.brightness_mode == 1 && isItNightNow()) return false;
+    // Night mode activated by sensor
+    if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return false;
+  }
+
   switch (type) {
   case START_UP:
     return settings.sound_on_startup;
@@ -889,6 +900,7 @@ void initSettings() {
   settings.melody_on_startup      = preferences.getInt("most", settings.melody_on_startup);
   settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
+  settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
 
 
   preferences.end();
@@ -2451,8 +2463,10 @@ void setupRouting() {
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
   webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
   webserver.on("/saveDev", HTTP_POST, handleSaveDev);
+#if FW_UPDATE_ENABLED
   webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
   webserver.on("/update", HTTP_POST, handleUpdate);
+#endif
   webserver.begin();
   Serial.println("Webportal running");
 }
@@ -2467,18 +2481,18 @@ String floatToString(float value) {
   return String(result);
 }
 
-String addCheckbox(const char* name, const char* id, bool isChecked, const char* label) {
+String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
   html += name;
-  html += "' type='checkbox' class='form-check-input' id='";
-  html += id;
+  html += "' type='checkbox' class='form-check-input' id=checkbox'";
+  html += checkboxIndex;
   html += "'";
   if (isChecked) html += " checked";
   html += "/>";
-  html += "<label class='form-check-label' for='";
-  html += id;
+  html += "<label class='form-check-label' for=checkbox'";
+  html += checkboxIndex;
   html += "'>";
   html += label;
   html += "</label>";
@@ -2835,7 +2849,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSelectBox("home_district", 3, "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
 
 #if DISPLAY_ENABLED
-  html += addCheckbox("home_alert_time", "checkbox1", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+  html += addCheckbox("home_alert_time", 1, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
 #if DISPLAY_ENABLED
@@ -2845,9 +2859,9 @@ void handleRoot(AsyncWebServerRequest* request) {
 #endif
   html += addSelectBox("alarms_auto_switch", 9, "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
-    html += addCheckbox("service_diodes_mode", "checkbox2", settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
+    html += addCheckbox("service_diodes_mode", 2, settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
   }
-  html += addCheckbox("min_of_silence", "checkbox3", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  html += addCheckbox("min_of_silence", 3, settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
   html += "                      <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2860,14 +2874,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += addCheckbox("sound_on_startup", "checkbox4", settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
+  html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
   html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0);
-  html += addCheckbox("sound_on_min_of_sl", "checkbox5", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
-  html += addCheckbox("sound_on_alert", "checkbox6", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні");
+  html += addCheckbox("sound_on_min_of_sl", 5, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
+  html += addCheckbox("sound_on_alert", 6, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні");
   html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0);
-  html += addCheckbox("sound_on_alert_end", "checkbox7", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні");
+  html += addCheckbox("sound_on_alert_end", 7, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні");
   html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0);
-  html += addCheckbox("sound_on_every_hour", "checkbox8", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
+  html += addCheckbox("sound_on_every_hour", 8, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
+  html += addCheckbox("mute_sound_on_night", 11, settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"");
   html += "                       <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -2891,77 +2906,21 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addInputText("ha_mqttuser", 3, "Користувач mqtt-сервера Home Assistant", "text", settings.ha_mqttuser, 30);
   html += addInputText("ha_mqttpassword", 4, "Пароль mqtt-сервера Home Assistant", "text", settings.ha_mqttpassword, 50);
 
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField4'>Пароль mqtt-сервера Home Assistant</label>";
-  // html += "                        <input type='text' name='ha_mqttpassword' class='form-control' maxlength='50' id='inputField4' value='" + String(settings.ha_mqttpassword) + "'>";
-  // html += "                    </div>";
   html += addInputText("serverhost", 7, "Адреса сервера даних", "text", settings.serverhost, 30);
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField7'>Адреса сервера даних</label>";
-  // html += "                        <input type='text' name='serverhost' class='form-control' maxlength='30' id='inputField7' value='" + String(settings.serverhost) + "'>";
-  // html += "                    </div>";
   html += addInputText("websocket_port", 8, "Порт Websockets", "number", String(settings.websocket_port).c_str());
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField8'>Порт WebSockets</label>";
-  // html += "                        <input type='text' name='websocket_port' class='form-control' id='inputField8' value='" + String(settings.websocket_port) + "'>";
-  // html += "                    </div>";
   html += addInputText("updateport", 9, "Порт сервера прошивок", "number", String(settings.updateport).c_str());
-
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField8'>Порт сервера прошивок</label>";
-  // html += "                        <input type='text' name='updateport' class='form-control' id='inputField8' value='" + String(settings.updateport) + "'>";
-  // html += "                    </div>";
   html += addInputText("devicename", 10, "Назва пристрою", "text", settings.devicename, 30);
-
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField9'>Назва пристрою</label>";
-  // html += "                        <input type='text' name='devicename' class='form-control' maxlength='30' id='inputField9' value='" + String(settings.devicename) + "'>";
-  // html += "                    </div>";
   html += addInputText("devicedescription", 11, "Опис пристрою", "text", settings.devicedescription, 50);
-
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField10'>Опис пристрою</label>";
-  // html += "                        <input type='text' name='devicedescription' class='form-control' maxlength='50' id='inputField10' value='" + String(settings.devicedescription) + "'>";
-  // html += "                    </div>";
   html += addInputText("broadcastname", 12, ("Локальна адреса в мережі (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
-
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField11'>Локальна адреса в мережі (" + String(settings.broadcastname) + ".local) </label>";
-  // html += "                        <input type='text' name='broadcastname' class='form-control' maxlength='30' id='inputField11' value='" + String(settings.broadcastname) + "'>";
-  // html += "                    </div>";
   if (settings.legacy) {
     html += addInputText("pixelpin", 5, "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-
-    // html += "                    <div class='form-group'>";
-    // html += "                        <label for='inputField5'>Керуючий пін лед-стрічки</label>";
-    // html += "                        <input type='text' name='pixelpin' class='form-control' id='inputField5' value='" + String(settings.pixelpin) + "'>";
-    // html += "                    </div>";
     html += addInputText("buttonpin", 6, "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
-
-    // html += "                    <div class='form-group'>";
-    // html += "                        <label for='inputField6'>Керуючий пін кнопки</label>";
-    // html += "                        <input type='text' name='buttonpin' class='form-control' id='inputField6' value='" + String(settings.buttonpin) + "'>";
-    // html += "                    </div>";
   }
   html += addInputText("alertpin", 13, "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-
-  // html += "                      <div class='form-group'>";
-  // html += "                          <label for='inputField12'>Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)</label>";
-  // html += "                          <input type='text' name='alertpin' class='form-control' id='inputField12' value='" + String(settings.alertpin) + "'>";
-  // html += "                      </div>";
-  html += addCheckbox("enable_pin_on_alert", "checkbox9", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  html += addCheckbox("enable_pin_on_alert", 9, settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
   html += addInputText("lightpin", 14, "Пін сенсора освітлення (фоторезистора, має бути analog)", "number", String(settings.lightpin).c_str());
-
-  // html += "                      <div class='form-group'>";
-  // html += "                          <label for='inputField13'>Пін сенсора освітлення (має бути analog)</label>";
-  // html += "                          <input type='text' name='lightpin' class='form-control' id='inputField13' value='" + String(settings.lightpin) + "'>";
-  // html += "                      </div>";
 #if BUZZER_ENABLED
   html += addInputText("lightpin", 15, "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
-  // html += "                    <div class='form-group'>";
-  // html += "                        <label for='inputField14'>Керуючий пін динаміка (buzzer)</label>";
-  // html += "                        <input type='text' name='buzzerpin' class='form-control' id='inputField14' value='" + String(settings.buzzerpin) + "'>";
-  // html += "                    </div>";
 #endif
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
@@ -2975,7 +2934,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                       <form action='/saveFirmware' method='POST'>";
-  html += addCheckbox("new_fw_notification", "checkbox10", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  html += addCheckbox("new_fw_notification", 10, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
   html += addSelectBox("fw_update_channel", 11, "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
   html += "                          <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
@@ -3264,7 +3223,7 @@ bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey
   }
   return false;
 };
-
+#if FW_UPDATE_ENABLED
 void handleUpdate(AsyncWebServerRequest* request) {
   Serial.println("do_update triggered");
   initUpdate = true;
@@ -3274,6 +3233,7 @@ void handleUpdate(AsyncWebServerRequest* request) {
   }
   request->redirect("/");
 }
+#endif
 
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveHaBrightness);
@@ -3346,6 +3306,7 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saveBool(request->getParam("sound_on_alert_end", true), &settings.sound_on_alert_end, "soae");
   saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae");
   saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh");
+  saveInt(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson");
   request->redirect("/");
 }
 
@@ -3374,12 +3335,13 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     rebootDevice(3000, true);
   }
 }
-
+#if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn");
   saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware);
   request->redirect("/");
 }
+#endif
 //--Web server end
 
 //--Service messages start
@@ -3445,22 +3407,27 @@ void autoBrightnessUpdate() {
 }
 
 int getBrightnessFromSensor() {
-#if BH1750_ENABLED
-  // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
-  if (bh1750Inited) return brightnessLevels[getCurrentBrightnessLevel(round(lightInLuxes), 500)];
-#endif
-
-  // reads the input on analog pin (value between 0 and 4095)
-  int analogValue = analogRead(settings.lightpin) * settings.light_sensor_factor;
-  // Serial.print("Analog light value: ");
-  // Serial.println(analogValue);
-
-  // 2600 - very bright indoor environment.
-  return brightnessLevels[getCurrentBrightnessLevel(analogValue, 2600)];
+  return brightnessLevels[getCurrentBrightnessLevel()];
 }
 
 // Determine the current brightness level
-int getCurrentBrightnessLevel(int currentValue, int maxValue) {
+int getCurrentBrightnessLevel() {
+  int currentValue;
+  int maxValue;
+#if BH1750_ENABLED
+  if (bh1750Inited) {
+    // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
+    currentValue = round(lightInLuxes);
+    maxValue = 500;
+  } else {
+#endif
+    // reads the input on analog pin (value between 0 and 4095)
+    currentValue = round(analogRead(settings.lightpin) * settings.light_sensor_factor);
+    // 2600 - very bright indoor environment.
+    maxValue = 2600;
+#if BH1750_ENABLED
+  }
+#endif
   int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
   // Serial.print("Brightness level: ");
   // Serial.println(level);
@@ -3481,20 +3448,25 @@ int getCurrentBrightnes() {
   // if auto brightnes deactivated, return regular brightnes
   if (settings.brightness_mode == 0) return settings.brightness;
 
+  // if auto brightness set to day/night mode, check current hour and choose brightness
+  if (settings.brightness_mode == 1) return isItNightNow() ? settings.brightness_night : settings.brightness_day;
+
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
   if (settings.brightness_mode == 2) return getBrightnessFromSensor();
+}
 
-  // if day and night start time is equels it means it's always day, return day brightness
-  if (settings.night_start == settings.day_start) return settings.brightness_day;
+bool isItNightNow() {
+  // if day and night start time is equels it means it's always day, return day
+  if (settings.night_start == settings.day_start) return false;
 
   int currentHour = timeClient.hour();
 
   // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
   if (settings.night_start > settings.day_start)
-    return currentHour >= settings.night_start || currentHour < settings.day_start ? settings.brightness_night : settings.brightness_day;
+    return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
 
   // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
-  return currentHour < settings.day_start && currentHour >= settings.night_start ? settings.brightness_night : settings.brightness_day;
+  return currentHour < settings.day_start && currentHour >= settings.night_start ? true : false;
 }
 //--Service messages end
 
@@ -3742,11 +3714,13 @@ void checkMinuteOfSilence() {
     if (!minuteOfSilence && clockBeepInterval >= 0) {
       asyncEngine.clearInterval(clockBeepInterval);
     }
+#if BUZZER_ENABLED
     // play UA Anthem when min of silence ends
     if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       playMelody(uaAnthem);
       uaAnthemPlaying = true;
     }
+#endif
   }
 }
 
@@ -3965,15 +3939,15 @@ void calculateStates() {
   // check if we need activate "minute of silence mode"
   checkMinuteOfSilence();
 
-  if (uaAnthemPlaying && !player->isPlaying()) {
-    uaAnthemPlaying = false;
-  }
-
   // check alert in home district
   checkHomeDistrictAlerts();
 
 #if BUZZER_ENABLED
   checkCurrentTimeAndPlaySound();
+
+  if (uaAnthemPlaying && !player->isPlaying()) {
+    uaAnthemPlaying = false;
+  }
 #endif
 #if DISPLAY_ENABLED
   // update service message expiration
@@ -3990,7 +3964,7 @@ void checkHomeDistrictAlerts() {
     if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
 
     alertPinCycle();
-    
+
     if (alarmNow) {
       showServiceMessage("Тривога!", "У вашому регіоні", 5000);
     } else {
