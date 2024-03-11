@@ -3306,7 +3306,7 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saveBool(request->getParam("sound_on_alert_end", true), &settings.sound_on_alert_end, "soae");
   saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae");
   saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh");
-  saveInt(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson");
+  saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson");
   request->redirect("/");
 }
 
