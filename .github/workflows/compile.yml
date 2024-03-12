@@ -43,11 +43,14 @@
               sed -i 's/#define LITE \d/#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
-              name: firmware.bin
-              path: ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin
+              name: firmware-lite.bin
+              path: ${{ github.workspace }}/firmware-lite.bin
     compile_updater:
       runs-on: ubuntu-latest
       steps:
