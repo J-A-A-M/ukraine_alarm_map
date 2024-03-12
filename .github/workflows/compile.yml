@@ -21,32 +21,36 @@
             with:
               enable-warnings-report: true
               sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware.bin
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware.bin
-              path: ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin
+              path: ${{ github.workspace }}/firmware.bin
           - name: Upload reports
             uses: actions/upload-artifact@v4
             with:
               name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
               path: ${{ env.SKETCHES_REPORTS_PATH }}
-    lint_check:
+    compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
-          - name: Lint check
-            uses: arduino/arduino-lint-action@v1
-            with:
-              path: ${{ github.workspace }}/src/firmware
-              verbose: true
-              compliance: specification
-              report-file: ${{ github.workspace }}/lint-report.json
-          - name: Upload lint report
+          - name: Switch to LITE version
+            run: |
+              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
+          - name: Compile firmware
+            uses: ./.github/workflows/firmware-compile
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware-lite.bin
+          - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
-              name: lint-report
-              path: ${{ github.workspace }}/lint-report.json
+              name: firmware-lite.bin
+              path: ${{ github.workspace }}/firmware-lite.bin
     compile_updater:
       runs-on: ubuntu-latest
       steps:
@@ -64,4 +68,20 @@
           uses: actions/upload-artifact@v4
           with:
             name: updater.bin
-            path: ${{ github.workspace }}/src/updater/build/esp32.esp32.esp32/updater.ino.bin
+            path: ${{ github.workspace }}/src/updater/build/esp32.esp32.esp32/updater.ino.bin    
+    lint_check:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Lint check
+            uses: arduino/arduino-lint-action@v1
+            with:
+              path: ${{ github.workspace }}/src/firmware
+              verbose: true
+              compliance: specification
+              report-file: ${{ github.workspace }}/lint-report.json
+          - name: Upload lint report
+            uses: actions/upload-artifact@v4
+            with:
+              name: lint-report
+              path: ${{ github.workspace }}/lint-report.json

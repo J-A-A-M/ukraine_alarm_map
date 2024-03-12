@@ -1,11 +1,26 @@
+#define LITE 0
+
+#if LITE
+#define ARDUINO_OTA_ENABLED 0
+#define FW_UPDATE_ENABLED 0
+#define HA_ENABLED 0
+#define DISPLAY_ENABLED 0
+#define BME280_ENABLED 0
+#define SHT2X_ENABLED 0
+#define SHT3X_ENABLED 0
+#define BH1750_ENABLED 0
+#define BUZZER_ENABLED 0
+#else
 #define ARDUINO_OTA_ENABLED 0
 #define FW_UPDATE_ENABLED 1
+#define HA_ENABLED 1
 #define DISPLAY_ENABLED 1
 #define BME280_ENABLED 1
 #define SHT2X_ENABLED 1
 #define SHT3X_ENABLED 1
 #define BH1750_ENABLED 1
 #define BUZZER_ENABLED 1
+#endif
 
 #include <Preferences.h>
 #include <WiFiManager.h>
@@ -15,7 +30,9 @@
 #if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
 #endif
+#if HA_ENABLED
 #include <ArduinoHA.h>
+#endif
 #include <NeoPixelBus.h>
 #if DISPLAY_ENABLED
 #include <Adafruit_SSD1306.h>
@@ -108,6 +125,9 @@ struct Settings {
   int     melody_on_alert_end    = 2;
   int     sound_on_every_hour    = 0;
   int     mute_sound_on_night    = 0;
+  int     invert_display         = 0;
+  int     disp_brightness        = 100;
+  int     disp_brightness_night  = 50;
 
 
   // ------- Map Modes:
@@ -174,6 +194,7 @@ DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/
 Async             asyncEngine = Async(20);
 #if DISPLAY_ENABLED
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+#define MAX_DISPLAY_BRIGHTNESS 0xCF
 #endif
 #if BH1750_ENABLED
 BH1750_WE         bh1750;
@@ -222,6 +243,12 @@ struct ServiceMessage {
   int textSize;
   long endTime;
   int expired;
+};
+
+struct RGBColor {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
 };
 
 ServiceMessage serviceMessage;
@@ -469,7 +496,9 @@ const unsigned char trident_small[] PROGMEM = {
   0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
 };
 
+#if HA_ENABLED
 bool    enableHA;
+#endif
 bool    wifiReconnect = false;
 bool    websocketReconnect = false;
 bool    blink = false;
@@ -481,8 +510,9 @@ long    homeAlertStart = 0;
 time_t  lastHomeDistrictSync = 0;
 #if FW_UPDATE_ENABLED
 bool    fwUpdateAvailable = false;
-char    newFwVersion[20];
+char    newFwVersion[25];
 #endif
+char    currentVersion[25];
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
@@ -508,7 +538,11 @@ float   localPresure = -1;
 int     beepHour = -1;
 
 #define BR_LEVELS_COUNT 20
-int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
+int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
+#if DISPLAY_ENABLED
+int     dispBrightnessLevels[BR_LEVELS_COUNT]; // Array containing display brightness values
+int     currentDisplayBrightness = 100;
+#endif
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -529,7 +563,7 @@ int testBinsCount = 0;
 char*  test_bin_list[MAX_BINS_LIST_SIZE];
 
 char chipID[13];
-
+#if HA_ENABLED
 HADevice        device;
 HAMqtt          mqtt(client, device, 19);
 char haConfigUrl[30];
@@ -571,12 +605,13 @@ HAButton*        haReboot;
 HAButton*        haToggleMapMode;
 HAButton*        haToggleDisplayMode;
 HALight*         haLight;
+#endif
 
 void initHaVars() {
   uint64_t chipid = ESP.getEfuseMac();
   sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
   Serial.printf("ChipID Inited: '%s'\n", chipID);
-
+#if HA_ENABLED
   sprintf(haUptimeID, "%s_uptime", chipID);
   haUptime = new HASensorNumber(haUptimeID);
 
@@ -630,6 +665,7 @@ void initHaVars() {
 
   sprintf(haLightID, "%s_light", chipID);
   haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
+#endif
 }
 
 #define MAP_MODES_COUNT 6
@@ -890,7 +926,7 @@ void initSettings() {
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
-  settings.pressure_correction     = preferences.getFloat("lpc", settings.pressure_correction);
+  settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
   settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
   settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
   settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
@@ -901,14 +937,17 @@ void initSettings() {
   settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
   settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
+  settings.invert_display         = preferences.getInt("invd", settings.invert_display);
+  settings.disp_brightness        = preferences.getInt("dbr", settings.disp_brightness);
+  settings.disp_brightness_night  = preferences.getInt("dbrn", settings.disp_brightness_night);
 
 
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  char currentVersion[20];
   fillFwVersion(currentVersion, currentFirmware);
   Serial.printf("Current firmware version: %s\n", currentVersion);
+  distributeBrightnessLevels();
 }
 
 void InitAlertPin() {
@@ -1000,16 +1039,15 @@ void displayMessage(const char* message, const char* title = "", int messageText
     messageTextSize = getTextSizeToFitDisplay(message);
   }
   display.clearDisplay();
-  int bound = 0;
-  if (strlen(title) > 0) {
+  bool withTitle = strlen(title) > 0;
+  if (withTitle) {
     char cyrTitle[strlen(title)];
-    display.setCursor(0, 0);
+    display.setCursor(1, 1);
     display.setTextSize(1);
     utf8cyr(cyrTitle, title);
     display.println(cyrTitle);
-    bound = 4 + messageTextSize;
   }
-  displayCenter(message, bound, messageTextSize);
+  displayCenter(message, withTitle, messageTextSize);
 #endif
 }
 
@@ -1187,6 +1225,7 @@ void initBroadcast() {
 }
 
 void initHA() {
+#if HA_ENABLED
   if (!wifiReconnect) {
     Serial.println("Init Home assistant API");
 
@@ -1204,7 +1243,7 @@ void initHA() {
       WiFi.macAddress(mac);
       device.setUniqueId(mac, sizeof(mac));
       device.setName(settings.devicename);
-      device.setSoftwareVersion(settings.softwareversion);
+      device.setSoftwareVersion(currentVersion);
       device.setManufacturer("v00g100skr");
       device.setModel(settings.devicedescription);
       sprintf(haConfigUrl, "http://%s:80", WiFi.localIP().toString());
@@ -1321,8 +1360,10 @@ void initHA() {
       mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
     }
   }
+#endif
 }
 
+#if HA_ENABLED
 void onMqttStateChanged(HAMqtt::ConnectionState state) {
   Serial.print("Home Assistant MQTT state changed! State: ");
   Serial.println(state);
@@ -1376,7 +1417,11 @@ void onHaLightBrightness(uint8_t brightness, HALight* sender) {
 }
 
 void onHaLightRGBColor(HALight::RGBColor rgb, HALight* sender) {
-  saveHaLightRgb(rgb);
+  RGBColor color;
+  color.r = rgb.red;
+  color.g = rgb.green;
+  color.b = rgb.blue;
+  saveHaLightRgb(color);
 }
 
 void onHaButtonClicked(HAButton* sender) {
@@ -1414,6 +1459,7 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
   int newDisplayMode = getRealDisplayMode(index);
   saveDisplayMode(newDisplayMode);
 }
+#endif
 
 int getHaDisplayMode(int displayMode) {
   int lastModeIndex = displayModes.size() - 1;
@@ -1439,7 +1485,9 @@ void initDisplay() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.display();
   display.clearDisplay();
-  display.setTextColor(WHITE);
+  display.setTextColor(INVERSE);
+  updateInvertDisplayMode();
+  updateDisplayBrightness();
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
@@ -1457,12 +1505,29 @@ void initDisplay() {
   display.setCursor(35, ((settings.display_height - height) / 2));
   display.print(text2);
   display.setCursor(35, ((settings.display_height - height) / 2) + 9);
-  display.print(settings.softwareversion);
+  display.print(currentVersion);
   display.display();
   delay(3000);
 #endif
 }
 
+void updateInvertDisplayMode() {
+#if DISPLAY_ENABLED
+  display.invertDisplay(settings.invert_display);
+#endif
+}
+
+void updateDisplayBrightness() {
+#if DISPLAY_ENABLED
+  int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
+  if (localBrightness == currentDisplayBrightness) return;
+  currentDisplayBrightness = localBrightness;
+  Serial.printf("Set display brightness: %d\n", currentDisplayBrightness);
+  uint8_t mappedBrightness = map(currentDisplayBrightness, 0, 100, 0, MAX_DISPLAY_BRIGHTNESS);
+  display.ssd1306_command(SSD1306_SETCONTRAST);
+  display.ssd1306_command(mappedBrightness);
+#endif
+}
 
 void initI2cTempSensors() {
 #if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
@@ -1471,8 +1536,6 @@ void initI2cTempSensors() {
 #if BH1750_ENABLED
   initBh1750LightSensor();
 #endif
-  // used also for analog light sensor
-  distributeBrightnessLevels();
 #if BME280_ENABLED
   initBme280TempSensor();
 #endif
@@ -1563,7 +1626,11 @@ void fillFwVersion(char* result, Firmware firmware) {
   if (firmware.isBeta) {
     sprintf(beta, "-b%d", firmware.betaBuild);
   }
+#if LITE
+  sprintf(result, "%d.%d%s%s-lite", firmware.major, firmware.minor, patch, beta);
+#else
   sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+#endif
 
 }
 
@@ -1691,11 +1758,14 @@ void checkServicePins() {
       } else {
         servicePin(settings.wifipin, HIGH, true);
       }
+#if HA_ENABLED
+
       if (!mqtt.isConnected()) {
         servicePin(settings.hapin, LOW, true);
       } else {
         servicePin(settings.hapin, HIGH, true);
       }
+#endif
       if (!client_websocket.available()) {
         servicePin(settings.datapin, LOW, true);
       } else {
@@ -1828,11 +1898,13 @@ bool saveMapMode(int newMapMode) {
   preferences.end();
   Serial.print("map_mode commited to preferences: ");
   Serial.println(settings.map_mode);
+  #if HA_ENABLED
   if (enableHA) {
     haLight->setState(settings.map_mode == 5);
     haMapMode->setState(settings.map_mode);
     haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
   }
+  #endif
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
@@ -1847,9 +1919,11 @@ bool saveHaBrightness(int newBrightness) {
   preferences.end();
   Serial.print("brightness commited to preferences");
   Serial.println(settings.ha_light_brightness);
+#if HA_ENABLED
   if (enableHA) {
     haBrightness->setState(newBrightness);
   }
+#endif
   autoBrightnessUpdate();
   return true;
 }
@@ -1862,9 +1936,11 @@ bool saveHaBrightnessAuto(int autoBrightnessMode) {
   preferences.end();
   Serial.print("brightness_auto commited to preferences: ");
   Serial.println(settings.brightness_mode);
+#if HA_ENABLED
   if (enableHA) {
     haBrightnessAuto->setState(autoBrightnessMode);
   }
+#endif
   autoBrightnessUpdate();
   showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
   return true;
@@ -1878,9 +1954,12 @@ bool saveHaAlarmAuto(int newMode) {
   preferences.end();
   Serial.print("alarms_auto_switch commited to preferences: ");
   Serial.println(settings.alarms_auto_switch);
+#if HA_ENABLED
   if (enableHA) {
     haAlarmsAuto->setState(newMode);
   }
+#endif
+  return true;
 }
 
 bool saveHaShowHomeAlarmTime(bool newState) {
@@ -1891,9 +1970,11 @@ bool saveHaShowHomeAlarmTime(bool newState) {
   preferences.end();
   Serial.print("home_alert_time commited to preferences: ");
   Serial.println(settings.home_alert_time ? "true" : "false");
+#if HA_ENABLED
   if (enableHA) {
     haShowHomeAlarmTime->setState(newState);
   }
+#endif
   return true;
 }
 
@@ -1905,40 +1986,43 @@ bool saveHaLightBrightness(int newBrightness) {
   preferences.end();
   Serial.print("ha_light_brightness commited to preferences: ");
   Serial.println(settings.ha_light_brightness);
+#if HA_ENABLED
   if (enableHA) {
     haLight->setBrightness(newBrightness);
   }
   mapCycle();
+#endif
   return true;
 }
 
-void saveHaLightRgb(HALight::RGBColor newRgb) {
-  if (settings.ha_light_r == newRgb.red && settings.ha_light_g == newRgb.green && settings.ha_light_b != newRgb.blue) return;
+void saveHaLightRgb(RGBColor newRgb) {
+  if (settings.ha_light_r == newRgb.r && settings.ha_light_g == newRgb.g && settings.ha_light_b != newRgb.b) return;
   
   preferences.begin("storage", false);
-  if (settings.ha_light_r != newRgb.red) {
-    settings.ha_light_r = newRgb.red;
+  if (settings.ha_light_r != newRgb.r) {
+    settings.ha_light_r = newRgb.r;
     preferences.putInt("ha_lr", settings.ha_light_r);
     Serial.print("ha_light_red commited to preferences: ");
     Serial.println(settings.ha_light_r);
   }
-  if (settings.ha_light_g != newRgb.green) {
-    settings.ha_light_g = newRgb.green;
+  if (settings.ha_light_g != newRgb.g) {
+    settings.ha_light_g = newRgb.g;
     preferences.putInt("ha_lg", settings.ha_light_g);
     Serial.print("ha_light_green commited to preferences: ");
     Serial.println(settings.ha_light_g);
   }
-  if (settings.ha_light_b != newRgb.blue) {
-    settings.ha_light_b = newRgb.blue;
+  if (settings.ha_light_b != newRgb.b) {
+    settings.ha_light_b = newRgb.b;
     preferences.putInt("ha_lb", settings.ha_light_b);
     Serial.print("ha_light_blue commited to preferences: ");
     Serial.println(settings.ha_light_b);
   }
   preferences.end();
-
+#if HA_ENABLED
   if (enableHA) {
-    haLight->setRGBColor(newRgb);
+    haLight->setRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
   }
+#endif
   mapCycle();
 }
 
@@ -1959,15 +2043,16 @@ void nextDisplayMode() {
 bool saveDisplayMode(int newDisplayMode) {
   if (newDisplayMode == settings.display_mode) return false;
   settings.display_mode = newDisplayMode;
-  Serial.print("display_mode changed to: ");
-  Serial.println(settings.display_mode);
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
-  Serial.println("display_mode commited to preferences");
+  Serial.print("display_mode commited to preferences: ");
+  Serial.println(settings.display_mode);
+#if HA_ENABLED
   if (enableHA) {
     haDisplayMode->setState(getHaDisplayMode(settings.display_mode));
   }
+#endif
   showServiceMessage(displayModes[getHaDisplayMode(settings.display_mode)], "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
@@ -1983,10 +2068,12 @@ bool saveHomeDistrict(int newHomeDistrict) {
   preferences.end();
   Serial.print("home_district commited to preferences: ");
   Serial.println(settings.home_district);
+#if HA_ENABLED
   if (enableHA) {
     haHomeDistrict->setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
     haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
   }
+#endif
   homeAlertStart = 0;
   parseHomeDistrictJson();
   showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
@@ -1996,6 +2083,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
 //--Display start
 void displayCycle() {
 #if DISPLAY_ENABLED
+    updateDisplayBrightness();
 
   // Show service message if not expired (Always show, it's short message)
   if (!serviceMessage.expired) {
@@ -2040,17 +2128,19 @@ void displayCycle() {
 }
 
 #if DISPLAY_ENABLED
-void displayCenter(const char* text, int bound, int text_size) {
+void displayCenter(const char* text, bool withTitle, int textSize) {
   int16_t x;
   int16_t y;
   uint16_t width;
   uint16_t height;
   char utf8Text[strlen(text)];
   utf8cyr(utf8Text, text);
-  display.setCursor(0, 0);
-  display.setTextSize(text_size);
+  display.setTextSize(textSize);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
-  display.setCursor(((settings.display_width - width) / 2), ((settings.display_height - height) / 2) + bound);
+  int offsetY = (withTitle ? 10 : 0);
+  int cursorX = (settings.display_width - width) / 2;
+  int cursorY = max(((settings.display_height - height - offsetY) / 2), 0) + offsetY;
+  display.setCursor(cursorX, cursorY);
   display.println(utf8Text);
   display.display();
 }
@@ -2174,6 +2264,10 @@ void displayByMode(int mode) {
 void clearDisplay() {
   display.clearDisplay();
   display.display();
+}
+
+bool shouldDisplayBeOff() {
+  return serviceMessage.expired && (isDisplayOff || settings.display_mode == 0);
 }
 
 void displayMinuteOfSilence() {
@@ -2660,7 +2754,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        <h2 class='text-center'>";
   html += settings.devicedescription;
   html += " ";
-  html += settings.softwareversion;
+  html += currentVersion;
   html += "        </h2>";
   html += "        <div class='row'>";
   html += "            <div class='col-md-8 offset-md-2'>";
@@ -2762,6 +2856,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
   html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+#if DISPLAY_ENABLED
+  html += addSliderInt("disp_brightness", 25, "Дисплей", settings.disp_brightness, 1, 100, 1, "%");
+  html += addSliderInt("disp_brightness_night", 26, "Дисплей (ніч)", settings.disp_brightness_night, 1, 100, 1, "%");
+#endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
   html += addSliderInt("brightness_alert", 9, "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
   html += addSliderInt("brightness_clear", 10, "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
@@ -2833,6 +2931,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += "                        </select>";
   html += "                    </div>";
+  html += addCheckbox("invert_display", 12, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
   html += addSliderInt("display_mode_time", 17, "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
 #endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
@@ -2901,10 +3000,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                      <p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
   html += "                    </b>";
   html += addSelectBox("legacy", 8, "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
+  #if HA_ENABLED
   html += addInputText("ha_brokeraddress", 1, "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
   html += addInputText("ha_mqttport", 2, "Порт mqtt-сервера Home Assistant", "number", String(settings.ha_mqttport).c_str());
   html += addInputText("ha_mqttuser", 3, "Користувач mqtt-сервера Home Assistant", "text", settings.ha_mqttuser, 30);
   html += addInputText("ha_mqttpassword", 4, "Пароль mqtt-сервера Home Assistant", "text", settings.ha_mqttpassword, 50);
+  #endif
 
   html += addInputText("serverhost", 7, "Адреса сервера даних", "text", settings.serverhost, 30);
   html += addInputText("websocket_port", 8, "Порт Websockets", "number", String(settings.websocket_port).c_str());
@@ -2979,7 +3080,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bme280Inited || bmp280Inited) {
     html += ", 'slider23'";
   }
-  html += ", 'slider24'];";
+  html += ", 'slider24'";
+  #if DISPLAY_ENABLED
+  html += ", 'slider25', 'slider26'";
+
+  #endif
+  html += "];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -3115,7 +3221,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   request->send(200, "text/html", html);
 }
 
-HALight::RGBColor hue2rgb(int hue) {
+RGBColor hue2rgb(int hue) {
   float r, g, b;
 
   float h = hue / 360.0;
@@ -3137,8 +3243,11 @@ HALight::RGBColor hue2rgb(int hue) {
     case 5: r = v, g = p, b = q; break;
     default: r = 1.0, g = 1.0, b = 1.0; break;
   }
-
-  return HALight::RGBColor(round(r * 255), round(g * 255), round(b * 255));
+  RGBColor rgb;
+  rgb.r = round(r * 255);
+  rgb.g = round(g * 255);
+  rgb.b = round(b * 255);
+  return rgb;
 }
 
 bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
@@ -3247,6 +3356,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna");
   saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao");
   saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf");
+  saveInt(request->getParam("disp_brightness", true), &settings.disp_brightness, "dbr", NULL, distributeBrightnessLevels);
+  saveInt(request->getParam("disp_brightness_night", true), &settings.disp_brightness_night, "dbrn", NULL, distributeBrightnessLevels);
   autoBrightnessUpdate();
   request->redirect("/");
 }
@@ -3284,10 +3395,11 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto);
   saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins);
   saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos");
+  saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode);
   
   if (request->hasParam("color_lamp", true)) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
-    HALight::RGBColor rgb = hue2rgb(selectedHue);
+    RGBColor rgb = hue2rgb(selectedHue);
     saveHaLightRgb(rgb);
   }
 
@@ -3353,7 +3465,7 @@ void uptime() {
   float cpuTemp       = temperatureRead();
             
   rssi = WiFi.RSSI();
-
+#if HA_ENABLED
   if (enableHA) {
     haUptime->setValue(uptimeValue);
     haWifiSignal->setValue(rssi);
@@ -3361,6 +3473,7 @@ void uptime() {
     haUsedMemory->setValue(usedHeapSize);
     haCpuTemp->setValue(cpuTemp);
   }
+#endif
 }
 
 void connectStatuses() {
@@ -3368,6 +3481,7 @@ void connectStatuses() {
   apiConnected = client_websocket.available();
   Serial.println(apiConnected);
   haConnected = false;
+#if HA_ENABLED
   if (enableHA) {
     Serial.print("Home Assistant MQTT connected: ");
     Serial.println(mqtt.isConnected());
@@ -3379,15 +3493,23 @@ void connectStatuses() {
     }
     haMapApiConnect->setState(apiConnected, true);
   }
+#endif
 }
 
 void distributeBrightnessLevels() {
-  int minBrightness = min(settings.brightness_day, settings.brightness_night);
-  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
+  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
+#if DISPLAY_ENABLED
+  distributeBrightnessLevelsFor(settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels, "Display");
+#endif
+}
+
+void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
+  int minBrightness = min(dayBrightness, nightBrightness);
+  int maxBrightness = max(dayBrightness, nightBrightness);
   float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
-  Serial.print("Brightness levels: [");
+  Serial.printf("%s brightness levels: [", logTitle);
   for (int i = 0; i < BR_LEVELS_COUNT; i++) {
-    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step);
+    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
     Serial.print(brightnessLevels[i]);
     if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
   }
@@ -3395,7 +3517,7 @@ void distributeBrightnessLevels() {
 }
 
 void autoBrightnessUpdate() {
-  int tempBrightness = getCurrentBrightnes();
+  int tempBrightness = getCurrentBrightnes(settings.brightness, settings.brightness_day, settings.brightness_night, ledsBrightnessLevels);
   if (tempBrightness != settings.current_brightness) {
     settings.current_brightness = tempBrightness;
     preferences.begin("storage", false);
@@ -3406,7 +3528,7 @@ void autoBrightnessUpdate() {
   }
 }
 
-int getBrightnessFromSensor() {
+int getBrightnessFromSensor(int brightnessLevels[]) {
   return brightnessLevels[getCurrentBrightnessLevel()];
 }
 
@@ -3434,25 +3556,26 @@ int getCurrentBrightnessLevel() {
   return level;
 }
 
-int getCurrentBrightnes() {
+int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrightness, int brightnessLevels[]) {
   // highest priority for night mode, return night brightness
-  if (nightMode) return settings.brightness_night;
+  if (nightMode) return nightBrightness;
 
-  // if nightMode deactivated return previous brightness
-  if (prevBrightness >= 0) {
-    int tempBrightnes = prevBrightness;
-    prevBrightness = -1;
-    return tempBrightnes;
-  }
-
-  // if auto brightnes deactivated, return regular brightnes
-  if (settings.brightness_mode == 0) return settings.brightness;
+  // // if nightMode deactivated return previous brightness
+  // if (prevBrightness >= 0) {
+  //   int tempBrightnes = prevBrightness;
+  //   prevBrightness = -1;
+  //   return tempBrightnes;
+  // }
 
   // if auto brightness set to day/night mode, check current hour and choose brightness
-  if (settings.brightness_mode == 1) return isItNightNow() ? settings.brightness_night : settings.brightness_day;
+  if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
+  if (settings.brightness_mode == 2) return getBrightnessFromSensor(brightnessLevels);
+
+  // if auto brightnes deactivated, return regular brightnes
+  //default
+  return defaultBrightness;
 }
 
 bool isItNightNow() {
@@ -3545,16 +3668,20 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     Serial.println("connnection opened");
     servicePin(settings.datapin, HIGH, false);
     websocketLastPingTime = millis();
+#if HA_ENABLED
     if (enableHA) {
       haMapApiConnect->setState(apiConnected, true);
     }
+#endif
   } else if (event == WebsocketsEvent::ConnectionClosed) {
     apiConnected = false;
     Serial.println("connnection closed");
     servicePin(settings.datapin, LOW, false);
+#if HA_ENABLED
     if (enableHA) {
       haMapApiConnect->setState(apiConnected, true);
     }
+#endif
   } else if (event == WebsocketsEvent::GotPing) {
     Serial.println("websocket ping");
     client_websocket.pong();
@@ -3580,7 +3707,7 @@ void socketConnect() {
     Serial.print(millis() - startTime);
     Serial.println("ms");
     char firmwareInfo[100];
-    sprintf(firmwareInfo, "firmware:%s_%s", settings.softwareversion, settings.identifier);
+    sprintf(firmwareInfo, "firmware:%s_%s", currentVersion, settings.identifier);
     Serial.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
     char chipIdInfo[25];
@@ -3703,9 +3830,11 @@ void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
+#if HA_ENABLED
     if (enableHA) {
       haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
     }
+#endif
     // play clock beep every 2 sec during min of silence
     if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       clockBeepInterval = asyncEngine.setInterval(playMinOfSilenceSound, 2000); // every 2 sec
@@ -3901,9 +4030,11 @@ int getCurrentMapMode() {
         currentMapMode = 1;
       }
   }
+#if HA_ENABLED
   if (enableHA) {
     haMapModeCurrent->setValue(mapModes[currentMapMode]);
   }
+#endif
   return currentMapMode;
 }
 //--Map processing end
@@ -4080,9 +4211,11 @@ void loop() {
   ArduinoOTA.handle();
 #endif
   buttonUpdate();
+#if HA_ENABLED
   if (enableHA) {
     mqtt.loop();
   }
+#endif
   client_websocket.poll();
   syncTime(2);
 }
