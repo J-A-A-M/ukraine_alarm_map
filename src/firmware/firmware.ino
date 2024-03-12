@@ -1,4 +1,4 @@
-#define LITE 1
+#define LITE 0
 
 #if LITE
 #define ARDUINO_OTA_ENABLED 0
