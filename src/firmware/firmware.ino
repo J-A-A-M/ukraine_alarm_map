@@ -1931,6 +1931,7 @@ bool saveHaAlarmAuto(int newMode) {
     haAlarmsAuto->setState(newMode);
   }
 #endif
+  return true;
 }
 
 bool saveHaShowHomeAlarmTime(bool newState) {
@@ -1945,8 +1946,8 @@ bool saveHaShowHomeAlarmTime(bool newState) {
   if (enableHA) {
     haShowHomeAlarmTime->setState(newState);
   }
-  return true;
 #endif
+  return true;
 }
 
 bool saveHaLightBrightness(int newBrightness) {
@@ -3512,14 +3513,15 @@ int getCurrentBrightnes() {
     return tempBrightnes;
   }
 
-  // if auto brightnes deactivated, return regular brightnes
-  if (settings.brightness_mode == 0) return settings.brightness;
-
   // if auto brightness set to day/night mode, check current hour and choose brightness
   if (settings.brightness_mode == 1) return isItNightNow() ? settings.brightness_night : settings.brightness_day;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
   if (settings.brightness_mode == 2) return getBrightnessFromSensor();
+
+  // if auto brightnes deactivated, return regular brightnes
+  //default
+  return settings.brightness;
 }
 
 bool isItNightNow() {
