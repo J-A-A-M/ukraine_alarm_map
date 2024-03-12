@@ -125,6 +125,9 @@ struct Settings {
   int     melody_on_alert_end    = 2;
   int     sound_on_every_hour    = 0;
   int     mute_sound_on_night    = 0;
+  int     invert_display         = 0;
+  int     disp_brightness        = 100;
+  int     disp_brightness_night  = 50;
 
 
   // ------- Map Modes:
@@ -191,6 +194,7 @@ DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/
 Async             asyncEngine = Async(20);
 #if DISPLAY_ENABLED
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
+#define MAX_DISPLAY_BRIGHTNESS 0xCF
 #endif
 #if BH1750_ENABLED
 BH1750_WE         bh1750;
@@ -534,7 +538,11 @@ float   localPresure = -1;
 int     beepHour = -1;
 
 #define BR_LEVELS_COUNT 20
-int     brightnessLevels[BR_LEVELS_COUNT]; // Array containing brightness values
+int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
+#if DISPLAY_ENABLED
+int     dispBrightnessLevels[BR_LEVELS_COUNT]; // Array containing display brightness values
+int     currentDisplayBrightness = 100;
+#endif
 
 // Button variables
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
@@ -918,7 +926,7 @@ void initSettings() {
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
-  settings.pressure_correction     = preferences.getFloat("lpc", settings.pressure_correction);
+  settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
   settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
   settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
   settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
@@ -929,6 +937,9 @@ void initSettings() {
   settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
   settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
+  settings.invert_display         = preferences.getInt("invd", settings.invert_display);
+  settings.disp_brightness        = preferences.getInt("dbr", settings.disp_brightness);
+  settings.disp_brightness_night  = preferences.getInt("dbrn", settings.disp_brightness_night);
 
 
   preferences.end();
@@ -936,6 +947,7 @@ void initSettings() {
   currentFirmware = parseFirmwareVersion(VERSION);
   fillFwVersion(currentVersion, currentFirmware);
   Serial.printf("Current firmware version: %s\n", currentVersion);
+  distributeBrightnessLevels();
 }
 
 void InitAlertPin() {
@@ -1030,7 +1042,7 @@ void displayMessage(const char* message, const char* title = "", int messageText
   int bound = 0;
   if (strlen(title) > 0) {
     char cyrTitle[strlen(title)];
-    display.setCursor(0, 0);
+    display.setCursor(1, 1);
     display.setTextSize(1);
     utf8cyr(cyrTitle, title);
     display.println(cyrTitle);
@@ -1474,7 +1486,9 @@ void initDisplay() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.display();
   display.clearDisplay();
-  display.setTextColor(WHITE);
+  display.setTextColor(INVERSE);
+  updateInvertDisplayMode();
+  updateDisplayBrightness();
   int16_t centerY = (settings.display_height - 32) / 2;
   display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
   display.setTextSize(1);
@@ -1498,6 +1512,23 @@ void initDisplay() {
 #endif
 }
 
+void updateInvertDisplayMode() {
+#if DISPLAY_ENABLED
+  display.invertDisplay(settings.invert_display);
+#endif
+}
+
+void updateDisplayBrightness() {
+#if DISPLAY_ENABLED
+  int localBrightness = getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
+  if (localBrightness == currentDisplayBrightness) return;
+  currentDisplayBrightness = localBrightness;
+  Serial.printf("Set display brightness: %d\n", currentDisplayBrightness);
+  uint8_t mappedBrightness = map(currentDisplayBrightness, 0, 100, 0, MAX_DISPLAY_BRIGHTNESS);
+  display.ssd1306_command(SSD1306_SETCONTRAST);
+  display.ssd1306_command(mappedBrightness);
+#endif
+}
 
 void initI2cTempSensors() {
 #if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
@@ -1506,8 +1537,6 @@ void initI2cTempSensors() {
 #if BH1750_ENABLED
   initBh1750LightSensor();
 #endif
-  // used also for analog light sensor
-  distributeBrightnessLevels();
 #if BME280_ENABLED
   initBme280TempSensor();
 #endif
@@ -2822,6 +2851,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
   html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+#if DISPLAY_ENABLED
+  html += addSliderInt("disp_brightness", 25, "Дисплея", settings.disp_brightness, 0, 100, 1, "%");
+  html += addSliderInt("disp_brightness_night", 26, "Дисплея нічна", settings.disp_brightness_night, 0, 100, 1, "%");
+#endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
   html += addSliderInt("brightness_alert", 9, "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
   html += addSliderInt("brightness_clear", 10, "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
@@ -2893,6 +2926,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += "                        </select>";
   html += "                    </div>";
+  html += addCheckbox("invert_display", 12, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
   html += addSliderInt("display_mode_time", 17, "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
 #endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
@@ -3041,7 +3075,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bme280Inited || bmp280Inited) {
     html += ", 'slider23'";
   }
-  html += ", 'slider24'];";
+  html += ", 'slider24'";
+  #if DISPLAY_ENABLED
+  html += ", 'slider25', 'slider26'";
+
+  #endif
+  html += "];";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -3312,6 +3351,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna");
   saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao");
   saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf");
+  saveInt(request->getParam("disp_brightness", true), &settings.disp_brightness, "dbr", NULL, distributeBrightnessLevels);
+  saveInt(request->getParam("disp_brightness_night", true), &settings.disp_brightness_night, "dbrn", NULL, distributeBrightnessLevels);
   autoBrightnessUpdate();
   request->redirect("/");
 }
@@ -3349,6 +3390,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto);
   saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins);
   saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos");
+  saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode);
   
   if (request->hasParam("color_lamp", true)) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
@@ -3450,12 +3492,19 @@ void connectStatuses() {
 }
 
 void distributeBrightnessLevels() {
-  int minBrightness = min(settings.brightness_day, settings.brightness_night);
-  int maxBrightness = max(settings.brightness_day, settings.brightness_night);
+  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
+#if DISPLAY_ENABLED
+  distributeBrightnessLevelsFor(settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels, "Display");
+#endif
+}
+
+void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
+  int minBrightness = min(dayBrightness, nightBrightness);
+  int maxBrightness = max(dayBrightness, nightBrightness);
   float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
-  Serial.print("Brightness levels: [");
+  Serial.printf("%s brightness levels: [", logTitle);
   for (int i = 0; i < BR_LEVELS_COUNT; i++) {
-    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step);
+    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
     Serial.print(brightnessLevels[i]);
     if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
   }
@@ -3463,7 +3512,7 @@ void distributeBrightnessLevels() {
 }
 
 void autoBrightnessUpdate() {
-  int tempBrightness = getCurrentBrightnes();
+  int tempBrightness = getCurrentBrightnes(settings.brightness, settings.brightness_day, settings.brightness_night, ledsBrightnessLevels);
   if (tempBrightness != settings.current_brightness) {
     settings.current_brightness = tempBrightness;
     preferences.begin("storage", false);
@@ -3472,9 +3521,10 @@ void autoBrightnessUpdate() {
     Serial.print("set current brightness: ");
     Serial.println(settings.current_brightness);
   }
+  updateDisplayBrightness();
 }
 
-int getBrightnessFromSensor() {
+int getBrightnessFromSensor(int brightnessLevels[]) {
   return brightnessLevels[getCurrentBrightnessLevel()];
 }
 
@@ -3502,26 +3552,26 @@ int getCurrentBrightnessLevel() {
   return level;
 }
 
-int getCurrentBrightnes() {
+int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrightness, int brightnessLevels[]) {
   // highest priority for night mode, return night brightness
-  if (nightMode) return settings.brightness_night;
+  if (nightMode) return nightBrightness;
 
-  // if nightMode deactivated return previous brightness
-  if (prevBrightness >= 0) {
-    int tempBrightnes = prevBrightness;
-    prevBrightness = -1;
-    return tempBrightnes;
-  }
+  // // if nightMode deactivated return previous brightness
+  // if (prevBrightness >= 0) {
+  //   int tempBrightnes = prevBrightness;
+  //   prevBrightness = -1;
+  //   return tempBrightnes;
+  // }
 
   // if auto brightness set to day/night mode, check current hour and choose brightness
-  if (settings.brightness_mode == 1) return isItNightNow() ? settings.brightness_night : settings.brightness_day;
+  if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return getBrightnessFromSensor();
+  if (settings.brightness_mode == 2) return getBrightnessFromSensor(brightnessLevels);
 
   // if auto brightnes deactivated, return regular brightnes
   //default
-  return settings.brightness;
+  return defaultBrightness;
 }
 
 bool isItNightNow() {
