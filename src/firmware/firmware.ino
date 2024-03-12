@@ -1039,16 +1039,15 @@ void displayMessage(const char* message, const char* title = "", int messageText
     messageTextSize = getTextSizeToFitDisplay(message);
   }
   display.clearDisplay();
-  int bound = 0;
-  if (strlen(title) > 0) {
+  bool withTitle = strlen(title) > 0;
+  if (withTitle) {
     char cyrTitle[strlen(title)];
     display.setCursor(1, 1);
     display.setTextSize(1);
     utf8cyr(cyrTitle, title);
     display.println(cyrTitle);
-    bound = 4 + messageTextSize;
   }
-  displayCenter(message, bound, messageTextSize);
+  displayCenter(message, withTitle, messageTextSize);
 #endif
 }
 
@@ -1520,7 +1519,7 @@ void updateInvertDisplayMode() {
 
 void updateDisplayBrightness() {
 #if DISPLAY_ENABLED
-  int localBrightness = getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
+  int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
   if (localBrightness == currentDisplayBrightness) return;
   currentDisplayBrightness = localBrightness;
   Serial.printf("Set display brightness: %d\n", currentDisplayBrightness);
@@ -2044,12 +2043,11 @@ void nextDisplayMode() {
 bool saveDisplayMode(int newDisplayMode) {
   if (newDisplayMode == settings.display_mode) return false;
   settings.display_mode = newDisplayMode;
-  Serial.print("display_mode changed to: ");
-  Serial.println(settings.display_mode);
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
-  Serial.println("display_mode commited to preferences");
+  Serial.print("display_mode commited to preferences: ");
+  Serial.println(settings.display_mode);
 #if HA_ENABLED
   if (enableHA) {
     haDisplayMode->setState(getHaDisplayMode(settings.display_mode));
@@ -2085,6 +2083,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
 //--Display start
 void displayCycle() {
 #if DISPLAY_ENABLED
+    updateDisplayBrightness();
 
   // Show service message if not expired (Always show, it's short message)
   if (!serviceMessage.expired) {
@@ -2129,17 +2128,19 @@ void displayCycle() {
 }
 
 #if DISPLAY_ENABLED
-void displayCenter(const char* text, int bound, int text_size) {
+void displayCenter(const char* text, bool withTitle, int textSize) {
   int16_t x;
   int16_t y;
   uint16_t width;
   uint16_t height;
   char utf8Text[strlen(text)];
   utf8cyr(utf8Text, text);
-  display.setCursor(0, 0);
-  display.setTextSize(text_size);
+  display.setTextSize(textSize);
   display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
-  display.setCursor(((settings.display_width - width) / 2), ((settings.display_height - height) / 2) + bound);
+  int offsetY = (withTitle ? 10 : 0);
+  int cursorX = (settings.display_width - width) / 2;
+  int cursorY = max(((settings.display_height - height - offsetY) / 2), 0) + offsetY;
+  display.setCursor(cursorX, cursorY);
   display.println(utf8Text);
   display.display();
 }
@@ -2263,6 +2264,10 @@ void displayByMode(int mode) {
 void clearDisplay() {
   display.clearDisplay();
   display.display();
+}
+
+bool shouldDisplayBeOff() {
+  return serviceMessage.expired && (isDisplayOff || settings.display_mode == 0);
 }
 
 void displayMinuteOfSilence() {
@@ -2852,8 +2857,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
 #if DISPLAY_ENABLED
-  html += addSliderInt("disp_brightness", 25, "Дисплея", settings.disp_brightness, 0, 100, 1, "%");
-  html += addSliderInt("disp_brightness_night", 26, "Дисплея нічна", settings.disp_brightness_night, 0, 100, 1, "%");
+  html += addSliderInt("disp_brightness", 25, "Дисплей", settings.disp_brightness, 1, 100, 1, "%");
+  html += addSliderInt("disp_brightness_night", 26, "Дисплей (ніч)", settings.disp_brightness_night, 1, 100, 1, "%");
 #endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
   html += addSliderInt("brightness_alert", 9, "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
@@ -3521,7 +3526,6 @@ void autoBrightnessUpdate() {
     Serial.print("set current brightness: ");
     Serial.println(settings.current_brightness);
   }
-  updateDisplayBrightness();
 }
 
 int getBrightnessFromSensor(int brightnessLevels[]) {
