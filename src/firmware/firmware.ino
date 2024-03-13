@@ -213,7 +213,8 @@ MelodyPlayer* player;
 const char uaAnthem[]       PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 const char imperialMarch[]  PROGMEM = "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
 const char nokiaTun[]       PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
-const char clockBeep[]      PROGMEM = "Clock:d=4,o=4,b=250:g";
+const char clockBeep[]      PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
+const char mosBeep[]        PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 
 #define MELODIES_COUNT 3
 const char* melodies[MELODIES_COUNT] PROGMEM = {
@@ -232,6 +233,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
 enum SoundType {
   START_UP,
   MIN_OF_SILINCE,
+  MIN_OF_SILINCE_END,
   REGULAR,
   ALERT_ON,
   ALERT_OFF
@@ -563,6 +565,7 @@ int testBinsCount = 0;
 char*  test_bin_list[MAX_BINS_LIST_SIZE];
 
 char chipID[13];
+char localIP[16];
 #if HA_ENABLED
 HADevice        device;
 HAMqtt          mqtt(client, device, 19);
@@ -811,7 +814,10 @@ void playMelody(SoundType type) {
     playMelody(melodies[settings.melody_on_startup]);
     break;
   case MIN_OF_SILINCE:
-    playMelody(clockBeep);
+    playMelody(mosBeep);
+    break;
+  case MIN_OF_SILINCE_END:
+    playMelody(uaAnthem);
     break;
   case ALERT_ON:
     playMelody(melodies[settings.melody_on_alert]);
@@ -841,6 +847,8 @@ bool needToPlaySound(SoundType type) {
   case START_UP:
     return settings.sound_on_startup;
   case MIN_OF_SILINCE:
+    return settings.sound_on_min_of_sl;
+  case MIN_OF_SILINCE_END:
     return settings.sound_on_min_of_sl;
   case ALERT_ON:
     return settings.sound_on_alert;
@@ -1107,7 +1115,12 @@ void initWifi() {
   initBroadcast();
   socketConnect();
   initHA();
-  showServiceMessage(WiFi.localIP().toString().c_str(), "IP-адреса мапи:", 3000);
+  showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
+}
+
+char* getLocalIP() {
+  strcpy(localIP, WiFi.localIP().toString().c_str());
+  return localIP;
 }
 
 void apCallback(WiFiManager* wifiManager) {
@@ -1246,7 +1259,7 @@ void initHA() {
       device.setSoftwareVersion(currentVersion);
       device.setManufacturer("v00g100skr");
       device.setModel(settings.devicedescription);
-      sprintf(haConfigUrl, "http://%s:80", WiFi.localIP().toString());
+      sprintf(haConfigUrl, "http://%s:80", getLocalIP());
       Serial.printf("HA Device configurationUrl: '%s'\n", haConfigUrl);
       device.setConfigurationUrl(haConfigUrl);
       device.enableExtendedUniqueIds();
@@ -2394,7 +2407,7 @@ void showTechInfo() {
   // IP address
   if (remainder < toggleTime) {
     strcpy(title, "IP-адреса мапи:");
-    strcpy(message, WiFi.localIP().toString().c_str());
+    strcpy(message, getLocalIP());
     // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
     strcpy(title, "Сигнал WiFi:");
@@ -2790,7 +2803,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                    <h5>Локальна IP-адреса: ";
-  html += WiFi.localIP().toString();
+  html += getLocalIP();
   html += "                    </h5>";
   html += "                </div>";
   html += "              </div>";
@@ -3835,18 +3848,18 @@ void checkMinuteOfSilence() {
       haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
     }
 #endif
-    // play clock beep every 2 sec during min of silence
+    // play mos beep every 2 sec during min of silence
     if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       clockBeepInterval = asyncEngine.setInterval(playMinOfSilenceSound, 2000); // every 2 sec
       }
-    // turn off clock beep
+    // turn off mos beep
     if (!minuteOfSilence && clockBeepInterval >= 0) {
       asyncEngine.clearInterval(clockBeepInterval);
     }
 #if BUZZER_ENABLED
     // play UA Anthem when min of silence ends
-    if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
-      playMelody(uaAnthem);
+    if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
+      playMelody(MIN_OF_SILINCE_END);
       uaAnthemPlaying = true;
     }
 #endif
