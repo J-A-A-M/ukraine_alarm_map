@@ -1137,10 +1137,10 @@ void saveConfigCallback() {
 
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
-    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-    {
-      const char* ipAddress = WiFi.softAPIP().toString().c_str();
-      displayMessage(ipAddress, "Введіть у браузері:");
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED: {
+      char softApIp[16];
+      strcpy(softApIp, WiFi.softAPIP().toString().c_str());
+      displayMessage(softApIp, "Введіть у браузері:");
       WiFi.removeEvent(wifiEvents);
       break;
     }
@@ -2374,7 +2374,7 @@ void showNewFirmwareNotification() {
     strcpy(message, newFwVersion);
   } else if (settings.button_mode == 0) {
     strcpy(title, "Введіть у браузері:");
-    strcpy(message, WiFi.localIP().toString().c_str());
+    strcpy(message, getLocalIP());
   } else {
     strcpy(title, "Для оновл. натисніть");
     sprintf(message, "та тримайте кнопку %c", (char)24);
@@ -2954,7 +2954,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addSliderFloat("hum_correction", 22, "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addSliderFloat("pressure_correction", 22, "Корегування вологості", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
+    html += addSliderFloat("pressure_correction", 23, "Корегування вологості", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
   html += addSelectBox("button_mode", 6, "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_COUNT);
   html += addSelectBox("button_mode_long", 10, "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_COUNT);
