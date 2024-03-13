@@ -1942,7 +1942,7 @@ bool saveHaBrightness(int newBrightness) {
 }
 
 bool saveHaBrightnessAuto(int autoBrightnessMode) {
-  if (settings.brightness_mode == autoBrightnessMode) return SPI_FLASH_YIELD_REQ_SUSPEND;
+  if (settings.brightness_mode == autoBrightnessMode) return false;
   settings.brightness_mode = autoBrightnessMode;
   preferences.begin("storage", false);
   preferences.putInt("bra", settings.brightness_mode);
@@ -2008,8 +2008,8 @@ bool saveHaLightBrightness(int newBrightness) {
   return true;
 }
 
-void saveHaLightRgb(RGBColor newRgb) {
-  if (settings.ha_light_r == newRgb.r && settings.ha_light_g == newRgb.g && settings.ha_light_b != newRgb.b) return;
+bool saveHaLightRgb(RGBColor newRgb) {
+  if (settings.ha_light_r == newRgb.r && settings.ha_light_g == newRgb.g && settings.ha_light_b == newRgb.b) return false;
   
   preferences.begin("storage", false);
   if (settings.ha_light_r != newRgb.r) {
@@ -2037,6 +2037,7 @@ void saveHaLightRgb(RGBColor newRgb) {
   }
 #endif
   mapCycle();
+  return true;
 }
 
 void nextDisplayMode() {
@@ -2925,7 +2926,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += addSelectBox("map_mode", 2, "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
   html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", 0, 0, 360, 1, "", false, 17);
-  html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 360, 1, "%");
+  html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
 #if DISPLAY_ENABLED
   // html += addSelectBox("display_mode", 5, "Режим дисплея", settings.display_mode, displayModes, MAP_MODES_COUNT);
 
@@ -3073,6 +3074,13 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           </div>";
   html += "        </div>";
 #endif
+  html += "    <div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>";
+  html += "      <div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>";
+  html += "        <div class='toast-body'>";
+  html += "          💾 Налаштування збережено!";
+  html += "        </div>";
+  html += "      </div>";
+  html += "    </div>";
   html += "    </div>";
   html += "    </form>";
   html += "    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
@@ -3099,6 +3107,50 @@ void handleRoot(AsyncWebServerRequest* request) {
 
   #endif
   html += "];";
+  html += "        const urlParams = new URLSearchParams(window.location.search);";
+  html += "        const activePage = urlParams.get('page');";
+  html += "        switch (activePage) {";
+  html += "        case 'brightness':";
+  html += "          document.getElementById('collapseBrightness').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'colors':";
+  html += "          document.getElementById('collapseColors').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'weather':";
+  html += "          document.getElementById('collapseWeather').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'modes':";
+  html += "          document.getElementById('collapseModes').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'sounds':";
+  html += "          document.getElementById('collapseSounds').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'dev':";
+  html += "          document.getElementById('collapseTech').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        case 'firmware':";
+  html += "          document.getElementById('collapseFirmware').classList.add('show');";
+  html += "          window.scrollTo(0, document.body.scrollHeight);";
+  html += "          break;";
+  html += "        }";
+  html += "";
+  html += "        if (urlParams.get('saved') === 'true') {";
+  html += "          const toast = document.getElementById('liveToast');";
+  html += "          toast.classList.remove('hide');";
+  html += "          toast.classList.add('show');";
+  html += "          console.log('Toast was shown!');";
+  html += "          setTimeout(() => {";
+  html += "            toast.classList.remove('show');";
+  html += "            toast.classList.add('hide');";
+  html += "            console.log('Toast was hidden!');";
+  html += "          }, 2000);";
+  html += "        }";
   html += "";
   html += "        sliders.forEach(slider => {";
   html += "            const sliderElem = document.getElementById(slider);";
@@ -3358,81 +3410,104 @@ void handleUpdate(AsyncWebServerRequest* request) {
 #endif
 
 void handleSaveBrightness(AsyncWebServerRequest *request) {
-  saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveHaBrightness);
-  saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", NULL, distributeBrightnessLevels);
-  saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", NULL, distributeBrightnessLevels);
-  saveInt(request->getParam("day_start", true), &settings.day_start, "ds");
-  saveInt(request->getParam("night_start", true), &settings.night_start, "ns");
-  saveInt(request->getParam("brightness_auto", true), &settings.brightness_mode, "bra", saveHaBrightnessAuto);
-  saveInt(request->getParam("brightness_alert", true), &settings.brightness_alert, "ba");
-  saveInt(request->getParam("brightness_clear", true), &settings.brightness_clear, "bc");
-  saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna");
-  saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao");
-  saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf");
-  saveInt(request->getParam("disp_brightness", true), &settings.disp_brightness, "dbr", NULL, distributeBrightnessLevels);
-  saveInt(request->getParam("disp_brightness_night", true), &settings.disp_brightness_night, "dbrn", NULL, distributeBrightnessLevels);
-  autoBrightnessUpdate();
-  request->redirect("/");
+  bool saved = false;
+  saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveHaBrightness) || saved;
+  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", NULL, distributeBrightnessLevels) || saved;
+  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", NULL, distributeBrightnessLevels) || saved;
+  saved = saveInt(request->getParam("day_start", true), &settings.day_start, "ds") || saved;
+  saved = saveInt(request->getParam("night_start", true), &settings.night_start, "ns") || saved;
+  saved = saveInt(request->getParam("brightness_auto", true), &settings.brightness_mode, "bra", saveHaBrightnessAuto) || saved;
+  saved = saveInt(request->getParam("brightness_alert", true), &settings.brightness_alert, "ba") || saved;
+  saved = saveInt(request->getParam("brightness_clear", true), &settings.brightness_clear, "bc") || saved;
+  saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
+  saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
+  saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
+  saved = saveInt(request->getParam("disp_brightness", true), &settings.disp_brightness, "dbr", NULL, distributeBrightnessLevels) || saved;
+  saved = saveInt(request->getParam("disp_brightness_night", true), &settings.disp_brightness_night, "dbrn", NULL, distributeBrightnessLevels) || saved;
+  
+  if (saved) autoBrightnessUpdate();
+  
+  char url[30] = "/?page=brightness&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
-  saveInt(request->getParam("color_alert", true), &settings.color_alert, "coloral");
-  saveInt(request->getParam("color_clear", true), &settings.color_clear, "colorcl");
-  saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna");
-  saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao");
-  saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd");
-  request->redirect("/");
+  bool saved = false;
+  saved = saveInt(request->getParam("color_alert", true), &settings.color_alert, "coloral") || saved;
+  saved = saveInt(request->getParam("color_clear", true), &settings.color_clear, "colorcl") || saved;
+  saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
+  saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
+  saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
+  
+  char url[26] = "/?page=colors&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 
 void handleSaveWeather(AsyncWebServerRequest* request) {
-  saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp");
-  saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp");
-  request->redirect("/");
+  bool saved = false;
+  saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
+  saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
+
+  char url[27] = "/?page=weather&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
-  saveInt(request->getParam("map_mode", true), &settings.map_mode, "mapmode", saveMapMode);
-  saveInt(request->getParam("brightness_lamp", true), &settings.ha_light_brightness, "ha_lbri", saveHaLightBrightness);
-  saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode);
-  saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict);
-  saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt");
-  saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, localTempHumSensorCycle);
-  saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, localTempHumSensorCycle);
-  saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, localTempHumSensorCycle);
-  saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm");
-  saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml");
-  saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm");
-  saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime, parseHomeDistrictJson);
-  saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm");
+  bool saved = false;
+  saved = saveInt(request->getParam("map_mode", true), &settings.map_mode, "mapmode", saveMapMode) || saved;
+  saved = saveInt(request->getParam("brightness_lamp", true), &settings.ha_light_brightness, "ha_lbri", saveHaLightBrightness) || saved;
+  saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
+  saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
+  saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
+  saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, localTempHumSensorCycle) || saved;
+  saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, localTempHumSensorCycle) || saved;
+  saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, localTempHumSensorCycle) || saved;
+  saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
+  saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
+  saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
+  saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime, parseHomeDistrictJson) || saved;
+  saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
-  saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto);
-  saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins);
-  saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos");
-  saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode);
+  saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
+  saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
+  saved = saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos") || saved;
+  saved = saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode) || saved;
   
   if (request->hasParam("color_lamp", true)) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
     RGBColor rgb = hue2rgb(selectedHue);
-    saveHaLightRgb(rgb);
+    saved = saveHaLightRgb(rgb) || saved;
   }
 
-  request->redirect("/");
   if (reboot) {
+    request->redirect("/");
     rebootDevice(3000, true);
+    return;
   }
+
+  char url[25] = "/?page=modes&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
-  saveBool(request->getParam("sound_on_startup", true), &settings.sound_on_startup, "sos");
-  saveInt(request->getParam("melody_on_startup", true), &settings.melody_on_startup, "most");
-  saveBool(request->getParam("sound_on_min_of_sl", true), &settings.sound_on_min_of_sl, "somos");
-  saveBool(request->getParam("sound_on_alert", true), &settings.sound_on_alert, "soa");
-  saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa");
-  saveBool(request->getParam("sound_on_alert_end", true), &settings.sound_on_alert_end, "soae");
-  saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae");
-  saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh");
-  saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson");
-  request->redirect("/");
+  bool saved = false;
+  saved = saveBool(request->getParam("sound_on_startup", true), &settings.sound_on_startup, "sos") || saved;
+  saved = saveInt(request->getParam("melody_on_startup", true), &settings.melody_on_startup, "most") || saved;
+  saved = saveBool(request->getParam("sound_on_min_of_sl", true), &settings.sound_on_min_of_sl, "somos") || saved;
+  saved = saveBool(request->getParam("sound_on_alert", true), &settings.sound_on_alert, "soa") || saved;
+  saved = saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa") || saved;
+  saved = saveBool(request->getParam("sound_on_alert_end", true), &settings.sound_on_alert_end, "soae") || saved;
+  saved = saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae") || saved;
+  saved = saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh") || saved;
+  saved = saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson") || saved;
+
+  char url[26] = "/?page=sounds&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -3455,16 +3530,22 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
   reboot = saveBool(request->getParam("enable_pin_on_alert", true), &settings.enable_pin_on_alert, "epoa") || reboot;
 
-  request->redirect("/");
   if (reboot) {
+    request->redirect("/");
     rebootDevice(3000, true);
+    return;
   }
+  request->redirect("/?page=dev");
 }
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
-  saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn");
-  saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware);
-  request->redirect("/");
+  bool saved = false;
+  saved = saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn") || saved;
+  saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
+
+  char url[28] = "/?page=firmware&saved=";
+  strcat(url, saved ? "true" : "false");
+  request->redirect(url);
 }
 #endif
 //--Web server end
