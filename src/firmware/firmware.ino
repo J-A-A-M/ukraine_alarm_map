@@ -40,7 +40,7 @@
 #if FW_UPDATE_ENABLED
 #include <HTTPUpdate.h>
 #endif
-#include <vector>
+#include <map>
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #if BH1750_ENABLED
@@ -514,7 +514,7 @@ time_t  lastHomeDistrictSync = 0;
 bool    fwUpdateAvailable = false;
 char    newFwVersion[25];
 #endif
-char    currentVersion[25];
+char    currentFwVersion[25];
 int     rssi;
 bool    apiConnected;
 bool    haConnected;
@@ -538,6 +538,7 @@ float   localTemp = -273;
 float   localHum = -1;
 float   localPresure = -1;
 int     beepHour = -1;
+bool    displayInited = false;
 
 #define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
@@ -597,23 +598,28 @@ HASensorNumber*  haUsedMemory;
 HASensorNumber*  haCpuTemp;
 HANumber*        haBrightness;
 HASelect*        haMapMode;
+#if DISPLAY_ENABLED
 HASelect*        haDisplayMode;
+HASwitch*        haShowHomeAlarmTime;
+HAButton*        haToggleDisplayMode;
+#endif
 HASelect*        haAlarmsAuto;
 HASelect*        haBrightnessAuto;
 HASensor*        haMapModeCurrent;
 HASensor*        haHomeDistrict;
 HABinarySensor*  haMapApiConnect;
-HASwitch*        haShowHomeAlarmTime;
 HAButton*        haReboot;
 HAButton*        haToggleMapMode;
-HAButton*        haToggleDisplayMode;
 HALight*         haLight;
 #endif
 
-void initHaVars() {
+void initChipID() {
   uint64_t chipid = ESP.getEfuseMac();
   sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
   Serial.printf("ChipID Inited: '%s'\n", chipID);
+}
+
+void initHaVars() {
 #if HA_ENABLED
   sprintf(haUptimeID, "%s_uptime", chipID);
   haUptime = new HASensorNumber(haUptimeID);
@@ -635,10 +641,18 @@ void initHaVars() {
 
   sprintf(haMapModeID, "%s_map_mode", chipID);
   haMapMode = new HASelect(haMapModeID);
+#if DISPLAY_ENABLED
+  if (displayInited) {
+    sprintf(haDisplayModeID, "%s_display_mode", chipID);
+    haDisplayMode = new HASelect(haDisplayModeID);
 
-  sprintf(haDisplayModeID, "%s_display_mode", chipID);
-  haDisplayMode = new HASelect(haDisplayModeID);
+    sprintf(haToggleDisplayModeID, "%s_toggle_display_mode", chipID);
+    haToggleDisplayMode = new HAButton(haToggleDisplayModeID);
 
+    sprintf(haShowHomeAlarmTimeID, "%s_show_home_alarm_time", chipID);
+    haShowHomeAlarmTime = new HASwitch(haShowHomeAlarmTimeID);
+  }
+#endif
   sprintf(haBrightnessAutoID, "%s_brightness_auto", chipID);
   haAlarmsAuto = new HASelect(haBrightnessAutoID);
 
@@ -654,17 +668,11 @@ void initHaVars() {
   sprintf(haMapApiConnectID, "%s_map_api_connect", chipID);
   haMapApiConnect = new HABinarySensor(haMapApiConnectID);
 
-  sprintf(haShowHomeAlarmTimeID, "%s_show_home_alarm_time", chipID);
-  haShowHomeAlarmTime = new HASwitch(haShowHomeAlarmTimeID);
-
   sprintf(haRebootID, "%s_reboot", chipID);
   haReboot = new HAButton(haRebootID);
 
   sprintf(haToggleMapModeID, "%s_toggle_map_mode", chipID);
   haToggleMapMode = new HAButton(haToggleMapModeID);
-
-  sprintf(haToggleDisplayModeID, "%s_toggle_display_mode", chipID);
-  haToggleDisplayMode = new HAButton(haToggleDisplayModeID);
 
   sprintf(haLightID, "%s_light", chipID);
   haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
@@ -681,11 +689,15 @@ char* mapModes[MAP_MODES_COUNT] = {
   "Лампа"
 };
 
-std::vector<const PROGMEM char*> displayModes PROGMEM = {
+#define DISPLAY_MODE_OPTIONS_MAX 6
+int ignoreDisplayModeOptions[DISPLAY_MODE_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1};
+std::map<int, int> displayModeHAMap;
+char* displayModes[DISPLAY_MODE_OPTIONS_MAX] = {
   "Вимкнено",
   "Годинник",
   "Погода",
   "Технічна інформація",
+  "Мікроклімат",
   "Перемикання"
 };
 
@@ -696,8 +708,9 @@ char* autoAlarms[AUTO_ALARM_MODES_COUNT] = {
   "Лише домашній"
 };
 
-#define SINGLE_CLICK_OPTIONS_COUNT 7
-char* singleClickOptions[SINGLE_CLICK_OPTIONS_COUNT] = {
+#define SINGLE_CLICK_OPTIONS_MAX 7
+int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1};
+char* singleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -707,8 +720,9 @@ char* singleClickOptions[SINGLE_CLICK_OPTIONS_COUNT] = {
   "Увімк./Вимк. нічний режим"
 };
 
-#define LONG_CLICK_OPTIONS_COUNT 8
-char* longClickOptions[LONG_CLICK_OPTIONS_COUNT] = {
+#define LONG_CLICK_OPTIONS_MAX 8
+int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
+char* longClickOptions[LONG_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -953,8 +967,8 @@ void initSettings() {
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
-  fillFwVersion(currentVersion, currentFirmware);
-  Serial.printf("Current firmware version: %s\n", currentVersion);
+  fillFwVersion(currentFwVersion, currentFirmware);
+  Serial.printf("Current firmware version: %s\n", currentFwVersion);
   distributeBrightnessLevels();
 }
 
@@ -1043,6 +1057,7 @@ void printNtpStatus() {
 
 void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
 #if DISPLAY_ENABLED
+  if (!displayInited) return;
   if (messageTextSize == -1) {
     messageTextSize = getTextSizeToFitDisplay(message);
   }
@@ -1237,6 +1252,23 @@ void initBroadcast() {
   Serial.println();
 }
 
+std::map<int, int> getHaOptions(char* result, char* options[], int optionsSize, int ignoreOptions[]= NULL) {
+  strcpy(result, "");
+  int haIndex = 0;
+  std::map<int, int> haMap = {};
+  for (int i = 0; i < optionsSize; i++) {
+    if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
+    char* option = options[i];
+    if (i > 0) {
+      strcat(result, ";");
+    }
+    strcat(result, option);
+    haMap[i] = haIndex;
+    haIndex++;
+  }
+  return haMap;
+}
+
 void initHA() {
 #if HA_ENABLED
   if (!wifiReconnect) {
@@ -1252,11 +1284,12 @@ void initHA() {
     }
 
     if (enableHA) {
+      initHaVars();
       byte mac[6];
       WiFi.macAddress(mac);
       device.setUniqueId(mac, sizeof(mac));
       device.setName(settings.devicename);
-      device.setSoftwareVersion(currentVersion);
+      device.setSoftwareVersion(currentFwVersion);
       device.setManufacturer("v00g100skr");
       device.setModel(settings.devicedescription);
       sprintf(haConfigUrl, "http://%s:80", getLocalIP());
@@ -1302,11 +1335,27 @@ void initHA() {
       haMapMode->setName("Map Mode");
       haMapMode->setCurrentState(settings.map_mode);
 
-      haDisplayMode->setOptions(getHaOptions(displayModes).c_str());
-      haDisplayMode->onCommand(onHaDisplayModeCommand);
-      haDisplayMode->setIcon("mdi:clock-digital");
-      haDisplayMode->setName("Display Mode");
-      haDisplayMode->setCurrentState(getHaDisplayMode(settings.display_mode));
+#if DISPLAY_ENABLED
+      if (displayInited) {
+
+        char displayModeOptions[sizeOfCharsArray(displayModes, DISPLAY_MODE_OPTIONS_MAX) + DISPLAY_MODE_OPTIONS_MAX];
+        displayModeHAMap = getHaOptions(displayModeOptions, displayModes, DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions);
+        haDisplayMode->setOptions(displayModeOptions);
+        haDisplayMode->onCommand(onHaDisplayModeCommand);
+        haDisplayMode->setIcon("mdi:clock-digital");
+        haDisplayMode->setName("Display Mode");
+        haDisplayMode->setCurrentState(getLocalDisplayMode(settings.display_mode));
+
+        haToggleDisplayMode->onCommand(onHaButtonClicked);
+        haToggleDisplayMode->setName("Toggle Display Mode");
+        haToggleDisplayMode->setIcon("mdi:card-plus");
+
+        haShowHomeAlarmTime->onCommand(onHaShowHomeAlarmTimeCommand);
+        haShowHomeAlarmTime->setIcon("mdi:timer-alert");
+        haShowHomeAlarmTime->setName("Show Home Alert Time");
+        haShowHomeAlarmTime->setCurrentState(settings.home_alert_time);
+      }
+#endif
 
       char autoAlarmsModeOptions[sizeOfCharsArray(autoAlarms, AUTO_ALARM_MODES_COUNT) + AUTO_ALARM_MODES_COUNT];
       getHaOptions(autoAlarmsModeOptions, autoAlarms, AUTO_ALARM_MODES_COUNT);
@@ -1331,11 +1380,6 @@ void initHA() {
       haBrightnessAuto->setName("Auto Brightness");
       haBrightnessAuto->setCurrentState(settings.brightness_mode);
 
-      haShowHomeAlarmTime->onCommand(onHaShowHomeAlarmTimeCommand);
-      haShowHomeAlarmTime->setIcon("mdi:timer-alert");
-      haShowHomeAlarmTime->setName("Show Home Alert Time");
-      haShowHomeAlarmTime->setCurrentState(settings.home_alert_time);
-
       haReboot->onCommand(onHaButtonClicked);
       haReboot->setName("Reboot");
       haReboot->setDeviceClass("restart");
@@ -1343,10 +1387,6 @@ void initHA() {
       haToggleMapMode->onCommand(onHaButtonClicked);
       haToggleMapMode->setName("Toggle Map Mode");
       haToggleMapMode->setIcon("mdi:map-plus");
-
-      haToggleDisplayMode->onCommand(onHaButtonClicked);
-      haToggleDisplayMode->setName("Toggle Display Mode");
-      haToggleDisplayMode->setIcon("mdi:card-plus");
 
       haCpuTemp->setIcon("mdi:chip");
       haCpuTemp->setName("CPU Temperature");
@@ -1389,34 +1429,19 @@ void onMqttStateChanged(HAMqtt::ConnectionState state) {
   }
 }
 
-String getHaOptions(std::vector<const char*> list) {
-  String result;
-  for (const char* option : list) {
-    if (list[0] != option) {
-      result += ";";
-    }
-    result += option;
-  }
-  return result;
-}
-
-void getHaOptions(char* result, char* options[], int optionsSize) {
-  strcpy(result, "");
-  for (int i = 0; i < optionsSize; i++) {
-    char* option = options[i];
-    if (i > 0) {
-      strcat(result, ";");
-    }
-    strcat(result, option);
-  }
-}
-
 int sizeOfCharsArray(char* array[], int arraySize) {
   int result = 0;
   for (int i = 0; i < arraySize; i++) {
     result += strlen(array[i]);
   }
   return result;
+}
+
+bool isInArray(int value, int* array, int arraySize) {
+  for (int i = 0; i < arraySize; i++) {
+    if (array[i] == value) return true;
+  }
+  return false;
 }
 
 void onHaLightState(bool state, HALight* sender) {
@@ -1443,8 +1468,10 @@ void onHaButtonClicked(HAButton* sender) {
     rebootDevice();
   } else if (sender == haToggleMapMode) {
     mapModeSwitch();
-  } else if (sender == haToggleDisplayMode) {
+#if DISPLAY_ENABLED
+  } else if (displayInited && sender == haToggleDisplayMode) {
     nextDisplayMode();
+#endif
   }
 }
 
@@ -1469,59 +1496,106 @@ void onHaMapModeCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  int newDisplayMode = getRealDisplayMode(index);
+  int newDisplayMode = getSettingsDisplayMode(index);
   saveDisplayMode(newDisplayMode);
 }
 #endif
 
-int getHaDisplayMode(int displayMode) {
-  int lastModeIndex = displayModes.size() - 1;
-  if (displayMode < lastModeIndex) return displayMode;
-  if (displayMode == 9) return lastModeIndex;
+int getLocalDisplayMode(int settingsDisplayMode) {
+  int newDisplayMode = settingsDisplayMode;
+  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+    newDisplayMode++;
+  }
+  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
+  if (newDisplayMode < lastModeIndex) return newDisplayMode;
+  if (newDisplayMode == 9) return lastModeIndex;
   // default
   return 0;
 }
 
-int getRealDisplayMode(int displayMode) {
-  int lastModeIndex = displayModes.size() - 1;
-  if (displayMode < lastModeIndex) return displayMode;
-  if (displayMode == lastModeIndex) return 9;
+int getSettingsDisplayMode(int localDisplayMode) {
+  int newDisplayMode = localDisplayMode;
+  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+    newDisplayMode++;
+  }
+  
+  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
+  if (newDisplayMode < lastModeIndex) return newDisplayMode;
+  if (newDisplayMode >= lastModeIndex) return 9;
   // default
   return 0;
 }
 
-
+int getHaDisplayMode(int localDisplayMode) {
+  return displayModeHAMap[localDisplayMode];
+}
 
 void initDisplay() {
 #if DISPLAY_ENABLED
-  display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.display();
-  display.clearDisplay();
-  display.setTextColor(INVERSE);
-  updateInvertDisplayMode();
-  updateDisplayBrightness();
-  int16_t centerY = (settings.display_height - 32) / 2;
-  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
-  display.setTextSize(1);
-  char text1[15] = "";
-  char text2[15] = "";
-  utf8cyr(text1, "Just Another");
-  utf8cyr(text2, "Alert Map");
-  int16_t x;
-  int16_t y;
-  uint16_t width;
-  uint16_t height;
-  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
-  display.setCursor(35, ((settings.display_height - height) / 2) - 9);
-  display.print(text1);
-  display.setCursor(35, ((settings.display_height - height) / 2));
-  display.print(text2);
-  display.setCursor(35, ((settings.display_height - height) / 2) + 9);
-  display.print(currentVersion);
-  display.display();
-  delay(3000);
+  Wire.begin();
+  Wire.beginTransmission(0x3C);
+  uint8_t error = Wire.endTransmission();
+
+  if (error == 0) {
+    displayInited = true;
+    Serial.println("Found display! Success.");
+  } else {
+    Serial.println("Display not found!");
+  }
+
+  if (displayInited) {
+    display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.display();
+    display.clearDisplay();
+    display.setTextColor(INVERSE);
+    updateInvertDisplayMode();
+    updateDisplayBrightness();
+    int16_t centerY = (settings.display_height - 32) / 2;
+    display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
+    display.setTextSize(1);
+    char text1[15] = "";
+    char text2[15] = "";
+    utf8cyr(text1, "Just Another");
+    utf8cyr(text2, "Alert Map");
+    int16_t x;
+    int16_t y;
+    uint16_t width;
+    uint16_t height;
+    display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
+    display.setCursor(35, ((settings.display_height - height) / 2) - 9);
+    display.print(text1);
+    display.setCursor(35, ((settings.display_height - height) / 2));
+    display.print(text2);
+    display.setCursor(35, ((settings.display_height - height) / 2) + 9);
+    display.print(currentFwVersion);
+    display.display();
+    delay(3000);
+  }
 #endif
+  initDisplayOptions();
+}
+
+void initDisplayOptions() {
+  if (!displayInited) {
+    // remove display related options from singl click optins list
+    ignoreSingleClickOptions[0] = 2;
+    ignoreSingleClickOptions[1] = 4;
+    ignoreSingleClickOptions[2] = 5;
+    // change single click option to default if it's not available
+    if (isInArray(settings.button_mode, ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+      saveInt(&settings.button_mode, "bm", 0, "button_mode");
+    }
+
+    // remove display related options from long click optins list
+    ignoreLongClickOptions[0] = 2;
+    ignoreLongClickOptions[1] = 4;
+    ignoreLongClickOptions[2] = 5;
+    // change long click option to default if it's not available
+    if (isInArray(settings.button_mode_long, ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+      saveInt(&settings.button_mode_long, "bml", 0, "button_mode_long");
+    }
+  }
 }
 
 void updateInvertDisplayMode() {
@@ -1532,6 +1606,7 @@ void updateInvertDisplayMode() {
 
 void updateDisplayBrightness() {
 #if DISPLAY_ENABLED
+  if (!displayInited) return;
   int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
   if (localBrightness == currentDisplayBrightness) return;
   currentDisplayBrightness = localBrightness;
@@ -1558,9 +1633,8 @@ void initI2cTempSensors() {
 #if SHT2X_ENABLED
   initHtu2xTempSensor();
 #endif
-#if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
-  initDisplayModes();
-#endif
+
+initDisplayModes();
 }
 
 #if BH1750_ENABLED
@@ -1618,16 +1692,19 @@ void initBme280TempSensor() {
   }
 }
 #endif
-#if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
+
 void initDisplayModes() {
   if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
-    displayModes.insert(displayModes.end() - 1, "Мікроклімат");
     localTempHumSensorCycle();
-  } else if (settings.display_mode == displayModes.size() - 1) {
-    saveDisplayMode(9);
+  } else {
+    // remove climate sensor options from display optins list
+    ignoreDisplayModeOptions[0] = 4;
+    // change display mode to "changing" if it's not available
+    if (isInArray(settings.display_mode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+      saveDisplayMode(9);
+    }
   }
 }
-#endif
 //--Init end
 
 void fillFwVersion(char* result, Firmware firmware) {
@@ -1983,8 +2060,8 @@ bool saveHaShowHomeAlarmTime(bool newState) {
   preferences.end();
   Serial.print("home_alert_time commited to preferences: ");
   Serial.println(settings.home_alert_time ? "true" : "false");
-#if HA_ENABLED
-  if (enableHA) {
+#if HA_ENABLED && DISPLAY_ENABLED
+  if (enableHA && displayInited) {
     haShowHomeAlarmTime->setState(newState);
   }
 #endif
@@ -2041,16 +2118,18 @@ bool saveHaLightRgb(RGBColor newRgb) {
 }
 
 void nextDisplayMode() {
-  int newDisplayMode;
-  // Get last mode index without mode "Switching"
-  int lastModeIndex = displayModes.size() - 2;
-  if (settings.display_mode < lastModeIndex) {
-    newDisplayMode = settings.display_mode + 1;
-  } else if (settings.display_mode == lastModeIndex) {
-    newDisplayMode = 9;
-  } else {
-    newDisplayMode = 0;
+  int newDisplayMode = settings.display_mode + 1;
+  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX) || newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
+    if (newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
+      newDisplayMode = 0;
+    } else {
+      newDisplayMode++;
+    }
   }
+  if (newDisplayMode == DISPLAY_MODE_OPTIONS_MAX - 1) {
+    newDisplayMode = 9;
+  }
+  
   saveDisplayMode(newDisplayMode);
 }
 
@@ -2062,12 +2141,13 @@ bool saveDisplayMode(int newDisplayMode) {
   preferences.end();
   Serial.print("display_mode commited to preferences: ");
   Serial.println(settings.display_mode);
-#if HA_ENABLED
-  if (enableHA) {
-    haDisplayMode->setState(getHaDisplayMode(settings.display_mode));
+  int localDisplayMode = getLocalDisplayMode(settings.display_mode);
+#if HA_ENABLED && DISPLAY_ENABLED
+  if (enableHA && displayInited) {
+    haDisplayMode->setState(getHaDisplayMode(localDisplayMode));
   }
 #endif
-  showServiceMessage(displayModes[getHaDisplayMode(settings.display_mode)], "Режим дисплея:", 1000);
+  showServiceMessage(displayModes[localDisplayMode], "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
   return true;
@@ -2097,7 +2177,9 @@ bool saveHomeDistrict(int newHomeDistrict) {
 //--Display start
 void displayCycle() {
 #if DISPLAY_ENABLED
-    updateDisplayBrightness();
+  if (!displayInited) return;
+
+  updateDisplayBrightness();
 
   // Show service message if not expired (Always show, it's short message)
   if (!serviceMessage.expired) {
@@ -2428,7 +2510,7 @@ void showTechInfo() {
     // Fw version
   } else {
     strcpy(title, "Версія прошивки:");
-    strcpy(message, VERSION);
+    strcpy(message, currentFwVersion);
   }
 
   displayMessage(message, title);
@@ -2679,7 +2761,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   return html;
 }
 
-String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false) {
+String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL) {
   String html;
   html += "<div class='form-group'>";
   html += "<label for='selectBox";
@@ -2695,6 +2777,7 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
   html += disabled ? " disabled" : "";
   html += ">";
   for (int i = 0; i < optionsCount; i++) {
+    if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
     int transformedIndex;
     if (valueTransform) {
       transformedIndex = valueTransform(i);
@@ -2768,7 +2851,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "        <h2 class='text-center'>";
   html += settings.devicedescription;
   html += " ";
-  html += currentVersion;
+  html += currentFwVersion;
   html += "        </h2>";
   html += "        <div class='row'>";
   html += "            <div class='col-md-8 offset-md-2'>";
@@ -2871,8 +2954,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
 #if DISPLAY_ENABLED
-  html += addSliderInt("disp_brightness", 25, "Дисплей", settings.disp_brightness, 1, 100, 1, "%");
-  html += addSliderInt("disp_brightness_night", 26, "Дисплей (ніч)", settings.disp_brightness_night, 1, 100, 1, "%");
+  if (displayInited) {
+    html += addSliderInt("disp_brightness", 25, "Дисплей", settings.disp_brightness, 1, 100, 1, "%");
+    html += addSliderInt("disp_brightness_night", 26, "Дисплей (ніч)", settings.disp_brightness_night, 1, 100, 1, "%");
+  }
 #endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
   html += addSliderInt("brightness_alert", 9, "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
@@ -2928,25 +3013,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", 0, 0, 360, 1, "", false, 17);
   html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
 #if DISPLAY_ENABLED
-  // html += addSelectBox("display_mode", 5, "Режим дисплея", settings.display_mode, displayModes, MAP_MODES_COUNT);
-
-  html += "                    <div class='form-group'>";
-  html += "                        <label for='selectBox5'>Режим дисплея</label>";
-  html += "                        <select name='display_mode' class='form-control' id='selectBox5'>";
-  for (int i = 0; i < displayModes.size(); i++) {
-    int num = getRealDisplayMode(i);
-    html += "<option value='";
-    html += num;
-    html += "'";
-    if (settings.display_mode == num) html += " selected";
-    html += ">";
-    html += displayModes[i];
-    html += "</option>";
-  }
-  html += "                        </select>";
-  html += "                    </div>";
+  if (displayInited) {
+  html += addSelectBox("display_mode", 5, "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
   html += addCheckbox("invert_display", 12, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
   html += addSliderInt("display_mode_time", 17, "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+  }
 #endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
     html += addSliderFloat("temp_correction", 21, "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
@@ -2957,16 +3028,18 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bme280Inited || bmp280Inited) {
     html += addSliderFloat("pressure_correction", 23, "Корегування вологості", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
-  html += addSelectBox("button_mode", 6, "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_COUNT);
-  html += addSelectBox("button_mode_long", 10, "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_COUNT);
+  html += addSelectBox("button_mode", 6, "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+  html += addSelectBox("button_mode_long", 10, "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   html += addSelectBox("home_district", 3, "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
 
 #if DISPLAY_ENABLED
-  html += addCheckbox("home_alert_time", 1, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+  if (displayInited) {
+    html += addCheckbox("home_alert_time", 1, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+  }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
 #if DISPLAY_ENABLED
-  if (settings.legacy) {
+  if (settings.legacy && displayInited) {
     html += addSelectBox("display_height", 7, "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
 #endif
@@ -3089,7 +3162,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "    <script>";
   html += "        const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'";
 #if DISPLAY_ENABLED
-  html += ", 'slider17'";
+  if (displayInited) html += ", 'slider17'";
 #endif
   html += ", 'slider18', 'slider19', 'slider20'";
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
@@ -3103,8 +3176,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   html += ", 'slider24'";
   #if DISPLAY_ENABLED
-  html += ", 'slider25', 'slider26'";
-
+  if (displayInited) html += ", 'slider25', 'slider26'";
   #endif
   html += "];";
   html += "        const urlParams = new URLSearchParams(window.location.search);";
@@ -3317,17 +3389,13 @@ RGBColor hue2rgb(int hue) {
 
 bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
-  int paramValue = param->value().toInt();
+  int newValue = param->value().toInt();
   if (saveFun) {
-    return saveFun(paramValue);
+    return saveFun(newValue);
   }
-  if (paramValue != *setting) {
-    preferences.begin("storage", false);
+  if (newValue != *setting) {
     const char* paramName = param->name().c_str();
-    *setting = paramValue;
-    preferences.putInt(settingsKey, *setting);
-    preferences.end();
-    Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
+    saveInt(setting, settingsKey, newValue, paramName);
     if (additionalFun) {
       additionalFun();
     }
@@ -3335,6 +3403,14 @@ bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bo
   }
   return false;
 };
+
+void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
+  preferences.begin("storage", false);
+  *setting = newValue;
+  preferences.putInt(settingsKey, *setting);
+  preferences.end();
+  Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
+}
 
 bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
@@ -3593,7 +3669,7 @@ void connectStatuses() {
 void distributeBrightnessLevels() {
   distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
 #if DISPLAY_ENABLED
-  distributeBrightnessLevelsFor(settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels, "Display");
+if (displayInited) distributeBrightnessLevelsFor(settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels, "Display");
 #endif
 }
 
@@ -3801,7 +3877,7 @@ void socketConnect() {
     Serial.print(millis() - startTime);
     Serial.println("ms");
     char firmwareInfo[100];
-    sprintf(firmwareInfo, "firmware:%s_%s", currentVersion, settings.identifier);
+    sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
     Serial.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
     char chipIdInfo[25];
@@ -4176,7 +4252,7 @@ void calculateStates() {
 #endif
 #if DISPLAY_ENABLED
   // update service message expiration
-  serviceMessageUpdate();
+  if (displayInited) serviceMessageUpdate();
 #endif
 }
 
@@ -4272,7 +4348,7 @@ void localTempHumSensorCycle() {
 void setup() {
   Serial.begin(115200);
 
-  initHaVars();
+  initChipID();
   initSettings();
   initLegacy();
   initBuzzer();
