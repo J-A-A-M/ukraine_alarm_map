@@ -1437,13 +1437,6 @@ int sizeOfCharsArray(char* array[], int arraySize) {
   return result;
 }
 
-bool isInArray(int value, int* array, int arraySize) {
-  for (int i = 0; i < arraySize; i++) {
-    if (array[i] == value) return true;
-  }
-  return false;
-}
-
 void onHaLightState(bool state, HALight* sender) {
   if (settings.map_mode == 5 && state) return;
   int newMapMode = state ? 5 : prevMapMode;
@@ -1500,6 +1493,13 @@ void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
   saveDisplayMode(newDisplayMode);
 }
 #endif
+
+bool isInArray(int value, int* array, int arraySize) {
+  for (int i = 0; i < arraySize; i++) {
+    if (array[i] == value) return true;
+  }
+  return false;
+}
 
 int getLocalDisplayMode(int settingsDisplayMode) {
   int newDisplayMode = settingsDisplayMode;
