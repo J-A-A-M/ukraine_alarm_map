@@ -126,8 +126,7 @@ struct Settings {
   int     sound_on_every_hour    = 0;
   int     mute_sound_on_night    = 0;
   int     invert_display         = 0;
-  int     disp_brightness        = 100;
-  int     disp_brightness_night  = 50;
+  int     dim_display_on_night   = 1;
 
 
   // ------- Map Modes:
@@ -195,6 +194,7 @@ Async             asyncEngine = Async(20);
 #if DISPLAY_ENABLED
 Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
 #define MAX_DISPLAY_BRIGHTNESS 0xCF
+#define MIN_DISPLAY_BRIGHTNESS 0x01
 #endif
 #if BH1750_ENABLED
 BH1750_WE         bh1750;
@@ -543,8 +543,7 @@ bool    displayInited = false;
 #define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 #if DISPLAY_ENABLED
-int     dispBrightnessLevels[BR_LEVELS_COUNT]; // Array containing display brightness values
-int     currentDisplayBrightness = 100;
+int     currentDisplayBrightness = MAX_DISPLAY_BRIGHTNESS;
 #endif
 
 // Button variables
@@ -960,8 +959,7 @@ void initSettings() {
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
   settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
   settings.invert_display         = preferences.getInt("invd", settings.invert_display);
-  settings.disp_brightness        = preferences.getInt("dbr", settings.disp_brightness);
-  settings.disp_brightness_night  = preferences.getInt("dbrn", settings.disp_brightness_night);
+  settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
 
 
   preferences.end();
@@ -1530,18 +1528,22 @@ int getHaDisplayMode(int localDisplayMode) {
   return displayModeHAMap[localDisplayMode];
 }
 
+bool detectI2CDevice(uint8_t address, const char* deviceName) {
+  Wire.begin();
+  Wire.beginTransmission(address);
+  uint8_t error = Wire.endTransmission();
+  if (error == 0) {
+    Serial.printf("%s was FOUND on address 0x%02x! Success.\n", deviceName, address);
+    return true;
+  } else {
+    Serial.printf("%s NOT found! Checked address - 0x%02x \n", deviceName, address);
+    return false;
+  }
+}
+
 void initDisplay() {
 #if DISPLAY_ENABLED
-  Wire.begin();
-  Wire.beginTransmission(0x3C);
-  uint8_t error = Wire.endTransmission();
-
-  if (error == 0) {
-    displayInited = true;
-    Serial.println("Found display! Success.");
-  } else {
-    Serial.println("Display not found!");
-  }
+  displayInited = detectI2CDevice(0x3C, "OLED SSD1306");
 
   if (displayInited) {
     display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
@@ -1607,13 +1609,12 @@ void updateInvertDisplayMode() {
 void updateDisplayBrightness() {
 #if DISPLAY_ENABLED
   if (!displayInited) return;
-  int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(settings.disp_brightness, settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels);
+  int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(MAX_DISPLAY_BRIGHTNESS, MAX_DISPLAY_BRIGHTNESS, settings.dim_display_on_night ? MIN_DISPLAY_BRIGHTNESS : MAX_DISPLAY_BRIGHTNESS, NULL);
   if (localBrightness == currentDisplayBrightness) return;
   currentDisplayBrightness = localBrightness;
   Serial.printf("Set display brightness: %d\n", currentDisplayBrightness);
-  uint8_t mappedBrightness = map(currentDisplayBrightness, 0, 100, 0, MAX_DISPLAY_BRIGHTNESS);
   display.ssd1306_command(SSD1306_SETCONTRAST);
-  display.ssd1306_command(mappedBrightness);
+  display.ssd1306_command(currentDisplayBrightness);
 #endif
 }
 
@@ -1665,7 +1666,7 @@ void initSht3xTempSensor() {
 #if SHT2X_ENABLED
 void initHtu2xTempSensor() {
   htu2xInited = htu2x.init();
-  if (sht3xInited) {
+  if (htu2xInited) {
     Serial.println("Found HTU2x temp/hum sensor! Success.");
   } else {
     Serial.println("Not found HTU2x temp/hum sensor!");
@@ -2889,6 +2890,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "                    <h5>Локальна IP-адреса: ";
   html += getLocalIP();
   html += "                    </h5>";
+  #if DISPLAY_ENABLED
+  html += "                    <h5>Дисплей: ";
+  if (displayInited) {
+    html += "SSD1306 (128x";
+    html += display.height();
+    html += ")";
+  } else {
+    html += "Немає";
+  }
+  html += "                    </h5>";
+  #endif
+  #if BH1750_ENABLED
+  html += "                    <h5>Сенсор освітлення: ";
+  html += bh1750Inited ? "BH1750" : "Немає";
+  html += "                    </h5>";
+  #endif
+  #if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
+  html += "                    <h5>Сенсор клімату: ";
+  html += bme280Inited ? "BME280" : bmp280Inited ? "BMP280" : sht3xInited ? "SHT3x" : htu2xInited ? "SHT2x" : "Немає";
+  html += "                    </h5>";
+  #endif
   html += "                </div>";
   html += "              </div>";
   html += "            </div>";
@@ -2955,8 +2977,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
 #if DISPLAY_ENABLED
   if (displayInited) {
-    html += addSliderInt("disp_brightness", 25, "Дисплей", settings.disp_brightness, 1, 100, 1, "%");
-    html += addSliderInt("disp_brightness_night", 26, "Дисплей (ніч)", settings.disp_brightness_night, 1, 100, 1, "%");
+    html += addCheckbox("dim_display_on_night", 13, settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
 #endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
@@ -2977,11 +2998,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "           <div class='col-md-8 offset-md-2'>";
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
-  html += addSliderInt("color_alert", 3, "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, 1);
-  html += addSliderInt("color_clear", 4, "Області без тривог", settings.color_clear, 0, 360, 1, "", false, 2);
-  html += addSliderInt("color_new_alert", 5, "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, 3);
-  html += addSliderInt("color_alert_over", 6, "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, 4);
-  html += addSliderInt("color_home_district", 7, "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, 5);
+  html += addSliderInt("color_alert", 3, "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, 3);
+  html += addSliderInt("color_clear", 4, "Області без тривог", settings.color_clear, 0, 360, 1, "", false, 4);
+  html += addSliderInt("color_new_alert", 5, "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, 5);
+  html += addSliderInt("color_alert_over", 6, "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, 6);
+  html += addSliderInt("color_home_district", 7, "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, 7);
   html += "                    <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "                 </div>";
   html += "              </div>";
@@ -3010,7 +3031,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSelectBox("kyiv_district_mode", 1, "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
   html += addSelectBox("map_mode", 2, "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
-  html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", 0, 0, 360, 1, "", false, 17);
+  html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", 0, 0, 360, 1, "", false, 19);
   html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
 #if DISPLAY_ENABLED
   if (displayInited) {
@@ -3026,7 +3047,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addSliderFloat("hum_correction", 22, "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addSliderFloat("pressure_correction", 23, "Корегування вологості", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
+    html += addSliderFloat("pressure_correction", 23, "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
   html += addSelectBox("button_mode", 6, "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
   html += addSelectBox("button_mode_long", 10, "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
@@ -3122,7 +3143,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "              <div class='row'>";
   html += "                 <div class='box_yellow col-md-12 mt-2'>";
   html += "                       <form action='/saveFirmware' method='POST'>";
-  html += addCheckbox("new_fw_notification", 10, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+#if DISPLAY_ENABLED
+  if (displayInited) html += addCheckbox("new_fw_notification", 10, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+#endif
   html += addSelectBox("fw_update_channel", 11, "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
   html += "                          <b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "                          <button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
@@ -3175,9 +3198,6 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += ", 'slider23'";
   }
   html += ", 'slider24'";
-  #if DISPLAY_ENABLED
-  if (displayInited) html += ", 'slider25', 'slider26'";
-  #endif
   html += "];";
   html += "        const urlParams = new URLSearchParams(window.location.search);";
   html += "        const activePage = urlParams.get('page');";
@@ -3237,26 +3257,32 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "";
   html += "        const initialHue1 = parseInt(slider3.value);";
   html += "        const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);";
-  html += "        document.getElementById('colorBox1').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
+  html += "        document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
   html += "";
   html += "        const initialHue2 = parseInt(slider4.value);";
   html += "        const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);";
-  html += "        document.getElementById('colorBox2').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
+  html += "        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
   html += "";
   html += "        const initialHue3 = parseInt(slider5.value);";
   html += "        const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);";
-  html += "        document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
+  html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
   html += "";
   html += "        const initialHue4 = parseInt(slider6.value);";
   html += "        const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
-  html += "        document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
+  html += "        document.getElementById('colorBox6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
   html += "";
   html += "        const initialHue5 = parseInt(slider7.value);";
   html += "        const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
-  html += "        document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
+  html += "        document.getElementById('colorBox7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
   html += "";
-  html += "        const initialRgbColor6 = { r: " + String(settings.ha_light_r) + ", g: " + String(settings.ha_light_g) + ", b: " + String(settings.ha_light_b) + " };";
-  html += "        document.getElementById('colorBox17').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
+  html += "        const initialRgbColor6 = { r: ";
+  html += settings.ha_light_r;
+  html += ", g: ";
+  html += settings.ha_light_g;
+  html += ", b: ";
+  html += settings.ha_light_b;
+  html += " };";
+  html += "        document.getElementById('colorBox19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
   html += "        const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
   html += "        document.getElementById('slider19').value = initialHue6;";
   html += "        document.getElementById('sliderValue19').textContent = initialHue6;";
@@ -3320,7 +3346,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "";
   html += "        sliders.slice(1).forEach((slider, index) => {";
   html += "            const sliderElem = document.getElementById(slider);";
-  html += "            const colorBoxElem = document.getElementById('colorBox' + (index + 1));";
+  html += "            const colorBoxElem = document.getElementById(slider.replace('slider', 'colorBox'));";
   html += "            sliderElem.addEventListener('input', () => {";
   html += "                const hue = parseInt(sliderElem.value);";
   html += "                updateColorBox(colorBoxElem.id, hue);";
@@ -3498,8 +3524,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
   saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
-  saved = saveInt(request->getParam("disp_brightness", true), &settings.disp_brightness, "dbr", NULL, distributeBrightnessLevels) || saved;
-  saved = saveInt(request->getParam("disp_brightness_night", true), &settings.disp_brightness_night, "dbrn", NULL, distributeBrightnessLevels) || saved;
+  saved = saveBool(request->getParam("dim_display_on_night", true), &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
   if (saved) autoBrightnessUpdate();
   
@@ -3668,9 +3693,6 @@ void connectStatuses() {
 
 void distributeBrightnessLevels() {
   distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
-#if DISPLAY_ENABLED
-if (displayInited) distributeBrightnessLevelsFor(settings.disp_brightness, settings.disp_brightness_night, dispBrightnessLevels, "Display");
-#endif
 }
 
 void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
@@ -3741,7 +3763,7 @@ int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrigh
   if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return getBrightnessFromSensor(brightnessLevels);
+  if (settings.brightness_mode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
 
   // if auto brightnes deactivated, return regular brightnes
   //default
