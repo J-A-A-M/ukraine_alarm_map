@@ -1529,6 +1529,7 @@ int getHaDisplayMode(int localDisplayMode) {
 }
 
 bool detectI2CDevice(uint8_t address, const char* deviceName) {
+#if DISPLAY_ENABLED || BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
   Wire.begin();
   Wire.beginTransmission(address);
   uint8_t error = Wire.endTransmission();
@@ -1539,6 +1540,9 @@ bool detectI2CDevice(uint8_t address, const char* deviceName) {
     Serial.printf("%s NOT found! Checked address - 0x%02x \n", deviceName, address);
     return false;
   }
+#else
+  return false;
+#endif
 }
 
 void initDisplay() {
