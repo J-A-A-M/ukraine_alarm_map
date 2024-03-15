@@ -541,9 +541,14 @@ bool    sht3xInited = false;
 bool    htu2xInited = false;
 float   localTemp = -273;
 float   localHum = -1;
-float   localPresure = -1;
+float   localPressure = -1;
 int     beepHour = -1;
 bool    displayInited = false;
+char    uptimeChar[25];
+char    cpuTempChar[10];
+char    usedMemoryChar[10];
+char    freeMemoryChar[10];
+char    wifiSignalChar[10];
 
 #define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
@@ -2566,7 +2571,7 @@ void showLocalHum() {
 
 void showLocalPresure() {
   char message[12];
-  sprintf(message, "%.1fmmHg", localPresure);
+  sprintf(message, "%.1fmmHg", localPressure);
   displayMessage(message, "Тиск");
 }
 
@@ -2579,7 +2584,7 @@ void showLocalClimateInfo(int index) {
     showLocalHum();
     return;
   }
-  if (index <= 2 && localPresure > 0) {
+  if (index <= 2 && localPressure > 0) {
     showLocalPresure();
     return;
   }
@@ -2589,7 +2594,7 @@ int getClimateInfoSize() {
   int size = 0;
   if (localTemp > -273) size++;
   if (localHum > 0) size++;
-  if (localPresure > 0) size++;
+  if (localPressure > 0) size++;
   return size;
 }
 
@@ -2675,7 +2680,10 @@ void setupRouting() {
   webserver.on("/saveColors", HTTP_POST, handleSaveColors);
   webserver.on("/saveWeather", HTTP_POST, handleSaveWeather);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
+#if BUZZER_ENABLED
   webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+#endif
+  webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
   webserver.on("/saveDev", HTTP_POST, handleSaveDev);
 #if FW_UPDATE_ENABLED
   webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
@@ -2851,6 +2859,28 @@ String addInputText(const char* name, int inputFieldIndex, const char* label, co
   return html;
 }
 
+String addCard(const char* title, const char* value, const char* unitOfMeasurement = "", int size = 1) {
+  String html;
+  html += "<div class='col-auto mb-2'>";
+  html += "<div class='card' style='width: 15rem; height: 8rem;'>";
+  html += "<div class='card-body'>";
+  html += "<h5 class='card-title text-center'>";
+  html += title;
+  html += "</h5>";
+  html += "<h";
+  html += size;
+  html += " class=' card-text text-center'>";
+  html += value;
+  html += unitOfMeasurement;
+  html += "</h";
+  html += size;
+  html += ">";
+  html += "</div>";
+  html += "</div>";
+  html += "</div>";
+  return html;
+}
+
 void handleRoot(AsyncWebServerRequest* request) {
   String html;
   html += "<!DOCTYPE html>";
@@ -2880,8 +2910,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += " ";
   html += currentFwVersion;
   html += "</h2>";
-  html += "<div class='row'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row justify-content-center'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += "<img class='full-screen-img' src='http://alerts.net.ua/";
@@ -2909,8 +2939,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</div>";
   html += "</div>";
-  html += "<div class='row'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row justify-content-center'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += "<h5>Локальна IP-адреса: ";
@@ -2943,8 +2973,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
 #if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
-    html += "<div class='row'>";
-    html += "<div class='col-md-8 offset-md-2'>";
+    html += "<div class='row justify-content-center'>";
+    html += "<div class='col-md-9'>";
     html += "<div class='row'>";
     html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
     html += "<h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
@@ -2958,8 +2988,8 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "</div>";
   }
 #endif
-  html += "<div class='row'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row justify-content-center'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += "<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
@@ -2979,6 +3009,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "Звуки";
   html += "</button>";
 #endif
+  html += " <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#collapseTelemetry' aria-expanded='false' aria-controls='collapseTelemetry'>";
+  html += "Телеметрія";
+  html += "</button>";
   html += " <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
   html += "DEV";
   html += "</button>";
@@ -2992,8 +3025,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</div>";
   html += "<form action='/saveBrightness' method='POST'>";
-  html += "<div class='row collapse' id='collapseBrightness' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseBrightness' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
@@ -3020,8 +3053,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
   html += "<form action='/saveColors' method='POST'>";
-  html += "<div class='row collapse' id='collapseColors' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseColors' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addSliderInt("color_alert", 3, "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, 3);
@@ -3036,8 +3069,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
   html += "<form action='/saveWeather' method='POST'>";
-  html += "<div class='row collapse' id='collapseWeather' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseWeather' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addSliderInt("weather_min_temp", 18, "Нижній рівень температури", settings.weather_min_temp, -20, 10, 1, "°C");
@@ -3049,8 +3082,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
   html += "<form action='/saveModes' method='POST'>";
-  html += "<div class='row collapse' id='collapseModes' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseModes' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   if (settings.legacy) {
@@ -3103,8 +3136,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</form>";
 #if BUZZER_ENABLED
   html += "<form action='/saveSounds' method='POST'>";
-  html += "<div class='row collapse' id='collapseSounds' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseSounds' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
@@ -3125,16 +3158,47 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
 #endif
-  html += "<form action='/saveDev' method='POST'>";
-  html += "<div class='row collapse' id='collapseTech' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<form action='/refreshTelemetry' method='POST'>";
+  html += "<div class='row collapse justify-content-center' id='collapseTelemetry' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
-  html += "<b>";
-  html += "<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
-  html += "<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
-  html += "<p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
-  html += "</b>";
+  html += "<div class='row justify-content-center'>";
+
+  html += addCard("Час роботи", uptimeChar, "", 2);
+  html += addCard("Темп. ESP32", cpuTempChar, "°C");
+  html += addCard("Вільн. памʼять", freeMemoryChar, "кБ");
+  html += addCard("Викор. памʼять", usedMemoryChar, "кБ");
+  html += addCard("WiFi сигнал", wifiSignalChar, "dBm");
+  #if HA_ENABLED
+  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
+  #endif
+  html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
+  if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
+    html += addCard("Температура", floatToString(localTemp).c_str(), "°C");
+  }
+  if (bme280Inited || sht3xInited || htu2xInited) {
+    html += addCard("Вологість", floatToString(localHum).c_str(), "%");
+  }
+  if (bme280Inited || bmp280Inited) {
+    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 2);
+  }
+  if (bh1750Inited) {
+    html += addCard("Освітленість", floatToString(lightInLuxes).c_str(), "lx");
+  }
+
+  html += "</div>";
+  html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
+  html += "</div>";
+  html += "</div>";
+  html += "</div>";
+  html += "</div>";
+  html += "</form>";
+  html += "<form action='/saveDev' method='POST'>";
+  html += "<div class='row collapse justify-content-center' id='collapseTech' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
+  html += "<div class='row'>";
+  html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addSelectBox("legacy", 8, "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
   #if HA_ENABLED
   html += addInputText("ha_brokeraddress", 1, "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
@@ -3159,6 +3223,11 @@ void handleRoot(AsyncWebServerRequest* request) {
 #if BUZZER_ENABLED
   html += addInputText("lightpin", 15, "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
+  html += "<b>";
+  html += "<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
+  html += "<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
+  html += "<p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
+  html += "</b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3166,8 +3235,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
 #if FW_UPDATE_ENABLED
-  html += "<div class='row collapse' id='collapseFirmware' data-parent='#accordion'>";
-  html += "<div class='col-md-8 offset-md-2'>";
+  html += "<div class='row collapse justify-content-center' id='collapseFirmware' data-parent='#accordion'>";
+  html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
@@ -3228,39 +3297,43 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += ", 'slider24'";
   html += "];";
   html += "const urlParams = new URLSearchParams(window.location.search);";
-  html += "const activePage = urlParams.get('page');";
+  html += "const activePage = urlParams.get('p');";
   html += "switch (activePage) {";
-  html += "case 'brightness':";
+  html += "case 'brgh':";
   html += "document.getElementById('collapseBrightness').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'colors':";
+  html += "case 'clrs':";
   html += "document.getElementById('collapseColors').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'weather':";
+  html += "case 'wthr':";
   html += "document.getElementById('collapseWeather').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'modes':";
+  html += "case 'mds':";
   html += "document.getElementById('collapseModes').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'sounds':";
+  html += "case 'snd':";
   html += "document.getElementById('collapseSounds').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'dev':";
+  html += "case 'tlmtr':";
+  html += "document.getElementById('collapseTelemetry').classList.add('show');";
+  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "break;";
+  html += "case 'tch':";
   html += "document.getElementById('collapseTech').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
-  html += "case 'firmware':";
+  html += "case 'fw':";
   html += "document.getElementById('collapseFirmware').classList.add('show');";
   html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "break;";
   html += "}";
   html += " ";
-  html += "if (urlParams.get('saved') === 'true') {";
+  html += "if (urlParams.get('svd') === '1') {";
   html += "const toast = document.getElementById('liveToast');";
   html += "toast.classList.remove('hide');";
   html += "toast.classList.add('show');";
@@ -3565,8 +3638,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   
   if (saved) autoBrightnessUpdate();
   
-  char url[30] = "/?page=brightness&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=brgh&svd=%d", saved);
   request->redirect(url);
 }
 
@@ -3578,8 +3651,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
-  char url[26] = "/?page=colors&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=clrs&svd=%d", saved);
   request->redirect(url);
 }
 
@@ -3588,8 +3661,8 @@ void handleSaveWeather(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
   saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
 
-  char url[27] = "/?page=weather&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=wthr&svd=%d", saved);
   request->redirect(url);
 }
 
@@ -3626,8 +3699,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     return;
   }
 
-  char url[25] = "/?page=modes&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=mds&svd=%d", saved);
   request->redirect(url);
 }
 
@@ -3644,9 +3717,13 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("sound_on_button_click", true), &settings.sound_on_button_click, "sobc") || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson") || saved;
 
-  char url[26] = "/?page=sounds&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=snd&svd=%d", saved);
   request->redirect(url);
+}
+
+void handleRefreshTelemetry(AsyncWebServerRequest* request) {
+  request->redirect("/?p=tlmtr");
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -3674,7 +3751,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
     rebootDevice(3000, true);
     return;
   }
-  request->redirect("/?page=dev");
+  request->redirect("/?p=tch");
 }
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
@@ -3682,8 +3759,8 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
-  char url[28] = "/?page=firmware&saved=";
-  strcat(url, saved ? "true" : "false");
+  char url[15];
+  sprintf(url, "/?p=fw&svd=%d", saved);
   request->redirect(url);
 }
 #endif
@@ -3699,12 +3776,21 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 //--Service messages start
 void uptime() {
   int   uptimeValue   = millis() / 1000;
+  fillUptime(uptimeValue);
+
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
+  sprintf(freeMemoryChar, "%.1f", freeHeapSize);
+
   float usedHeapSize  = totalHeapSize - freeHeapSize;
+  sprintf(usedMemoryChar, "%.1f", usedHeapSize);
+
   float cpuTemp       = temperatureRead();
+  sprintf(cpuTempChar, "%.1f", cpuTemp);
             
   rssi = WiFi.RSSI();
+  sprintf(wifiSignalChar, "%d", rssi);
+
 #if HA_ENABLED
   if (enableHA) {
     haUptime->setValue(uptimeValue);
@@ -3714,6 +3800,19 @@ void uptime() {
     haCpuTemp->setValue(cpuTemp);
   }
 #endif
+}
+
+void fillUptime(int uptimeValue) {
+  unsigned long seconds = uptimeValue;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  seconds %= 60;
+  minutes %= 60;
+  if (hours > 0) {
+    sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
+  } else {
+    sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
+  }
 }
 
 void connectStatuses() {
@@ -4364,7 +4463,7 @@ void localTempHumSensorCycle() {
     bme280.takeForcedMeasurement();
 
     localTemp = bme280.getTemperatureCelsiusAsFloat() + settings.temp_correction;
-    localPresure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.pressure_correction;  //mmHg
+    localPressure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.pressure_correction;  //mmHg
 
     if (bme280Inited) {
       localHum = bme280.getRelativeHumidityAsFloat() + settings.hum_correction;
@@ -4377,7 +4476,7 @@ void localTempHumSensorCycle() {
     // Serial.print(localHum);
     // Serial.print("%");
     // Serial.print("\tPressure: ");
-    // Serial.print(localPresure);
+    // Serial.print(localPressure);
     // Serial.println("mmHg");
     return;
   }
