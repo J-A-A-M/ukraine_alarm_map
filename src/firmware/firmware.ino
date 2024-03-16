@@ -120,9 +120,9 @@ struct Settings {
   int     melody_on_startup      = 0;
   int     sound_on_min_of_sl     = 0;
   int     sound_on_alert         = 0;
-  int     melody_on_alert        = 2;
+  int     melody_on_alert        = 3;
   int     sound_on_alert_end     = 0;
-  int     melody_on_alert_end    = 3;
+  int     melody_on_alert_end    = 4;
   int     sound_on_every_hour    = 0;
   int     sound_on_button_click  = 0;
   int     mute_sound_on_night    = 0;
@@ -212,6 +212,7 @@ SHTSensor         sht3x(SHTSensor::SHT3X);
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 const char uaAnthem[]             PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
+const char OiULuzi[]              PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a#4,2d.,4e,2f,2e,2d.";
 const char harryPother[]          PROGMEM = "HarryPotter:d=8,o=6,b=100:b5,e.,16g,f#,4e,b,4a.,4f#.,e.,16g,f#,4d,f,2b5";
 const char siren[]                PROGMEM = "Siren:d=32,o=6,b=225:16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#";
 const char communicator[]         PROGMEM = "Communicator:d=32,o=7,b=180:d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f";
@@ -225,14 +226,16 @@ const char theLittleMermaid[]     PROGMEM = "TheLittleMermaid:d=32,o=7,b=100:16c
 const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
 
+
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
 const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 13
+#define MELODIES_COUNT 14
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
+  OiULuzi,
   harryPother,
   siren,
   communicator,
@@ -249,6 +252,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Гімн України",
+  "Ой у лузі",
   "Гаррі Поттер",
   "Сирена",
   "Комунікатор",
@@ -2822,21 +2826,13 @@ String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const ch
   html += "'";
   if (isChecked) html += " checked";
   html += "/>";
-  html += "<label class='form-check-label' for=checkbox'";
-  html += checkboxIndex;
-  html += "'>";
   html += label;
-  html += "</label>";
   html += "</div>";
   return html;
 }
 
 String addSliderInt(const char* name, int sliderIndex, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, int colorBoxIndex = -1) {
   String html;
-  html += "<div class='form-group'>";
-  html += "<label for='slider";
-  html += sliderIndex;
-  html += "'>";
   html += label;
   html += ": <span id='sliderValue";
   html += sliderIndex;
@@ -2844,7 +2840,6 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   html += value;
   html += "</span>";
   html += unitOfMeasurement;
-  html += "</label>";
   if (colorBoxIndex > 0) {
     html += "</br><div class='color-box' id='colorBox";
     html += colorBoxIndex;
@@ -2865,16 +2860,12 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   html += "'";
   html += disabled ? " disabled" : "";
   html += "/>";
-  html += "</div>";
+  html += "</br>";
   return html;
 }
 
 String addSliderFloat(const char* name, int sliderIndex, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
   String html;
-  html += "<div class='form-group'>";
-  html += "<label for='slider";
-  html += sliderIndex;
-  html += "'>";
   html += label;
   html += ": <span id='sliderValue";
   html += sliderIndex;
@@ -2882,7 +2873,6 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   html += floatToString(value);
   html += "</span>";
   html += unitOfMeasurement;
-  html += "</label>";
   html += "<input type='range' name='";
   html += name;
   html += "' class='form-control-range' id='slider";
@@ -2898,18 +2888,13 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   html += "'";
   html += disabled ? " disabled" : "";
   html += "/>";
-  html += "</div>";
+  html += "</br>";
   return html;
 }
 
 String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, char* onChanges = NULL) {
   String html;
-  html += "<div class='form-group'>";
-  html += "<label for='selectBox";
-  html += selectIndex;
-  html += "'>";
   html += label;
-  html += "</label>";
   html += "<select name='";
   html += name;
   html += "' class='form-control' id='selectBox";
@@ -2939,18 +2924,13 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
     html += "</option>";
   }
   html += "</select>";
-  html += "</div>";
+  html += "</br>";
   return html;
 }
 
 String addInputText(const char* name, int inputFieldIndex, const char* label, const char* type, const char* value, int maxLength = -1) {
   String html;
-  html += "<div class='form-group'>";
-  html += "<label for='inputField";
-  html += inputFieldIndex;
-  html += "'>";
   html += label;
-  html += "</label>";
   html += "<input type='";
   html += type;
   html += "' name='";
@@ -2966,14 +2946,14 @@ String addInputText(const char* name, int inputFieldIndex, const char* label, co
   html += "' value='";
   html += value;
   html += "'>";
-  html += "</div>";
+  html += "</br>";
   return html;
 }
 
 String addCard(const char* title, const char* value, const char* unitOfMeasurement = "", int size = 1) {
   String html;
   html += "<div class='col-auto mb-2'>";
-  html += "<div class='card' style='width: 15rem; height: 8rem;'>";
+  html += "<div class='card' style='width: 13rem; height: 8rem;'>";
   html += "<div class='card-body'>";
   html += "<h5 class='card-title text-center'>";
   html += title;
@@ -3007,11 +2987,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "body { background-color: #4396ff; }";
   html += ".btn {margin-bottom: 0.25rem;}";
   html += ".container { padding: 20px; }";
-  html += "label { font-weight: bold; }";
-  html += "#sliderValue1, #sliderValue2, #sliderValue3, #sliderValue4 { font-weight: bold; color: #070505; }";
   html += ".color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
   html += ".full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
-  html += ".box_yellow { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
+  html += ".by { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
   html += "</style>";
   html += "</head>";
   html += "<body>";
@@ -3024,7 +3002,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row justify-content-center'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += "<img class='full-screen-img' src='http://alerts.net.ua/";
   switch (getCurrentMapMode()) {
     case 0:
@@ -3053,12 +3031,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row justify-content-center'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
-  html += "<h5>Локальна IP-адреса: ";
+  html += "<div class='by col-md-12 mt-2'>";
+  html += "Локальна IP-адреса: <b>";
   html += getLocalIP();
-  html += "</h5>";
+  html += "</b></br>";
   #if DISPLAY_ENABLED
-  html += "<h5>Дисплей: ";
+  html += "Дисплей: <b>";
   if (displayInited) {
     html += "SSD1306 (128x";
     html += display.height();
@@ -3066,17 +3044,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   } else {
     html += "Немає";
   }
-  html += "</h5>";
+  html += "</b></br>";
   #endif
   #if BH1750_ENABLED
-  html += "<h5>Сенсор освітлення: ";
+  html += "Сенсор освітлення: <b>";
   html += bh1750Inited ? "BH1750" : "Немає";
-  html += "</h5>";
+  html += "</b></br>";
   #endif
   #if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
-  html += "<h5>Сенсор клімату: ";
+  html += "Сенсор клімату: <b>";
   html += bme280Inited ? "BME280" : bmp280Inited ? "BMP280" : sht3xInited ? "SHT3x" : htu2xInited ? "SHT2x" : "Немає";
-  html += "</h5>";
+  html += "</b></br>";
   #endif
   html += "</div>";
   html += "</div>";
@@ -3087,7 +3065,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "<div class='row justify-content-center'>";
     html += "<div class='col-md-9'>";
     html += "<div class='row'>";
-    html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
+    html += "<div class='by col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
     html += "<h8>Доступна нова версія прошивки - <strong><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
     html += newFwVersion;
     html += "'>";
@@ -3102,7 +3080,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row justify-content-center'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += "<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
   html += "Яскравість";
   html += "</button>";
@@ -3139,7 +3117,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseBrightness' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <strong>";
   html += settings.current_brightness;
   html += "%</strong></div>";
@@ -3170,7 +3148,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseColors' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += addSliderInt("color_alert", 3, "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, 3);
   html += addSliderInt("color_clear", 4, "Області без тривог", settings.color_clear, 0, 360, 1, "", false, 4);
   html += addSliderInt("color_new_alert", 5, "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, 5);
@@ -3186,7 +3164,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseWeather' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += addSliderInt("weather_min_temp", 18, "Нижній рівень температури", settings.weather_min_temp, -20, 10, 1, "°C");
   html += addSliderInt("weather_max_temp", 8, "Верхній рівень температури", settings.weather_max_temp, 11, 40, 1, "°C");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
@@ -3199,7 +3177,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseModes' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   if (settings.legacy) {
   html += addSelectBox("kyiv_district_mode", 1, "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
@@ -3253,7 +3231,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseSounds' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
   html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_min_of_sl", 5, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
@@ -3276,18 +3254,18 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseTelemetry' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += "<div class='row justify-content-center'>";
 
-  html += addCard("Час роботи", uptimeChar, "", 2);
+  html += addCard("Час роботи", uptimeChar, "", 3);
   html += addCard("Темп. ESP32", cpuTempChar, "°C");
   html += addCard("Вільн. памʼять", freeMemoryChar, "кБ");
   html += addCard("Викор. памʼять", usedMemoryChar, "кБ");
   html += addCard("WiFi сигнал", wifiSignalChar, "dBm");
   #if HA_ENABLED
-  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
+  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 3);
   #endif
-  html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
+  html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 3);
   if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
     html += addCard("Температура", floatToString(localTemp).c_str(), "°C");
   }
@@ -3295,11 +3273,12 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addCard("Вологість", floatToString(localHum).c_str(), "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 2);
+    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 3);
   }
   if (bh1750Inited) {
     html += addCard("Освітленість", floatToString(lightInLuxes).c_str(), "lx");
   }
+  html += addCard("Яскравість", String(settings.current_brightness).c_str(), "%");
 
   html += "</div>";
   html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
@@ -3312,7 +3291,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseTech' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += addSelectBox("legacy", 8, "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
   #if HA_ENABLED
   html += addInputText("ha_brokeraddress", 1, "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
@@ -3352,7 +3331,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='collapseFirmware' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
-  html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='by col-md-12 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
 #if DISPLAY_ENABLED
   if (displayInited) html += addCheckbox("new_fw_notification", 10, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
@@ -3362,8 +3341,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</form>";
   html += "<form action='/update' method='POST'>";
-  html += "<div class='form-group'>";
-  html += "<label for='selectBox16'>Файл прошивки</label>";
+  html += "Файл прошивки";
   html += "<select name='bin_name' class='form-control' id='selectBox16'>";
   const int count = settings.fw_update_channel ? testBinsCount : binsCount;
     for (int i = 0; i < count; i++) {
@@ -3373,7 +3351,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += ">" + filename + "</option>";
   }
   html += "</select>";
-  html += "</div>";
+  html += "</br>";
   html += "<button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>";
   html += "</form>";
   html += "</div>";
