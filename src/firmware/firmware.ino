@@ -120,9 +120,9 @@ struct Settings {
   int     melody_on_startup      = 0;
   int     sound_on_min_of_sl     = 0;
   int     sound_on_alert         = 0;
-  int     melody_on_alert        = 1;
+  int     melody_on_alert        = 2;
   int     sound_on_alert_end     = 0;
-  int     melody_on_alert_end    = 2;
+  int     melody_on_alert_end    = 3;
   int     sound_on_every_hour    = 0;
   int     sound_on_button_click  = 0;
   int     mute_sound_on_night    = 0;
@@ -212,24 +212,55 @@ SHTSensor         sht3x(SHTSensor::SHT3X);
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 const char uaAnthem[]             PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
+const char harryPother[]          PROGMEM = "HarryPotter:d=8,o=6,b=100:b5,e.,16g,f#,4e,b,4a.,4f#.,e.,16g,f#,4d,f,2b5";
+const char siren[]                PROGMEM = "Siren:d=32,o=6,b=225:16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#";
+const char communicator[]         PROGMEM = "Communicator:d=32,o=7,b=180:d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f";
+const char starWars[]             PROGMEM = "StarWars:d=4,o=5,b=180:8f,8f,8f,2a#.,2f.6,8d#6,8d6,8c6,2a#.6,f.6,8d#6,8d6,8c6,2a#.6,f.6,8d#6,8d6,8d#6,2c6";
 const char imperialMarch[]        PROGMEM = "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
+const char starTrack[]            PROGMEM = "StarTrek:d=4,o=5,b=63:32p,8f.,16a#,d#.6,8d6,16a#.,16g.,16c.6,f6";
+const char indianaJones[]         PROGMEM = "IndianaJones:d=4,o=5,b=250:e,8p,8f,8g,8p,2c.6,8p.,d,8p,8e,1f,p.,g,8p,8a,8b,8p,2f.6,p,a,8p,8b,2c6,2d6,2e6";
+const char backToTheFuture[]      PROGMEM = "BackToTheFuture:d=4,o=6,b=180:2c,8b5,8a5,b5,a5,g5,1a5,p,d,2c,8b5,8a5,b5,a5,g5,1a5";
+const char kissIWasMade[]         PROGMEM = "KissIWasMade:d=4,o=5,b=125:c6,d6,8d#6,8p,8f6,8g6,8p,8g6,f6,d#6,d6,c6,d6,8d#6,8p,8f6,8g6,8p,8g6,f.6";
+const char theLittleMermaid[]     PROGMEM = "TheLittleMermaid:d=32,o=7,b=100:16c5,16f5,16a5,16c6,16p,16c6,16p,16c6,8a#5,8d6,8c6,8a5,16f4,16a4,16c5,16f5,16p,16f5,16p,16f5,8e5,8g5,8f5";
 const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
+const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
+
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
 const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 3
+#define MELODIES_COUNT 13
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
+  harryPother,
+  siren,
+  communicator,
+  starWars,
   imperialMarch,
-  nokiaTun
+  starTrack,
+  indianaJones,
+  backToTheFuture,
+  kissIWasMade,
+  theLittleMermaid,
+  nokiaTun,
+  packman,
 };
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Гімн України",
+  "Гаррі Поттер",
+  "Сирена",
+  "Комунікатор",
+  "Зоряні війни",
   "Імперський марш",
-  "Nokia tune"
+  "Зоряний шлях",
+  "Індіана Джонс",
+  "Назад у майбутнє",
+  "Kiss - I Was Made",
+  "Русалонька",
+  "Nokia tune",
+  "Пакмен",
 };
 #endif
 
@@ -578,7 +609,7 @@ char chipID[13];
 char localIP[16];
 #if HA_ENABLED
 HADevice        device;
-HAMqtt          mqtt(client, device, 19);
+HAMqtt          mqtt(client, device, 25);
 char haConfigUrl[30];
 
 char haUptimeID[20];
@@ -599,6 +630,11 @@ char haRebootID[20];
 char haToggleMapModeID[29];
 char haToggleDisplayModeID[33];
 char haLightID[19];
+char haAlarmAtHomeID[26];
+char haLocalTempID[24];
+char haLocalHumID[23];
+char haLocalPressureID[28];
+char haLightLevelID[25];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -620,6 +656,11 @@ HABinarySensor*  haMapApiConnect;
 HAButton*        haReboot;
 HAButton*        haToggleMapMode;
 HALight*         haLight;
+HABinarySensor*  haAlarmAtHome;
+HASensorNumber*  haLocalTemp;
+HASensorNumber*  haLocalHum;
+HASensorNumber*  haLocalPressure;
+HASensorNumber*  haLightLevel;
 #endif
 
 void initChipID() {
@@ -685,6 +726,30 @@ void initHaVars() {
 
   sprintf(haLightID, "%s_light", chipID);
   haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
+
+  sprintf(haAlarmAtHomeID, "%s_alarm_at_home", chipID);
+  haAlarmAtHome = new HABinarySensor(haAlarmAtHomeID);
+
+#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
+    if (bme280Inited || htu2xInited || sht3xInited) {
+      sprintf(haLocalTempID, "%s_local_temp", chipID);
+      haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
+
+      sprintf(haLocalHumID, "%s_local_hum", chipID);
+      haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
+    }
+    if (bme280Inited || bmp280Inited) {
+      sprintf(haLocalPressureID, "%s_local_pressure", chipID);
+      haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
+    }
+#endif
+#if BH1750_ENABLED
+    if (bh1750Inited) {
+      sprintf(haLightLevelID, "%s_light_level", chipID);
+      haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
+    }
+#endif
+
 #endif
 }
 
@@ -1386,7 +1451,8 @@ void initHA() {
       haMapModeCurrent->setIcon("mdi:map");
       haMapModeCurrent->setName("Current Map Mode");
 
-      haMapApiConnect->setName("Connectivity");
+      haMapApiConnect->setIcon("mdi:server-network");
+      haMapApiConnect->setName("Map API Connect");
       haMapApiConnect->setDeviceClass("connectivity");
       haMapApiConnect->setCurrentState(client_websocket.available());
 
@@ -1426,6 +1492,46 @@ void initHA() {
       haLight->onBrightnessCommand(onHaLightBrightness);
       haLight->onRGBColorCommand(onHaLightRGBColor);
 
+      haAlarmAtHome->setIcon("mdi:rocket-launch");
+      haAlarmAtHome->setName("Alarm At Home");
+      haAlarmAtHome->setDeviceClass("safety");
+      haAlarmAtHome->setCurrentState(checkHomeDistrictAlerts());
+
+#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
+    if (bme280Inited || htu2xInited || sht3xInited) {
+      haLocalTemp->setIcon("mdi:thermometer");
+      haLocalTemp->setName("Local Temperature");
+      haLocalTemp->setUnitOfMeasurement("°C");
+      haLocalTemp->setDeviceClass("temperature");
+      haLocalTemp->setStateClass("measurement");
+      haLocalTemp->setCurrentValue(localTemp);
+
+      haLocalHum->setIcon("mdi:water-percent");
+      haLocalHum->setName("Local Humidity");
+      haLocalHum->setUnitOfMeasurement("%");
+      haLocalHum->setDeviceClass("humidity");
+      haLocalHum->setStateClass("measurement");
+      haLocalHum->setCurrentValue(localHum);
+    }
+    if (bme280Inited || bmp280Inited) {
+      haLocalPressure->setIcon("mdi:gauge");
+      haLocalPressure->setName("Local Pressure");
+      haLocalPressure->setUnitOfMeasurement("mmHg");
+      haLocalPressure->setDeviceClass("pressure");
+      haLocalPressure->setStateClass("measurement");
+      haLocalPressure->setCurrentValue(localPressure);
+    }
+#endif
+#if BH1750_ENABLED
+    if (bh1750Inited) {
+      haLightLevel->setIcon("mdi:brightness-5");
+      haLightLevel->setName("Light Level");
+      haLightLevel->setUnitOfMeasurement("lx");
+      haLightLevel->setDeviceClass("illuminance");
+      haLightLevel->setStateClass("measurement");
+      haLightLevel->setCurrentValue(lightInLuxes);
+    }
+#endif
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
       mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
@@ -1642,7 +1748,7 @@ void updateDisplayBrightness() {
 #endif
 }
 
-void initI2cTempSensors() {
+void initI2cSensors() {
 #if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
   Wire.begin();
 #endif
@@ -2690,7 +2796,7 @@ void setupRouting() {
   webserver.on("/update", HTTP_POST, handleUpdate);
 #endif
 #if BUZZER_ENABLED
-  webserver.on("/playTestSound", HTTP_POST, handlePlayTestSound);
+  webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
 #endif
   webserver.begin();
   Serial.println("Webportal running");
@@ -2796,7 +2902,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   return html;
 }
 
-String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL) {
+String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, char* onChanges = NULL) {
   String html;
   html += "<div class='form-group'>";
   html += "<label for='selectBox";
@@ -2809,6 +2915,11 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
   html += "' class='form-control' id='selectBox";
   html += selectIndex;
   html += "'";
+  if (onChanges) {
+    html += " onchange='";
+    html += onChanges;
+    html += "'";
+  }
   html += disabled ? " disabled" : "";
   html += ">";
   for (int i = 0; i < optionsCount; i++) {
@@ -2976,12 +3087,12 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "<div class='row justify-content-center'>";
     html += "<div class='col-md-9'>";
     html += "<div class='row'>";
-    html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "<h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
+    html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
+    html += "<h8>Доступна нова версія прошивки - <strong><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
     html += newFwVersion;
     html += "'>";
     html += newFwVersion;
-    html += "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "</a></strong></br>Для оновлення перейдіть в розділ <strong><a href='/?p=fw'>Прошивка</a></strong></h8>";
     html += "</div>";
     html += "</div>";
     html += "</div>";
@@ -3029,6 +3140,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <strong>";
+  html += settings.current_brightness;
+  html += "%</strong></div>";
   html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
   html += addSliderInt("brightness_day", 13, "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
@@ -3141,12 +3255,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
   html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
-  html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0);
+  html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_min_of_sl", 5, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
   html += addCheckbox("sound_on_alert", 6, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні");
-  html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0);
+  html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_alert_end", 7, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні");
-  html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0);
+  html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_every_hour", 8, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
   html += addCheckbox("sound_on_button_click", 8, settings.sound_on_button_click, "Сигнали при натисканні кнопки");
   html += addCheckbox("mute_sound_on_night", 11, settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"");
@@ -3346,9 +3460,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "}";
   html += " ";
   #if BUZZER_ENABLED
-  html += "function playTestSound () {";
+  html += "function playTestSound(soundId = 3) {";
   html += "  var xhttp = new XMLHttpRequest();";
-  html += "  xhttp.open('GET', '/playTestSound', true);";
+  html += "  xhttp.open('GET', '/playTestSound/?id='.concat(soundId), true);";
   html += "  xhttp.send();";
   html += "}";
   html += " ";
@@ -3767,7 +3881,9 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 
 #if BUZZER_ENABLED
 void handlePlayTestSound(AsyncWebServerRequest* request) {
-  playMelody(nokiaTun);
+  int soundId = request->getParam("id", false)->value().toInt();
+  playMelody(melodies[soundId]);
+  showServiceMessage(melodyNames[soundId], "Мелодія");
   request->send(200, "text/plain", "Test sound played!");
 }
 #endif
@@ -4422,7 +4538,7 @@ void calculateStates() {
 #endif
 }
 
-void checkHomeDistrictAlerts() {
+bool checkHomeDistrictAlerts() {
   int ledStatus = alarm_leds[calculateOffset(settings.home_district)];
   bool localAlarmNow = (ledStatus == 1 || ledStatus == 3);
   if (localAlarmNow != alarmNow) {
@@ -4437,7 +4553,13 @@ void checkHomeDistrictAlerts() {
     } else {
       showServiceMessage("Відбій!", "У вашому регіоні", 5000);
     }
+#if HA_ENABLED
+    if (enableHA) {
+      haAlarmAtHome->setState(alarmNow);
+    }
+#endif
   }
+  return localAlarmNow;
 }
 
 void checkCurrentTimeAndPlaySound() {
@@ -4451,9 +4573,42 @@ void bh1750LightSensorCycle() {
 #if BH1750_ENABLED
   if (!bh1750Inited) return;
   lightInLuxes = bh1750.getLux() * settings.light_sensor_factor;
+  updateHaLightSensors();
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
   // Serial.println(" lx");
+#endif
+}
+
+void updateHaTempSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localTemp > -273) haLocalTemp->setValue(localTemp);
+  }
+#endif
+}
+
+void updateHaHumSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localHum > 0) haLocalHum->setValue(localHum);
+  }
+#endif
+}
+
+void updateHaPressureSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localPressure > 0) haLocalPressure->setValue(localPressure);
+  }
+#endif
+}
+
+void updateHaLightSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (lightInLuxes > 0) haLightLevel->setValue(lightInLuxes);
+  }
 #endif
 }
 
@@ -4463,10 +4618,13 @@ void localTempHumSensorCycle() {
     bme280.takeForcedMeasurement();
 
     localTemp = bme280.getTemperatureCelsiusAsFloat() + settings.temp_correction;
+    updateHaTempSensors();
     localPressure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.pressure_correction;  //mmHg
+    updateHaPressureSensors();
 
     if (bme280Inited) {
       localHum = bme280.getRelativeHumidityAsFloat() + settings.hum_correction;
+      updateHaHumSensors();
     }
 
     // Serial.print("BME280! Temp: ");
@@ -4484,7 +4642,9 @@ void localTempHumSensorCycle() {
 #if SHT3X_ENABLED
   if (sht3xInited && sht3x.readSample()) {
     localTemp = sht3x.getTemperature() + settings.temp_correction;
+    updateHaTempSensors();
     localHum = sht3x.getHumidity() + settings.hum_correction;
+    updateHaHumSensors();
 
     // Serial.print("SHT3X! Temp: ");
     // Serial.print(localTemp);
@@ -4498,7 +4658,9 @@ void localTempHumSensorCycle() {
 #if SHT2X_ENABLED
   if (htu2xInited && htu2x.readSample()) {
     localTemp = htu2x.getTemperature() + settings.temp_correction;
+    updateHaTempSensors();
     localHum = htu2x.getHumidity() + settings.hum_correction;
+    updateHaHumSensors();
 
     // Serial.print("HTU2X! Temp: ");
     // Serial.print(localTemp);
@@ -4521,7 +4683,7 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
-  initI2cTempSensors();
+  initI2cSensors();
   initWifi();
   initTime();
 
