@@ -120,9 +120,9 @@ struct Settings {
   int     melody_on_startup      = 0;
   int     sound_on_min_of_sl     = 0;
   int     sound_on_alert         = 0;
-  int     melody_on_alert        = 3;
+  int     melody_on_alert        = 4;
   int     sound_on_alert_end     = 0;
-  int     melody_on_alert_end    = 4;
+  int     melody_on_alert_end    = 5;
   int     sound_on_every_hour    = 0;
   int     sound_on_button_click  = 0;
   int     mute_sound_on_night    = 0;
@@ -213,6 +213,7 @@ SHTSensor         sht3x(SHTSensor::SHT3X);
 MelodyPlayer* player;
 const char uaAnthem[]             PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 const char OiULuzi[]              PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a#4,2d.,4e,2f,2e,2d.";
+const char CossacksMarch[]        PROGMEM = "CossacksMarch:d=32,o=5,b=200:2d.,8a#4,8d,2f.,8d,8f,4d,8a#4,8d,4f,8d,8f,4d,8a#4,8d,4f,8d,8f,1d.";
 const char harryPother[]          PROGMEM = "HarryPotter:d=8,o=6,b=100:b5,e.,16g,f#,4e,b,4a.,4f#.,e.,16g,f#,4d,f,2b5";
 const char siren[]                PROGMEM = "Siren:d=32,o=6,b=225:16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#";
 const char communicator[]         PROGMEM = "Communicator:d=32,o=7,b=180:d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f";
@@ -232,10 +233,11 @@ const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 14
+#define MELODIES_COUNT 15
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
   OiULuzi,
+  CossacksMarch,
   harryPother,
   siren,
   communicator,
@@ -253,6 +255,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Гімн України",
   "Ой у лузі",
+  "Козацький марш",
   "Гаррі Поттер",
   "Сирена",
   "Комунікатор",
