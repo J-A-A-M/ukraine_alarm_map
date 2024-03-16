@@ -578,7 +578,7 @@ char chipID[13];
 char localIP[16];
 #if HA_ENABLED
 HADevice        device;
-HAMqtt          mqtt(client, device, 19);
+HAMqtt          mqtt(client, device, 25);
 char haConfigUrl[30];
 
 char haUptimeID[20];
@@ -599,6 +599,11 @@ char haRebootID[20];
 char haToggleMapModeID[29];
 char haToggleDisplayModeID[33];
 char haLightID[19];
+char haAlarmAtHomeID[26];
+char haLocalTempID[24];
+char haLocalHumID[23];
+char haLocalPressureID[28];
+char haLightLevelID[25];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -620,6 +625,11 @@ HABinarySensor*  haMapApiConnect;
 HAButton*        haReboot;
 HAButton*        haToggleMapMode;
 HALight*         haLight;
+HABinarySensor*  haAlarmAtHome;
+HASensorNumber*  haLocalTemp;
+HASensorNumber*  haLocalHum;
+HASensorNumber*  haLocalPressure;
+HASensorNumber*  haLightLevel;
 #endif
 
 void initChipID() {
@@ -685,6 +695,30 @@ void initHaVars() {
 
   sprintf(haLightID, "%s_light", chipID);
   haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
+
+  sprintf(haAlarmAtHomeID, "%s_alarm_at_home", chipID);
+  haAlarmAtHome = new HABinarySensor(haAlarmAtHomeID);
+
+#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
+    if (bme280Inited || htu2xInited || sht3xInited) {
+      sprintf(haLocalTempID, "%s_local_temp", chipID);
+      haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
+
+      sprintf(haLocalHumID, "%s_local_hum", chipID);
+      haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
+    }
+    if (bme280Inited || bmp280Inited) {
+      sprintf(haLocalPressureID, "%s_local_pressure", chipID);
+      haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
+    }
+#endif
+#if BH1750_ENABLED
+    if (bh1750Inited) {
+      sprintf(haLightLevelID, "%s_light_level", chipID);
+      haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
+    }
+#endif
+
 #endif
 }
 
@@ -1386,7 +1420,8 @@ void initHA() {
       haMapModeCurrent->setIcon("mdi:map");
       haMapModeCurrent->setName("Current Map Mode");
 
-      haMapApiConnect->setName("Connectivity");
+      haMapApiConnect->setIcon("mdi:server-network");
+      haMapApiConnect->setName("Map API Connect");
       haMapApiConnect->setDeviceClass("connectivity");
       haMapApiConnect->setCurrentState(client_websocket.available());
 
@@ -1426,6 +1461,46 @@ void initHA() {
       haLight->onBrightnessCommand(onHaLightBrightness);
       haLight->onRGBColorCommand(onHaLightRGBColor);
 
+      haAlarmAtHome->setIcon("mdi:rocket-launch");
+      haAlarmAtHome->setName("Alarm At Home");
+      haAlarmAtHome->setDeviceClass("safety");
+      haAlarmAtHome->setCurrentState(checkHomeDistrictAlerts());
+
+#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
+    if (bme280Inited || htu2xInited || sht3xInited) {
+      haLocalTemp->setIcon("mdi:thermometer");
+      haLocalTemp->setName("Local Temperature");
+      haLocalTemp->setUnitOfMeasurement("°C");
+      haLocalTemp->setDeviceClass("temperature");
+      haLocalTemp->setStateClass("measurement");
+      haLocalTemp->setCurrentValue(localTemp);
+
+      haLocalHum->setIcon("mdi:water-percent");
+      haLocalHum->setName("Local Humidity");
+      haLocalHum->setUnitOfMeasurement("%");
+      haLocalHum->setDeviceClass("humidity");
+      haLocalHum->setStateClass("measurement");
+      haLocalHum->setCurrentValue(localHum);
+    }
+    if (bme280Inited || bmp280Inited) {
+      haLocalPressure->setIcon("mdi:gauge");
+      haLocalPressure->setName("Local Pressure");
+      haLocalPressure->setUnitOfMeasurement("mmHg");
+      haLocalPressure->setDeviceClass("pressure");
+      haLocalPressure->setStateClass("measurement");
+      haLocalPressure->setCurrentValue(localPressure);
+    }
+#endif
+#if BH1750_ENABLED
+    if (bh1750Inited) {
+      haLightLevel->setIcon("mdi:brightness-5");
+      haLightLevel->setName("Light Level");
+      haLightLevel->setUnitOfMeasurement("lx");
+      haLightLevel->setDeviceClass("illuminance");
+      haLightLevel->setStateClass("measurement");
+      haLightLevel->setCurrentValue(lightInLuxes);
+    }
+#endif
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
       mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
@@ -1642,7 +1717,7 @@ void updateDisplayBrightness() {
 #endif
 }
 
-void initI2cTempSensors() {
+void initI2cSensors() {
 #if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
   Wire.begin();
 #endif
@@ -4422,7 +4497,7 @@ void calculateStates() {
 #endif
 }
 
-void checkHomeDistrictAlerts() {
+bool checkHomeDistrictAlerts() {
   int ledStatus = alarm_leds[calculateOffset(settings.home_district)];
   bool localAlarmNow = (ledStatus == 1 || ledStatus == 3);
   if (localAlarmNow != alarmNow) {
@@ -4437,7 +4512,11 @@ void checkHomeDistrictAlerts() {
     } else {
       showServiceMessage("Відбій!", "У вашому регіоні", 5000);
     }
+    if (enableHA) {
+      haAlarmAtHome->setState(alarmNow);
+    }
   }
+  return localAlarmNow;
 }
 
 void checkCurrentTimeAndPlaySound() {
@@ -4451,9 +4530,42 @@ void bh1750LightSensorCycle() {
 #if BH1750_ENABLED
   if (!bh1750Inited) return;
   lightInLuxes = bh1750.getLux() * settings.light_sensor_factor;
+  updateHaLightSensors();
   // Serial.print("BH1750!\tLight: ");
   // Serial.print(lightInLuxes);
   // Serial.println(" lx");
+#endif
+}
+
+void updateHaTempSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localTemp > -273) haLocalTemp->setValue(localTemp);
+  }
+#endif
+}
+
+void updateHaHumSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localHum > 0) haLocalHum->setValue(localHum);
+  }
+#endif
+}
+
+void updateHaPressureSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (localPressure > 0) haLocalPressure->setValue(localPressure);
+  }
+#endif
+}
+
+void updateHaLightSensors() {
+#if HA_ENABLED
+  if (enableHA) {
+    if (lightInLuxes > 0) haLightLevel->setValue(lightInLuxes);
+  }
 #endif
 }
 
@@ -4463,10 +4575,13 @@ void localTempHumSensorCycle() {
     bme280.takeForcedMeasurement();
 
     localTemp = bme280.getTemperatureCelsiusAsFloat() + settings.temp_correction;
+    updateHaTempSensors();
     localPressure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.pressure_correction;  //mmHg
+    updateHaPressureSensors();
 
     if (bme280Inited) {
       localHum = bme280.getRelativeHumidityAsFloat() + settings.hum_correction;
+      updateHaHumSensors();
     }
 
     // Serial.print("BME280! Temp: ");
@@ -4484,7 +4599,9 @@ void localTempHumSensorCycle() {
 #if SHT3X_ENABLED
   if (sht3xInited && sht3x.readSample()) {
     localTemp = sht3x.getTemperature() + settings.temp_correction;
+    updateHaTempSensors();
     localHum = sht3x.getHumidity() + settings.hum_correction;
+    updateHaHumSensors();
 
     // Serial.print("SHT3X! Temp: ");
     // Serial.print(localTemp);
@@ -4498,7 +4615,9 @@ void localTempHumSensorCycle() {
 #if SHT2X_ENABLED
   if (htu2xInited && htu2x.readSample()) {
     localTemp = htu2x.getTemperature() + settings.temp_correction;
+    updateHaTempSensors();
     localHum = htu2x.getHumidity() + settings.hum_correction;
+    updateHaHumSensors();
 
     // Serial.print("HTU2X! Temp: ");
     // Serial.print(localTemp);
@@ -4521,7 +4640,7 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
-  initI2cTempSensors();
+  initI2cSensors();
   initWifi();
   initTime();
 
