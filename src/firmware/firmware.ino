@@ -3051,12 +3051,12 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "<div class='row justify-content-center'>";
     html += "<div class='col-md-9'>";
     html += "<div class='row'>";
-    html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #ffc107; color: #212529'>";
-    html += "<h8>Доступна нова версія прошивки <a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
+    html += "<div class='box_yellow col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
+    html += "<h8>Доступна нова версія прошивки - <strong><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
     html += newFwVersion;
     html += "'>";
     html += newFwVersion;
-    html += "</a></br>Для оновлення перейдіть в розділ \"Прошивка\"</h8>";
+    html += "</a></strong></br>Для оновлення перейдіть в розділ <strong><a href='/?p=fw'>Прошивка</a></strong></h8>";
     html += "</div>";
     html += "</div>";
     html += "</div>";
@@ -3104,6 +3104,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='box_yellow col-md-12 mt-2'>";
+  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <strong>";
+  html += settings.current_brightness;
+  html += "%</strong></div>";
   html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
   html += addSliderInt("brightness_day", 13, "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
