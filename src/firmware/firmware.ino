@@ -2816,14 +2816,19 @@ String floatToString(float value) {
   return String(result);
 }
 
-String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label) {
+String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, char* onChanges = NULL) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
   html += name;
-  html += "' type='checkbox' class='form-check-input' id=checkbox'";
+  html += "' type='checkbox' class='form-check-input' id='chb";
   html += checkboxIndex;
   html += "'";
+  if (onChanges) {
+    html += " onchange='";
+    html += onChanges;
+    html += "'";
+  }
   if (isChecked) html += " checked";
   html += "/>";
   html += label;
@@ -2834,20 +2839,20 @@ String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const ch
 String addSliderInt(const char* name, int sliderIndex, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, int colorBoxIndex = -1) {
   String html;
   html += label;
-  html += ": <span id='sliderValue";
+  html += ": <span id='sv";
   html += sliderIndex;
   html += "'>";
   html += value;
   html += "</span>";
   html += unitOfMeasurement;
   if (colorBoxIndex > 0) {
-    html += "</br><div class='color-box' id='colorBox";
+    html += "</br><div class='color-box' id='cb";
     html += colorBoxIndex;
     html += "'></div>";
   }
   html += "<input type='range' name='";
   html += name;
-  html += "' class='form-control-range' id='slider";
+  html += "' class='form-control-range' id='s";
   html += sliderIndex;
   html += "' min='";
   html += min;
@@ -2858,6 +2863,15 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   html += "' value='";
   html += value;
   html += "'";
+  if (colorBoxIndex > 0) {
+    html += " oninput='window.updateColAndVal(\"cb";
+    html += colorBoxIndex;
+    html += "\", \"sv";
+  } else {
+    html += " oninput='window.updateVal(\"sv";
+  }
+  html += sliderIndex;
+  html += "\", this.value);'";
   html += disabled ? " disabled" : "";
   html += "/>";
   html += "</br>";
@@ -2867,7 +2881,7 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
 String addSliderFloat(const char* name, int sliderIndex, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
   String html;
   html += label;
-  html += ": <span id='sliderValue";
+  html += ": <span id='sv";
   html += sliderIndex;
   html += "'>";
   html += floatToString(value);
@@ -2875,7 +2889,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   html += unitOfMeasurement;
   html += "<input type='range' name='";
   html += name;
-  html += "' class='form-control-range' id='slider";
+  html += "' class='form-control-range' id='s";
   html += sliderIndex;
   html += "' min='";
   html += min;
@@ -2886,6 +2900,9 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   html += "' value='";
   html += value;
   html += "'";
+  html += " oninput='window.updateVal(\"sv";
+  html += sliderIndex;
+  html += "\", this.value);'";
   html += disabled ? " disabled" : "";
   html += "/>";
   html += "</br>";
@@ -2897,7 +2914,7 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
   html += label;
   html += "<select name='";
   html += name;
-  html += "' class='form-control' id='selectBox";
+  html += "' class='form-control' id='sb";
   html += selectIndex;
   html += "'";
   if (onChanges) {
@@ -2941,7 +2958,7 @@ String addInputText(const char* name, int inputFieldIndex, const char* label, co
     html += maxLength;
     html += "'";
   }
-  html += " id='inputField";
+  html += " id='if";
   html += inputFieldIndex;
   html += "' value='";
   html += value;
@@ -3066,11 +3083,11 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += "<div class='col-md-9'>";
     html += "<div class='row'>";
     html += "<div class='by col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
-    html += "<h8>Доступна нова версія прошивки - <strong><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
+    html += "<h8>Доступна нова версія прошивки - <b><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
     html += newFwVersion;
     html += "'>";
     html += newFwVersion;
-    html += "</a></strong></br>Для оновлення перейдіть в розділ <strong><a href='/?p=fw'>Прошивка</a></strong></h8>";
+    html += "</a></b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>";
     html += "</div>";
     html += "</div>";
     html += "</div>";
@@ -3118,10 +3135,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <strong>";
+  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <b>";
   html += settings.current_brightness;
-  html += "%</strong></div>";
-  html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
+  html += "%</b></div>";
+  html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2, -1);
   html += addSliderInt("brightness_day", 13, "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
   html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
@@ -3232,12 +3249,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи");
+  html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
   html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_min_of_sl", 5, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
-  html += addCheckbox("sound_on_alert", 6, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні");
+  html += addCheckbox("sound_on_alert", 6, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
   html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_alert_end", 7, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні");
+  html += addCheckbox("sound_on_alert_end", 7, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
   html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_every_hour", 8, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
   html += addCheckbox("sound_on_button_click", 8, settings.sound_on_button_click, "Сигнали при натисканні кнопки");
@@ -3342,7 +3359,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</form>";
   html += "<form action='/update' method='POST'>";
   html += "Файл прошивки";
-  html += "<select name='bin_name' class='form-control' id='selectBox16'>";
+  html += "<select name='bin_name' class='form-control' id='sb16'>";
   const int count = settings.fw_update_channel ? testBinsCount : binsCount;
     for (int i = 0; i < count; i++) {
     String filename = String(settings.fw_update_channel ? test_bin_list[i] : bin_list[i]);
@@ -3372,109 +3389,96 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
   html += "<script>";
-  html += "const sliders = ['slider1', 'slider3', 'slider4', 'slider5', 'slider6', 'slider7', 'slider8', 'slider9', 'slider10', 'slider11', 'slider12', 'slider13', 'slider14', 'slider15', 'slider16'";
-#if DISPLAY_ENABLED
-  if (displayInited) html += ", 'slider17'";
-#endif
-  html += ", 'slider18', 'slider19', 'slider20'";
-  if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
-    html += ", 'slider21'";
-  }
-  if (sht3xInited || bme280Inited || htu2xInited) {
-    html += ", 'slider22'";
-  }
-  if (bme280Inited || bmp280Inited) {
-    html += ", 'slider23'";
-  }
-  html += ", 'slider24'";
-  html += "];";
   html += "const urlParams = new URLSearchParams(window.location.search);";
   html += "const activePage = urlParams.get('p');";
+  html += "var target = '';";
   html += "switch (activePage) {";
   html += "case 'brgh':";
-  html += "document.getElementById('collapseBrightness').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseBrightness';";
   html += "break;";
   html += "case 'clrs':";
-  html += "document.getElementById('collapseColors').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseColors';";
   html += "break;";
   html += "case 'wthr':";
-  html += "document.getElementById('collapseWeather').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseWeather';";
   html += "break;";
   html += "case 'mds':";
-  html += "document.getElementById('collapseModes').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseModes';";
   html += "break;";
   html += "case 'snd':";
-  html += "document.getElementById('collapseSounds').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseSounds';";
   html += "break;";
   html += "case 'tlmtr':";
-  html += "document.getElementById('collapseTelemetry').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseTelemetry';";
   html += "break;";
   html += "case 'tch':";
-  html += "document.getElementById('collapseTech').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseTech';";
   html += "break;";
   html += "case 'fw':";
-  html += "document.getElementById('collapseFirmware').classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
+  html += "target = 'collapseFirmware';";
   html += "break;";
+  html += "}";
+  html += "if (target.length > 0) {";
+  html += "document.getElementById(target).classList.add('show');";
+  html += "window.scrollTo(0, document.body.scrollHeight);";
   html += "}";
   html += " ";
   html += "if (urlParams.get('svd') === '1') {";
   html += "const toast = document.getElementById('liveToast');";
   html += "toast.classList.remove('hide');";
   html += "toast.classList.add('show');";
-  html += "console.log('Toast was shown!');";
   html += "setTimeout(() => {";
   html += "toast.classList.remove('show');";
   html += "toast.classList.add('hide');";
-  html += "console.log('Toast was hidden!');";
   html += "}, 2000);";
   html += "}";
   html += " ";
   #if BUZZER_ENABLED
-  html += "function playTestSound(soundId = 3) {";
+  html += "function playTestSound(soundId = 4) {";
   html += "  var xhttp = new XMLHttpRequest();";
   html += "  xhttp.open('GET', '/playTestSound/?id='.concat(soundId), true);";
   html += "  xhttp.send();";
   html += "}";
   html += " ";
-  #endif
-  html += "sliders.forEach(slider => {";
-  html += "const sliderElem = document.getElementById(slider);";
-  html += "const sliderValueElem = document.getElementById(slider.replace('slider', 'sliderValue'));";
-  html += "sliderElem.addEventListener('input', () => sliderValueElem.textContent = sliderElem.value);";
+  html += "function disableElement(targetName, disable) {";
+  html += "document.getElementsByName(targetName).forEach((elem) => {";
+  html += "elem.disabled = disable;";
   html += "});";
+  html += "}";
+  #endif
+  html += "function updateColAndVal(colorId, valueId, value) {";
+  html += "updateColorBox(colorId, value);";
+  html += "updateVal(valueId, value);";
+  html += "}";
+  html += " ";
+  html += "function updateVal(valueId, value) {";
+  html += "document.getElementById(valueId).textContent = value;";
+  html += "}";
   html += " ";
   html += "function updateColorBox(boxId, hue) {";
   html += "const rgbColor = hsbToRgb(hue, 100, 100);";
   html += "document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;";
   html += "}";
   html += "";
-  html += "const initialHue1 = parseInt(slider3.value);";
+  html += "const initialHue1 = parseInt(s3.value);";
   html += "const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);";
-  html += "document.getElementById('colorBox3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
+  html += "document.getElementById('cb3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
   html += "";
-  html += "const initialHue2 = parseInt(slider4.value);";
+  html += "const initialHue2 = parseInt(s4.value);";
   html += "const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);";
-  html += "document.getElementById('colorBox4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
+  html += "document.getElementById('cb4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
   html += "";
-  html += "const initialHue3 = parseInt(slider5.value);";
+  html += "const initialHue3 = parseInt(s5.value);";
   html += "const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);";
-  html += "document.getElementById('colorBox5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
+  html += "document.getElementById('cb5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
   html += "";
-  html += "const initialHue4 = parseInt(slider6.value);";
+  html += "const initialHue4 = parseInt(s6.value);";
   html += "const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
-  html += "document.getElementById('colorBox6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
+  html += "document.getElementById('cb6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
   html += "";
-  html += "const initialHue5 = parseInt(slider7.value);";
+  html += "const initialHue5 = parseInt(s7.value);";
   html += "const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
-  html += "document.getElementById('colorBox7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
+  html += "document.getElementById('cb7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
   html += "";
   html += "const initialRgbColor6 = { r: ";
   html += settings.ha_light_r;
@@ -3483,10 +3487,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += ", b: ";
   html += settings.ha_light_b;
   html += " };";
-  html += "document.getElementById('colorBox19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
+  html += "document.getElementById('cb19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
   html += "const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
-  html += "document.getElementById('slider19').value = initialHue6;";
-  html += "document.getElementById('sliderValue19').textContent = initialHue6;";
+  html += "document.getElementById('s19').value = initialHue6;";
+  html += "document.getElementById('sv19').textContent = initialHue6;";
   html += "";
   html += "function hsbToRgb(h, s, b) {";
   html += "h /= 360;";
@@ -3545,40 +3549,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "return Math.round(h);";
   html += "}";
   html += "";
-  html += "sliders.slice(1).forEach((slider, index) => {";
-  html += "const sliderElem = document.getElementById(slider);";
-  html += "const colorBoxElem = document.getElementById(slider.replace('slider', 'colorBox'));";
-  html += "sliderElem.addEventListener('input', () => {";
-  html += "const hue = parseInt(sliderElem.value);";
-  html += "updateColorBox(colorBoxElem.id, hue);";
-  html += "document.getElementById(slider.replace('slider', 'sliderValue')).textContent = hue;";
-  html += "});";
-  html += "});";
   html += "";
   html += "$('select[name=brightness_auto]').change(function() {";
   html += "const selectedOption = $(this).val();";
-  html += "console.log('Selected auto_brightness option: '.concat(selectedOption));";
   html += "$('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);";
   html += "$('input[name=brightness_day]').prop('disabled', selectedOption == 0);";
   html += "$('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
   html += "$('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
   html += "});";
   html += "";
-  html += "$('input[name=sound_on_startup]').change(function() {";
-  html += "const value = $(this).is(':checked');";
-  html += "console.log('sound_on_startup value: '.concat(value));";
-  html += "$('select[name=melody_on_startup]').prop('disabled', !value);";
-  html += "});";
-  html += "";
-  html += "$('input[name=sound_on_alert]').change(function() {";
-  html += "const value = $(this).is(':checked');";
-  html += "$('select[name=melody_on_alert]').prop('disabled', !value);";
-  html += "});";
-  html += "";
-  html += "$('input[name=sound_on_alert_end]').change(function() {";
-  html += "const value = $(this).is(':checked');";
-  html += "$('select[name=melody_on_alert_end]').prop('disabled', !value);";
-  html += "});";
   html += "</script>";
   html += "</body>";
   html += "</html>";
