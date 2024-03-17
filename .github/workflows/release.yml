@@ -12,8 +12,49 @@ on:
           type: string
 run-name: Release ${{ inputs.release-version }} (${{ inputs.release-title }})
 jobs:
-  release_firmware:
+  build:
     if: ${{ github.ref_name == 'master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/src/firmware/firmware.ino
+      - name: Compile firmware
+        uses: ./.github/workflows/firmware-compile
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
+  build_lite:
+    if: ${{ github.ref_name == 'master' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version and build type in firmware source
+        run: |
+          sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/src/firmware/firmware.ino
+          sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
+      - name: Compile firmware
+        uses: ./.github/workflows/firmware-compile
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_${{ inputs.release-version }}_lite.bin
+          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+  release_firmware:
+    needs: [build, build_lite]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,16 +64,24 @@ jobs:
       - name: Replace version in firmware source
         run: |
           sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/src/firmware/firmware.ino
-      - name: Compile firmware
-        uses: ./.github/workflows/firmware-compile
+      - name: Download firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
+      - name: Download firmware lite
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_${{ inputs.release-version }}_lite.bin
+          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
       - name: Copy release files to bin folder
         run: |
           mkdir -p ${{ github.workspace }}/bin/
           mkdir -p ${{ github.workspace }}/bin_beta/
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin/latest.bin
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
+          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/latest.bin
+          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
       - name: Leave only 3 recent releases
         run: |
           cd ${{ github.workspace }}/bin/
@@ -49,7 +98,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
+          artifacts: "${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin"
           name: "${{ inputs.release-version }}: ${{ inputs.release-title }}"
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ inputs.release-version }}
