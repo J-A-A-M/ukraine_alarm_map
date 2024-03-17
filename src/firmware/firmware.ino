@@ -4515,9 +4515,9 @@ bool checkHomeDistrictAlerts() {
     alertPinCycle();
 
     if (alarmNow) {
-      showServiceMessage("Тривога!", "У вашому регіоні", 5000);
+      showServiceMessage("Тривога!", districts[settings.home_district], 5000);
     } else {
-      showServiceMessage("Відбій!", "У вашому регіоні", 5000);
+      showServiceMessage("Відбій!", districts[settings.home_district], 5000);
     }
 #if HA_ENABLED
     if (enableHA) {
