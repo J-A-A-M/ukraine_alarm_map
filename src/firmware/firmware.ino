@@ -3009,6 +3009,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += ".container { padding: 20px; }";
   html += ".color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
   html += ".full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
+  html += "input, select {margin-top: 0.5rem;}";
+  html += "span {font-weight: bold;}";
   html += ".by { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
   html += "</style>";
   html += "</head>";
