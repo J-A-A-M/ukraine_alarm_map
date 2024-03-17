@@ -2977,14 +2977,14 @@ String addInputText(const char* name, int inputFieldIndex, const char* label, co
 String addCard(const char* title, const char* value, const char* unitOfMeasurement = "", int size = 1) {
   String html;
   html += "<div class='col-auto mb-2'>";
-  html += "<div class='card' style='width: 13rem; height: 8rem;'>";
-  html += "<div class='card-body'>";
-  html += "<h5 class='card-title text-center'>";
+  html += "<div class='card' style='width: 15rem; height: 9rem;'>";
+  html += "<div class='card-header d-flex'>";
   html += title;
-  html += "</h5>";
+  html += "</div>";
+  html += "<div class='card-body d-flex'>";
   html += "<h";
   html += size;
-  html += " class=' card-text text-center'>";
+  html += " class='card-title  m-auto'>";
   html += value;
   html += unitOfMeasurement;
   html += "</h";
@@ -3285,15 +3285,16 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
   html += "<div class='row justify-content-center'>";
-  html += addCard("Час роботи", uptimeChar, "", 3);
-  html += addCard("Темп. ESP32", cpuTempChar, "°C");
-  html += addCard("Вільн. памʼять", freeMemoryChar, "кБ");
-  html += addCard("Викор. памʼять", usedMemoryChar, "кБ");
+
+  html += addCard("Час роботи", uptimeChar, "", 4);
+  html += addCard("Температура ESP32", cpuTempChar, "°C");
+  html += addCard("Вільна памʼять", freeMemoryChar, "кБ");
+  html += addCard("Використана памʼять", usedMemoryChar, "кБ");
   html += addCard("WiFi сигнал", wifiSignalChar, "dBm");
   #if HA_ENABLED
-  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 3);
+  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
   #endif
-  html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 3);
+  html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
   if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
     html += addCard("Температура", floatToString(localTemp).c_str(), "°C");
   }
@@ -3301,7 +3302,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addCard("Вологість", floatToString(localHum).c_str(), "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 3);
+    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 2);
   }
   if (bh1750Inited) {
     html += addCard("Освітленість", floatToString(lightInLuxes).c_str(), "lx");
