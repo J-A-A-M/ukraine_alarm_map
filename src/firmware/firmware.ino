@@ -3145,7 +3145,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
   html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості: <b>";
-  html += settings.current_brightness;
+  html += settings.map_mode == 5 ? settings.ha_light_brightness : settings.current_brightness;
   html += "%</b><br>\"Нічний режим\": <b>";
   int nightModeType = getNightModeType();
   html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
