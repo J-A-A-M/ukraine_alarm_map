@@ -935,14 +935,7 @@ void playMelody(SoundType type) {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
-  if (settings.mute_sound_on_night) {
-    // Night Mode activated by button
-    if (nightMode) return false;
-    // Night mode activated by time
-    if (settings.brightness_mode == 1 && isItNightNow()) return false;
-    // Night mode activated by sensor
-    if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return false;
-  }
+  if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
 
   switch (type) {
   case START_UP:
@@ -963,6 +956,17 @@ bool needToPlaySound(SoundType type) {
   }
 #endif
   return false;
+}
+
+int getNightModeType() {
+    // Night Mode activated by button
+    if (nightMode) return 1;
+    // Night mode activated by time
+    if (settings.brightness_mode == 1 && isItNightNow()) return 2;
+    // Night mode activated by sensor
+    if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
+    //Night mode is off
+    return 0;
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
@@ -3009,7 +3013,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += ".container { padding: 20px; }";
   html += ".color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }";
   html += ".full-screen-img {width: 100%;height: 100%;object-fit: cover;}";
-  html += "input, select {margin-top: 0.5rem;}";
+  html += "input, select, .color-box {margin-top: 0.5rem;}";
   html += "span {font-weight: bold;}";
   html += ".by { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }";
   html += "</style>";
@@ -3140,9 +3144,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості - <b>";
+  html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості: <b>";
   html += settings.current_brightness;
-  html += "%</b></div>";
+  html += "%</b><br>\"Нічний режим\": <b>";
+  int nightModeType = getNightModeType();
+  html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
+  html += "</b></div>";
   html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2, -1);
   html += addSliderInt("brightness_day", 13, "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
   html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
@@ -3278,7 +3285,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
   html += "<div class='row justify-content-center'>";
-
   html += addCard("Час роботи", uptimeChar, "", 3);
   html += addCard("Темп. ESP32", cpuTempChar, "°C");
   html += addCard("Вільн. памʼять", freeMemoryChar, "кБ");
@@ -3300,8 +3306,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bh1750Inited) {
     html += addCard("Освітленість", floatToString(lightInLuxes).c_str(), "lx");
   }
-  html += addCard("Яскравість", String(settings.current_brightness).c_str(), "%");
-
   html += "</div>";
   html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
   html += "</div>";
