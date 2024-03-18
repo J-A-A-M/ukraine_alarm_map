@@ -1,0 +1,63 @@
+name: 'Upload Flasher to Github Pages'
+description: 'Upload Flasher to Github Pages'
+inputs:
+  binary_path:
+    description: 'Path to the binary'
+    default: ''
+  beta_binary_path:
+    description: 'Path to the beta binary'
+    default: ''
+  lite_binary_path:
+    description: 'Path to the lite binary'
+    default: ''
+  version:
+    description: 'Version of the binary'
+    default: ''
+  beta_build:
+    description: 'Beta build number'
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - name: Copy bin to flesher
+      if: ${{ inputs.binary_path != '' }}
+      shell: bash
+      run: |
+        cp -f ${{ inputs.binary_path }} ${{ github.workspace }}/pages/bins/jaam.bin
+    - name: Change version in flasher
+      if: ${{ inputs.binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>Встановити JAAM [0-9.]*</>Встановити JAAM ${{ inputs.version }}</' ${{ github.workspace }}/pages/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/pages/manifest.json
+    - name: Copy beta bin to flasher
+      if: ${{ inputs.beta_binary_path != '' }}
+      shell: bash
+      run: |
+        cp -f ${{ inputs.beta_binary_path }} ${{ github.workspace }}/pages/bins/jaam_beta.bin
+    - name: Change beta version in flasher
+      if: ${{ inputs.beta_binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>Встановити JAAM [0-9.]* Beta [0-9]*</>Встановити JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/pages/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/pages/manifest-beta.json
+    - name: Copy lite bin to flasher
+      if: ${{ inputs.lite_binary_path != '' }}
+      shell: bash
+      run: |
+        cp -f ${{ inputs.lite_binary_path }} ${{ github.workspace }}/pages/bins/jaam_lite.bin
+    - name: Change lite version in flasher
+      if: ${{ inputs.lite_binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>Встановити JAAM [0-9.]* Lite</>Встановити JAAM ${{ inputs.version }} Lite</' ${{ github.workspace }}/pages/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/pages/manifest-lite.json
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: '${{ github.workspace }}/pages'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

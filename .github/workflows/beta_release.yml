@@ -14,8 +14,12 @@ jobs:
   release_beta_firmware:
     if: ${{ github.ref_name == 'develop' }}
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,21 +33,28 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
           cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
+          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
       - name: Leave only 3 recent BETA builds
         run: |
           cd ${{ github.workspace }}/bin_beta/
           ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
           cd ${{ github.workspace }}
+      - name: Upload flasher to Github Pages
+        uses: ./.github/workflows/upload-pages
+        with:
+          beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          version: ${{ inputs.release-version }}
+          beta_build: ${{ github.run_number }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Beta ${{ env.BETA_VERSION }}"
-          file_pattern: ${{ github.workspace }}/bin_beta/
+          file_pattern: ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/pages/
       - name: Create Beta Pre Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
+          artifacts: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
           name: ${{ env.RELEASE_TITLE }}
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ env.BETA_VERSION }}

@@ -1,16 +1,18 @@
 {
-    "name": "JAAM",
-    "version": "3.8b-34",
-    "funding_url": "http://alerts.net.ua/",
+    "name": "JAAM Beta",
+    "version": "3.8-b35",
+    "funding_url": "https://send.monobank.ua/jar/7GzS1PhPa2",
+    "new_install_improv_wait_time": 0,
     "new_install_prompt_erase": true,
     "builds": [
       {
         "chipFamily": "ESP32",
+        "improv": false,
         "parts": [
           { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
           { "path": "bins/jaam.partitions.bin", "offset": 32768 },
           { "path": "bins/jaam.boot.bin", "offset": 57344 },
-          { "path": "bins/jaam.bin", "offset": 65536 }
+          { "path": "bins/jaam_beta.bin", "offset": 65536 }
         ]
       }
     ]

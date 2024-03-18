@@ -34,8 +34,6 @@ jobs:
   build_lite:
     if: ${{ github.ref_name == 'master' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,8 +54,12 @@ jobs:
   release_firmware:
     needs: [build, build_lite]
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,21 +91,18 @@ jobs:
           cd ${{ github.workspace }}/bin_beta/
           ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
           cd ${{ github.workspace }}
-      - name: Copy bins to flasher
-        run: |
-          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/docs/bins/jaam.bin
-          cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin ${{ github.workspace }}/docs/bins/jaam_lite.bin
-      - name: Change version in flasher
-        run: |
-          sed -i 's/>JAAM Flasher .*</>JAAM Flasher ${{ inputs.release-version }}</' ${{ github.workspace }}/docs/index.html
-          sed -i 's/"version": ".*",/"version": "${{ inputs.release-version }}",/' ${{ github.workspace }}/docs/manifest.json
-          sed -i 's/"version": ".*",/"version": "${{ inputs.release-version }}_lite",/' ${{ github.workspace }}/docs/manifest-lite.json
+      - name: Upload flasher to Github Pages
+        uses: ./.github/workflows/upload-pages
+        with:
+          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
+          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
+          version: ${{ inputs.release-version }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Release ${{ inputs.release-version }}"
-          file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/docs/
+          file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/pages/
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
