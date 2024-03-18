@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>JAAM Flasher</title>
+        <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
+        <style>
+            body {
+                background-color: #4396ff;
+            }
+
+            .btn {
+                margin-bottom: 0.25rem;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            .color-box {
+                width: 30px;
+                height: 30px;
+                display: inline-block;
+                margin-left: 10px;
+                border: 1px solid #ccc;
+                vertical-align: middle;
+            }
+
+            .full-screen-img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            input, select, .color-box {
+                margin-top: 0.5rem;
+            }
+
+            span {
+                font-weight: bold;
+            }
+
+            .by {
+                background-color: #fff0d5;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 0 10px rgba(0,0,0,.1);
+            }
+        </style>
+    </head>
+    <body>
+        <div class='container mt-3' id='accordion'>
+            <h2 class='text-center'>JAAM Flasher</h2>
+            <div class='row justify-content-center'>
+                <div class='col-md-9'>
+                    <div class='row'>
+                        <div class='by col-md-12 mt-2'>
+                            <img class='full-screen-img' src='flag_map.png'>
+                        </div>
+                    </div>
+                </div>
+            </div>
+<div class='row justify-content-center'>
+    <div class='col-md-9'>
+        <div class='row'>
+            <div class='by col-md-12 mt-2' align='center'>
+                <esp-web-install-button manifest="manifest.json">
+                    <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.7</button>
+                    <span slot="unsupported">Браузер не підтримується!</span>
+                    <span slot="not-allowed">Заборенено використання HTTP!</span>
+                </esp-web-install-button>
+                <esp-web-install-button manifest="manifest-beta.json">
+                    <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8 Beta 37</button>
+                    <span slot="unsupported">Браузер не підтримується!</span>
+                    <span slot="not-allowed">Заборенено використання HTTP!</span>
+                </esp-web-install-button>
+                <esp-web-install-button manifest="manifest-lite.json">
+                    <button class='btn btn-success' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.7 Lite</button>
+                    <span slot="unsupported">Браузер не підтримується!</span>
+                    <span slot="not-allowed">Заборенено використання HTTP!</span>
+                </esp-web-install-button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
+<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
+<script
+  type="module"
+  src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</body></html>

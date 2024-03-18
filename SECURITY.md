@@ -1,6 +1,12 @@
-| Version | Supported          |
+| Версія  | Підтримка          |
 | ------- | ------------------ |
-| 2.x     | -                  |
-| 3.1     | +                  |
-| 3.2     | +                  |
-
+| 1.x     | :x:                  |
+| 2.x     | :x:                  |
+| 3.1     | :x:                  |
+| 3.2     | :x:                  |
+| 3.3     | :x:                  |
+| 3.4     | :x:                  |
+| 3.5     | :white_check_mark:                 |
+| 3.6     | :white_check_mark:                  |
+| 3.7     | :white_check_mark:                  |
+| 3.8     | :white_check_mark:                  |
