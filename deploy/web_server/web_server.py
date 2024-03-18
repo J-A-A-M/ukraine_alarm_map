@@ -147,6 +147,9 @@ async def main(request):
             </div>
             <div class='row'>
                 <div class='col-md-6 offset-md-3'>
+                    <h4>Прошивка мапи онлайн: <a href='https://flasher.alerts.net.ua' target='blank'>flasher</a></h4>
+                </div>
+                <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
@@ -156,9 +159,7 @@ async def main(request):
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
-                <div class='col-md-6 offset-md-3'>
-                    <p>TCP-сервер: alerts.net.ua:12345</p>
-                </div>
+                
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
