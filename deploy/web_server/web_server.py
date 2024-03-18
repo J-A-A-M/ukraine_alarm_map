@@ -162,7 +162,7 @@ async def main(request):
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
-                        <li>Вибухи: (інформація з СМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
+                        <li>Вибухи: (інформація з ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
                         <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
@@ -171,7 +171,7 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
-                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з СМІ)</a></li>
+                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з ЗМІ)</a></li>
                         <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
                         <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>                         
                     </ul>
