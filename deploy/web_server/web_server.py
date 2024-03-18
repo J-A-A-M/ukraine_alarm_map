@@ -142,12 +142,20 @@ async def main(request):
             <h2 class='text-center'>Сервер даних JAAM</h2>
             <div class='row'>
                 <div class='col-md-6 offset-md-3'>
-                <img class='full-screen-img' src="alerts_map.png">
+                    <img class='full-screen-img' src="alerts_map.png">
                 </div>
             </div>
             <div class='row'>
+                <div class='p-3 col-md-6 offset-md-3 center'>
+                    <h4 class='text-center'>--> <a href='https://flasher.alerts.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
+                </div>
                 <div class='col-md-6 offset-md-3'>
-                    <h4>Прошивка мапи онлайн: <a href='https://flasher.alerts.net.ua' target='blank'>flasher</a></h4>
+                    <p>Корисні посилання:</p>
+                    <ul>
+                        <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
+                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li> 
+                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>                             
+                    </ul>
                 </div>
                 <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
@@ -172,9 +180,6 @@ async def main(request):
                     <p>Посилання:</p>
                     <ul>
                         <li><a href="https://wiki.ubilling.net.ua/doku.php?id=aerialalertsapi">ubilling.net.ua (api)</a></li>
-                        <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>  
-                        <li><a href="https://t.me/jaam_project">JAAM телеграм</a></li> 
-                            
                     </ul>
                 </div>
             </div>
