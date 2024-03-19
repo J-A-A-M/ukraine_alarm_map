@@ -1,125 +1,160 @@
 <!DOCTYPE html>
 <html lang='en'>
-    <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        <title>JAAM Flasher</title>
-        <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
-        <style>
-            body {
-                background-color: #4396ff;
-            }
 
-            .btn {
-                margin-bottom: 0.25rem;
-            }
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>JAAM Flasher</title>
+    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#ffffff">
+    <style>
+        body {
+            background-color: #4396ff;
+        }
 
-            .container {
-                padding: 20px;
-            }
+        .btn {
+            margin-bottom: 0.25rem;
+        }
 
-            .color-box {
-                width: 30px;
-                height: 30px;
-                display: inline-block;
-                margin-left: 10px;
-                border: 1px solid #ccc;
-                vertical-align: middle;
-            }
+        .container {
+            padding: 20px;
+        }
 
-            .full-screen-img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
+        .color-box {
+            width: 30px;
+            height: 30px;
+            display: inline-block;
+            margin-left: 10px;
+            border: 1px solid #ccc;
+            vertical-align: middle;
+        }
 
-            input, select, .color-box {
-                margin-top: 0.5rem;
-            }
+        .full-screen-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
 
-            span {
-                font-weight: bold;
-            }
+        input,
+        select,
+        .color-box {
+            margin-top: 0.5rem;
+        }
 
-            .by {
-                background-color: #fff0d5;
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 0 10px rgba(0,0,0,.1);
-            }
-        </style>
-    </head>
-    <body>
-        <div class='container mt-3' id='accordion'>
-            <h2 class='text-center'>JAAM Flasher</h2>
-            <div class='row justify-content-center'>
-                <div class='col-md-9'>
-                    <div class='row'>
-                        <div class='by col-md-12 mt-2'>
-                            <img class='full-screen-img' src='flag_map.png'>
-                        </div>
+        span {
+            font-weight: bold;
+        }
+
+        .by {
+            background-color: #fff0d5;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class='container mt-3' id='accordion'>
+        <h2 class='text-center'>JAAM Flasher</h2>
+        <div class='row justify-content-center'>
+            <div class='col-md-9'>
+                <div class='row'>
+                    <div class='by col-md-12 mt-2'>
+                        <img class='full-screen-img' src='flag_map.png'>
                     </div>
                 </div>
             </div>
-<div class='row justify-content-center'>
-    <div class='col-md-9'>
-        <div class='row'>
-            <div class='by col-md-12 mt-2' align='center'>
-                <esp-web-install-button manifest="manifest.json">
-                    <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8</button>
-                    <span slot="unsupported">Браузер не підтримується!</span>
-                    <span slot="not-allowed">Заборенено використання HTTP!</span>
-                </esp-web-install-button>
-                <esp-web-install-button manifest="manifest-beta.json">
-                    <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8 Beta 37</button>
-                    <span slot="unsupported">Браузер не підтримується!</span>
-                    <span slot="not-allowed">Заборенено використання HTTP!</span>
-                </esp-web-install-button>
-                <esp-web-install-button manifest="manifest-lite.json">
-                    <button class='btn btn-success' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8 Lite</button>
-                    <span slot="unsupported">Браузер не підтримується!</span>
-                    <span slot="not-allowed">Заборенено використання HTTP!</span>
-                </esp-web-install-button>
+        </div>
+        <div class='row justify-content-center'>
+            <div class='col-md-9'>
+                <div class='row'>
+                    <div class='by col-md-12 mt-2' align='center'>
+                        <esp-web-install-button manifest="manifest.json">
+                            <button class='btn btn-primary' type='button' aria-expanded='false'
+                                slot="activate">Встановити JAAM 3.8</button>
+                            <span slot="unsupported">Браузер не підтримується!</span>
+                            <span slot="not-allowed">Заборенено використання HTTP!</span>
+                        </esp-web-install-button>
+                        <esp-web-install-button manifest="manifest-beta.json">
+                            <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити
+                                JAAM 3.8 Beta 37</button>
+                            <span slot="unsupported">Браузер не підтримується!</span>
+                            <span slot="not-allowed">Заборенено використання HTTP!</span>
+                        </esp-web-install-button>
+                        <esp-web-install-button manifest="manifest-lite.json">
+                            <button class='btn btn-success' type='button' aria-expanded='false'
+                                slot="activate">Встановити JAAM 3.8 Lite</button>
+                            <span slot="unsupported">Браузер не підтримується!</span>
+                            <span slot="not-allowed">Заборенено використання HTTP!</span>
+                        </esp-web-install-button>
+                    </div>
+                </div>
+            </div>
+            <div class='col-md-9'>
+                <div class='row'>
+                    <div class='by col-md-12 mt-2'>
+                        <p>Якщо ви не обрали порт через те, що не бачили ваш пристрій у списку, спробуйте наступні
+                            кроки:</p>
+                        <ol>
+                            <li>Переконайтеся, що пристрій підключений до цього комп'ютера (до того, де запущено браузер, що відображає цей веб-сайт)</li>
+                            <li>Більшість пристроїв мають світлодіод. Якщо ваш має такий, переконайтеся, що він увімкнений.</li>
+                            <li>Переконайтесь, що USB-кабель, яким пристрій підключено до комп'ютера, є кабелем передачі даних, а не лише кабелем для живлення.</li>
+                            <li>Переконайтеся, що встановлені правильні драйвери. Нижче наведено драйвери для загальних мікросхем, що використовуються в пристроях ESP:
+                                <ul>
+                                    <li>CP2102 драйвери: <a
+                                            href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers"
+                                            target="_blank">Windows & Mac</a></li>
+                                    <li>CH342, CH343, CH9102 драйвери: <a
+                                            href="https://www.wch.cn/downloads/CH343SER_ZIP.html"
+                                            target="_blank">Windows</a>, <a
+                                            href="https://www.wch.cn/downloads/CH34XSER_MAC_ZIP.html"
+                                            target="_blank">Mac</a>
+                                        (завантаження за допомогою синьої кнопки з
+                                        <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"
+                                            xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+                                            viewBox="0 0 510.322 510.322" xml:space="preserve"
+                                            style="width: 28px; vertical-align: middle;">
+                                            <g>
+                                                <path style="fill:currentColor;"
+                                                    d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z">
+                                                </path>
+                                            </g>
+                                        </svg> іконкою)
+                                    </li>
+                                    <li>CH340, CH341 драйвери: <a href="https://www.wch.cn/downloads/CH341SER_ZIP.html"
+                                            target="_blank">Windows</a> , <a
+                                            href="https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html"
+                                            target="_blank">Mac</a>
+                                        (завантаження за допомогою синьої кнопки з
+                                        <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"
+                                            xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+                                            viewBox="0 0 510.322 510.322" xml:space="preserve"
+                                            style="width: 28px; vertical-align: middle;">
+                                            <g>
+                                                <path style="fill:currentColor;"
+                                                    d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z">
+                                                </path>
+                                            </g>
+                                        </svg> іконкою)
+                                    </li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-        <div class='col-md-9'>
-        <div class='row'>
-            <div class='by col-md-12 mt-2'>
-                <p>Якщо ви не обрали порт через те, що не бачили ваш пристрій у списку, спробуйте наступні кроки:</p>
-                <ol>
-                    <li>Переконайтеся, що пристрій підключений до цього комп'ютера (той, де запущено браузер, що відображає цей веб-сайт)</li>
-                    <li>Більшість пристроїв мають світодіод. Якщо ваш має такий, переконайтеся, що він увімкнений.</li>
-                    <li>Переконайтеся, що використовуваний вами USB-кабель може бути використаний для передачі даних і не є лише кабелем для живлення.</li>
-                    <li>Переконайтеся, що встановлені правильні драйвери. Нижче наведено драйвери для загальних мікросхем, використовуваних в пристроях ESP:
-                        <ul>
-                            <li>CP2102 драйвери: <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank">Windows & Mac</a></li>
-                            <li>CH342, CH343, CH9102 драйвери: <a href="https://www.wch.cn/downloads/CH343SER_ZIP.html" target="_blank">Windows</a>, <a href="https://www.wch.cn/downloads/CH34XSER_MAC_ZIP.html" target="_blank">Mac</a>
-                            (завантаження за допомогою синьої кнопки з
-                            <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 510.322 510.322" xml:space="preserve" style="width: 28px; vertical-align: middle;">
-                                <g>
-                                    <path style="fill:currentColor;" d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z"></path>
-                                </g>
-                            </svg> іконкою)</li>
-                            <li>CH340, CH341 драйвери: <a href="https://www.wch.cn/downloads/CH341SER_ZIP.html" target="_blank">Windows</a> , <a href="https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html" target="_blank">Mac</a>
-                            (завантаження за допомогою синьої кнопки з
-                            <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 510.322 510.322" xml:space="preserve" style="width: 28px; vertical-align: middle;">
-                                <g>
-                                    <path style="fill:currentColor;" d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z"></path>
-                                </g>
-                            </svg> іконкою)</li>
-                        </ul>
-                    </li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
 
-<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
-<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
-<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
-<script
-  type="module"
-  src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
-</body></html>
+        <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
+        <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
+        <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
+        <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</body>
+
+</html>
