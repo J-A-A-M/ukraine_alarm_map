@@ -227,6 +227,7 @@ const char kissIWasMade[]         PROGMEM = "KissIWasMade:d=4,o=5,b=125:c6,d6,8d
 const char theLittleMermaid[]     PROGMEM = "TheLittleMermaid:d=32,o=7,b=100:16c5,16f5,16a5,16c6,16p,16c6,16p,16c6,8a#5,8d6,8c6,8a5,16f4,16a4,16c5,16f5,16p,16f5,16p,16f5,8e5,8g5,8f5";
 const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
+const char shchedryk[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g#,a,4f#,4a,g#,a,4f#";
 
 
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
@@ -234,7 +235,7 @@ const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 15
+#define MELODIES_COUNT 16
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
   OiULuzi,
@@ -251,6 +252,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
   theLittleMermaid,
   nokiaTun,
   packman,
+  shchedryk,
 };
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
@@ -269,6 +271,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Русалонька",
   "Nokia tune",
   "Пакмен",
+  "Щедрик",
 };
 #endif
 
@@ -3790,7 +3793,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("time_zone", true), &settings.time_zone, "tz", NULL, []() {
     timeClient.setTimeZone(settings.time_zone);
   }) || saved;
-  
+
   if (request->hasParam("color_lamp", true)) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
     RGBColor rgb = hue2rgb(selectedHue);
