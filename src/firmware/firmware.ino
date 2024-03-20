@@ -2072,7 +2072,7 @@ void singleClick() {
 
 void longClick() {
 #if FW_UPDATE_ENABLED
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable && settings.button_mode != 0 && !isDisplayOff) {
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
     handleClick(100, LONG_CLICK);
     return;
   }
@@ -2129,6 +2129,10 @@ void handleClick(int event, SoundType soundType) {
       // do nothing
       break;
   }
+}
+
+bool isButtonActivated() {
+  return settings.button_mode != 0 || settings.button_mode_long != 0;
 }
 
 void mapModeSwitch() {
@@ -2618,7 +2622,7 @@ void showNewFirmwareNotification() {
   if (remainder < toggleTime) {
     strcpy(title, "Доступне оновлення:");
     strcpy(message, newFwVersion);
-  } else if (settings.button_mode == 0) {
+  } else if (!isButtonActivated()) {
     strcpy(title, "Введіть у браузері:");
     strcpy(message, getLocalIP());
   } else {
