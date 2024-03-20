@@ -637,7 +637,7 @@ char haRebootID[20];
 char haToggleMapModeID[29];
 char haToggleDisplayModeID[33];
 char haLightID[19];
-char haAlarmAtHomeID[26];
+char haAlarmAtHomeID[27];
 char haLocalTempID[24];
 char haLocalHumID[23];
 char haLocalPressureID[28];
