@@ -164,6 +164,7 @@ struct Settings {
   float   hum_correction         = 0;
   float   pressure_correction    = 0;
   float   light_sensor_factor    = 1;
+  int     time_zone              = 2;
   // ------- web config end
 };
 
@@ -226,6 +227,7 @@ const char kissIWasMade[]         PROGMEM = "KissIWasMade:d=4,o=5,b=125:c6,d6,8d
 const char theLittleMermaid[]     PROGMEM = "TheLittleMermaid:d=32,o=7,b=100:16c5,16f5,16a5,16c6,16p,16c6,16p,16c6,8a#5,8d6,8c6,8a5,16f4,16a4,16c5,16f5,16p,16f5,16p,16f5,8e5,8g5,8f5";
 const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
 const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
+const char shchedryk[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g#,a,4f#,4a,g#,a,4f#";
 
 
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
@@ -233,7 +235,7 @@ const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 15
+#define MELODIES_COUNT 16
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
   OiULuzi,
@@ -250,6 +252,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
   theLittleMermaid,
   nokiaTun,
   packman,
+  shchedryk,
 };
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
@@ -268,6 +271,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Русалонька",
   "Nokia tune",
   "Пакмен",
+  "Щедрик",
 };
 #endif
 
@@ -583,10 +587,10 @@ float   localPressure = -1;
 int     beepHour = -1;
 bool    displayInited = false;
 char    uptimeChar[25];
-char    cpuTempChar[10];
-char    usedMemoryChar[10];
-char    freeMemoryChar[10];
-char    wifiSignalChar[10];
+float   cpuTemp;
+float   usedHeapSize;
+float   freeHeapSize;
+int     wifiSignal;
 
 #define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
@@ -642,6 +646,7 @@ char haLocalTempID[24];
 char haLocalHumID[23];
 char haLocalPressureID[28];
 char haLightLevelID[25];
+char haHomeTempID[23];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -668,6 +673,7 @@ HASensorNumber*  haLocalTemp;
 HASensorNumber*  haLocalHum;
 HASensorNumber*  haLocalPressure;
 HASensorNumber*  haLightLevel;
+HASensorNumber*  haHomeTemp;
 #endif
 
 void initChipID() {
@@ -691,7 +697,7 @@ void initHaVars() {
   haUsedMemory = new HASensorNumber(haUsedMemoryID);
 
   sprintf(haCpuTempID, "%s_cpu_temp", chipID);
-  haCpuTemp = new HASensorNumber(haCpuTempID, HASensorNumber::PrecisionP1);
+  haCpuTemp = new HASensorNumber(haCpuTempID, HASensorNumber::PrecisionP2);
 
   sprintf(haBrightnessID, "%s_brightness", chipID);
   haBrightness = new HANumber(haBrightnessID);
@@ -756,6 +762,8 @@ void initHaVars() {
       haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
     }
 #endif
+  sprintf(haHomeTempID, "%s_home_temp", chipID);
+  haHomeTemp = new HASensorNumber(haHomeTempID, HASensorNumber::PrecisionP2);
 
 #endif
 }
@@ -1056,6 +1064,7 @@ void initSettings() {
   settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
   settings.invert_display         = preferences.getInt("invd", settings.invert_display);
   settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
+  settings.time_zone              = preferences.getInt("tz", settings.time_zone);
 
 
   preferences.end();
@@ -1085,6 +1094,7 @@ void initStrip() {
 
 void initTime() {
   Serial.println("Init time");
+  timeClient.setTimeZone(settings.time_zone);
   timeClient.setDSTauto(&dst); // auto update on summer/winter time.
   timeClient.setTimeout(5000); // 5 seconds waiting for reply
   timeClient.begin();
@@ -1543,6 +1553,13 @@ void initHA() {
       haLightLevel->setCurrentValue(lightInLuxes);
     }
 #endif
+
+      haHomeTemp->setIcon("mdi:home-thermometer");
+      haHomeTemp->setName("Home District Temperature");
+      haHomeTemp->setUnitOfMeasurement("°C");
+      haHomeTemp->setDeviceClass("temperature");
+      haHomeTemp->setStateClass("measurement");
+
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
       mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
@@ -2817,9 +2834,9 @@ const char* disableRange(bool isDisabled) {
   return isDisabled ? " disabled" : "";
 }
 
-String floatToString(float value) {
+String floatToString(float value, int precision = 1) {
   char result[7];
-  sprintf(result, "%.1f", value);
+  sprintf(result, "%.*f", precision, value);
   return String(result);
 }
 
@@ -2995,6 +3012,158 @@ String addCard(const char* title, const char* value, const char* unitOfMeasureme
   html += "</div>";
   return html;
 }
+
+String addCard(const char* title, int value, const char* unitOfMeasurement = "", int size = 1) {
+  char valueStr[10];
+  sprintf(valueStr, "%d", value);
+  return addCard(title, valueStr, unitOfMeasurement, size);
+}
+
+String addCard(const char* title, float value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
+  char valueStr[10];
+  sprintf(valueStr, "%.*f", precision, value);
+  return addCard(title, valueStr, unitOfMeasurement, size);
+}
+
+const char JS_SCRIPT[] PROGMEM = R"=====(
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const activePage = urlParams.get('p');
+var target = '';
+switch (activePage) {
+    case 'brgh':
+        target = 'collapseBrightness';
+        break;
+    case 'clrs':
+        target = 'collapseColors';
+        break;
+    case 'wthr':
+        target = 'collapseWeather';
+        break;
+    case 'mds':
+        target = 'collapseModes';
+        break;
+    case 'snd':
+        target = 'collapseSounds';
+        break;
+    case 'tlmtr':
+        target = 'collapseTelemetry';
+        break;
+    case 'tch':
+        target = 'collapseTech';
+        break;
+    case 'fw':
+        target = 'collapseFirmware';
+        break;
+}
+
+if (target.length > 0) {
+    document.getElementById(target).classList.add('show');
+    window.scrollTo(0, document.body.scrollHeight);
+}
+
+if (urlParams.get('svd') === '1') {
+    const toast = document.getElementById('liveToast');
+    toast.classList.remove('hide');
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+    }, 2000);
+}
+
+function playTestSound(soundId = 4) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.open('GET', '/playTestSound/?id='.concat(soundId), true);
+    xhttp.send();
+}
+
+function disableElement(targetName, disable) {
+    document.getElementsByName(targetName).forEach((elem) => {
+        elem.disabled = disable;
+    });
+}
+
+function updateColAndVal(colorId, valueId, value) {
+    updateColorBox(colorId, value);
+    updateVal(valueId, value);
+}
+
+function updateVal(valueId, value) {
+    document.getElementById(valueId).textContent = value;
+}
+
+function updateColorBox(boxId, hue) {
+    const rgbColor = hsbToRgb(hue, 100, 100);
+    document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;
+}
+
+const initialHue1 = parseInt(s3.value);
+const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);
+document.getElementById('cb3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;
+
+const initialHue2 = parseInt(s4.value);
+const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);
+document.getElementById('cb4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;
+
+const initialHue3 = parseInt(s5.value);
+const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);
+document.getElementById('cb5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;
+
+const initialHue4 = parseInt(s6.value);
+const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);
+document.getElementById('cb6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;
+
+const initialHue5 = parseInt(s7.value);
+const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);
+document.getElementById('cb7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;
+
+const initialHue6 = parseInt(s19.value);
+const initialRgbColor6 = hsbToRgb(initialHue6, 100, 100);
+document.getElementById('cb19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;
+
+function hsbToRgb(h, s, b) {
+    h /= 360;
+    s /= 100;
+    b /= 100;
+
+    let r, g, bl;
+
+    if (s === 0) {
+        r = g = bl = b;
+    } else {
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = b * (1 - s);
+        const q = b * (1 - f * s);
+        const t = b * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+            case 0: r = b, g = t, bl = p; break;
+            case 1: r = q, g = b, bl = p; break;
+            case 2: r = p, g = b, bl = t; break;
+            case 3: r = p, g = q, bl = b; break;
+            case 4: r = t, g = p, bl = b; break;
+            case 5: r = b, g = p, bl = q; break;
+        }
+    }
+
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(bl * 255)
+    };
+}
+
+$('select[name=brightness_auto]').change(function () {
+    const selectedOption = $(this).val();
+    $('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);
+    $('input[name=brightness_day]').prop('disabled', selectedOption == 0);
+    $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);
+    $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);
+});
+</script>
+)=====";
 
 void handleRoot(AsyncWebServerRequest* request) {
   String html;
@@ -3211,7 +3380,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSelectBox("kyiv_district_mode", 1, "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
   html += addSelectBox("map_mode", 2, "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
-  html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", 0, 0, 360, 1, "", false, 19);
+  html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, 19);
   html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
 #if DISPLAY_ENABLED
   if (displayInited) {
@@ -3249,6 +3418,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addCheckbox("service_diodes_mode", 2, settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
   }
   html += addCheckbox("min_of_silence", 3, settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  html += addSliderInt("time_zone", 25, "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3287,25 +3457,26 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row justify-content-center'>";
 
   html += addCard("Час роботи", uptimeChar, "", 4);
-  html += addCard("Температура ESP32", cpuTempChar, "°C");
-  html += addCard("Вільна памʼять", freeMemoryChar, "кБ");
-  html += addCard("Використана памʼять", usedMemoryChar, "кБ");
-  html += addCard("WiFi сигнал", wifiSignalChar, "dBm");
+  html += addCard("Температура ESP32", cpuTemp, "°C");
+  html += addCard("Вільна памʼять", freeHeapSize, "кБ");
+  html += addCard("Використана памʼять", usedHeapSize, "кБ");
+  html += addCard("WiFi сигнал", wifiSignal, "dBm");
+  html += addCard(districts[settings.home_district], weather_leds[calculateOffset(settings.home_district)], "°C");
   #if HA_ENABLED
   html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
   #endif
   html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
   if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
-    html += addCard("Температура", floatToString(localTemp).c_str(), "°C");
+    html += addCard("Температура", localTemp, "°C");
   }
   if (bme280Inited || sht3xInited || htu2xInited) {
-    html += addCard("Вологість", floatToString(localHum).c_str(), "%");
+    html += addCard("Вологість", localHum, "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addCard("Тиск", floatToString(localPressure).c_str(), "mmHg", 2);
+    html += addCard("Тиск", localPressure, "mmHg", 2);
   }
   if (bh1750Inited) {
-    html += addCard("Освітленість", floatToString(lightInLuxes).c_str(), "lx");
+    html += addCard("Освітленість", lightInLuxes, "lx");
   }
   html += "</div>";
   html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
@@ -3398,177 +3569,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>";
   html += "<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>";
   html += "<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>";
-  html += "<script>";
-  html += "const urlParams = new URLSearchParams(window.location.search);";
-  html += "const activePage = urlParams.get('p');";
-  html += "var target = '';";
-  html += "switch (activePage) {";
-  html += "case 'brgh':";
-  html += "target = 'collapseBrightness';";
-  html += "break;";
-  html += "case 'clrs':";
-  html += "target = 'collapseColors';";
-  html += "break;";
-  html += "case 'wthr':";
-  html += "target = 'collapseWeather';";
-  html += "break;";
-  html += "case 'mds':";
-  html += "target = 'collapseModes';";
-  html += "break;";
-  html += "case 'snd':";
-  html += "target = 'collapseSounds';";
-  html += "break;";
-  html += "case 'tlmtr':";
-  html += "target = 'collapseTelemetry';";
-  html += "break;";
-  html += "case 'tch':";
-  html += "target = 'collapseTech';";
-  html += "break;";
-  html += "case 'fw':";
-  html += "target = 'collapseFirmware';";
-  html += "break;";
-  html += "}";
-  html += "if (target.length > 0) {";
-  html += "document.getElementById(target).classList.add('show');";
-  html += "window.scrollTo(0, document.body.scrollHeight);";
-  html += "}";
-  html += " ";
-  html += "if (urlParams.get('svd') === '1') {";
-  html += "const toast = document.getElementById('liveToast');";
-  html += "toast.classList.remove('hide');";
-  html += "toast.classList.add('show');";
-  html += "setTimeout(() => {";
-  html += "toast.classList.remove('show');";
-  html += "toast.classList.add('hide');";
-  html += "}, 2000);";
-  html += "}";
-  html += " ";
-  #if BUZZER_ENABLED
-  html += "function playTestSound(soundId = 4) {";
-  html += "  var xhttp = new XMLHttpRequest();";
-  html += "  xhttp.open('GET', '/playTestSound/?id='.concat(soundId), true);";
-  html += "  xhttp.send();";
-  html += "}";
-  html += " ";
-  html += "function disableElement(targetName, disable) {";
-  html += "document.getElementsByName(targetName).forEach((elem) => {";
-  html += "elem.disabled = disable;";
-  html += "});";
-  html += "}";
-  #endif
-  html += "function updateColAndVal(colorId, valueId, value) {";
-  html += "updateColorBox(colorId, value);";
-  html += "updateVal(valueId, value);";
-  html += "}";
-  html += " ";
-  html += "function updateVal(valueId, value) {";
-  html += "document.getElementById(valueId).textContent = value;";
-  html += "}";
-  html += " ";
-  html += "function updateColorBox(boxId, hue) {";
-  html += "const rgbColor = hsbToRgb(hue, 100, 100);";
-  html += "document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;";
-  html += "}";
-  html += "";
-  html += "const initialHue1 = parseInt(s3.value);";
-  html += "const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);";
-  html += "document.getElementById('cb3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;";
-  html += "";
-  html += "const initialHue2 = parseInt(s4.value);";
-  html += "const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);";
-  html += "document.getElementById('cb4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;";
-  html += "";
-  html += "const initialHue3 = parseInt(s5.value);";
-  html += "const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);";
-  html += "document.getElementById('cb5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;";
-  html += "";
-  html += "const initialHue4 = parseInt(s6.value);";
-  html += "const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);";
-  html += "document.getElementById('cb6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;";
-  html += "";
-  html += "const initialHue5 = parseInt(s7.value);";
-  html += "const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);";
-  html += "document.getElementById('cb7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;";
-  html += "";
-  html += "const initialRgbColor6 = { r: ";
-  html += settings.ha_light_r;
-  html += ", g: ";
-  html += settings.ha_light_g;
-  html += ", b: ";
-  html += settings.ha_light_b;
-  html += " };";
-  html += "document.getElementById('cb19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;";
-  html += "const initialHue6 = rgbToHue(initialRgbColor6.r, initialRgbColor6.g, initialRgbColor6.b);";
-  html += "document.getElementById('s19').value = initialHue6;";
-  html += "document.getElementById('sv19').textContent = initialHue6;";
-  html += "";
-  html += "function hsbToRgb(h, s, b) {";
-  html += "h /= 360;";
-  html += "s /= 100;";
-  html += "b /= 100;";
-  html += "";
-  html += "let r, g, bl;";
-  html += "";
-  html += "if (s === 0) {";
-  html += "r = g = bl = b;";
-  html += "} else {";
-  html += "const i = Math.floor(h * 6);";
-  html += "const f = h * 6 - i;";
-  html += "const p = b * (1 - s);";
-  html += "const q = b * (1 - f * s);";
-  html += "const t = b * (1 - (1 - f) * s);";
-  html += "";
-  html += "switch (i % 6) {";
-  html += "case 0: r = b, g = t, bl = p; break;";
-  html += "case 1: r = q, g = b, bl = p; break;";
-  html += "case 2: r = p, g = b, bl = t; break;";
-  html += "case 3: r = p, g = q, bl = b; break;";
-  html += "case 4: r = t, g = p, bl = b; break;";
-  html += "case 5: r = b, g = p, bl = q; break;";
-  html += "}";
-  html += "}";
-  html += "";
-  html += "return {";
-  html += "r: Math.round(r * 255),";
-  html += "g: Math.round(g * 255),";
-  html += "b: Math.round(bl * 255)";
-  html += "};";
-  html += "}";
-  html += "";
-  html += "function rgbToHue(r, g, b) {";
-  html += "var h;";
-  html += "r /= 255, g /= 255, b /= 255;";
-  html += "var max = Math.max(r, g, b), min = Math.min(r, g, b);";
-  html += "if (max-min == 0) {";
-  html += "return 0;";
-  html += "}";
-  html += "if (max == r) {";
-  html += "h = (g-b)/(max-min);";
-  html += "}";
-  html += "else if (max == g) {";
-  html += "h = 2 +(b-r)/(max-min);";
-  html += "}";
-  html += "else if (max == b) {";
-  html += "h = 4 + (r-g)/(max-min);";
-  html += "}";
-  html += "h = h*60;";
-  html += "h %= 360;";
-  html += "if (h < 0) {";
-  html += "h += 360;";
-  html += "}";
-  html += "return Math.round(h);";
-  html += "}";
-  html += "";
-  html += "";
-  html += "$('select[name=brightness_auto]').change(function() {";
-  html += "const selectedOption = $(this).val();";
-  html += "$('input[name=brightness]').prop('disabled', selectedOption == 1 || selectedOption == 2);";
-  html += "$('input[name=brightness_day]').prop('disabled', selectedOption == 0);";
-  html += "$('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
-  html += "$('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);";
-  html += "});";
-  html += "";
-  html += "</script>";
+  html += JS_SCRIPT;
   html += "</body>";
   html += "</html>";
   Serial.printf("Html size: %d\n", html.length());
@@ -3602,6 +3603,28 @@ RGBColor hue2rgb(int hue) {
   rgb.g = round(g * 255);
   rgb.b = round(b * 255);
   return rgb;
+}
+
+int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
+  float r = red / 255.0;
+  float g = green / 255.0;
+  float b = blue / 255.0;
+
+  float max = fmax(r, fmax(g, b));
+  float min = fmin(r, fmin(g, b));
+  float delta = max - min;
+
+  float h = 0;
+  if (delta == 0) {
+    h = 0;
+  } else if (max == r) {
+    h = 60 * fmod((g - b) / delta, 6);
+  } else if (max == g) {
+    h = 60 * ((b - r) / delta + 2);
+  } else if (max == b) {
+    h = 60 * ((r - g) / delta + 4);
+  }
+  return round(h);
 }
 
 bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
@@ -3767,7 +3790,10 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
   saved = saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos") || saved;
   saved = saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode) || saved;
-  
+  saved = saveInt(request->getParam("time_zone", true), &settings.time_zone, "tz", NULL, []() {
+    timeClient.setTimeZone(settings.time_zone);
+  }) || saved;
+
   if (request->hasParam("color_lamp", true)) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
     RGBColor rgb = hue2rgb(selectedHue);
@@ -3862,22 +3888,15 @@ void uptime() {
   fillUptime(uptimeValue);
 
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
-  float freeHeapSize  = ESP.getFreeHeap() / 1024.0;
-  sprintf(freeMemoryChar, "%.1f", freeHeapSize);
-
-  float usedHeapSize  = totalHeapSize - freeHeapSize;
-  sprintf(usedMemoryChar, "%.1f", usedHeapSize);
-
-  float cpuTemp       = temperatureRead();
-  sprintf(cpuTempChar, "%.1f", cpuTemp);
-            
-  rssi = WiFi.RSSI();
-  sprintf(wifiSignalChar, "%d", rssi);
+  freeHeapSize  = ESP.getFreeHeap() / 1024.0;
+  usedHeapSize  = totalHeapSize - freeHeapSize;
+  cpuTemp       = temperatureRead();
+  wifiSignal    = WiFi.RSSI();
 
 #if HA_ENABLED
   if (enableHA) {
     haUptime->setValue(uptimeValue);
-    haWifiSignal->setValue(rssi);
+    haWifiSignal->setValue(wifiSignal);
     haFreeMemory->setValue(freeHeapSize);
     haUsedMemory->setValue(usedHeapSize);
     haCpuTemp->setValue(cpuTemp);
@@ -4046,6 +4065,11 @@ void onMessageCallback(WebsocketsMessage message) {
       for (int i = 0; i < 26; ++i) {
         weather_leds[calculateOffset(i)] = data["weather"][i];
       }
+#if HA_ENABLED
+      if (enableHA) {
+        haHomeTemp->setValue(weather_leds[calculateOffset(settings.home_district)]);
+      }
+#endif
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
