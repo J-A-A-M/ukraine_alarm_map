@@ -102,7 +102,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Release ${{ inputs.release-version }}"
-          file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/pages/
+          file_pattern: ${{ github.workspace }}/src/firmware/firmware.ino ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
