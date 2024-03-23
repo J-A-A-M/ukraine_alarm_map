@@ -49,6 +49,9 @@
         span {
             font-weight: bold;
         }
+        .center {
+            text-align: center;
+        }
 
         .by {
             background-color: #fff0d5;
@@ -60,7 +63,7 @@
 </head>
 
 <body>
-    <div class='container mt-3' id='accordion'>
+    <div class='container mt-3' id='flasher'>
         <h2 class='text-center'>JAAM Flasher</h2>
         <div class='row justify-content-center'>
             <div class='col-md-9'>
@@ -74,7 +77,7 @@
         <div class='row justify-content-center'>
             <div class='col-md-9'>
                 <div class='row'>
-                    <div class='by col-md-12 mt-2' align='center'>
+                    <div class='by col-md-12 mt-2 center'>
                         <esp-web-install-button manifest="manifest.json">
                             <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8.1</button>
                             <span slot="unsupported">Браузер не підтримується!</span>
@@ -129,7 +132,7 @@
                                             href="https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html"
                                             target="_blank">Mac</a>
                                         (завантаження за допомогою синьої кнопки з
-                                        <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"
+                                        <svg version="1.1" id="Capa_2" xmlns="http://www.w3.org/2000/svg"
                                             xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
                                             viewBox="0 0 510.322 510.322" xml:space="preserve"
                                             style="width: 28px; vertical-align: middle;">
@@ -147,11 +150,11 @@
                 </div>
             </div>
         </div>
-
-        <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
-        <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
-        <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
-        <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    </div>
+    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
+    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </body>
 
 </html>
