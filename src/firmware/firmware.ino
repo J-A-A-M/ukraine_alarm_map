@@ -128,6 +128,7 @@ struct Settings {
   int     mute_sound_on_night    = 0;
   int     invert_display         = 0;
   int     dim_display_on_night   = 1;
+  int     ignore_mute_on_alert   = 0;
 
 
   // ------- Map Modes:
@@ -943,6 +944,10 @@ void playMelody(SoundType type) {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
+  // ignore mute on alert
+  if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
+
+  // disable sounds on night mode
   if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
 
   switch (type) {
@@ -1065,6 +1070,7 @@ void initSettings() {
   settings.invert_display         = preferences.getInt("invd", settings.invert_display);
   settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
   settings.time_zone              = preferences.getInt("tz", settings.time_zone);
+  settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
 
 
   preferences.end();
@@ -2844,7 +2850,7 @@ String floatToString(float value, int precision = 1) {
   return String(result);
 }
 
-String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, char* onChanges = NULL) {
+String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, char* onChanges = NULL, bool disabled = false) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
@@ -2858,6 +2864,7 @@ String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const ch
     html += "'";
   }
   if (isChecked) html += " checked";
+  if (disabled) html += " disabled";
   html += "/>";
   html += label;
   html += "</div>";
@@ -2900,7 +2907,7 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   }
   html += sliderIndex;
   html += "\", this.value);'";
-  html += disabled ? " disabled" : "";
+  if (disabled) html += " disabled";
   html += "/>";
   html += "</br>";
   return html;
@@ -2931,7 +2938,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   html += " oninput='window.updateVal(\"sv";
   html += sliderIndex;
   html += "\", this.value);'";
-  html += disabled ? " disabled" : "";
+  if (disabled) html += " disabled";
   html += "/>";
   html += "</br>";
   return html;
@@ -2950,7 +2957,7 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
     html += onChanges;
     html += "'";
   }
-  html += disabled ? " disabled" : "";
+  if (disabled) html += " disabled";
   html += ">";
   for (int i = 0; i < optionsCount; i++) {
     if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
@@ -3330,7 +3337,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
 #if DISPLAY_ENABLED
   if (displayInited) {
-    html += addCheckbox("dim_display_on_night", 13, settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
+    html += addCheckbox("dim_display_on_night", 1, settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
 #endif
   html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
@@ -3389,7 +3396,7 @@ void handleRoot(AsyncWebServerRequest* request) {
 #if DISPLAY_ENABLED
   if (displayInited) {
   html += addSelectBox("display_mode", 5, "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
-  html += addCheckbox("invert_display", 12, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
+  html += addCheckbox("invert_display", 2, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
   html += addSliderInt("display_mode_time", 17, "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
 #endif
@@ -3408,7 +3415,7 @@ void handleRoot(AsyncWebServerRequest* request) {
 
 #if DISPLAY_ENABLED
   if (displayInited) {
-    html += addCheckbox("home_alert_time", 1, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+    html += addCheckbox("home_alert_time", 3, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
@@ -3419,9 +3426,9 @@ void handleRoot(AsyncWebServerRequest* request) {
 #endif
   html += addSelectBox("alarms_auto_switch", 9, "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
-    html += addCheckbox("service_diodes_mode", 2, settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
+    html += addCheckbox("service_diodes_mode", 4, settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
   }
-  html += addCheckbox("min_of_silence", 3, settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  html += addCheckbox("min_of_silence", 5, settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
   html += addSliderInt("time_zone", 25, "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
@@ -3435,16 +3442,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addCheckbox("sound_on_startup", 4, settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
+  html += addCheckbox("sound_on_startup", 6, settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
   html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_min_of_sl", 5, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
-  html += addCheckbox("sound_on_alert", 6, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
+  html += addCheckbox("sound_on_min_of_sl", 7, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
+  html += addCheckbox("sound_on_alert", 8, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
   html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_alert_end", 7, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
+  html += addCheckbox("sound_on_alert_end", 9, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
   html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_every_hour", 8, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
-  html += addCheckbox("sound_on_button_click", 8, settings.sound_on_button_click, "Сигнали при натисканні кнопки");
-  html += addCheckbox("mute_sound_on_night", 11, settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"");
+  html += addCheckbox("sound_on_every_hour", 10, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
+  html += addCheckbox("sound_on_button_click", 11, settings.sound_on_button_click, "Сигнали при натисканні кнопки");
+  html += addCheckbox("mute_sound_on_night", 12, settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  html += addCheckbox("ignore_mute_on_alert", 13, settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
   html += "<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>";
   html += "<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>";
   html += "</div>";
@@ -3513,7 +3521,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addInputText("buttonpin", 6, "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
   }
   html += addInputText("alertpin", 13, "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-  html += addCheckbox("enable_pin_on_alert", 9, settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  html += addCheckbox("enable_pin_on_alert", 14, settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
   html += addInputText("lightpin", 14, "Пін сенсора освітлення (фоторезистора, має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
   html += addInputText("lightpin", 15, "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
@@ -3536,7 +3544,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='by col-md-12 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
 #if DISPLAY_ENABLED
-  if (displayInited) html += addCheckbox("new_fw_notification", 10, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  if (displayInited) html += addCheckbox("new_fw_notification", 15, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
 #endif
   html += addSelectBox("fw_update_channel", 11, "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
   html += "<b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
@@ -3827,6 +3835,7 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh") || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), &settings.sound_on_button_click, "sobc") || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson") || saved;
+  saved = saveBool(request->getParam("ignore_mute_on_alert", true), &settings.ignore_mute_on_alert, "imoa") || saved;
 
   char url[15];
   sprintf(url, "/?p=snd&svd=%d", saved);
