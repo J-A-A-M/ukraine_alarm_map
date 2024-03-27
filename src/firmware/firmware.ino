@@ -559,8 +559,6 @@ bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
 int     offset = 9;
 bool    initUpdate = false;
-long    homeAlertStart = 0;
-time_t  lastHomeDistrictSync = 0;
 #if FW_UPDATE_ENABLED
 bool    fwUpdateAvailable = false;
 char    newFwVersion[25];
@@ -1950,18 +1948,6 @@ JsonDocument parseJson(const char* payload) {
   }
 }
 
-// Home District Json Parsing
-void parseHomeDistrictJson() {
-  // Skip parsing if home alert time is disabled or less then 5 sec from last sync
-  if ((timeClient.unixGMT() - lastHomeDistrictSync <= 5) || settings.home_alert_time == 0) return;
-  // Save sync time
-  lastHomeDistrictSync = timeClient.unixGMT();
-  char districtRequest[15];
-  sprintf(districtRequest, "district:%d", settings.home_district);
-  Serial.println(districtRequest);
-  client_websocket.send(districtRequest);
-}
-
 void doUpdate() {
   if (initUpdate) {
     initUpdate = false;
@@ -2348,8 +2334,6 @@ bool saveHomeDistrict(int newHomeDistrict) {
     haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
   }
 #endif
-  homeAlertStart = 0;
-  parseHomeDistrictJson();
   showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
   return true;
 }
@@ -2378,8 +2362,8 @@ void displayCycle() {
     return;
   }
 
-  // Show Home Alert Time Info if enabled in settings and we have alert start time (Priority - 1)
-  if (homeAlertStart > 0 && settings.home_alert_time == 1) {
+  // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
+  if (alarmNow && settings.home_alert_time == 1) {
     showHomeAlertInfo();
     return;
   }
@@ -2621,7 +2605,8 @@ void showHomeAlertInfo() {
     strcpy(title, districts[settings.home_district]);
   }
   char message[15];
-  fillFromTimer(message, timeClient.unixGMT() - homeAlertStart);
+  int position = calculateOffset(settings.home_district);
+  fillFromTimer(message, timeClient.unixGMT() - alarm_time[position]);
 
   displayMessage(message, title);
 }
@@ -3179,6 +3164,13 @@ $('select[name=brightness_auto]').change(function () {
     $('input[name=brightness_day]').prop('disabled', selectedOption == 0);
     $('input[name=day_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);
     $('input[name=night_start]').prop('disabled', selectedOption == 0 || selectedOption == 2);
+});
+
+$('select[name=alarms_notify_mode]').change(function () {
+    const selectedOption = $(this).val();
+    $('input[name=alert_on_time]').prop('disabled', selectedOption == 0);
+    $('input[name=alert_off_time]').prop('disabled', selectedOption == 0);
+    $('input[name=alert_blink_time]').prop('disabled', selectedOption != 2);
 });
 </script>
 )=====";
@@ -3806,7 +3798,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
   saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
-  saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime, parseHomeDistrictJson) || saved;
+  saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
@@ -4105,16 +4097,6 @@ void onMessageCallback(WebsocketsMessage message) {
       fillBinList(data, "test_bins", test_bin_list, &testBinsCount);
       saveLatestFirmware();
 #endif
-    } else if (payload == "district") {
-      Serial.println("Successfully parsed district data");
-      bool alertNow = data["district"]["alertnow"];
-      Serial.println(alertNow);
-      if (alertNow) {
-        homeAlertStart = data["district"]["changed"];
-        Serial.println(homeAlertStart);
-      } else {
-        homeAlertStart = 0;
-      }
     }
   }
 }
@@ -4268,7 +4250,6 @@ HsbColor processAlarms(int led, long timer, int position) {
         
       } else {
         if (position == local_district) {
-          homeAlertStart = 0;
           color_switch = settings.color_home_district;
         } else {
           color_switch = settings.color_clear;
@@ -4277,9 +4258,6 @@ HsbColor processAlarms(int led, long timer, int position) {
       }
       break;
     case 1:
-      if (position == local_district && homeAlertStart < 1) {
-        parseHomeDistrictJson();
-      }
       if (timeClient.unixGMT() - timer < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_new_alert;
         hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
