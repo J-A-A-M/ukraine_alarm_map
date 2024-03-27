@@ -156,8 +156,8 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
-  int     ws_alert_time          = 120000;
-  int     ws_reboot_time         = 180000;
+  int     ws_alert_time          = 150000;
+  int     ws_reboot_time         = 300000;
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
@@ -168,6 +168,7 @@ struct Settings {
   int     time_zone              = 2;
   int     alert_on_time          = 5;
   int     alert_off_time         = 5;
+  int     alert_blink_time       = 1;
   // ------- web config end
 };
 
@@ -554,7 +555,6 @@ bool    enableHA;
 #endif
 bool    wifiReconnect = false;
 bool    websocketReconnect = false;
-bool    blink = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
 int     offset = 9;
@@ -1076,6 +1076,8 @@ void initSettings() {
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
   settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
   settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
+  settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
+  
 
 
   preferences.end();
@@ -3424,8 +3426,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
-  html += addSliderInt("alert_on_time", 26, "Час нотіфікації тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_off_time", 27, "Час нотіфікації відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_on_time", 26, "Тривалість відображення тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_off_time", 27, "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_blink_time", 28, "Тривалість зміни яскравості", settings.alert_blink_time, 1, 10, 1, " секунд", settings.alarms_notify_mode != 2);
 
 #if DISPLAY_ENABLED
   if (settings.legacy && displayInited) {
@@ -3807,6 +3810,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
+  saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
@@ -4239,10 +4243,14 @@ int calculateOffsetDistrict(int initial_position) {
 
 HsbColor processAlarms(int led, long timer, int position) {
   HsbColor hue;
-  float local_brightness = settings.current_brightness / 200.0f;
+  float local_brightness;
   int local_color;
-  if (blink and settings.alarms_notify_mode == 2) {
+
+  int blink_time = timeClient.second() % (settings.alert_blink_time * 2);
+  if (blink_time < settings.alert_blink_time && settings.alarms_notify_mode == 2) {
     local_brightness = settings.current_brightness / 600.0f;
+  } else {
+    local_brightness = settings.current_brightness / 200.0f;
   }
 
   float local_brightness_alert = settings.brightness_alert / 100.0f;
@@ -4333,20 +4341,29 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  float local_brightness = settings.current_brightness / 200.0f;
-  if (blink) {
+  int currentMapMode = getCurrentMapMode();
+  if (currentMapMode == 0) {
+    return;
+  }
+  float local_brightness;
+  int blink_time = timeClient.second() % (6);
+  if (blink_time < 3) {
     local_brightness = settings.current_brightness / 600.0f;
+  } else {
+    local_brightness = settings.current_brightness / 200.0f;
   }
   HsbColor hue = HsbColor(64 / 360.0f, 1.0, local_brightness);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, hue);
   }
   strip->Show();
-  blink = !blink;
 }
 
 void mapCycle() {
   int currentMapMode = getCurrentMapMode();
+  if (websocketReconnect && currentMapMode > 0) {
+    return;
+  }
   switch (currentMapMode) {
     case 0:
       mapOff();
@@ -4366,7 +4383,6 @@ void mapCycle() {
     case 5:
       mapLamp();
   }
-  blink = !blink;
 }
 
 void mapOff() {
@@ -4381,10 +4397,6 @@ void mapLamp() {
     strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(round(settings.ha_light_brightness * 255 / 200.0f)));
   }
   strip->Show();
-}
-
-long getMax(long a, long b) {
-  return (a > b) ? a : b;
 }
 
 void mapAlarms() {
@@ -4411,11 +4423,11 @@ void mapAlarms() {
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
-      adapted_alarm_timers[7] = getMax(alarm_time[25], alarm_time[7]);
+      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
     if (alarm_leds[25] == 1 or alarm_leds[7] == 1) {
       adapted_alarm_leds[7] = 1;
-      adapted_alarm_timers[7] = getMax(alarm_time[25], alarm_time[7]);
+      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
