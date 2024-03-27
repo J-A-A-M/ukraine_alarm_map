@@ -4061,7 +4061,6 @@ bool isItNightNow() {
 //--Websocket process start
 void websocketProcess() {
   if (millis() - websocketLastPingTime > settings.ws_alert_time) {
-    mapReconnect();
     websocketReconnect = true;
   }
   if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
@@ -4272,7 +4271,7 @@ HsbColor processAlarms(int led, long timer, int position) {
           homeAlertStart = 0;
           color_switch = settings.color_home_district;
         } else {
-         color_switch = settings.color_clear;
+          color_switch = settings.color_clear;
         }
         hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       }
@@ -4341,12 +4340,8 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  int currentMapMode = getCurrentMapMode();
-  if (currentMapMode == 0) {
-    return;
-  }
   float local_brightness;
-  int blink_time = timeClient.second() % (6);
+  int blink_time = timeClient.second() % 6;
   if (blink_time < 3) {
     local_brightness = settings.current_brightness / 600.0f;
   } else {
@@ -4361,8 +4356,9 @@ void mapReconnect() {
 
 void mapCycle() {
   int currentMapMode = getCurrentMapMode();
-  if (websocketReconnect && currentMapMode > 0) {
-    return;
+  // show mapRecconect mode if websocket is not connected and map mode != 0
+  if (websocketReconnect && currentMapMode) {
+    currentMapMode = 1000;
   }
   switch (currentMapMode) {
     case 0:
@@ -4382,6 +4378,9 @@ void mapCycle() {
       break;
     case 5:
       mapLamp();
+    case 1000:
+      mapReconnect();
+      break;
   }
 }
 
