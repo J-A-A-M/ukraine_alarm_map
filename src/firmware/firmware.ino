@@ -4252,7 +4252,6 @@ HsbColor processAlarms(int led, long timer, int position) {
   } else {
     local_brightness = settings.current_brightness / 200.0f;
   }
-  Serial.println(blink_time);
 
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
