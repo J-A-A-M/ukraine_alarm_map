@@ -156,8 +156,8 @@ struct Settings {
   int     display_height         = 32;
   int     day_start              = 8;
   int     night_start            = 22;
-  int     ws_alert_time          = 120000;
-  int     ws_reboot_time         = 180000;
+  int     ws_alert_time          = 150000;
+  int     ws_reboot_time         = 300000;
   int     min_of_silence         = 1;
   int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
@@ -166,6 +166,9 @@ struct Settings {
   float   pressure_correction    = 0;
   float   light_sensor_factor    = 1;
   int     time_zone              = 2;
+  int     alert_on_time          = 5;
+  int     alert_off_time         = 5;
+  float   alert_blink_time       = 1;
   // ------- web config end
 };
 
@@ -306,6 +309,7 @@ ServiceMessage serviceMessage;
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
 uint8_t   alarm_leds[26];
+long      alarm_time[26];
 float     weather_leds[26];
 uint8_t   flag_leds[26];
 // int     flag_leds[26] = {
@@ -551,7 +555,6 @@ bool    enableHA;
 #endif
 bool    wifiReconnect = false;
 bool    websocketReconnect = false;
-bool    blink = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
 int     offset = 9;
@@ -1071,6 +1074,10 @@ void initSettings() {
   settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
   settings.time_zone              = preferences.getInt("tz", settings.time_zone);
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
+  settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
+  settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
+  settings.alert_blink_time       = preferences.getFloat("abt", settings.alert_blink_time);
+  
 
 
   preferences.end();
@@ -2850,7 +2857,7 @@ String floatToString(float value, int precision = 1) {
   return String(result);
 }
 
-String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, char* onChanges = NULL, bool disabled = false) {
+String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
@@ -2944,7 +2951,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   return html;
 }
 
-String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, char* onChanges = NULL) {
+String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
   String html;
   html += label;
   html += "<select name='";
@@ -3419,6 +3426,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
+  html += addSliderInt("alert_on_time", 26, "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_off_time", 27, "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderFloat("alert_blink_time", 28, "Тривалість зміни яскравості", settings.alert_blink_time, 0.5, 3, 0.5, " секунд", settings.alarms_notify_mode != 2);
+
 #if DISPLAY_ENABLED
   if (settings.legacy && displayInited) {
     html += addSelectBox("display_height", 7, "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
@@ -3797,6 +3808,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
   saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime, parseHomeDistrictJson) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
+  saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
+  saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
+  saved = saveFloat(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
@@ -4047,7 +4061,6 @@ bool isItNightNow() {
 //--Websocket process start
 void websocketProcess() {
   if (millis() - websocketLastPingTime > settings.ws_alert_time) {
-    mapReconnect();
     websocketReconnect = true;
   }
   if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
@@ -4071,7 +4084,8 @@ void onMessageCallback(WebsocketsMessage message) {
     } else if (payload == "alerts") {
       Serial.println("Successfully parsed alerts data");
       for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = data["alerts"][i];
+        alarm_leds[calculateOffset(i)] = data["alerts"][i][0];
+        alarm_time[calculateOffset(i)] = data["alerts"][i][1];
       }
     } else if (payload == "weather") {
       Serial.println("Successfully parsed weather data");
@@ -4155,7 +4169,7 @@ void socketConnect() {
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
   char webSocketUrl[100];
-  sprintf(webSocketUrl, "ws://%s:%d/data_v1", settings.serverhost, settings.websocket_port);
+  sprintf(webSocketUrl, "ws://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
@@ -4226,12 +4240,16 @@ int calculateOffsetDistrict(int initial_position) {
 }
 
 
-HsbColor processAlarms(int led, int position) {
+HsbColor processAlarms(int led, long timer, int position) {
   HsbColor hue;
-  float local_brightness = settings.current_brightness / 200.0f;
+  float local_brightness;
   int local_color;
-  if (blink and settings.alarms_notify_mode == 2) {
+
+  int blink_time = (timeClient.second() * 1000 + timeClient.ms()) % int(settings.alert_blink_time * 2 * 1000);
+  if (blink_time < int(settings.alert_blink_time * 1000) && settings.alarms_notify_mode == 2) {
     local_brightness = settings.current_brightness / 600.0f;
+  } else {
+    local_brightness = settings.current_brightness / 200.0f;
   }
 
   float local_brightness_alert = settings.brightness_alert / 100.0f;
@@ -4240,43 +4258,35 @@ HsbColor processAlarms(int led, int position) {
   float local_brightness_alert_over = settings.brightness_alert_over / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.home_district);
+  int color_switch;
 
   switch (led) {
     case 0:
-      int color_switch;
-      if (position == local_district) {
-        homeAlertStart = 0;
-        color_switch = settings.color_home_district;
+      if (timeClient.unixGMT() - timer < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_alert_over;
+        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
+        
       } else {
-        color_switch = settings.color_clear;
+        if (position == local_district) {
+          homeAlertStart = 0;
+          color_switch = settings.color_home_district;
+        } else {
+          color_switch = settings.color_clear;
+        }
+        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       }
-      hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       break;
     case 1:
       if (position == local_district && homeAlertStart < 1) {
         parseHomeDistrictJson();
       }
-      hue = HsbColor(settings.color_alert / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
-      break;
-    case 2:
-      if (position == local_district) {
-        homeAlertStart = 0;
+      if (timeClient.unixGMT() - timer < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_new_alert;
+        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
+      } else {
+        color_switch = settings.color_alert;
+        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
       }
-      local_color = settings.color_alert_over;
-      if (settings.alarms_notify_mode == 0) {
-        local_color = settings.color_clear;
-      }
-      hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
-      break;
-    case 3:
-      if (position == local_district && homeAlertStart < 1) {
-        parseHomeDistrictJson();
-      }
-      local_color = settings.color_new_alert;
-      if (settings.alarms_notify_mode == 0) {
-        local_color = settings.color_alert;
-      }
-      hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
       break;
   }
   return hue;
@@ -4330,20 +4340,26 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  float local_brightness = settings.current_brightness / 200.0f;
-  if (blink) {
+  float local_brightness;
+  int blink_time = timeClient.second() % 6;
+  if (blink_time < 3) {
     local_brightness = settings.current_brightness / 600.0f;
+  } else {
+    local_brightness = settings.current_brightness / 200.0f;
   }
   HsbColor hue = HsbColor(64 / 360.0f, 1.0, local_brightness);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, hue);
   }
   strip->Show();
-  blink = !blink;
 }
 
 void mapCycle() {
   int currentMapMode = getCurrentMapMode();
+  // show mapRecconect mode if websocket is not connected and map mode != 0
+  if (websocketReconnect && currentMapMode) {
+    currentMapMode = 1000;
+  }
   switch (currentMapMode) {
     case 0:
       mapOff();
@@ -4362,8 +4378,10 @@ void mapCycle() {
       break;
     case 5:
       mapLamp();
+    case 1000:
+      mapReconnect();
+      break;
   }
-  blink = !blink;
 }
 
 void mapOff() {
@@ -4382,35 +4400,37 @@ void mapLamp() {
 
 void mapAlarms() {
   int adapted_alarm_leds[26];
-  int lastValue = alarm_leds[25];
+  int lastValueColor = alarm_leds[25];
+  int adapted_alarm_timers[26];
+  int lastValueTimer = alarm_time[25];
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_alarm_leds[i] = alarm_leds[i];
+    adapted_alarm_timers[i] = alarm_time[i];
   }
   if (settings.kyiv_district_mode == 2) {
     adapted_alarm_leds[7] = alarm_leds[25];
+    adapted_alarm_timers[7] = alarm_time[25];
   }
   if (settings.kyiv_district_mode == 3) {
     for (int i = 24; i >= 8 + offset; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
+      adapted_alarm_timers[i + 1] = alarm_time[i];
     }
-    adapted_alarm_leds[8 + offset] = lastValue;
+    adapted_alarm_leds[8 + offset] = lastValueColor;
+    adapted_alarm_timers[8 + offset] = lastValueTimer;
   }
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
+      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
     if (alarm_leds[25] == 1 or alarm_leds[7] == 1) {
       adapted_alarm_leds[7] = 1;
-    }
-    if (alarm_leds[25] == 2 or alarm_leds[7] == 2) {
-      adapted_alarm_leds[7] = 2;
-    }
-    if (alarm_leds[25] == 3 or alarm_leds[7] == 3) {
-      adapted_alarm_leds[7] = 3;
+      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], i));
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i));
   }
   strip->Show();
 }
@@ -4693,7 +4713,7 @@ void setup() {
 
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
-  asyncEngine.setInterval(mapCycle, 1000);
+  asyncEngine.setInterval(mapCycle, 100);
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
