@@ -3426,7 +3426,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
-  html += addSliderInt("alert_on_time", 26, "Тривалість відображення тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_on_time", 26, "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSliderInt("alert_off_time", 27, "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSliderFloat("alert_blink_time", 28, "Тривалість зміни яскравості", settings.alert_blink_time, 0.5, 3, 0.5, " секунд", settings.alarms_notify_mode != 2);
 
