@@ -4378,6 +4378,7 @@ void mapCycle() {
       break;
     case 5:
       mapLamp();
+      break;
     case 1000:
       mapReconnect();
       break;
