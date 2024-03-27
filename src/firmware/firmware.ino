@@ -166,6 +166,8 @@ struct Settings {
   float   pressure_correction    = 0;
   float   light_sensor_factor    = 1;
   int     time_zone              = 2;
+  int     alert_on_time          = 5;
+  int     alert_off_time         = 5;
   // ------- web config end
 };
 
@@ -1072,6 +1074,8 @@ void initSettings() {
   settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
   settings.time_zone              = preferences.getInt("tz", settings.time_zone);
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
+  settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
+  settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
 
 
   preferences.end();
@@ -3420,6 +3424,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
 #endif
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
+  html += addSliderInt("alert_on_time", 26, "Час нотіфікації тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_off_time", 27, "Час нотіфікації відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+
 #if DISPLAY_ENABLED
   if (settings.legacy && displayInited) {
     html += addSelectBox("display_height", 7, "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
@@ -3798,6 +3805,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
   saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime, parseHomeDistrictJson) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
+  saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
+  saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
@@ -4228,7 +4237,7 @@ int calculateOffsetDistrict(int initial_position) {
 }
 
 
-HsbColor processAlarms(int led, int position) {
+HsbColor processAlarms(int led, long timer, int position) {
   HsbColor hue;
   float local_brightness = settings.current_brightness / 200.0f;
   int local_color;
@@ -4246,7 +4255,11 @@ HsbColor processAlarms(int led, int position) {
 
   switch (led) {
     case 0:
-      if (timeClient.unixGMT() - alarm_time[position] > 15000) {
+      if (timeClient.unixGMT() - timer < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_alert_over;
+        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
+        
+      } else {
         if (position == local_district) {
           homeAlertStart = 0;
           color_switch = settings.color_home_district;
@@ -4254,43 +4267,20 @@ HsbColor processAlarms(int led, int position) {
          color_switch = settings.color_clear;
         }
         hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
-      } else {
-        color_switch = settings.color_alert_over;
-        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
       }
       break;
     case 1:
       if (position == local_district && homeAlertStart < 1) {
         parseHomeDistrictJson();
       }
-      if (timeClient.unixGMT() - alarm_time[position] > 15000) {
-        color_switch = settings.color_alert;
-        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
-      } else {
+      if (timeClient.unixGMT() - timer < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_new_alert;
         hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
+      } else {
+        color_switch = settings.color_alert;
+        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
       }
       break;
-    // case 2:
-    //   if (position == local_district) {
-    //     homeAlertStart = 0;
-    //   }
-    //   local_color = settings.color_alert_over;
-    //   if (settings.alarms_notify_mode == 0) {
-    //     local_color = settings.color_clear;
-    //   }
-    //   hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
-    //   break;
-    // case 3:
-    //   if (position == local_district && homeAlertStart < 1) {
-    //     parseHomeDistrictJson();
-    //   }
-    //   local_color = settings.color_new_alert;
-    //   if (settings.alarms_notify_mode == 0) {
-    //     local_color = settings.color_alert;
-    //   }
-    //   hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
-    //   break;
   }
   return hue;
 }
@@ -4393,37 +4383,43 @@ void mapLamp() {
   strip->Show();
 }
 
+long getMax(long a, long b) {
+  return (a > b) ? a : b;
+}
+
 void mapAlarms() {
   int adapted_alarm_leds[26];
-  int lastValue = alarm_leds[25];
+  int lastValueColor = alarm_leds[25];
+  int adapted_alarm_timers[26];
+  int lastValueTimer = alarm_time[25];
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_alarm_leds[i] = alarm_leds[i];
+    adapted_alarm_timers[i] = alarm_time[i];
   }
   if (settings.kyiv_district_mode == 2) {
     adapted_alarm_leds[7] = alarm_leds[25];
+    adapted_alarm_timers[7] = alarm_time[25];
   }
   if (settings.kyiv_district_mode == 3) {
     for (int i = 24; i >= 8 + offset; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
+      adapted_alarm_timers[i + 1] = alarm_time[i];
     }
-    adapted_alarm_leds[8 + offset] = lastValue;
+    adapted_alarm_leds[8 + offset] = lastValueColor;
+    adapted_alarm_timers[8 + offset] = lastValueTimer;
   }
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
+      adapted_alarm_timers[7] = getMax(alarm_time[25], alarm_time[7]);
     }
     if (alarm_leds[25] == 1 or alarm_leds[7] == 1) {
       adapted_alarm_leds[7] = 1;
-    }
-    if (alarm_leds[25] == 2 or alarm_leds[7] == 2) {
-      adapted_alarm_leds[7] = 2;
-    }
-    if (alarm_leds[25] == 3 or alarm_leds[7] == 3) {
-      adapted_alarm_leds[7] = 3;
+      adapted_alarm_timers[7] = getMax(alarm_time[25], alarm_time[7]);
     }
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], i));
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i));
   }
   strip->Show();
 }
