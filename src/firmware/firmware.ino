@@ -306,6 +306,7 @@ ServiceMessage serviceMessage;
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 
 uint8_t   alarm_leds[26];
+long      alarm_time[26];
 float     weather_leds[26];
 uint8_t   flag_leds[26];
 // int     flag_leds[26] = {
@@ -4071,7 +4072,8 @@ void onMessageCallback(WebsocketsMessage message) {
     } else if (payload == "alerts") {
       Serial.println("Successfully parsed alerts data");
       for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = data["alerts"][i];
+        alarm_leds[calculateOffset(i)] = data["alerts"][i][0];
+        alarm_time[calculateOffset(i)] = data["alerts"][i][1];
       }
     } else if (payload == "weather") {
       Serial.println("Successfully parsed weather data");
@@ -4155,7 +4157,7 @@ void socketConnect() {
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
   char webSocketUrl[100];
-  sprintf(webSocketUrl, "ws://%s:%d/data_v1", settings.serverhost, settings.websocket_port);
+  sprintf(webSocketUrl, "ws://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
@@ -4240,44 +4242,55 @@ HsbColor processAlarms(int led, int position) {
   float local_brightness_alert_over = settings.brightness_alert_over / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.home_district);
+  int color_switch;
 
   switch (led) {
     case 0:
-      int color_switch;
-      if (position == local_district) {
-        homeAlertStart = 0;
-        color_switch = settings.color_home_district;
+      if (timeClient.unixGMT() - alarm_time[position] > 15000) {
+        if (position == local_district) {
+          homeAlertStart = 0;
+          color_switch = settings.color_home_district;
+        } else {
+         color_switch = settings.color_clear;
+        }
+        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       } else {
-        color_switch = settings.color_clear;
+        color_switch = settings.color_alert_over;
+        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
       }
-      hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
       break;
     case 1:
       if (position == local_district && homeAlertStart < 1) {
         parseHomeDistrictJson();
       }
-      hue = HsbColor(settings.color_alert / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
+      if (timeClient.unixGMT() - alarm_time[position] > 15000) {
+        color_switch = settings.color_alert;
+        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
+      } else {
+        color_switch = settings.color_new_alert;
+        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
+      }
       break;
-    case 2:
-      if (position == local_district) {
-        homeAlertStart = 0;
-      }
-      local_color = settings.color_alert_over;
-      if (settings.alarms_notify_mode == 0) {
-        local_color = settings.color_clear;
-      }
-      hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
-      break;
-    case 3:
-      if (position == local_district && homeAlertStart < 1) {
-        parseHomeDistrictJson();
-      }
-      local_color = settings.color_new_alert;
-      if (settings.alarms_notify_mode == 0) {
-        local_color = settings.color_alert;
-      }
-      hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
-      break;
+    // case 2:
+    //   if (position == local_district) {
+    //     homeAlertStart = 0;
+    //   }
+    //   local_color = settings.color_alert_over;
+    //   if (settings.alarms_notify_mode == 0) {
+    //     local_color = settings.color_clear;
+    //   }
+    //   hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
+    //   break;
+    // case 3:
+    //   if (position == local_district && homeAlertStart < 1) {
+    //     parseHomeDistrictJson();
+    //   }
+    //   local_color = settings.color_new_alert;
+    //   if (settings.alarms_notify_mode == 0) {
+    //     local_color = settings.color_alert;
+    //   }
+    //   hue = HsbColor(local_color / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
+    //   break;
   }
   return hue;
 }
