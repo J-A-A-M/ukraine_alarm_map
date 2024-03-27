@@ -39,6 +39,12 @@ jobs:
           cd ${{ github.workspace }}/bin_beta/
           ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
           cd ${{ github.workspace }}
+      - name: Upload flasher to Github Pages
+        uses: ./.github/workflows/upload-pages
+        with:
+          beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          version: ${{ inputs.release-version }}
+          beta_build: ${{ github.run_number }}  
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -55,13 +61,7 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
           prerelease: true
-          makeLatest: false
-      - name: Upload flasher to Github Pages
-        uses: ./.github/workflows/upload-pages
-        with:
-          beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-          version: ${{ inputs.release-version }}
-          beta_build: ${{ github.run_number }}      
+          makeLatest: false    
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.0.3
         with:
