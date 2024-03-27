@@ -2857,7 +2857,7 @@ String floatToString(float value, int precision = 1) {
   return String(result);
 }
 
-String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, char* onChanges = NULL, bool disabled = false) {
+String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
@@ -2951,7 +2951,7 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   return html;
 }
 
-String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, char* onChanges = NULL) {
+String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
   String html;
   html += label;
   html += "<select name='";

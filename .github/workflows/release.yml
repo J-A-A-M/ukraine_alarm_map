@@ -91,6 +91,12 @@ jobs:
           cd ${{ github.workspace }}/bin_beta/
           ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
           cd ${{ github.workspace }}
+      - name: Upload flasher to Github Pages
+        uses: ./.github/workflows/upload-pages
+        with:
+          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
+          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
+          version: ${{ inputs.release-version }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -115,12 +121,6 @@ jobs:
           head_to_merge: ${{ steps.commit_changes.outputs.commit_hash }}
           message: Sync Release ${{ inputs.release-version }} to develop
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload flasher to Github Pages
-        uses: ./.github/workflows/upload-pages
-        with:
-          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
-          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
-          version: ${{ inputs.release-version }}
       - name: Update server bin list
         uses: appleboy/ssh-action@v1.0.3
         with:
