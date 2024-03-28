@@ -233,6 +233,7 @@ const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g
 const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
 const char shchedryk[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g#,a,4f#,4a,g#,a,4f#";
 const char xmen[]                 PROGMEM = "XMen:d=4,o=6,b=125:16d#4,16g4,16c5,16d#5,4d5,8c5,8g4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8g#4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8d#5,2p,8d5,8c5,8g5,16g5,32a5,32b5,4c6";
+const char avengers[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4p.,16e4,16p,8e4,16p,16b4,4a4,4p,4g4,4f#4,16d4,16e4,8p,16e4,16f#4,8p,16d4,16e4,8p,16e4,16f#4,8p,4e4";
 
 
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
@@ -240,7 +241,7 @@ const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 17
+#define MELODIES_COUNT 18
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
   OiULuzi,
@@ -259,6 +260,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
   packman,
   shchedryk,
   xmen,
+  avengers,
 };
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
@@ -279,6 +281,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Пакмен",
   "Щедрик",
   "Люди Х",
+  "Местники",
 };
 #endif
 
