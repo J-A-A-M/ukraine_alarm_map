@@ -564,7 +564,6 @@ bool    fwUpdateAvailable = false;
 char    newFwVersion[25];
 #endif
 char    currentFwVersion[25];
-int     rssi;
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
@@ -2659,7 +2658,7 @@ void showTechInfo() {
     // Wifi Signal level
   } else if (remainder < toggleTime * 2) {
     strcpy(title, "Сигнал WiFi:");
-    sprintf(message, "%d dBm", rssi);
+    sprintf(message, "%d dBm", wifiSignal);
     // Uptime
   } else if (remainder < toggleTime * 3) {
     strcpy(title, "Час роботи:");
