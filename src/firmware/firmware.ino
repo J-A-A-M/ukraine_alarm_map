@@ -168,7 +168,7 @@ struct Settings {
   int     time_zone              = 2;
   int     alert_on_time          = 5;
   int     alert_off_time         = 5;
-  float   alert_blink_time       = 1;
+  int     alert_blink_time       = 2;
   // ------- web config end
 };
 
@@ -1073,7 +1073,7 @@ void initSettings() {
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
   settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
   settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
-  settings.alert_blink_time       = preferences.getFloat("abt", settings.alert_blink_time);
+  settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   
 
 
@@ -3419,7 +3419,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
   html += addSliderInt("alert_on_time", 26, "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSliderInt("alert_off_time", 27, "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderFloat("alert_blink_time", 28, "Тривалість зміни яскравості", settings.alert_blink_time, 0.5, 3, 0.5, " секунд", settings.alarms_notify_mode != 2);
+  html += addSliderInt("alert_blink_time", 28, "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
 
 #if DISPLAY_ENABLED
   if (settings.legacy && displayInited) {
@@ -3801,7 +3801,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
-  saved = saveFloat(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
+  saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
@@ -4221,18 +4221,9 @@ int calculateOffsetDistrict(int initial_position) {
 }
 
 
-HsbColor processAlarms(int led, long timer, int position) {
+HsbColor processAlarms(int led, long timer, int position, float blinkBrightness) {
   HsbColor hue;
-  float local_brightness;
   int local_color;
-
-  int blink_time = (timeClient.second() * 1000 + timeClient.ms()) % int(settings.alert_blink_time * 2 * 1000);
-  if (blink_time < int(settings.alert_blink_time * 1000) && settings.alarms_notify_mode == 2) {
-    local_brightness = settings.current_brightness / 600.0f;
-  } else {
-    local_brightness = settings.current_brightness / 200.0f;
-  }
-
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
   float local_brightness_new_alert = settings.brightness_new_alert / 100.0f;
@@ -4245,7 +4236,7 @@ HsbColor processAlarms(int led, long timer, int position) {
     case 0:
       if (timeClient.unixGMT() - timer < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
-        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_alert_over);
+        hue = HsbColor(color_switch / 360.0f, 1.0, blinkBrightness * local_brightness_alert_over);
         
       } else {
         if (position == local_district) {
@@ -4259,7 +4250,7 @@ HsbColor processAlarms(int led, long timer, int position) {
     case 1:
       if (timeClient.unixGMT() - timer < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_new_alert;
-        hue = HsbColor(color_switch / 360.0f, 1.0, local_brightness * local_brightness_new_alert);
+        hue = HsbColor(color_switch / 360.0f, 1.0, blinkBrightness * local_brightness_new_alert);
       } else {
         color_switch = settings.color_alert;
         hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
@@ -4267,6 +4258,24 @@ HsbColor processAlarms(int led, long timer, int position) {
       break;
   }
   return hue;
+}
+
+float calculateBlinkBrightness() {
+  float maxBrightness = settings.current_brightness / 200.0f;
+  float minBrightness = maxBrightness * 0.1f;
+  int blinkTime = (micros()) % (settings.alert_blink_time * 1000000);
+  int halfBlinkTime = settings.alert_blink_time * 500000;
+  float blinkBrightness;
+  if (blinkTime < halfBlinkTime) {
+    blinkBrightness = mapf(blinkTime, 0, halfBlinkTime - 1, minBrightness, maxBrightness);
+  } else {
+    blinkBrightness = mapf(blinkTime, halfBlinkTime, halfBlinkTime * 2 - 1, maxBrightness, minBrightness);
+  }
+  return blinkBrightness;
+}
+
+float mapf(float value, float istart, float istop, float ostart, float ostop) {
+  return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
 
 void checkMinuteOfSilence() {
@@ -4407,8 +4416,9 @@ void mapAlarms() {
       adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
   }
+  float blinkBrightness = calculateBlinkBrightness();
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i));
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i, blinkBrightness));
   }
   strip->Show();
 }
@@ -4691,7 +4701,7 @@ void setup() {
 
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
-  asyncEngine.setInterval(mapCycle, 100);
+  asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(WifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
@@ -4718,4 +4728,7 @@ void loop() {
 #endif
   client_websocket.poll();
   syncTime(2);
+  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2 ) {
+    mapCycle();
+  }
 }
