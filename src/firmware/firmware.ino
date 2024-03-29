@@ -1002,10 +1002,7 @@ int getNightModeType() {
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
-  if (!settings.legacy && settings.service_diodes_mode) {
-    digitalWrite(pin, status);
-  }
-  if (force) {
+  if (force || (!settings.legacy && settings.service_diodes_mode)) {
     digitalWrite(pin, status);
   }
 }
