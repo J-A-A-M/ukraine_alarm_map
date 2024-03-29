@@ -281,7 +281,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Пакмен",
   "Щедрик",
   "Люди Х",
-  "Местники",
+  "Месники",
 };
 #endif
 
