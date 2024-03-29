@@ -865,21 +865,18 @@ char* displayHeightOptions[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   "128x64"
 };
 
-#define LEGACY_OPTIONS_COUNT 2
+#define LEGACY_OPTIONS_COUNT 3
 char* legacyOptions[LEGACY_OPTIONS_COUNT] = {
   "Плата JAAM",
-  "Класична (початок на Закарпатті)"
+  "Початок на Закарпатті",
+  "Початок на Одещині"
 };
 
 //--Init start
 void initLegacy() {
-  if (settings.legacy) {
-    offset = 0;
-    for (int i = 0; i < 26; i++) {
-      flag_leds[i] = legacy_flag_leds[i];
-    }
-    settings.service_diodes_mode = 0;
-  } else {
+  switch (settings.legacy) {
+  case 0:
+    Serial.println("Mode: jaam");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
     }
@@ -896,8 +893,24 @@ void initLegacy() {
     settings.pixelpin = 13;
     settings.buttonpin = 35;
     settings.display_height = 64;
+    break;
+  case 1:
+    Serial.println("Mode: transcarpathia");
+    offset = 0;
+    for (int i = 0; i < 26; i++) {
+      flag_leds[i] = legacy_flag_leds[i];
+    }
+    settings.service_diodes_mode = 0;
+    break;
+  case 2:
+    Serial.println("Mode: odesa");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
+    }
+    break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
+  Serial.printf("Offset: %d\n", offset);
 }
 
 
