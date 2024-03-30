@@ -2353,6 +2353,10 @@ bool saveHomeDistrict(int newHomeDistrict) {
   return true;
 }
 
+int getCurrentPeriodIndex(int periodLength, int periodCount) {
+  return (timeClient.second() / periodLength) % periodCount;
+}
+
 //--Display start
 void displayCycle() {
 #if DISPLAY_ENABLED
@@ -2546,16 +2550,9 @@ bool shouldDisplayBeOff() {
 }
 
 void displayMinuteOfSilence() {
-  int toggleTime = 3;  // seconds
-  int remainder = timeClient.second() % (toggleTime * 3);
-
-  if (remainder < toggleTime) {
-    showMinOfSilanceScreen(0);
-  } else if (remainder < toggleTime * 2) {
-    showMinOfSilanceScreen(1);
-  } else {
-    showMinOfSilanceScreen(2);
-  }
+  // every 3 sec.  
+  int periodIndex = getCurrentPeriodIndex(3, 3);
+  showMinOfSilanceScreen(periodIndex);
 }
 
 void showMinOfSilanceScreen(int screen) {
@@ -2611,13 +2608,12 @@ void displayServiceMessage(ServiceMessage message) {
 }
 
 void showHomeAlertInfo() {
-  int toggleTime = settings.display_mode_time;  // seconds
-  int remainder = timeClient.second() % (toggleTime * 2);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2);
   char title[50];
-  if (remainder < toggleTime) {
-    strcpy(title, "Тривога триває:");
-  } else {
+  if (periodIndex) {
     strcpy(title, districts[settings.home_district]);
+  } else {
+    strcpy(title, "Тривога триває:");
   }
   char message[15];
   int position = calculateOffset(settings.home_district);
@@ -2628,11 +2624,10 @@ void showHomeAlertInfo() {
 
 #if FW_UPDATE_ENABLED
 void showNewFirmwareNotification() {
-  int toggleTime = settings.display_mode_time;  // seconds
-  int remainder = timeClient.second() % (toggleTime * 2);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2);
   char title[50];
   char message[50];
-  if (remainder < toggleTime) {
+  if (periodIndex) {
     strcpy(title, "Доступне оновлення:");
     strcpy(message, newFwVersion);
   } else if (!isButtonActivated()) {
@@ -2663,49 +2658,49 @@ void showTemp() {
 }
 
 void showTechInfo() {
-  int toggleTime = settings.display_mode_time;  // seconds
-  int remainder = timeClient.second() % (toggleTime * 6);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 6);
   char title[35];
   char message[25];
+  switch (periodIndex) {
+  case 0:
   // IP address
-  if (remainder < toggleTime) {
     strcpy(title, "IP-адреса мапи:");
     strcpy(message, getLocalIP());
-    // Wifi Signal level
-  } else if (remainder < toggleTime * 2) {
+    break;
+  case 1:
+  // Wifi Signal level
     strcpy(title, "Сигнал WiFi:");
     sprintf(message, "%d dBm", wifiSignal);
-    // Uptime
-  } else if (remainder < toggleTime * 3) {
+    break;
+  case 2:
+  // Uptime
     strcpy(title, "Час роботи:");
     fillFromTimer(message, millis() / 1000);
-    // map-API status
-  } else if (remainder < toggleTime * 4) {
+    break;
+  case 3:
+  // map-API status
     strcpy(title, "Статус map-API:");
     strcpy(message, apiConnected ? "Підключено" : "Відключено");
-    // HA Status
-  } else if (remainder < toggleTime * 5) {
+    break;
+  case 4:
+  // HA Status
     strcpy(title, "Home Assistant:");
     strcpy(message, haConnected ? "Підключено" : "Відключено");
-    // Fw version
-  } else {
+    break;
+  case 5:
+  // Fw version
     strcpy(title, "Версія прошивки:");
     strcpy(message, currentFwVersion);
+    break;
+  default:
+    break;
   }
-
   displayMessage(message, title);
 }
 
 void showClimate() {
-  int toggleTime = settings.display_mode_time;  // seconds
-  int remainder = timeClient.second() % (toggleTime * getClimateInfoSize());
-  if (remainder < toggleTime) {
-    showLocalClimateInfo(0);
-  } else if (remainder < toggleTime * 2) {
-    showLocalClimateInfo(1);
-  } else if (remainder < toggleTime * 3) {
-    showLocalClimateInfo(2);
-  }
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize());
+  showLocalClimateInfo(periodIndex);
 }
 
 void showLocalTemp() {
@@ -2768,29 +2763,33 @@ void fillFromTimer(char* result, long timerSeconds) {
 }
 
 void showSwitchingModes() {
-  int toggleTime = settings.display_mode_time;
-  int remainder = timeClient.second() % (toggleTime * (2 + getClimateInfoSize()));
-  if (remainder < toggleTime) {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSize());
+  switch (periodIndex) {
+  case 0:
     // Display Mode Clock
     showClock();
-  } else if (remainder < toggleTime * 2) {
+    break;
+  case 1:
     // Display Mode Temperature
     showTemp();
-  } else if (remainder < toggleTime * 3) {
-    showLocalClimateInfo(0);
-  } else if (remainder < toggleTime * 4) {
-    showLocalClimateInfo(1);
-  } else if (remainder < toggleTime * 5) {
-    showLocalClimateInfo(2);
+    break;
+  case 2:
+  case 3:
+  case 4:
+    showLocalClimateInfo(periodIndex - 2);
+    break;
+  default:
+    break;
   }
 }
 
 char getDivider() {
   // Change every second
-  if (timeClient.second() % 2 == 0) {
-    return ':';
-  } else {
+  int periodIndex = getCurrentPeriodIndex(1, 2);
+  if (periodIndex) {
     return ' ';
+  } else {
+    return ':';
   }
 }
 //--Display end
@@ -4276,16 +4275,15 @@ HsbColor processAlarms(int led, long timer, int position, float blinkBrightness)
   return hue;
 }
 
-float calculateBlinkBrightness() {
-  float maxBrightness = settings.current_brightness / 200.0f;
-  float minBrightness = maxBrightness * 0.1f;
-  int blinkTime = (micros()) % (settings.alert_blink_time * 1000000);
-  int halfBlinkTime = settings.alert_blink_time * 500000;
+float getFadeInFadeOutBrightness(float maxBrightness, int fadeTime) {
+  float minBrightness = maxBrightness * 0.01f;
+  int progress = micros() % (fadeTime * 1000000);
+  int halfBlinkTime = fadeTime * 500000;
   float blinkBrightness;
-  if (blinkTime < halfBlinkTime) {
-    blinkBrightness = mapf(blinkTime, 0, halfBlinkTime - 1, minBrightness, maxBrightness);
+  if (progress < halfBlinkTime) {
+    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, maxBrightness);
   } else {
-    blinkBrightness = mapf(blinkTime, halfBlinkTime, halfBlinkTime * 2 - 1, maxBrightness, minBrightness);
+    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, maxBrightness, minBrightness);
   }
   return blinkBrightness;
 }
@@ -4342,14 +4340,8 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  float local_brightness;
-  int blink_time = timeClient.second() % 6;
-  if (blink_time < 3) {
-    local_brightness = settings.current_brightness / 600.0f;
-  } else {
-    local_brightness = settings.current_brightness / 200.0f;
-  }
-  HsbColor hue = HsbColor(64 / 360.0f, 1.0, local_brightness);
+  float localBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time);
+  HsbColor hue = HsbColor(64 / 360.0f, 1.0, localBrightness);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, hue);
   }
@@ -4432,7 +4424,7 @@ void mapAlarms() {
       adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
   }
-  float blinkBrightness = calculateBlinkBrightness();
+  float blinkBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i, blinkBrightness));
   }
