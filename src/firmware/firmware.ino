@@ -654,7 +654,7 @@ char haLocalHumID[23];
 char haLocalPressureID[28];
 char haLightLevelID[25];
 char haHomeTempID[23];
-char haNightModeID[23];
+char haNightModeID[24];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
