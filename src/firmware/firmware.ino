@@ -2140,11 +2140,6 @@ void handleClick(int event, SoundType soundType) {
       break;
     case 6:
       nightMode = !nightMode;
-      if (nightMode) {
-
-        prevBrightness = settings.brightness;
-      }
-      
       saveHaNightMode(nightMode);
       showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
       autoBrightnessUpdate();
@@ -2254,6 +2249,9 @@ bool saveHaAlarmAuto(int newMode) {
 
 bool saveHaNightMode(bool newState) {
   nightMode = newState;
+  if (nightMode) {
+    prevBrightness = settings.brightness;
+  }
   Serial.print("nightMode: ");
   Serial.println(nightMode ? "true" : "false");
 #if HA_ENABLED && DISPLAY_ENABLED
