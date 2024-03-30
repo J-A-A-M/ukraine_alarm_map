@@ -627,7 +627,7 @@ char chipID[13];
 char localIP[16];
 #if HA_ENABLED
 HADevice        device;
-HAMqtt          mqtt(client, device, 25);
+HAMqtt          mqtt(client, device, 26);
 char haConfigUrl[30];
 
 char haUptimeID[20];
@@ -654,6 +654,7 @@ char haLocalHumID[23];
 char haLocalPressureID[28];
 char haLightLevelID[25];
 char haHomeTempID[23];
+char haNightModeID[24];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -681,6 +682,7 @@ HASensorNumber*  haLocalHum;
 HASensorNumber*  haLocalPressure;
 HASensorNumber*  haLightLevel;
 HASensorNumber*  haHomeTemp;
+HASwitch*        haNightMode;
 #endif
 
 void initChipID() {
@@ -771,6 +773,9 @@ void initHaVars() {
 #endif
   sprintf(haHomeTempID, "%s_home_temp", chipID);
   haHomeTemp = new HASensorNumber(haHomeTempID, HASensorNumber::PrecisionP2);
+
+  sprintf(haNightModeID, "%s_night_mode", chipID);
+  haNightMode = new HASwitch(haNightModeID);
 
 #endif
 }
@@ -1586,6 +1591,11 @@ void initHA() {
       haHomeTemp->setDeviceClass("temperature");
       haHomeTemp->setStateClass("measurement");
 
+      haNightMode->onCommand(onHaNightModeCommand);
+      haNightMode->setIcon("mdi:shield-moon-outline");
+      haNightMode->setName("Night Mode");
+      haNightMode->setCurrentState(nightMode);
+
       device.enableLastWill();
       mqtt.onStateChanged(onMqttStateChanged);
       mqtt.begin(brokerAddr, settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword);
@@ -1644,6 +1654,10 @@ void onHaButtonClicked(HAButton* sender) {
     nextDisplayMode();
 #endif
   }
+}
+
+void onHaNightModeCommand(bool state, HASwitch* sender) {
+  saveHaNightMode(state);
 }
 
 void onHaShowHomeAlarmTimeCommand(bool state, HASwitch* sender) {
@@ -2126,9 +2140,7 @@ void handleClick(int event, SoundType soundType) {
       break;
     case 6:
       nightMode = !nightMode;
-      if (nightMode) {
-        prevBrightness = settings.brightness;
-      }
+      saveHaNightMode(nightMode);
       showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
       autoBrightnessUpdate();
       mapCycle();
@@ -2228,6 +2240,23 @@ bool saveHaAlarmAuto(int newMode) {
 #if HA_ENABLED
   if (enableHA) {
     haAlarmsAuto->setState(newMode);
+  }
+#endif
+  return true;
+}
+
+
+
+bool saveHaNightMode(bool newState) {
+  nightMode = newState;
+  if (nightMode) {
+    prevBrightness = settings.brightness;
+  }
+  Serial.print("nightMode: ");
+  Serial.println(nightMode ? "true" : "false");
+#if HA_ENABLED
+  if (enableHA) {
+    haNightMode->setState(newState);
   }
 #endif
   return true;
