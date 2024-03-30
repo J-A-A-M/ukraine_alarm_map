@@ -2254,8 +2254,8 @@ bool saveHaNightMode(bool newState) {
   }
   Serial.print("nightMode: ");
   Serial.println(nightMode ? "true" : "false");
-#if HA_ENABLED && DISPLAY_ENABLED
-  if (enableHA && displayInited) {
+#if HA_ENABLED
+  if (enableHA) {
     haNightMode->setState(newState);
   }
 #endif
