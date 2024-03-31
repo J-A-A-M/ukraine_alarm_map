@@ -228,9 +228,9 @@ async def echo(websocket, path):
                         tracker.send(events=[online_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
                     case 'pong':
-                        logger.info(f"{client_ip}:{client_id} >>> ping analytics sending...")
-                        alive_event = tracker.create_new_event('alive')
-                        tracker.send(events=[alive_event], date=datetime.now())
+                        ping_event = tracker.create_new_event('ping')
+                        ping_event.set_event_param('state', 'alive')
+                        tracker.send(events=[ping_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> ping analytics sent")
                     case 'settings':
                         json_data = json.loads(data)
