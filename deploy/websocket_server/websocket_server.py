@@ -218,15 +218,25 @@ async def echo(websocket, path):
                         client['chip_id'] = data
                         tracker.client_id = data
                         tracker.store.set_user_property('user_id', data)
-                        tracker.store.set_session_parameter('session_id', tracker.random_client_id())
+                        tracker.store.set_session_parameter('session_id', f'{data}_{datetime.now().timestamp()}')
                         tracker.store.set_session_parameter('country', country)
                         tracker.store.set_session_parameter('region', region)
                         tracker.store.set_session_parameter('city', city)
                         tracker.store.set_session_parameter('ip', client_ip)
-                        onlineEvent = tracker.create_new_event('status')
-                        onlineEvent.set_event_param('online', True)
-                        tracker.send(events=[onlineEvent])
+                        online_event = tracker.create_new_event('status')
+                        online_event.set_event_param('online', 'true')
+                        tracker.send(events=[online_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
+                    case 'pong':
+                        tracker.send(events=[tracker.create_new_event('ping')], date=datetime.now())
+                        logger.info(f"{client_ip}:{client_id} <<< pong")
+                    case 'settings':
+                        json_data = json.loads(data)
+                        settings_event = tracker.create_new_event('settings')
+                        for key, value in json_data.items():
+                            settings_event.set_event_param(key, value)
+                        tracker.send(events=[settings_event], date=datetime.now())
+                        logger.info(f"{client_ip}:{client_id} >>> settings {json_data}")
                     case _:
                         logger.info(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
@@ -234,9 +244,9 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
-        offlineEvent = tracker.create_new_event('status')
-        offlineEvent.set_event_param('online', False)
-        tracker.send(events=[offlineEvent])
+        offline_event = tracker.create_new_event('status')
+        offline_event.set_event_param('online', 'false')
+        tracker.send(events=[offline_event], date=datetime.now())
         data_task.cancel()
         del shared_data.trackers[f'{client_ip}_{client_port}']
         del shared_data.clients[f'{client_ip}_{client_port}']
