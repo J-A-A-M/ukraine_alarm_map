@@ -228,15 +228,17 @@ async def echo(websocket, path):
                         tracker.send(events=[online_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
                     case 'pong':
-                        tracker.send(events=[tracker.create_new_event('ping')], date=datetime.now())
-                        logger.info(f"{client_ip}:{client_id} <<< pong")
+                        logger.info(f"{client_ip}:{client_id} >>> ping analytics sending...")
+                        ping_event = tracker.create_new_event('ping')
+                        tracker.send(events=[ping_event], date=datetime.now())
+                        logger.info(f"{client_ip}:{client_id} >>> ping analytics sent")
                     case 'settings':
                         json_data = json.loads(data)
                         settings_event = tracker.create_new_event('settings')
                         for key, value in json_data.items():
                             settings_event.set_event_param(key, value)
                         tracker.send(events=[settings_event], date=datetime.now())
-                        logger.info(f"{client_ip}:{client_id} >>> settings {json_data}")
+                        logger.info(f"{client_ip}:{client_id} >>> settings analytics sent")
                     case _:
                         logger.info(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:

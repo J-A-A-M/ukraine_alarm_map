@@ -1109,8 +1109,7 @@ void initSettings() {
 void sendSettingsAnalitycs(const char* settingKey, const char* settingValue) {
   char settingsInfo[100];
   JsonDocument settings;
-  settings["setting"] = settingKey;
-  settings["value"] = settingValue;
+  settings[settingKey] = settingValue;
   sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
   client_websocket.send(settingsInfo);
   Serial.printf("Sent settings analytics: %s\n", settingsInfo);
