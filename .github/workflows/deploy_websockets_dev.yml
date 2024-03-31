@@ -3,7 +3,7 @@ on: workflow_dispatch
 
 run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
 jobs:
-    deploy_microservices:
+    deploy_websocket_dev:
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy Dev WebSockets
