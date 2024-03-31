@@ -4211,7 +4211,7 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     Serial.println("websocket ping");
     client_websocket.pong();
     Serial.println("answered pong");
-    client_websocket.send("pong");
+    client_websocket.send("pong:alive");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
     Serial.println("websocket pong");
