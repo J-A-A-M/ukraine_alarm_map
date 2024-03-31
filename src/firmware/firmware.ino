@@ -4205,7 +4205,7 @@ void socketConnect() {
     Serial.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
 
-    char userInfo[125];
+    char userInfo[250];
     JsonDocument userInfoJson;
     userInfoJson["legacy"] = settings.legacy;
     userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;

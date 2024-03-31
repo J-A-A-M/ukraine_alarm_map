@@ -170,7 +170,7 @@ async def echo(websocket, path):
         'country': country,
     }
 
-    tracker = shared_data.trackers[f'{client_ip}_{client_port}'] = GtagMP(api_secret=api_secret, measurement_id=measurement_id)
+    tracker = shared_data.trackers[f'{client_ip}_{client_port}'] = GtagMP(api_secret=api_secret, measurement_id=measurement_id, client_id='temp_id')
 
     match path:
         case "/data_v1":
