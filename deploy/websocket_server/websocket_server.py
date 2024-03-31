@@ -8,12 +8,16 @@ from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone
+from ga4mp import GtagMP
+from ga4mp.store import DictStore
 
 debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 38440
 ping_interval = int(os.environ.get('PING_INTERVAL', 60))
 memcache_fetch_interval = int(os.environ.get('MEMCACHE_FETCH_INTERVAL', 1))
 random_mode = os.environ.get('RANDOM_MODE') or False
+api_secret = os.environ.get('API_SECRET') or ''
+measurement_id = os.environ.get('MEASUREMENT_ID') or ''
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
@@ -35,6 +39,7 @@ class SharedData:
         self.bins = '[]'
         self.test_bins = '[]'
         self.clients = {}
+        self.trackers = {}
         self.blocked_ips = []
 
 
@@ -142,9 +147,11 @@ async def echo(websocket, path):
         response = geo.city(client_ip)
         city = response.city.name or 'not-in-db'
         region = response.subdivisions.most_specific.name or 'not-in-db'
+        country = response.country.iso_code or 'not-in-db'
     except errors.AddressNotFoundError:
         city = 'not-found'
         region = 'not-found'
+        country = 'not-found'
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
@@ -159,8 +166,11 @@ async def echo(websocket, path):
         'firmware': 'unknown',
         'chip_id': 'unknown',
         'city': city,
-        'region': region
+        'region': region,
+        'country': country,
     }
+
+    tracker = shared_data.trackers[f'{client_ip}_{client_port}'] = GtagMP(api_secret=api_secret, measurement_id=measurement_id)
 
     match path:
         case "/data_v1":
@@ -196,9 +206,26 @@ async def echo(websocket, path):
                         logger.info(f"{client_ip}:{client_id} <<< district {payload} ")
                     case 'firmware':
                         client['firmware'] = data
+                        parts = data.split('_', 1)
+                        tracker.store.set_user_property('firmware_v', parts[0])
+                        tracker.store.set_user_property('identifier', parts[1])
                         logger.warning(f"{client_ip}:{client_id} >>> firmware saved")
+                    case 'user_info':
+                        json_data = json.loads(data)
+                        for key, value in json_data.items():
+                            tracker.store.set_user_property(key, value)
                     case 'chip_id':
                         client['chip_id'] = data
+                        tracker.client_id = data
+                        tracker.store.set_user_property('user_id', data)
+                        tracker.store.set_session_parameter('session_id', tracker.random_client_id())
+                        tracker.store.set_session_parameter('country', country)
+                        tracker.store.set_session_parameter('region', region)
+                        tracker.store.set_session_parameter('city', city)
+                        tracker.store.set_session_parameter('ip', client_ip)
+                        onlineEvent = tracker.create_new_event('status')
+                        onlineEvent.set_event_param('online', True)
+                        tracker.send(events=[onlineEvent])
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
                     case _:
                         logger.info(f"{client_ip}:{client_id} !!! unknown data request")
@@ -207,7 +234,11 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
+        offlineEvent = tracker.create_new_event('status')
+        offlineEvent.set_event_param('online', False)
+        tracker.send(events=[offlineEvent])
         data_task.cancel()
+        del shared_data.trackers[f'{client_ip}_{client_port}']
         del shared_data.clients[f'{client_ip}_{client_port}']
         try:
             await data_task

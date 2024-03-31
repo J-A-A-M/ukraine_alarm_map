@@ -1263,8 +1263,8 @@ void initWifi() {
   setupRouting();
   initUpdates();
   initBroadcast();
-  socketConnect();
   initHA();
+  socketConnect();
   showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
 }
 
@@ -4204,6 +4204,25 @@ void socketConnect() {
     sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
     Serial.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
+
+    char userInfo[125];
+    JsonDocument userInfoJson;
+    userInfoJson["legacy"] = settings.legacy;
+    userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;
+    userInfoJson["display"] = displayInited ? settings.display_height : 0;
+    userInfoJson["bh1750"] = bh1750Inited;
+    userInfoJson["bme280"] = bme280Inited;
+    userInfoJson["bmp280"] = bmp280Inited;
+    userInfoJson["sht2x"] = htu2xInited;
+    userInfoJson["sht3x"] = sht3xInited;
+#if HA_ENABLED
+    userInfoJson["ha"] = enableHA;
+#else
+    userInfoJson["ha"] = false;
+#endif
+    sprintf(userInfo, "user_info:%s", userInfoJson.as<String>().c_str());
+    Serial.println(userInfo);
+    client_websocket.send(userInfo);
     char chipIdInfo[25];
     sprintf(chipIdInfo, "chip_id:%s", chipID);
     Serial.println(chipIdInfo);
