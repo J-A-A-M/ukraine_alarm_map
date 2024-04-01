@@ -358,11 +358,13 @@ async def get_data_from_memcached(mc):
     weather_full_cached = await mc.get(b"weather")
 
     if random_mode:
-        values = [0] * 25
+        values_v1 = [0] * 25
+        values_v2 = [[0, "2021-01-01T00:00:00Z"]] * 25
         position = random.randint(0, 25)
-        values.insert(position, 1)
-        alerts_cached_data_v1 = json.dumps(values[:26])
-        alerts_cached_data_v2 = json.dumps(values[:26])
+        values_v1.insert(position, 1)
+        values_v2.insert(position, [1, datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')])
+        alerts_cached_data_v1 = json.dumps(values_v1[:26])
+        alerts_cached_data_v2 = json.dumps(values_v2[:26])
     else:
         if alerts_cached_v1:
             alerts_cached_data_v1 = alerts_cached_v1.decode('utf-8')
