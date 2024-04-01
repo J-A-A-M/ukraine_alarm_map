@@ -132,7 +132,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
             if client['explosions'] != shared_data.explosions:
                 explosions = []
                 cached_data = json.dumps(shared_data.explosions)
-                for state, data in cached_data['states'].items():
+                for state, data in cached_data.items():
                     explosions.append([regions[state]["id"], datetime.fromisoformat(data['changed']).replace(tzinfo=timezone.utc).timestamp()])
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
@@ -172,7 +172,7 @@ async def echo(websocket, path):
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
         'weather': '[]',
-        'explosions': '[]',
+        'explosions': '{}',
         'bins': '[]',
         'test_bins': '[]',
         'firmware': 'unknown',
@@ -347,7 +347,7 @@ async def update_shared_data(shared_data, mc):
         try:
             if explosions != shared_data.explosions:
                 shared_data.explosions = explosions
-                logger.info(f"explosions updated")
+                logger.info(f"explosions updated: {explosions}")
         except Exception as e:
             logger.error(f"error in explosions: {e}")
         
@@ -422,7 +422,7 @@ async def get_data_from_memcached(mc):
         weather_full_cached_data = {}
 
     if explosions_cashed:
-        explosions_cashed_data = json.loads(explosions_cashed.decode('utf-8'))
+        explosions_cashed_data = json.loads(explosions_cashed.decode('utf-8'))['states']
     else:
         explosions_cashed_data = {}
 
