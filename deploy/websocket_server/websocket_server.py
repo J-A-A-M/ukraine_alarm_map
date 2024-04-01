@@ -37,6 +37,7 @@ class SharedData:
         self.alerts_full = {}
         self.weather_v1 = '[]'
         self.weather_full = {}
+        self.explosions = {}
         self.bins = '[]'
         self.test_bins = '[]'
         self.clients = {}
@@ -128,6 +129,15 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new test_bins")
                 client['test_bins'] = shared_data.test_bins
+            if client['explosions'] != shared_data.explosions:
+                explosions = []
+                cached_data = json.dumps(shared_data.explosions)
+                for state, data in cached_data['states'].items():
+                    explosions.append([regions[state]["id"], datetime.fromisoformat(data['changed']).replace(tzinfo=timezone.utc).timestamp()])
+                payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                await websocket.send(payload)
+                logger.info(f"{client_ip}:{client_id} <<< new explosions")
+                client['explosions'] = shared_data.explosions
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
@@ -162,6 +172,7 @@ async def echo(websocket, path):
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
         'weather': '[]',
+        'explosions': '[]',
         'bins': '[]',
         'test_bins': '[]',
         'firmware': 'unknown',
@@ -282,7 +293,7 @@ async def district_data_v1(district_id):
 async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
-        alerts_v1, alerts_v2, weather_v1, bins, test_bins, alerts_full, weather_full = await get_data_from_memcached(mc)
+        alerts_v1, alerts_v2, weather_v1, bins, test_bins, alerts_full, weather_full, explosions = await get_data_from_memcached(mc)
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -332,6 +343,14 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"weather_full updated")
         except Exception as e:
             logger.error(f"error in weather_full: {e}")
+        
+        try:
+            if explosions != shared_data.explosions:
+                shared_data.explosions = explosions
+                logger.info(f"explosions updated")
+        except Exception as e:
+            logger.error(f"error in explosions: {e}")
+        
         await asyncio.sleep(memcache_fetch_interval)
 
 
@@ -356,6 +375,7 @@ async def get_data_from_memcached(mc):
     test_bins_cached = await mc.get(b"test_bins")
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
+    explosions_cashed = await mc.get(b"explosions")
 
     if random_mode:
         values_v1 = []
@@ -401,7 +421,12 @@ async def get_data_from_memcached(mc):
     else:
         weather_full_cached_data = {}
 
-    return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data
+    if explosions_cashed:
+        explosions_cashed_data = json.loads(explosions_cashed.decode('utf-8'))
+    else:
+        explosions_cashed_data = {}
+
+    return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data
 
 
 start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
