@@ -1106,6 +1106,16 @@ void initSettings() {
   distributeBrightnessLevels();
 }
 
+void sendSettingsAnalitycs(const char* settingKey, const char* settingValue) {
+  char settingsInfo[100];
+  JsonDocument settings;
+  settings[settingKey] = settingValue;
+  sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
+  client_websocket.send(settingsInfo);
+  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
+
+}
+
 void InitAlertPin() {
   if (settings.enable_pin_on_alert) {
     Serial.printf("alertpin: %d\n");
@@ -1263,8 +1273,8 @@ void initWifi() {
   setupRouting();
   initUpdates();
   initBroadcast();
-  socketConnect();
   initHA();
+  socketConnect();
   showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
 }
 
@@ -2175,6 +2185,7 @@ bool saveMapMode(int newMapMode) {
   preferences.begin("storage", false);
   preferences.putInt("mapmode", settings.map_mode);
   preferences.end();
+  sendSettingsAnalitycs("map_mode", String(settings.map_mode).c_str());
   Serial.print("map_mode commited to preferences: ");
   Serial.println(settings.map_mode);
   #if HA_ENABLED
@@ -2196,6 +2207,7 @@ bool saveHaBrightness(int newBrightness) {
   preferences.begin("storage", false);
   preferences.putInt("brightness", settings.brightness);
   preferences.end();
+  sendSettingsAnalitycs("brightness", String(settings.brightness).c_str());
   Serial.print("brightness commited to preferences");
   Serial.println(settings.ha_light_brightness);
 #if HA_ENABLED
@@ -2213,7 +2225,8 @@ bool saveHaBrightnessAuto(int autoBrightnessMode) {
   preferences.begin("storage", false);
   preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
-  Serial.print("brightness_auto commited to preferences: ");
+  sendSettingsAnalitycs("brightness_mode", String(settings.brightness_mode).c_str());
+  Serial.print("brightness_mode commited to preferences: ");
   Serial.println(settings.brightness_mode);
 #if HA_ENABLED
   if (enableHA) {
@@ -2231,6 +2244,7 @@ bool saveHaAlarmAuto(int newMode) {
   preferences.begin("storage", false);
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
+  sendSettingsAnalitycs("alarms_auto_switch", String(settings.alarms_auto_switch).c_str());
   Serial.print("alarms_auto_switch commited to preferences: ");
   Serial.println(settings.alarms_auto_switch);
 #if HA_ENABLED
@@ -2251,6 +2265,7 @@ bool saveHaNightMode(bool newState) {
   showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
   autoBrightnessUpdate();
   mapCycle();
+  sendSettingsAnalitycs("nightMode", nightMode ? "true" : "false");
   Serial.print("nightMode: ");
   Serial.println(nightMode ? "true" : "false");
 #if HA_ENABLED
@@ -2267,6 +2282,7 @@ bool saveHaShowHomeAlarmTime(bool newState) {
   preferences.begin("storage", false);
   preferences.putInt("hat", settings.home_alert_time);
   preferences.end();
+  sendSettingsAnalitycs("home_alert_time", String(settings.home_alert_time).c_str());
   Serial.print("home_alert_time commited to preferences: ");
   Serial.println(settings.home_alert_time ? "true" : "false");
 #if HA_ENABLED && DISPLAY_ENABLED
@@ -2283,6 +2299,7 @@ bool saveHaLightBrightness(int newBrightness) {
   preferences.begin("storage", false);
   preferences.putInt("ha_lbri", settings.ha_light_brightness);
   preferences.end();
+  sendSettingsAnalitycs("ha_light_brightness", String(settings.ha_light_brightness).c_str());
   Serial.print("ha_light_brightness commited to preferences: ");
   Serial.println(settings.ha_light_brightness);
 #if HA_ENABLED
@@ -2317,6 +2334,7 @@ bool saveHaLightRgb(RGBColor newRgb) {
     Serial.println(settings.ha_light_b);
   }
   preferences.end();
+  sendSettingsAnalitycs("ha_light_rgb", rgbToHexString(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).c_str());
 #if HA_ENABLED
   if (enableHA) {
     haLight->setRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
@@ -2324,6 +2342,14 @@ bool saveHaLightRgb(RGBColor newRgb) {
 #endif
   mapCycle();
   return true;
+}
+
+String rgbToHexString(int r, int g, int b) {
+  String hexString = "#";
+  hexString += String(r, HEX);
+  hexString += String(g, HEX);
+  hexString += String(b, HEX);
+  return hexString;
 }
 
 void nextDisplayMode() {
@@ -2348,6 +2374,7 @@ bool saveDisplayMode(int newDisplayMode) {
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
+  sendSettingsAnalitycs("display_mode", String(settings.display_mode).c_str());
   Serial.print("display_mode commited to preferences: ");
   Serial.println(settings.display_mode);
   int localDisplayMode = getLocalDisplayMode(settings.display_mode);
@@ -2369,6 +2396,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   preferences.begin("storage", false);
   preferences.putInt("hd", settings.home_district);
   preferences.end();
+  sendSettingsAnalitycs("home_district", String(settings.home_district).c_str());
   Serial.print("home_district commited to preferences: ");
   Serial.println(settings.home_district);
 #if HA_ENABLED
@@ -3706,6 +3734,7 @@ void saveInt(int *setting, const char* settingsKey, int newValue, const char* pa
   *setting = newValue;
   preferences.putInt(settingsKey, *setting);
   preferences.end();
+  sendSettingsAnalitycs(paramName, String(*setting).c_str());
   Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
 }
 
@@ -3721,6 +3750,7 @@ bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey
     *setting = paramValue;
     preferences.putFloat(settingsKey, *setting);
     preferences.end();
+    sendSettingsAnalitycs(paramName, String(*setting).c_str());
     Serial.printf("%s commited to preferences: %.1f\n", paramName, *setting);
     if (additionalFun) {
       additionalFun();
@@ -3730,17 +3760,17 @@ bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey
   return false;
 };
 
-bool saveBool(AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, const char* settingsKey, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
   int paramValue = param ? 1 : 0;
   if (saveFun) {
     return saveFun(paramValue);
   }
   if (paramValue != *setting) {
     preferences.begin("storage", false);
-    const char* paramName = param ? param->name().c_str() : settingsKey;
     *setting = paramValue;
     preferences.putInt(settingsKey, *setting);
     preferences.end();
+    sendSettingsAnalitycs(paramName, *setting ? "true" : "false");
     Serial.printf("%s commited to preferences: %s\n", paramName, *setting ? "true" : "false");
     if (additionalFun) {
       additionalFun();
@@ -3762,6 +3792,7 @@ bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey
     strcpy(setting, paramValue);
     preferences.putString(settingsKey, setting);
     preferences.end();
+    sendSettingsAnalitycs(paramName, setting);
     Serial.printf("%s commited to preferences: %s\n", paramName, setting);
     if (additionalFun) {
       additionalFun();
@@ -3795,7 +3826,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
   saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
-  saved = saveBool(request->getParam("dim_display_on_night", true), &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
+  saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
   if (saved) autoBrightnessUpdate();
   
@@ -3840,16 +3871,16 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
   saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
-  saved = saveBool(request->getParam("home_alert_time", true), &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime) || saved;
+  saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", &settings.home_alert_time, "hat", saveHaShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
   saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
-  saved = saveBool(request->getParam("service_diodes_mode", true), &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
-  saved = saveBool(request->getParam("min_of_silence", true), &settings.min_of_silence, "mos") || saved;
-  saved = saveBool(request->getParam("invert_display", true), &settings.invert_display, "invd", NULL, updateInvertDisplayMode) || saved;
+  saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
+  saved = saveBool(request->getParam("min_of_silence", true), "min_of_silence", &settings.min_of_silence, "mos") || saved;
+  saved = saveBool(request->getParam("invert_display", true), "invert_display", &settings.invert_display, "invd", NULL, updateInvertDisplayMode) || saved;
   saved = saveInt(request->getParam("time_zone", true), &settings.time_zone, "tz", NULL, []() {
     timeClient.setTimeZone(settings.time_zone);
   }) || saved;
@@ -3873,17 +3904,17 @@ void handleSaveModes(AsyncWebServerRequest* request) {
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveBool(request->getParam("sound_on_startup", true), &settings.sound_on_startup, "sos") || saved;
+  saved = saveBool(request->getParam("sound_on_startup", true), "sound_on_startup", &settings.sound_on_startup, "sos") || saved;
   saved = saveInt(request->getParam("melody_on_startup", true), &settings.melody_on_startup, "most") || saved;
-  saved = saveBool(request->getParam("sound_on_min_of_sl", true), &settings.sound_on_min_of_sl, "somos") || saved;
-  saved = saveBool(request->getParam("sound_on_alert", true), &settings.sound_on_alert, "soa") || saved;
+  saved = saveBool(request->getParam("sound_on_min_of_sl", true), "sound_on_min_of_sl", &settings.sound_on_min_of_sl, "somos") || saved;
+  saved = saveBool(request->getParam("sound_on_alert", true), "sound_on_alert", &settings.sound_on_alert, "soa") || saved;
   saved = saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa") || saved;
-  saved = saveBool(request->getParam("sound_on_alert_end", true), &settings.sound_on_alert_end, "soae") || saved;
+  saved = saveBool(request->getParam("sound_on_alert_end", true), "sound_on_alert_end", &settings.sound_on_alert_end, "soae") || saved;
   saved = saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae") || saved;
-  saved = saveBool(request->getParam("sound_on_every_hour", true), &settings.sound_on_every_hour, "soeh") || saved;
-  saved = saveBool(request->getParam("sound_on_button_click", true), &settings.sound_on_button_click, "sobc") || saved;
-  saved = saveBool(request->getParam("mute_sound_on_night", true), &settings.mute_sound_on_night, "mson") || saved;
-  saved = saveBool(request->getParam("ignore_mute_on_alert", true), &settings.ignore_mute_on_alert, "imoa") || saved;
+  saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", &settings.sound_on_every_hour, "soeh") || saved;
+  saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", &settings.sound_on_button_click, "sobc") || saved;
+  saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", &settings.mute_sound_on_night, "mson") || saved;
+  saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
 
   char url[15];
   sprintf(url, "/?p=snd&svd=%d", saved);
@@ -3912,7 +3943,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
-  reboot = saveBool(request->getParam("enable_pin_on_alert", true), &settings.enable_pin_on_alert, "epoa") || reboot;
+  reboot = saveBool(request->getParam("enable_pin_on_alert", true), "enable_pin_on_alert", &settings.enable_pin_on_alert, "epoa") || reboot;
 
   if (reboot) {
     request->redirect("/");
@@ -3924,7 +3955,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveBool(request->getParam("new_fw_notification", true), &settings.new_fw_notification, "nfwn") || saved;
+  saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
   char url[15];
@@ -4179,6 +4210,7 @@ void onEventsCallback(WebsocketsEvent event, String data) {
   } else if (event == WebsocketsEvent::GotPing) {
     Serial.println("websocket ping");
     client_websocket.pong();
+    client_websocket.send("pong");
     Serial.println("answered pong");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
@@ -4204,6 +4236,25 @@ void socketConnect() {
     sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
     Serial.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
+
+    char userInfo[250];
+    JsonDocument userInfoJson;
+    userInfoJson["legacy"] = settings.legacy;
+    userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;
+    userInfoJson["display"] = displayInited ? settings.display_height : 0;
+    userInfoJson["bh1750"] = bh1750Inited;
+    userInfoJson["bme280"] = bme280Inited;
+    userInfoJson["bmp280"] = bmp280Inited;
+    userInfoJson["sht2x"] = htu2xInited;
+    userInfoJson["sht3x"] = sht3xInited;
+#if HA_ENABLED
+    userInfoJson["ha"] = enableHA;
+#else
+    userInfoJson["ha"] = false;
+#endif
+    sprintf(userInfo, "user_info:%s", userInfoJson.as<String>().c_str());
+    Serial.println(userInfo);
+    client_websocket.send(userInfo);
     char chipIdInfo[25];
     sprintf(chipIdInfo, "chip_id:%s", chipID);
     Serial.println(chipIdInfo);

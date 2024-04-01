@@ -7,13 +7,18 @@ import random
 from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from ga4mp import GtagMP
+from ga4mp.store import DictStore
 
 debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
 websocket_port = os.environ.get('WEBSOCKET_PORT') or 38440
 ping_interval = int(os.environ.get('PING_INTERVAL', 60))
 memcache_fetch_interval = int(os.environ.get('MEMCACHE_FETCH_INTERVAL', 1))
-random_mode = os.environ.get('RANDOM_MODE') or False
+random_mode = os.environ.get('RANDOM_MODE', 'False').lower() in ('true', '1', 't')
+api_secret = os.environ.get('API_SECRET') or ''
+measurement_id = os.environ.get('MEASUREMENT_ID') or ''
+environment = os.environ.get('ENVIRONMENT') or 'PROD'
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
@@ -35,6 +40,7 @@ class SharedData:
         self.bins = '[]'
         self.test_bins = '[]'
         self.clients = {}
+        self.trackers = {}
         self.blocked_ips = []
 
 
@@ -142,9 +148,11 @@ async def echo(websocket, path):
         response = geo.city(client_ip)
         city = response.city.name or 'not-in-db'
         region = response.subdivisions.most_specific.name or 'not-in-db'
+        country = response.country.iso_code or 'not-in-db'
     except errors.AddressNotFoundError:
         city = 'not-found'
         region = 'not-found'
+        country = 'not-found'
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
@@ -159,8 +167,11 @@ async def echo(websocket, path):
         'firmware': 'unknown',
         'chip_id': 'unknown',
         'city': city,
-        'region': region
+        'region': region,
+        'country': country,
     }
+
+    tracker = shared_data.trackers[f'{client_ip}_{client_port}'] = GtagMP(api_secret=api_secret, measurement_id=measurement_id, client_id='temp_id')
 
     match path:
         case "/data_v1":
@@ -196,10 +207,40 @@ async def echo(websocket, path):
                         logger.info(f"{client_ip}:{client_id} <<< district {payload} ")
                     case 'firmware':
                         client['firmware'] = data
+                        parts = data.split('_', 1)
+                        tracker.store.set_user_property('firmware_v', parts[0])
+                        tracker.store.set_user_property('identifier', parts[1])
                         logger.warning(f"{client_ip}:{client_id} >>> firmware saved")
+                    case 'user_info':
+                        json_data = json.loads(data)
+                        for key, value in json_data.items():
+                            tracker.store.set_user_property(key, value)
                     case 'chip_id':
                         client['chip_id'] = data
+                        tracker.client_id = data
+                        tracker.store.set_session_parameter('session_id', f'{data}_{datetime.now().timestamp()}')
+                        tracker.store.set_user_property('user_id', data)
+                        tracker.store.set_user_property('chip_id', data)
+                        tracker.store.set_user_property('country', country)
+                        tracker.store.set_user_property('region', region)
+                        tracker.store.set_user_property('city', city)
+                        tracker.store.set_user_property('ip', client_ip)
+                        online_event = tracker.create_new_event('status')
+                        online_event.set_event_param('online', 'true')
+                        tracker.send(events=[online_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
+                    case 'pong':
+                        ping_event = tracker.create_new_event('ping')
+                        ping_event.set_event_param('state', 'alive')
+                        tracker.send(events=[ping_event], date=datetime.now())
+                        logger.info(f"{client_ip}:{client_id} >>> ping analytics sent")
+                    case 'settings':
+                        json_data = json.loads(data)
+                        settings_event = tracker.create_new_event('settings')
+                        for key, value in json_data.items():
+                            settings_event.set_event_param(key, value)
+                        tracker.send(events=[settings_event], date=datetime.now())
+                        logger.info(f"{client_ip}:{client_id} >>> settings analytics sent")
                     case _:
                         logger.info(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
@@ -207,7 +248,11 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
+        offline_event = tracker.create_new_event('status')
+        offline_event.set_event_param('online', 'false')
+        tracker.send(events=[offline_event], date=datetime.now())
         data_task.cancel()
+        del shared_data.trackers[f'{client_ip}_{client_port}']
         del shared_data.clients[f'{client_ip}_{client_port}']
         try:
             await data_task
@@ -297,7 +342,8 @@ async def print_clients(shared_data, mc):
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
-            await mc.set(b"websocket_clients", json.dumps(shared_data.clients).encode('utf-8'))
+            websoket_key = b"websocket_clients" if environment == 'PROD' else b"websocket_clients_dev"
+            await mc.set(websoket_key, json.dumps(shared_data.clients).encode('utf-8'))
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
 
@@ -312,11 +358,14 @@ async def get_data_from_memcached(mc):
     weather_full_cached = await mc.get(b"weather")
 
     if random_mode:
-        values = [0] * 25
-        position = random.randint(0, 25)
-        values.insert(position, 1)
-        alerts_cached_data_v1 = json.dumps(values[:26])
-        alerts_cached_data_v2 = json.dumps(values[:26])
+        values_v1 = []
+        values_v2 = []
+        for i in range(26):
+            values_v1.append(random.randint(0, 3))
+            diff = random.randint(0, 600)
+            values_v2.append([random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime('%Y-%m-%dT%H:%M:%SZ')])
+        alerts_cached_data_v1 = json.dumps(values_v1[:26])
+        alerts_cached_data_v2 = json.dumps(values_v2[:26])
     else:
         if alerts_cached_v1:
             alerts_cached_data_v1 = alerts_cached_v1.decode('utf-8')

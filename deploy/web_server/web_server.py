@@ -416,11 +416,14 @@ async def stats(request):
 
         websocket_clients = await mc.get(b'websocket_clients')
         websocket_clients_data = json.loads(websocket_clients.decode('utf-8')) if websocket_clients else {}
+        websocket_clients_dev = await mc.get(b'websocket_clients_dev')
+        websocket_clients_dev_data = json.loads(websocket_clients_dev.decode('utf-8')) if websocket_clients_dev else {}
 
         tcp_clients = await dataparcer(tcp_clients_data, 'tcp')
         websocket_clients = await dataparcer(websocket_clients_data, 'websockets')
+        websocket_clients_dev = await dataparcer(websocket_clients_dev_data, 'websockets_dev')
 
-        map_clients_data = tcp_clients + websocket_clients
+        map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
         return JSONResponse ({
 
