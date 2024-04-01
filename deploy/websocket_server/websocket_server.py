@@ -18,6 +18,7 @@ memcache_fetch_interval = int(os.environ.get('MEMCACHE_FETCH_INTERVAL', 1))
 random_mode = os.environ.get('RANDOM_MODE') or False
 api_secret = os.environ.get('API_SECRET') or ''
 measurement_id = os.environ.get('MEASUREMENT_ID') or ''
+environment = os.environ.get('ENVIRONMENT') or 'PROD'
 
 logging.basicConfig(level=debug_level,
                     format='%(asctime)s %(levelname)s : %(message)s')
@@ -341,7 +342,8 @@ async def print_clients(shared_data, mc):
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
-            await mc.set(b"websocket_clients", json.dumps(shared_data.clients).encode('utf-8'))
+            websoket_key = b"websocket_clients" if environment == 'PROD' else b"websocket_clients_dev"
+            await mc.set(websoket_key, json.dumps(shared_data.clients).encode('utf-8'))
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
 
