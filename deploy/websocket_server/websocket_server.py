@@ -217,12 +217,13 @@ async def echo(websocket, path):
                     case 'chip_id':
                         client['chip_id'] = data
                         tracker.client_id = data
-                        tracker.store.set_user_property('user_id', data)
                         tracker.store.set_session_parameter('session_id', f'{data}_{datetime.now().timestamp()}')
-                        tracker.store.set_session_parameter('country', country)
-                        tracker.store.set_session_parameter('region', region)
-                        tracker.store.set_session_parameter('city', city)
-                        tracker.store.set_session_parameter('ip', client_ip)
+                        tracker.store.set_user_property('user_id', data)
+                        tracker.store.set_user_property('chip_id', data)
+                        tracker.store.set_user_property('country', country)
+                        tracker.store.set_user_property('region', region)
+                        tracker.store.set_user_property('city', city)
+                        tracker.store.set_user_property('ip', client_ip)
                         online_event = tracker.create_new_event('status')
                         online_event.set_event_param('online', 'true')
                         tracker.send(events=[online_event], date=datetime.now())

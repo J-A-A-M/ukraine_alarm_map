@@ -4210,8 +4210,8 @@ void onEventsCallback(WebsocketsEvent event, String data) {
   } else if (event == WebsocketsEvent::GotPing) {
     Serial.println("websocket ping");
     client_websocket.pong();
+    client_websocket.send("pong");
     Serial.println("answered pong");
-    client_websocket.send("pong:alive");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
     Serial.println("websocket pong");
