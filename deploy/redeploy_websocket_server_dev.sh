@@ -7,6 +7,7 @@ DEBUG_LEVEL="INFO"
 PING_INTERVAL=60
 ENVIRONMENT="DEV"
 RANDOM_MODE="False"
+MEMCACHE_FETCH_INTERVAL=1
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -r|--random-mode)
             RANDOM_MODE="$2"
+            shift 2
+            ;;
+        -f|--fetch-interval)
+            MEMCACHE_FETCH_INTERVAL="$2"
             shift 2
             ;;
         *)
@@ -74,7 +79,7 @@ docker rm map_websocket_server_dev || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server_dev --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env DEBUG_LEVEL="$DEBUG_LEVEL" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" map_websocket_server_dev
+docker run --name map_websocket_server_dev --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env DEBUG_LEVEL="$DEBUG_LEVEL" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" map_websocket_server_dev
 
 echo "Container deployed successfully!"
 

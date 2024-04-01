@@ -6,6 +6,10 @@ on:
         type: boolean
         default: false
         description: Random Alerst Mode
+      fetch_interval:
+        type: number
+        default: 1
+        description: Memcached Fetch Interval (seconds)
 
 run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
 jobs:
@@ -23,4 +27,4 @@ jobs:
                 git fetch --all
                 git checkout ${{ github.ref_name }}
                 git pull
-                bash redeploy_websocket_server_dev.sh -m ${{ secrets.MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -r ${{ inputs.random_mode && 'True' || 'False' }}
+                bash redeploy_websocket_server_dev.sh -m ${{ secrets.MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -r ${{ inputs.random_mode && 'True' || 'False' }} -f ${{ inputs.fetch_interval }}

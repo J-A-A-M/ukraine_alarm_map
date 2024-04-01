@@ -7,7 +7,7 @@ import random
 from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
 from ga4mp.store import DictStore
 
@@ -358,11 +358,12 @@ async def get_data_from_memcached(mc):
     weather_full_cached = await mc.get(b"weather")
 
     if random_mode:
-        values_v1 = [0] * 25
-        values_v2 = [[0, "2021-01-01T00:00:00Z"]] * 25
-        position = random.randint(0, 25)
-        values_v1.insert(position, 1)
-        values_v2.insert(position, [1, datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')])
+        values_v1 = []
+        values_v2 = []
+        for i in range(26):
+            values_v1.append(random.randint(0, 3))
+            diff = random.randint(0, 600)
+            values_v2.append([random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime('%Y-%m-%dT%H:%M:%SZ')])
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
     else:
