@@ -4654,7 +4654,7 @@ void updateHaPressureSensors() {
 
 void updateHaLightSensors() {
 #if HA_ENABLED
-  if (enableHA) {
+  if (enableHA && bh1750Inited) {
     haLightLevel->setValue(lightInLuxes);
   }
 #endif
