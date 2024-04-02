@@ -380,8 +380,6 @@ async def get_data_from_memcached(mc):
     weather_full_cached = await mc.get(b"weather")
     explosions_cashed = await mc.get(b"explosions")
 
-    logger.info(f"explosions from memcache: {explosions_cashed}")
-
     if random_mode:
         values_v1 = []
         values_v2 = []
@@ -428,9 +426,14 @@ async def get_data_from_memcached(mc):
 
     if explosions_cashed:
         explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
+        logger.info(f"explosions_cashed_data_full: {explosions_cashed_data_full}")
         explosions_cashed_data_v1 = []
         for state, data in regions.items():
+            logger.info(f"state_key: {state}")
+            region_data = explosions_cashed_data_full[state]
+            logger.info(f"region_data: {region_data}")
             isoDatetimeStr = explosions_cashed_data_full[state]['changed']
+            logger.info(f"isoDatetimeStr: {isoDatetimeStr}")
             if isoDatetimeStr:
                 datetimeObj = datetime.fromisoformat(isoDatetimeStr)
                 datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
