@@ -14,12 +14,12 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
-shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
-loop_time = int(os.environ.get('SVG_PERIOD', 2))
+memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
+loop_time = int(os.environ.get("SVG_PERIOD", 2))
 
-min_temp = float(os.environ.get('MIN_TEMP', -10))
-max_temp = int(os.environ.get('SVG_PERIOD', 30))
+min_temp = float(os.environ.get("MIN_TEMP", -10))
+max_temp = int(os.environ.get("SVG_PERIOD", 30))
 
 
 regions = [
@@ -48,14 +48,37 @@ regions = [
     "VINNYTSA",
     "HMELNYCKA",
     "CHERNIVETSKA",
-    "KIYEW"
+    "KIYEW",
 ]
 
 legacy_flag_leds = [
-  60, 60, 60, 180, 180, 180, 180, 180, 180,
-  180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
-  180, 180, 60, 60, 60, 60, 180
-];
+    60,
+    60,
+    60,
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    180,
+    60,
+    60,
+    60,
+    60,
+    60,
+    60,
+    60,
+    180,
+    180,
+    60,
+    60,
+    60,
+    60,
+    180,
+]
 
 
 class SharedData:
@@ -76,21 +99,17 @@ async def svg_generator(mc, shared_data):
         cached = await mc.get(b"tcp")
 
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data = json.loads(cached.decode("utf-8"))
         else:
-            cached_data = ''
+            cached_data = ""
 
         alerts_svg_data = {}
         weather_svg_data = {}
 
         if cached_data != shared_data.data:
-            alerts_data, weather_data = cached_data.split(':')
-            alerts = [
-                int(alert) for alert in alerts_data.split(',')
-            ]
-            weathers = [
-                float(weather) for weather in weather_data.split(',')
-            ]
+            alerts_data, weather_data = cached_data.split(":")
+            alerts = [int(alert) for alert in alerts_data.split(",")]
+            weathers = [float(weather) for weather in weather_data.split(",")]
 
             position = 0
             for alert in alerts:
@@ -104,18 +123,18 @@ async def svg_generator(mc, shared_data):
                     case 3:
                         alerts_svg_data[regions[position]] = "ffa533"
                 position += 1
-            file_path = os.path.join(shared_path, 'alerts_map.png')
+            file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(time=local_time, output_file=file_path, **alerts_svg_data)
             position = 0
             for weather in weathers:
                 weather_svg_data[regions[position]] = calculate_html_color_from_hsb(weather)
                 position += 1
-            file_path = os.path.join(shared_path, 'weather_map.png')
+            file_path = os.path.join(shared_path, "weather_map.png")
             await generate_map(time=local_time, output_file=file_path, **weather_svg_data)
             shared_data.data = cached_data
     except Exception as e:
         logging.error(f"Request failed with status code: {e}")
-        raise''
+        raise ""
 
 
 async def generate_flag():
@@ -123,29 +142,29 @@ async def generate_flag():
     for index, color in enumerate(legacy_flag_leds):
         match color:
             case 180:
-                flag_svg_data[regions[index]] = '005bbb'
+                flag_svg_data[regions[index]] = "005bbb"
             case 60:
-                flag_svg_data[regions[index]] = 'ffd500'
-    file_path = os.path.join(shared_path, 'flag_map.png')
-    await generate_map(time='', output_file=file_path, **flag_svg_data)
+                flag_svg_data[regions[index]] = "ffd500"
+    file_path = os.path.join(shared_path, "flag_map.png")
+    await generate_map(time="", output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
 
 
 async def generate_off():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
-        flag_svg_data[regions[index]] = '808080'
-    file_path = os.path.join(shared_path, 'off_map.png')
-    await generate_map(time='', output_file=file_path, **flag_svg_data)
+        flag_svg_data[regions[index]] = "808080"
+    file_path = os.path.join(shared_path, "off_map.png")
+    await generate_map(time="", output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
 
 
 async def generate_lamp():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
-        flag_svg_data[regions[index]] = 'F4E98C'
-    file_path = os.path.join(shared_path, 'lamp_map.png')
-    await generate_map(time='', output_file=file_path, **flag_svg_data)
+        flag_svg_data[regions[index]] = "F4E98C"
+    file_path = os.path.join(shared_path, "lamp_map.png")
+    await generate_map(time="", output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
 
 
@@ -153,8 +172,8 @@ async def generate_random():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
         flag_svg_data[regions[index]] = calculate_html_color_from_hsb(random.randint(-10, 30))
-    file_path = os.path.join(shared_path, 'random_map.png')
-    await generate_map(time='', output_file=file_path, **flag_svg_data)
+    file_path = os.path.join(shared_path, "random_map.png")
+    await generate_map(time="", output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
 
 
@@ -191,8 +210,8 @@ def calculate_html_color_from_hsb(temp):
 
 
 async def generate_map(time, output_file, **kwargs):
-    print('generate map')
-    svg_data = f'''
+    print("generate map")
+    svg_data = f"""
           <svg
           fill="#1a1a1a"
           height="670"
@@ -378,7 +397,7 @@ async def generate_map(time, output_file, **kwargs):
           <circle cx="538.5" cy="370.9" id="1"></circle>
           <circle cx="77.6" cy="251.3" id="2"></circle>
           </svg>
-    '''
+    """
 
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file)
 

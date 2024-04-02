@@ -11,37 +11,37 @@ version = 2
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
+memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 
-loop_time = int(os.environ.get('UPDATER_PERIOD', 1))
+loop_time = int(os.environ.get("UPDATER_PERIOD", 1))
 
 regions = [
-  "Закарпатська область",
-  "Івано-Франківська область",
-  "Тернопільська область",
-  "Львівська область",
-  "Волинська область",
-  "Рівненська область",
-  "Житомирська область",
-  "Київська область",
-  "Чернігівська область",
-  "Сумська область",
-  "Харківська область",
-  "Луганська область",
-  "Донецька область",
-  "Запорізька область",
-  "Херсонська область",
-  "Автономна Республіка Крим",
-  "Одеська область",
-  "Миколаївська область",
-  "Дніпропетровська область",
-  "Полтавська область",
-  "Черкаська область",
-  "Кіровоградська область",
-  "Вінницька область",
-  "Хмельницька область",
-  "Чернівецька область",
-  "м. Київ",
+    "Закарпатська область",
+    "Івано-Франківська область",
+    "Тернопільська область",
+    "Львівська область",
+    "Волинська область",
+    "Рівненська область",
+    "Житомирська область",
+    "Київська область",
+    "Чернігівська область",
+    "Сумська область",
+    "Харківська область",
+    "Луганська область",
+    "Донецька область",
+    "Запорізька область",
+    "Херсонська область",
+    "Автономна Республіка Крим",
+    "Одеська область",
+    "Миколаївська область",
+    "Дніпропетровська область",
+    "Полтавська область",
+    "Черкаська область",
+    "Кіровоградська область",
+    "Вінницька область",
+    "Хмельницька область",
+    "Чернівецька область",
+    "м. Київ",
 ]
 
 
@@ -62,30 +62,30 @@ async def update_data(mc):
         alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
         alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
         weather_cached_v1 = await mc.get(b"weather_websocket_v1")
-        alerts_data = await mc.get(b'alerts')
-        weather_data = await mc.get(b'weather')
+        alerts_data = await mc.get(b"alerts")
+        weather_data = await mc.get(b"weather")
 
         if tcp_cached:
-            tcp_cached_data = json.loads(tcp_cached.decode('utf-8'))
+            tcp_cached_data = json.loads(tcp_cached.decode("utf-8"))
         else:
             tcp_cached_data = {}
         if alerts_cached_v1:
-            alerts_cached_data_v1 = json.loads(alerts_cached_v1.decode('utf-8'))
+            alerts_cached_data_v1 = json.loads(alerts_cached_v1.decode("utf-8"))
         else:
             alerts_cached_data_v1 = []
         if alerts_cached_v2:
-            alerts_cached_data_v2 = json.loads(alerts_cached_v2.decode('utf-8'))
+            alerts_cached_data_v2 = json.loads(alerts_cached_v2.decode("utf-8"))
         else:
             alerts_cached_data_v2 = []
         if weather_cached_v1:
-            weather_cached_data_v1 = json.loads(weather_cached_v1.decode('utf-8'))
+            weather_cached_data_v1 = json.loads(weather_cached_v1.decode("utf-8"))
         else:
             weather_cached_data_v1 = []
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        alerts_data = json.loads(alerts_data.decode('utf-8')) if alerts_data else "No data from Memcached"
-        weather_data = json.loads(weather_data.decode('utf-8')) if weather_data else "No data from Memcached"
+        alerts_data = json.loads(alerts_data.decode("utf-8")) if alerts_data else "No data from Memcached"
+        weather_data = json.loads(weather_data.decode("utf-8")) if weather_data else "No data from Memcached"
 
         logger.debug(f"Alerts updated: {alerts_data['info']['last_update']}")
         logger.debug(f"Weather updated: {weather_data['info']['last_update']}")
@@ -99,8 +99,10 @@ async def update_data(mc):
 
         try:
             for region_name in regions:
-                time_diff = await calculate_time_difference(alerts_data['states'][region_name]['changed'], formatted_local_time)
-                if alerts_data['states'][region_name]['alertnow']:
+                time_diff = await calculate_time_difference(
+                    alerts_data["states"][region_name]["changed"], formatted_local_time
+                )
+                if alerts_data["states"][region_name]["alertnow"]:
                     if time_diff > 300:
                         alert_mode_v1 = 1
                     else:
@@ -114,13 +116,13 @@ async def update_data(mc):
                     alert_mode_v2 = 0
 
                 alerts_v1.append(str(alert_mode_v1))
-                alerts_v2.append([str(alert_mode_v2), alerts_data['states'][region_name]['changed']])
+                alerts_v2.append([str(alert_mode_v2), alerts_data["states"][region_name]["changed"]])
         except Exception as e:
             logger.error(f"Alert error: {e}")
 
         try:
             for region in regions:
-                weather_temp = float(weather_data['states'][region]['temp'])
+                weather_temp = float(weather_data["states"][region]["temp"])
                 weather_v1.append(str(weather_temp))
         except Exception as e:
             logger.error(f"Weather error: {e}")
@@ -129,28 +131,28 @@ async def update_data(mc):
 
         if tcp_cached_data != tcp_data:
             logging.debug("store tcp data: %s" % current_datetime)
-            await mc.set(b"tcp", json.dumps(tcp_data).encode('utf-8'))
+            await mc.set(b"tcp", json.dumps(tcp_data).encode("utf-8"))
             logging.debug("tcp data stored")
         else:
             logging.debug("tcp data not changed")
 
         if alerts_cached_data_v1 != alerts_v1:
             logging.debug("store alerts_v1: %s" % current_datetime)
-            await mc.set(b"alerts_websocket_v1", json.dumps(alerts_v1).encode('utf-8'))
+            await mc.set(b"alerts_websocket_v1", json.dumps(alerts_v1).encode("utf-8"))
             logging.debug("alerts_v1 stored")
         else:
             logging.debug("alerts_v1 not changed")
 
         if alerts_cached_data_v2 != alerts_v2:
             logging.debug("store alerts_v2: %s" % current_datetime)
-            await mc.set(b"alerts_websocket_v2", json.dumps(alerts_v2).encode('utf-8'))
+            await mc.set(b"alerts_websocket_v2", json.dumps(alerts_v2).encode("utf-8"))
             logging.debug("alerts_v2 stored")
         else:
             logging.debug("alerts_v2 not changed")
 
         if weather_cached_data_v1 != weather_v1:
             logging.debug("store weather_v1: %s" % current_datetime)
-            await mc.set(b"weather_websocket_v1", json.dumps(weather_v1).encode('utf-8'))
+            await mc.set(b"weather_websocket_v1", json.dumps(weather_v1).encode("utf-8"))
             logging.debug("weather_v1 stored")
         else:
             logging.debug("weather_v1 not changed")
