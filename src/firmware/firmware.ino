@@ -3628,7 +3628,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (displayInited) html += addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
 #endif
   html += addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
-  html += "<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель - будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
+  html += "<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</form>";
   html += "<form action='/update' method='POST'>";

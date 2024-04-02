@@ -20,7 +20,7 @@ shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
 loop_time = int(os.environ.get('SVG_PERIOD', 2))
 
 min_temp = float(os.environ.get('MIN_TEMP', -10))
-max_temp = int(os.environ.get('SVG_PERIOD', 30))
+max_temp = float(os.environ.get('MAX_TEMP', 30))
 
 
 regions = [
@@ -111,13 +111,13 @@ async def svg_generator(mc, shared_data):
                     alerts_svg_data[regions[position]] = "00ffff"
                 position += 1
             file_path = os.path.join(shared_path, 'alerts_map.png')
-            await generate_map(time=local_time, output_file=file_path, show_legend=True, **alerts_svg_data)
+            await generate_map(time=local_time, output_file=file_path, show_alert_info=True, **alerts_svg_data)
             position = 0
             for weather in weathers:
                 weather_svg_data[regions[position]] = calculate_html_color_from_hsb(weather)
                 position += 1
             file_path = os.path.join(shared_path, 'weather_map.png')
-            await generate_map(time=local_time, output_file=file_path, show_legend=False, **weather_svg_data)
+            await generate_map(time=local_time, output_file=file_path, show_weather_info=True, **weather_svg_data)
             shared_data.data = cached_data
     except Exception as e:
         logging.error(f"Request failed with status code: {e}")
@@ -196,7 +196,7 @@ def calculate_html_color_from_hsb(temp):
     return hex_color
 
 
-async def generate_map(time, output_file, show_legend, **kwargs):
+async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
     print('generate map')
     svg_data = f'''
           <svg
@@ -211,16 +211,29 @@ async def generate_map(time, output_file, show_legend, **kwargs):
           xmlns="http://www.w3.org/2000/svg"
           style="background-color: transparent;"
           >
-            <circle cx="20" cy="430" r="10" fill="#FF5733" visibility="{"visible" if show_legend else "hidden"}"/>
-            <text x="35" y="435" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- тривога</text>
-            <circle cx="20" cy="455" r="10" fill="#32CD32" visibility="{"visible" if show_legend else "hidden"}" />
-            <text x="35" y="460" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- немає тривоги</text>
-            <circle cx="20" cy="480" r="10" fill="#FFA533" visibility="{"visible" if show_legend else "hidden"}" />
-            <text x="35" y="485" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- оголошено тривогу (до 5 хв. тому)</text>
-            <circle cx="20" cy="505" r="10" fill="#BBFF33" visibility="{"visible" if show_legend else "hidden"}" />
-            <text x="35" y="510" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- оголошено відбій (до 5 хв. тому)</text>
-            <circle cx="20" cy="530" r="10" fill="#00FFFF" visibility="{"visible" if show_legend else "hidden"}" />
-            <text x="35" y="535" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+            <defs>
+              <linearGradient id="weather" x1="0%" x2="0%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="#9400FF" />
+                <stop offset="50%" stop-color="#00FF4A" />
+                <stop offset="100%" stop-color="#FF0000" />
+              </linearGradient>
+            </defs>
+
+            <circle cx="20" cy="430" r="10" fill="#FF5733" visibility="{"visible" if show_alert_info else "hidden"}"/>
+            <text x="35" y="435" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- тривога</text>
+            <circle cx="20" cy="455" r="10" fill="#32CD32" visibility="{"visible" if show_alert_info else "hidden"}" />
+            <text x="35" y="460" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- немає тривоги</text>
+            <circle cx="20" cy="480" r="10" fill="#FFA533" visibility="{"visible" if show_alert_info else "hidden"}" />
+            <text x="35" y="485" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- оголошено тривогу (до 5 хв. тому)</text>
+            <circle cx="20" cy="505" r="10" fill="#BBFF33" visibility="{"visible" if show_alert_info else "hidden"}" />
+            <text x="35" y="510" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- оголошено відбій (до 5 хв. тому)</text>
+            <circle cx="20" cy="530" r="10" fill="#00FFFF" visibility="{"visible" if show_alert_info else "hidden"}" />
+            <text x="35" y="535" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+            
+            <rect x="40" y="430" width="30" height="150" fill="url(#weather)" visibility="{"visible" if show_weather_info else "hidden"}" />
+            <text x="80" y="445" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">-10°C</text>
+            <text x="86" y="513" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">10°C</text>
+            <text x="86" y="580" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">30°C</text>
 
             <rect x="10" y="620" width="60" height="20" fill="#005BBB" />
             <rect x="10" y="640" width="60" height="20" fill="#FEDF00" />
