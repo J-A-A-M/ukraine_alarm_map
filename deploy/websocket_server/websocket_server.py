@@ -115,7 +115,8 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                         logger.info(f"{client_ip}:{client_id} <<< new alerts")
                         client['alerts'] = shared_data.alerts_v2
             if client['explosions'] != shared_data.explosions_v1:
-                payload = '{"payload": "explosions", "explosions": %s}' % shared_data.explosions_v1
+                explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new explosions")
                 client['explosions'] = shared_data.explosions_v1
