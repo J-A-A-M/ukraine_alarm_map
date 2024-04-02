@@ -430,11 +430,11 @@ async def get_data_from_memcached(mc):
         explosions_cashed_data_v1 = []
         for state, data in regions.items():
             logger.info(f"state_key: {state}")
-            region_data = explosions_cashed_data_full[state]
-            logger.info(f"region_data: {region_data}")
-            isoDatetimeStr = explosions_cashed_data_full[state]['changed']
-            logger.info(f"isoDatetimeStr: {isoDatetimeStr}")
-            if isoDatetimeStr:
+            if state in explosions_cashed_data_full:
+                region_data = explosions_cashed_data_full.get(state, {})
+                logger.info(f"region_data: {region_data}")
+                isoDatetimeStr = explosions_cashed_data_full[state]['changed']
+                logger.info(f"isoDatetimeStr: {isoDatetimeStr}")
                 datetimeObj = datetime.fromisoformat(isoDatetimeStr)
                 datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
                 explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
