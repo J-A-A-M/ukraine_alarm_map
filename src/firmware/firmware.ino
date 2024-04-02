@@ -100,7 +100,7 @@ struct Settings {
   int     color_clear            = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
-  int     color_explosion        = 280;
+  int     color_explosion        = 180;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
@@ -300,6 +300,7 @@ enum SoundType {
   REGULAR,
   ALERT_ON,
   ALERT_OFF,
+  EXPLOSIONS,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -963,6 +964,9 @@ void playMelody(SoundType type) {
   case ALERT_OFF:
     playMelody(melodies[settings.melody_on_alert_end]);
     break;
+  case EXPLOSIONS:
+    playMelody(melodies[settings.melody_on_explosion]);
+    break;
   case REGULAR:
     playMelody(clockBeep);
     break;
@@ -995,6 +999,8 @@ bool needToPlaySound(SoundType type) {
     return settings.sound_on_alert;
   case ALERT_OFF:
     return settings.sound_on_alert_end;
+  case EXPLOSIONS:
+    return settings.sound_on_explosion;
   case REGULAR:
     return settings.sound_on_every_hour;
   case SINGLE_CLICK:
@@ -4358,7 +4364,7 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
   int color_switch;
 
   // explosions has highest priority
-  if (timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+  if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
       color_switch = settings.color_explosion;
       hue = HsbColor(color_switch / 360.0f, 1.0, explosionBrightness * local_brightness_explosion);
       return hue;
@@ -4712,8 +4718,9 @@ void checkHomeDistrictAlerts() {
   }
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
-    if (timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
       showServiceMessage("Вибухи!", districts[settings.home_district], 5000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
 }
