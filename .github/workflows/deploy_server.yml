@@ -58,7 +58,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_tcp_server.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy WebSockets
@@ -71,7 +71,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_websocket_server.sh -m ${{ secrets.MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }}
           - name: Redeploy Update Server (bin list)
@@ -84,7 +84,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Web Server
@@ -97,7 +97,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -p 80 -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Weather
@@ -110,7 +110,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Updater
@@ -123,7 +123,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_updater.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Svg Generator
@@ -136,7 +136,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_svg_generator.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Explosions
@@ -149,7 +149,7 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_explosions.sh -e ${{ secrets.ETRYVOGA_HOST }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Alerts
@@ -162,6 +162,6 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.MEMCACHED_HOST }}
