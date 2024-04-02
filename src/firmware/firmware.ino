@@ -106,7 +106,7 @@ struct Settings {
   int     brightness_clear       = 100;
   int     brightness_new_alert   = 100;
   int     brightness_alert_over  = 100;
-  int     brightness_explosion    = 100;
+  int     brightness_explosion   = 100;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -3420,7 +3420,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   int nightModeType = getNightModeType();
   html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
   html += "</b></div>";
-  html += addSliderInt("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2, -1);
+  html += addSliderInt("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
   html += addSliderInt("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
   html += addSliderInt("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
   html += addSliderInt("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
