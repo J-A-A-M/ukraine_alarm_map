@@ -105,6 +105,8 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case '/explosives_statuses_v2.json':
                 api_clients[client_ip] = [start_time, client_path]
+            case '/explosives_statuses_v3.json':
+                api_clients[client_ip] = [start_time, client_path]
             case '/tcp_statuses_v1.json':
                 api_clients[client_ip] = [start_time, client_path]
             case '/api_status.json':
@@ -162,7 +164,7 @@ async def main(request):
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
-                        <li>Вибухи: (інформація з ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
+                        <li>Вибухи: (інформація з ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
                         <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
@@ -284,6 +286,26 @@ async def explosives_v2(request):
             for state, data in cached_data['states'].items():
                 new_data[state] = data['changed']
             cached_data['states'] = new_data
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {'error': 'Failed to decode cached data'}
+
+    return JSONResponse(cached_data)
+
+
+async def explosives_v3(request):
+    try:
+        local_time = get_local_time_formatted()
+        cached = await mc.get(b'explosions')
+        if cached:
+            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['version'] = 3
+            new_data = {}
+            for state, data in cached_data['states'].items():
+                new_data[state] = calculate_time_difference(data['changed'].replace("+00:00", "Z"), local_time)
+            cached_data['states'] = new_data
+            cached_data['info']['description'] = "Час в секундах с моменту зміни статусу"
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -453,6 +475,7 @@ app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception
     Route('/weather_statuses_v1.json', weather_v1),
     Route('/explosives_statuses_v1.json', explosives_v1),
     Route('/explosives_statuses_v2.json', explosives_v2),
+    Route('/explosives_statuses_v3.json', explosives_v3),
     Route('/tcp_statuses_v1.json', tcp_v1),
     Route('/api_status.json', api_status),
     Route('/map/region/v1/{region}', region_data_v1),
