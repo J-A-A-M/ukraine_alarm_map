@@ -38,6 +38,7 @@ class SharedData:
         self.weather_v1 = '[]'
         self.weather_full = {}
         self.explosions_v1 = '[]'
+        self.explosions_full = {}
         self.bins = '[]'
         self.test_bins = '[]'
         self.clients = {}
