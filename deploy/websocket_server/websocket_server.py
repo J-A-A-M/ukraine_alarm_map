@@ -113,6 +113,11 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                         await websocket.send(payload)
                         logger.info(f"{client_ip}:{client_id} <<< new alerts")
                         client['alerts'] = shared_data.alerts_v2
+            if client['explosions'] != shared_data.explosions_v1:
+                payload = '{"payload": "explosions", "explosions": %s}' % json.dumps(shared_data.explosions_v1)
+                await websocket.send(payload)
+                logger.info(f"{client_ip}:{client_id} <<< new explosions")
+                client['explosions'] = shared_data.explosions_v1
             if client['weather'] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
@@ -129,11 +134,6 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new test_bins")
                 client['test_bins'] = shared_data.test_bins
-            if client['explosions'] != shared_data.explosions_v1:
-                payload = '{"payload": "explosions", "explosions": %s}' % json.dumps(shared_data.explosions_v1)
-                await websocket.send(payload)
-                logger.info(f"{client_ip}:{client_id} <<< new explosions")
-                client['explosions'] = shared_data.explosions_v1
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
@@ -168,7 +168,7 @@ async def echo(websocket, path):
     client = shared_data.clients[f'{client_ip}_{client_port}'] = {
         'alerts': '[]',
         'weather': '[]',
-        'explosions': '{}',
+        'explosions': '[]',
         'bins': '[]',
         'test_bins': '[]',
         'firmware': 'unknown',
@@ -314,7 +314,7 @@ async def update_shared_data(shared_data, mc):
 
         try:
             if explosions_v1 != shared_data.explosions_v1:
-                shared_data.explosions = explosions_v1
+                shared_data.explosions_v1 = explosions_v1
                 logger.info(f"explosions_v1 updated: {explosions_v1}")
         except Exception as e:
             logger.error(f"error in explosions_v1: {e}")
@@ -426,15 +426,11 @@ async def get_data_from_memcached(mc):
 
     if explosions_cashed:
         explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
-        logger.info(f"explosions_cashed_data_full: {explosions_cashed_data_full}")
         explosions_cashed_data_v1 = []
         for state, data in regions.items():
-            logger.info(f"state_key: {state}")
             if state in explosions_cashed_data_full:
                 region_data = explosions_cashed_data_full.get(state, {})
-                logger.info(f"region_data: {region_data}")
                 isoDatetimeStr = explosions_cashed_data_full[state]['changed']
-                logger.info(f"isoDatetimeStr: {isoDatetimeStr}")
                 datetimeObj = datetime.fromisoformat(isoDatetimeStr)
                 datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
                 explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
