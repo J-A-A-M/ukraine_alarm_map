@@ -17,13 +17,15 @@ logger = logging.getLogger(__name__)
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 
-alert_token = os.environ.get("ALERT_TOKEN") or "token"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+alert_token = os.environ.get('ALERT_TOKEN') or 'token'
+memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 
-alert_loop_time = int(os.environ.get("ALERT_PERIOD", 3))
+alert_loop_time = int(os.environ.get('ALERT_PERIOD', 3))
 
 # Authorization header
-headers = {"Authorization": "%s" % alert_token}
+headers = {
+    "Authorization": "%s" % alert_token
+}
 
 regions = {
     "Закарпатська область": {"id": 1},
@@ -71,33 +73,38 @@ async def alarm_data(mc):
         alerts_cached = await mc.get(b"alerts")
 
         if alerts_cached:
-            alerts_cached_data = json.loads(alerts_cached.decode("utf-8"))
+            alerts_cached_data = json.loads(alerts_cached.decode('utf-8'))
         else:
             alerts_cached_data = {}
 
         empty_data = {
-            "alertnow": False,
-            "changed": None,
+            'alertnow': False,
+            'changed': None,
         }
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        if (
-            alerts_cached_data.get("info", {}).get("is_started", False) is False
-            or alerts_cached_data.get("version", 0) != version
-        ):
+        if alerts_cached_data.get('info', {}).get('is_started', False) is False \
+                or alerts_cached_data.get('version', 0) != version:
             logging.debug("fill empty fields")
-            alerts_cached_data = {"version": version, "states": {}, "info": {"last_update": None, "is_started": False}}
+            alerts_cached_data = {
+                "version": version,
+                "states": {},
+                "info": {
+                    "last_update": None,
+                    "is_started": False
+                }
+            }
 
             logging.debug("fill start data")
             async with aiohttp.ClientSession() as session:
                 response = await session.get(region_url, headers=headers)  # Replace with your URL
                 new_data = await response.text()
                 data = json.loads(new_data)
-            for item in data["states"]:
+            for item in data['states']:
                 region_name = item["regionName"]
                 alerts_cached_data["states"][region_name] = copy(empty_data)
 
-                region_alert_url = "%s/%s" % (alarm_url, item["regionId"])
+                region_alert_url = "%s/%s" % (alarm_url, item['regionId'])
                 async with aiohttp.ClientSession() as session:
                     response = await session.get(region_alert_url, headers=headers)  # Replace with your URL
                     new_data = await response.text()
@@ -114,24 +121,26 @@ async def alarm_data(mc):
         alert_region_names = []
         for item in data:
             for alert in item["activeAlerts"]:
-                if alert["regionId"] == item["regionId"] and alert["regionType"] == "State" and alert["type"] == "AIR":
+                if (alert["regionId"] == item["regionId"]
+                        and alert["regionType"] == "State"
+                        and alert["type"] == "AIR"):
                     region_name = item["regionName"]
-                    region_data = alerts_cached_data["states"].get(region_name, empty_data)
+                    region_data = alerts_cached_data['states'].get(region_name, empty_data)
                     alert_region_names.append(region_name)
                     region_data["alertnow"] = True
-                    region_data["changed"] = alert["lastUpdate"]
+                    region_data["changed"] = alert['lastUpdate']
                     alerts_cached_data["states"][region_name] = region_data
 
         logging.debug("parse states")
         for region_name, data in regions.items():
-            if region_name not in alert_region_names and alerts_cached_data["states"][region_name]["alertnow"] is True:
-                alerts_cached_data["states"][region_name]["alertnow"] = False
-                alerts_cached_data["states"][region_name]["changed"] = current_datetime
+            if region_name not in alert_region_names and alerts_cached_data['states'][region_name]['alertnow'] is True:
+                alerts_cached_data['states'][region_name]['alertnow'] = False
+                alerts_cached_data['states'][region_name]['changed'] = current_datetime
 
-        alerts_cached_data["info"]["is_started"] = True
-        alerts_cached_data["info"]["last_update"] = current_datetime
+        alerts_cached_data['info']['is_started'] = True
+        alerts_cached_data['info']['last_update'] = current_datetime
         logging.debug("store alerts data: %s" % current_datetime)
-        await mc.set(b"alerts", json.dumps(alerts_cached_data).encode("utf-8"))
+        await mc.set(b"alerts", json.dumps(alerts_cached_data).encode('utf-8'))
         logging.debug("alerts data stored")
 
     except Exception as e:

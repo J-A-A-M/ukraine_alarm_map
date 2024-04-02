@@ -7,9 +7,9 @@ from aiomcache import Client
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
 
-alert_loop_time = os.environ.get("ALERT_PERIOD") or 3
+alert_loop_time = os.environ.get('ALERT_PERIOD') or 3
 
 
 async def alarm_data(mc, alerts_cached_data):
@@ -19,8 +19,8 @@ async def alarm_data(mc, alerts_cached_data):
 
         if task1_result:
             logger.debug("result")
-            encoded_result = json.loads(task1_result.decode("utf-8"))
-            logging.info(task1_result.decode("utf-8"))
+            encoded_result = json.loads(task1_result.decode('utf-8'))
+            logging.info(task1_result.decode('utf-8'))
 
         await asyncio.sleep(alert_loop_time)
 
@@ -47,7 +47,6 @@ async def main():
 
         finally:
             asyncio.sleep(1)
-
 
 if __name__ == "__main__":
     try:
