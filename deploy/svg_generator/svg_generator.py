@@ -211,15 +211,15 @@ async def generate_map(time, output_file, **kwargs):
           style="background-color: transparent;"
           >
             <circle cx="20" cy="430" r="10" fill="#FF5733" />
-            <text x="40" y="435" font-family="Arial" font-size="16" fill="white">- тривога</text>
+            <text x="35" y="435" font-family="Arial" font-size="16" fill="white">- тривога</text>
             <circle cx="20" cy="455" r="10" fill="#32CD32" />
-            <text x="40" y="460" font-family="Arial" font-size="16" fill="white">- немає тривоги</text>
+            <text x="35" y="460" font-family="Arial" font-size="16" fill="white">- немає тривоги</text>
             <circle cx="20" cy="480" r="10" fill="#FFA533" />
-            <text x="40" y="485" font-family="Arial" font-size="16" fill="white">- оголошено тривогу (до 5 хв. тому)</text>
+            <text x="35" y="485" font-family="Arial" font-size="16" fill="white">- оголошено тривогу (до 5 хв. тому)</text>
             <circle cx="20" cy="505" r="10" fill="#BBFF33" />
-            <text x="40" y="510" font-family="Arial" font-size="16" fill="white">- оголошено відбій (до 5 хв. тому)</text>
+            <text x="35" y="510" font-family="Arial" font-size="16" fill="white">- оголошено відбій (до 5 хв. тому)</text>
             <circle cx="20" cy="530" r="10" fill="#00FFFF" />
-            <text x="40" y="535" font-family="Arial" font-size="16" fill="white">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+            <text x="35" y="535" font-family="Arial" font-size="16" fill="white">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
 
             <rect x="10" y="620" width="60" height="20" fill="#005BBB" />
             <rect x="10" y="640" width="60" height="20" fill="#FEDF00" />
