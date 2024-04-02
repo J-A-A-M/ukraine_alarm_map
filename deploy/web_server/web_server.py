@@ -164,7 +164,7 @@ async def main(request):
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
-                        <li>Вибухи: (інформація з ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
+                        <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
                         <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
@@ -173,7 +173,7 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
-                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з ЗМІ)</a></li>
+                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам зі ЗМІ)</a></li>
                         <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
                         <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>                         
                     </ul>
@@ -305,7 +305,7 @@ async def explosives_v3(request):
             for state, data in cached_data['states'].items():
                 new_data[state] = calculate_time_difference(data['changed'].replace("+00:00", "Z"), local_time)
             cached_data['states'] = new_data
-            cached_data['info']['description'] = "Час в секундах с моменту зміни статусу"
+            cached_data['info']['description'] = "Час в секундах з моменту зміни статусу"
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -340,7 +340,7 @@ def calculate_time_difference(timestamp1, timestamp2):
     time2 = datetime.strptime(timestamp2, format_str)
 
     time_difference = (time2 - time1).total_seconds()
-    return abs(time_difference)
+    return int(abs(time_difference))
 
 
 async def api_status(request):
