@@ -1,4 +1,4 @@
-FROM python:3.10.6
+FROM python:3.10-slim
 ADD websocket_server.py .
 ADD GeoLite2-City.mmdb .
 ADD requirements.txt .

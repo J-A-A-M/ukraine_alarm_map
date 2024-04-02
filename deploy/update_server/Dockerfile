@@ -1,4 +1,4 @@
-FROM python:3.10.6
+FROM python:3.10-slim
 ADD update_server.py .
 ADD requirements.txt .
 RUN pip install -r requirements.txt --no-cache-dir && rm -f requirements.txt
