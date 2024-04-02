@@ -98,13 +98,15 @@ struct Settings {
   int     home_alert_time        = 0;
   int     color_alert            = 0;
   int     color_clear            = 120;
-  int     color_home_district    = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
+  int     color_explosion        = 60;
+  int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
   int     brightness_new_alert   = 100;
   int     brightness_alert_over  = 100;
+  int     brightness_explosion    = 100;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -123,6 +125,8 @@ struct Settings {
   int     melody_on_alert        = 4;
   int     sound_on_alert_end     = 0;
   int     melody_on_alert_end    = 5;
+  int     sound_on_explosion     = 0;
+  int     melody_on_explosion    = 18;
   int     sound_on_every_hour    = 0;
   int     sound_on_button_click  = 0;
   int     mute_sound_on_night    = 0;
@@ -168,6 +172,7 @@ struct Settings {
   int     time_zone              = 2;
   int     alert_on_time          = 5;
   int     alert_off_time         = 5;
+  int     explosion_time         = 3;
   int     alert_blink_time       = 2;
   // ------- web config end
 };
@@ -234,6 +239,7 @@ const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,
 const char shchedryk[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g#,a,4f#,4a,g#,a,4f#";
 const char xmen[]                 PROGMEM = "XMen:d=4,o=6,b=125:16d#4,16g4,16c5,16d#5,4d5,8c5,8g4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8g#4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8d#5,2p,8d5,8c5,8g5,16g5,32a5,32b5,4c6";
 const char avengers[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4p.,16e4,16p,8e4,16p,16b4,4a4,4p,4g4,4f#4,16d4,16e4,8p,16e4,16f#4,8p,16d5,16e5,8p,16e5,16f#5,8p,4e4";
+const char siren2[]               PROGMEM = "Siren2:d=4,o=5,b=200:a.,8g#,a.,8g#,a.,8g#";
 
 
 const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
@@ -241,7 +247,7 @@ const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 18
+#define MELODIES_COUNT 19
 const char* melodies[MELODIES_COUNT] PROGMEM = {
   uaAnthem,
   OiULuzi,
@@ -261,6 +267,7 @@ const char* melodies[MELODIES_COUNT] PROGMEM = {
   shchedryk,
   xmen,
   avengers,
+  siren2
 };
 
 char* melodyNames[MELODIES_COUNT] PROGMEM = {
@@ -282,6 +289,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Щедрик",
   "Люди Х",
   "Месники",
+  "Сирена 2"
 };
 #endif
 
@@ -317,6 +325,7 @@ NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
 float     weather_leds[26];
+long      explosions_time[26];
 uint8_t   flag_leds[26];
 // int     flag_leds[26] = {
 //   60,60,60,180,180,60,60,60,60,60,60,
@@ -574,6 +583,7 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+long    homeExplosionTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
 short   clockBeepInterval = -1;
@@ -1034,11 +1044,13 @@ void initSettings() {
   settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
   settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
+  settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
   settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
   settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
   settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
   settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
   settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
+  settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
@@ -1084,9 +1096,11 @@ void initSettings() {
   settings.sound_on_alert_end     = preferences.getInt("soae", settings.sound_on_alert_end);
   settings.sound_on_every_hour    = preferences.getInt("soeh", settings.sound_on_every_hour);
   settings.sound_on_button_click  = preferences.getInt("sobc", settings.sound_on_button_click);
+  settings.sound_on_explosion     = preferences.getInt("soex", settings.sound_on_explosion);
   settings.melody_on_startup      = preferences.getInt("most", settings.melody_on_startup);
   settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
+  settings.melody_on_explosion    = preferences.getInt("moex", settings.melody_on_explosion);
   settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
   settings.invert_display         = preferences.getInt("invd", settings.invert_display);
   settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
@@ -1094,6 +1108,7 @@ void initSettings() {
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
   settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
   settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
+  settings.explosion_time        = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   
 
@@ -1557,7 +1572,7 @@ void initHA() {
       haAlarmAtHome->setIcon("mdi:rocket-launch");
       haAlarmAtHome->setName("Alarm At Home");
       haAlarmAtHome->setDeviceClass("safety");
-      haAlarmAtHome->setCurrentState(checkHomeDistrictAlerts());
+      haAlarmAtHome->setCurrentState(alarmNow);
 
 #if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
     if (bme280Inited || htu2xInited || sht3xInited) {
@@ -2912,7 +2927,12 @@ String floatToString(float value, int precision = 1) {
   return String(result);
 }
 
-String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
+int checkboxIndex = 1;
+int sliderIndex = 1;
+int selectIndex = 1;
+int inputFieldIndex = 1;
+
+String addCheckbox(const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
   String html;
   html += "<div class='form-group form-check'>";
   html += "<input name='";
@@ -2930,10 +2950,11 @@ String addCheckbox(const char* name, int checkboxIndex, bool isChecked, const ch
   html += "/>";
   html += label;
   html += "</div>";
+  checkboxIndex++;
   return html;
 }
 
-String addSliderInt(const char* name, int sliderIndex, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, int colorBoxIndex = -1) {
+String addSliderInt(const char* name, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   String html;
   html += label;
   html += ": <span id='sv";
@@ -2942,10 +2963,17 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   html += value;
   html += "</span>";
   html += unitOfMeasurement;
-  if (colorBoxIndex > 0) {
+  if (needColorBox) {
     html += "</br><div class='color-box' id='cb";
-    html += colorBoxIndex;
-    html += "'></div>";
+    html += sliderIndex;
+    RGBColor valueColor = hue2rgb(value);
+    html += "' style='background-color: rgb(";
+    html += valueColor.r;
+    html += ", ";
+    html += valueColor.g;
+    html += ", ";
+    html += valueColor.b;
+    html += ");'></div>";
   }
   html += "<input type='range' name='";
   html += name;
@@ -2960,9 +2988,9 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   html += "' value='";
   html += value;
   html += "'";
-  if (colorBoxIndex > 0) {
+  if (needColorBox) {
     html += " oninput='window.updateColAndVal(\"cb";
-    html += colorBoxIndex;
+    html += sliderIndex;
     html += "\", \"sv";
   } else {
     html += " oninput='window.updateVal(\"sv";
@@ -2972,10 +3000,11 @@ String addSliderInt(const char* name, int sliderIndex, const char* label, int va
   if (disabled) html += " disabled";
   html += "/>";
   html += "</br>";
+  sliderIndex++;
   return html;
 }
 
-String addSliderFloat(const char* name, int sliderIndex, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
+String addSliderFloat(const char* name, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
   String html;
   html += label;
   html += ": <span id='sv";
@@ -3003,10 +3032,11 @@ String addSliderFloat(const char* name, int sliderIndex, const char* label, floa
   if (disabled) html += " disabled";
   html += "/>";
   html += "</br>";
+  sliderIndex++;
   return html;
 }
 
-String addSelectBox(const char* name, int selectIndex, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
+String addSelectBox(const char* name, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
   String html;
   html += label;
   html += "<select name='";
@@ -3039,10 +3069,11 @@ String addSelectBox(const char* name, int selectIndex, const char* label, int se
   }
   html += "</select>";
   html += "</br>";
+  selectIndex++;
   return html;
 }
 
-String addInputText(const char* name, int inputFieldIndex, const char* label, const char* type, const char* value, int maxLength = -1) {
+String addInputText(const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
   String html;
   html += label;
   html += "<input type='";
@@ -3061,6 +3092,7 @@ String addInputText(const char* name, int inputFieldIndex, const char* label, co
   html += value;
   html += "'>";
   html += "</br>";
+  inputFieldIndex++;
   return html;
 }
 
@@ -3171,30 +3203,6 @@ function updateColorBox(boxId, hue) {
     document.getElementById(boxId).style.backgroundColor = `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})`;
 }
 
-const initialHue1 = parseInt(s3.value);
-const initialRgbColor1 = hsbToRgb(initialHue1, 100, 100);
-document.getElementById('cb3').style.backgroundColor = `rgb(${initialRgbColor1.r}, ${initialRgbColor1.g}, ${initialRgbColor1.b})`;
-
-const initialHue2 = parseInt(s4.value);
-const initialRgbColor2 = hsbToRgb(initialHue2, 100, 100);
-document.getElementById('cb4').style.backgroundColor = `rgb(${initialRgbColor2.r}, ${initialRgbColor2.g}, ${initialRgbColor2.b})`;
-
-const initialHue3 = parseInt(s5.value);
-const initialRgbColor3 = hsbToRgb(initialHue3, 100, 100);
-document.getElementById('cb5').style.backgroundColor = `rgb(${initialRgbColor3.r}, ${initialRgbColor3.g}, ${initialRgbColor3.b})`;
-
-const initialHue4 = parseInt(s6.value);
-const initialRgbColor4 = hsbToRgb(initialHue4, 100, 100);
-document.getElementById('cb6').style.backgroundColor = `rgb(${initialRgbColor4.r}, ${initialRgbColor4.g}, ${initialRgbColor4.b})`;
-
-const initialHue5 = parseInt(s7.value);
-const initialRgbColor5 = hsbToRgb(initialHue5, 100, 100);
-document.getElementById('cb7').style.backgroundColor = `rgb(${initialRgbColor5.r}, ${initialRgbColor5.g}, ${initialRgbColor5.b})`;
-
-const initialHue6 = parseInt(s19.value);
-const initialRgbColor6 = hsbToRgb(initialHue6, 100, 100);
-document.getElementById('cb19').style.backgroundColor = `rgb(${initialRgbColor6.r}, ${initialRgbColor6.g}, ${initialRgbColor6.b})`;
-
 function hsbToRgb(h, s, b) {
     h /= 360;
     s /= 100;
@@ -3240,12 +3248,19 @@ $('select[name=alarms_notify_mode]').change(function () {
     const selectedOption = $(this).val();
     $('input[name=alert_on_time]').prop('disabled', selectedOption == 0);
     $('input[name=alert_off_time]').prop('disabled', selectedOption == 0);
+    $('input[name=explosion_time]').prop('disabled', selectedOption == 0);
     $('input[name=alert_blink_time]').prop('disabled', selectedOption != 2);
 });
 </script>
 )=====";
 
 void handleRoot(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
   String html;
   html += "<!DOCTYPE html>";
   html += "<html lang='en'>";
@@ -3399,22 +3414,23 @@ void handleRoot(AsyncWebServerRequest* request) {
   int nightModeType = getNightModeType();
   html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
   html += "</b></div>";
-  html += addSliderInt("brightness", 1, "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2, -1);
-  html += addSliderInt("brightness_day", 13, "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
-  html += addSliderInt("brightness_night", 14, "Нічна", settings.brightness_night, 0, 100, 1, "%");
-  html += addSliderInt("day_start", 15, "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
-  html += addSliderInt("night_start", 16, "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSliderInt("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2, -1);
+  html += addSliderInt("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
+  html += addSliderInt("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
+  html += addSliderInt("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSliderInt("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
 #if DISPLAY_ENABLED
   if (displayInited) {
-    html += addCheckbox("dim_display_on_night", 1, settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
+    html += addCheckbox("dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
 #endif
-  html += addSelectBox("brightness_auto", 12, "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
-  html += addSliderInt("brightness_alert", 9, "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_clear", 10, "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
-  html += addSliderInt("brightness_new_alert", 11, "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_alert_over", 12, "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
-  html += addSliderFloat("light_sensor_factor", 24, "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1, 10, 0.1);
+  html += addSelectBox("brightness_auto", "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+  html += addSliderInt("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
+  html += addSliderInt("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
+  html += addSliderInt("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
+  html += addSliderInt("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
+  html += addSliderInt("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
+  html += addSliderFloat("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1, 10, 0.1);
   html += "<p class='text-info'>Коефіцієнт чутливості працює наступним чином: Значення менше 1 - знижує чутливість, більше 1 - підвищує. Формула для розрахунку - <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.<br>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
@@ -3427,11 +3443,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addSliderInt("color_alert", 3, "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, 3);
-  html += addSliderInt("color_clear", 4, "Області без тривог", settings.color_clear, 0, 360, 1, "", false, 4);
-  html += addSliderInt("color_new_alert", 5, "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, 5);
-  html += addSliderInt("color_alert_over", 6, "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, 6);
-  html += addSliderInt("color_home_district", 7, "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, 7);
+  html += addSliderInt("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  html += addSliderInt("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  html += addSliderInt("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  html += addSliderInt("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  html += addSliderInt("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  html += addSliderInt("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3443,8 +3460,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addSliderInt("weather_min_temp", 18, "Нижній рівень температури", settings.weather_min_temp, -20, 10, 1, "°C");
-  html += addSliderInt("weather_max_temp", 8, "Верхній рівень температури", settings.weather_max_temp, 11, 40, 1, "°C");
+  html += addSliderInt("weather_min_temp", "Нижній рівень температури", settings.weather_min_temp, -20, 10, 1, "°C");
+  html += addSliderInt("weather_max_temp", "Верхній рівень температури", settings.weather_max_temp, 11, 40, 1, "°C");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3457,52 +3474,53 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
   if (settings.legacy) {
-  html += addSelectBox("kyiv_district_mode", 1, "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
+  html += addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
-  html += addSelectBox("map_mode", 2, "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
-  html += addSliderInt("color_lamp", 19, "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, 19);
-  html += addSliderInt("brightness_lamp", 20, "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
+  html += addSelectBox("map_mode", "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
+  html += addSliderInt("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
+  html += addSliderInt("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
 #if DISPLAY_ENABLED
   if (displayInited) {
-  html += addSelectBox("display_mode", 5, "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
-  html += addCheckbox("invert_display", 2, settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-  html += addSliderInt("display_mode_time", 17, "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+  html += addSelectBox("display_mode", "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
+  html += addCheckbox("invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
+  html += addSliderInt("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
 #endif
   if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
-    html += addSliderFloat("temp_correction", 21, "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
+    html += addSliderFloat("temp_correction", "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
   }
   if (sht3xInited || bme280Inited || htu2xInited) {
-    html += addSliderFloat("hum_correction", 22, "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
+    html += addSliderFloat("hum_correction", "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
   }
   if (bme280Inited || bmp280Inited) {
-    html += addSliderFloat("pressure_correction", 23, "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
+    html += addSliderFloat("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
-  html += addSelectBox("button_mode", 6, "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-  html += addSelectBox("button_mode_long", 10, "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
-  html += addSelectBox("home_district", 3, "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
+  html += addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+  html += addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+  html += addSelectBox("home_district", "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
 
 #if DISPLAY_ENABLED
   if (displayInited) {
-    html += addCheckbox("home_alert_time", 3, settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+    html += addCheckbox("home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
 #endif
-  html += addSelectBox("alarms_notify_mode", 4, "Відображення на мапі нових тривог та відбою", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
-  html += addSliderInt("alert_on_time", 26, "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_off_time", 27, "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_blink_time", 28, "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  html += addSelectBox("alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
+  html += addSliderInt("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSliderInt("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
 
 #if DISPLAY_ENABLED
   if (settings.legacy && displayInited) {
-    html += addSelectBox("display_height", 7, "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
+    html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
 #endif
-  html += addSelectBox("alarms_auto_switch", 9, "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
+  html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
-    html += addCheckbox("service_diodes_mode", 4, settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
+    html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
   }
-  html += addCheckbox("min_of_silence", 5, settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
-  html += addSliderInt("time_zone", 25, "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
+  html += addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  html += addSliderInt("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3515,17 +3533,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addCheckbox("sound_on_startup", 6, settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
-  html += addSelectBox("melody_on_startup", 13, "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_min_of_sl", 7, settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
-  html += addCheckbox("sound_on_alert", 8, settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
-  html += addSelectBox("melody_on_alert", 14, "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_alert_end", 9, settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
-  html += addSelectBox("melody_on_alert_end", 15, "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
-  html += addCheckbox("sound_on_every_hour", 10, settings.sound_on_every_hour, "Звукове сповіщення щогодини");
-  html += addCheckbox("sound_on_button_click", 11, settings.sound_on_button_click, "Сигнали при натисканні кнопки");
-  html += addCheckbox("mute_sound_on_night", 12, settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
-  html += addCheckbox("ignore_mute_on_alert", 13, settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
+  html += addCheckbox("sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
+  html += addSelectBox("melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
+  html += addCheckbox("sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
+  html += addCheckbox("sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
+  html += addSelectBox("melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
+  html += addCheckbox("sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
+  html += addSelectBox("melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
+  html += addCheckbox("sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
+  html += addSelectBox("melody_on_explosion", "Мелодія при при вибухах у домашньому регіоні", settings.melody_on_explosion, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
+  html += addCheckbox("sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
+  html += addCheckbox("sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
+  html += addCheckbox("mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  html += addCheckbox("ignore_mute_on_alert", settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
   html += "<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>";
   html += "<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>";
   html += "</div>";
@@ -3575,29 +3595,29 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += addSelectBox("legacy", 8, "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
+  html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
   #if HA_ENABLED
-  html += addInputText("ha_brokeraddress", 1, "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
-  html += addInputText("ha_mqttport", 2, "Порт mqtt-сервера Home Assistant", "number", String(settings.ha_mqttport).c_str());
-  html += addInputText("ha_mqttuser", 3, "Користувач mqtt-сервера Home Assistant", "text", settings.ha_mqttuser, 30);
-  html += addInputText("ha_mqttpassword", 4, "Пароль mqtt-сервера Home Assistant", "text", settings.ha_mqttpassword, 50);
+  html += addInputText("ha_brokeraddress", "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
+  html += addInputText("ha_mqttport", "Порт mqtt-сервера Home Assistant", "number", String(settings.ha_mqttport).c_str());
+  html += addInputText("ha_mqttuser", "Користувач mqtt-сервера Home Assistant", "text", settings.ha_mqttuser, 30);
+  html += addInputText("ha_mqttpassword", "Пароль mqtt-сервера Home Assistant", "text", settings.ha_mqttpassword, 50);
   #endif
 
-  html += addInputText("serverhost", 7, "Адреса сервера даних", "text", settings.serverhost, 30);
-  html += addInputText("websocket_port", 8, "Порт Websockets", "number", String(settings.websocket_port).c_str());
-  html += addInputText("updateport", 9, "Порт сервера прошивок", "number", String(settings.updateport).c_str());
-  html += addInputText("devicename", 10, "Назва пристрою", "text", settings.devicename, 30);
-  html += addInputText("devicedescription", 11, "Опис пристрою", "text", settings.devicedescription, 50);
-  html += addInputText("broadcastname", 12, ("Локальна адреса в мережі (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
+  html += addInputText("serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
+  html += addInputText("websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
+  html += addInputText("updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
+  html += addInputText("devicename", "Назва пристрою", "text", settings.devicename, 30);
+  html += addInputText("devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
+  html += addInputText("broadcastname", ("Локальна адреса в мережі (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy) {
-    html += addInputText("pixelpin", 5, "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-    html += addInputText("buttonpin", 6, "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
+    html += addInputText("pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
+    html += addInputText("buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
   }
-  html += addInputText("alertpin", 13, "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-  html += addCheckbox("enable_pin_on_alert", 14, settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
-  html += addInputText("lightpin", 14, "Пін сенсора освітлення (фоторезистора, має бути analog)", "number", String(settings.lightpin).c_str());
+  html += addInputText("alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
+  html += addCheckbox("enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  html += addInputText("lightpin", "Пін сенсора освітлення (фоторезистора, має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-  html += addInputText("buzzerpin", 15, "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+  html += addInputText("buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
   html += "<b>";
   html += "<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
@@ -3617,9 +3637,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='by col-md-12 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
 #if DISPLAY_ENABLED
-  if (displayInited) html += addCheckbox("new_fw_notification", 15, settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  if (displayInited) html += addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
 #endif
-  html += addSelectBox("fw_update_channel", 11, "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
+  html += addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
   html += "<b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</form>";
@@ -3825,6 +3845,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_clear", true), &settings.brightness_clear, "bc") || saved;
   saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
   saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
+  saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -3841,6 +3862,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_clear", true), &settings.color_clear, "colorcl") || saved;
   saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
   saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
+  saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
   char url[15];
@@ -3875,6 +3897,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
+  saved = saveInt(request->getParam("explosion_time", true), &settings.explosion_time, "ext") || saved;
   saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
   bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
@@ -3911,6 +3934,8 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa") || saved;
   saved = saveBool(request->getParam("sound_on_alert_end", true), "sound_on_alert_end", &settings.sound_on_alert_end, "soae") || saved;
   saved = saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae") || saved;
+  saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", &settings.sound_on_explosion, "soex") || saved;
+  saved = saveInt(request->getParam("melody_on_explosion", true), &settings.melody_on_explosion, "moex") || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", &settings.sound_on_every_hour, "soeh") || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", &settings.sound_on_button_click, "sobc") || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", &settings.mute_sound_on_night, "mson") || saved;
@@ -4147,16 +4172,21 @@ void onMessageCallback(WebsocketsMessage message) {
       Serial.println("Heartbeat from server");
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
-      Serial.println("Successfully parsed alerts data");
       for (int i = 0; i < 26; ++i) {
         alarm_leds[calculateOffset(i)] = data["alerts"][i][0];
         alarm_time[calculateOffset(i)] = data["alerts"][i][1];
       }
+      Serial.println("Successfully parsed alerts data");
     } else if (payload == "weather") {
-      Serial.println("Successfully parsed weather data");
       for (int i = 0; i < 26; ++i) {
         weather_leds[calculateOffset(i)] = data["weather"][i];
       }
+      Serial.println("Successfully parsed weather data");
+    } else if (payload == "explosions") {
+      for (int i = 0; i < 26; ++i) {
+        explosions_time[calculateOffset(i)] = data["explosions"][i];
+      }
+      Serial.println("Successfully parsed explosions data");
 #if HA_ENABLED
       if (enableHA) {
         haHomeTemp->setValue(weather_leds[calculateOffset(settings.home_district)]);
@@ -4315,22 +4345,30 @@ int calculateOffsetDistrict(int initial_position) {
 }
 
 
-HsbColor processAlarms(int led, long timer, int position, float blinkBrightness) {
+HsbColor processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
   HsbColor hue;
   int local_color;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
   float local_brightness_new_alert = settings.brightness_new_alert / 100.0f;
   float local_brightness_alert_over = settings.brightness_alert_over / 100.0f;
+  float local_brightness_explosion = settings.brightness_explosion / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.home_district);
   int color_switch;
 
+  // explosions has highest priority
+  if (timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+      color_switch = settings.color_explosion;
+      hue = HsbColor(color_switch / 360.0f, 1.0, explosionBrightness * local_brightness_explosion);
+      return hue;
+  }
+
   switch (led) {
     case 0:
-      if (timeClient.unixGMT() - timer < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
+      if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
-        hue = HsbColor(color_switch / 360.0f, 1.0, blinkBrightness * local_brightness_alert_over);
+        hue = HsbColor(color_switch / 360.0f, 1.0, alertBrightness * local_brightness_alert_over);
         
       } else {
         if (position == local_district) {
@@ -4342,9 +4380,9 @@ HsbColor processAlarms(int led, long timer, int position, float blinkBrightness)
       }
       break;
     case 1:
-      if (timeClient.unixGMT() - timer < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
+      if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_new_alert;
-        hue = HsbColor(color_switch / 360.0f, 1.0, blinkBrightness * local_brightness_new_alert);
+        hue = HsbColor(color_switch / 360.0f, 1.0, alertBrightness * local_brightness_new_alert);
       } else {
         color_switch = settings.color_alert;
         hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
@@ -4354,10 +4392,10 @@ HsbColor processAlarms(int led, long timer, int position, float blinkBrightness)
   return hue;
 }
 
-float getFadeInFadeOutBrightness(float maxBrightness, int fadeTime) {
+float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
   float minBrightness = maxBrightness * 0.01f;
-  int progress = micros() % (fadeTime * 1000000);
-  int halfBlinkTime = fadeTime * 500000;
+  int progress = micros() % (fadeTime * 1000);
+  int halfBlinkTime = fadeTime * 500;
   float blinkBrightness;
   if (progress < halfBlinkTime) {
     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, maxBrightness);
@@ -4419,7 +4457,7 @@ float processWeather(int led) {
 }
 
 void mapReconnect() {
-  float localBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time);
+  float localBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time * 1000);
   HsbColor hue = HsbColor(64 / 360.0f, 1.0, localBrightness);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, hue);
@@ -4476,22 +4514,28 @@ void mapAlarms() {
   int adapted_alarm_leds[26];
   int lastValueColor = alarm_leds[25];
   int adapted_alarm_timers[26];
+  int adapted_explosion_timers[26];
   int lastValueTimer = alarm_time[25];
+  int lastValueExplosionTimer = explosions_time[25];
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     adapted_alarm_leds[i] = alarm_leds[i];
     adapted_alarm_timers[i] = alarm_time[i];
+    adapted_explosion_timers[i] = explosions_time[i];
   }
   if (settings.kyiv_district_mode == 2) {
     adapted_alarm_leds[7] = alarm_leds[25];
     adapted_alarm_timers[7] = alarm_time[25];
+    adapted_explosion_timers[7] = explosions_time[25];
   }
   if (settings.kyiv_district_mode == 3) {
     for (int i = 24; i >= 8 + offset; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
       adapted_alarm_timers[i + 1] = alarm_time[i];
+      adapted_explosion_timers[i + 1] = explosions_time[i];
     }
     adapted_alarm_leds[8 + offset] = lastValueColor;
     adapted_alarm_timers[8 + offset] = lastValueTimer;
+    adapted_explosion_timers[8 + offset] = lastValueExplosionTimer;
   }
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
@@ -4502,10 +4546,17 @@ void mapAlarms() {
       adapted_alarm_leds[7] = 1;
       adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
+    adapted_explosion_timers[7] = max(explosions_time[25], explosions_time[7]);
+
   }
-  float blinkBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time);
+  float blinkBrightness = settings.current_brightness / 200.0f;
+  float explosionBrightness = settings.current_brightness / 200.0f;
+  if (settings.alarms_notify_mode == 2) {
+    blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
+    explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.explosion_time * 500);
+  }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], i, blinkBrightness));
+    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness));
   }
   strip->Show();
 }
@@ -4637,9 +4688,10 @@ void calculateStates() {
 #endif
 }
 
-bool checkHomeDistrictAlerts() {
+void checkHomeDistrictAlerts() {
   int ledStatus = alarm_leds[calculateOffset(settings.home_district)];
-  bool localAlarmNow = (ledStatus == 1 || ledStatus == 3);
+  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district)];
+  bool localAlarmNow = ledStatus == 1;
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
     if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
@@ -4658,7 +4710,12 @@ bool checkHomeDistrictAlerts() {
     }
 #endif
   }
-  return localAlarmNow;
+  if (localHomeExplosions != homeExplosionTime) {
+    homeExplosionTime = localHomeExplosions;
+    if (timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+      showServiceMessage("Вибухи!", districts[settings.home_district], 5000);
+    }
+  }
 }
 
 void checkCurrentTimeAndPlaySound() {

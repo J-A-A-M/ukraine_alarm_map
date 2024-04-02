@@ -384,12 +384,16 @@ async def get_data_from_memcached(mc):
     if random_mode:
         values_v1 = []
         values_v2 = []
+        explosions_v1 = [0] * 26
         for i in range(26):
             values_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
             values_v2.append([random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime('%Y-%m-%dT%H:%M:%SZ')])
+        explosion_index = random.randint(0, 25)
+        explosions_v1[explosion_index] = int(datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
+        explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
     else:
         if alerts_cached_v1:
             alerts_cached_data_v1 = alerts_cached_v1.decode('utf-8')
