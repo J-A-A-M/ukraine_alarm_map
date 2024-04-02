@@ -100,7 +100,7 @@ struct Settings {
   int     color_clear            = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
-  int     color_explosion        = 60;
+  int     color_explosion        = 280;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
@@ -4553,7 +4553,7 @@ void mapAlarms() {
   float explosionBrightness = settings.current_brightness / 200.0f;
   if (settings.alarms_notify_mode == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
-    explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.explosion_time * 500);
+    explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness));
