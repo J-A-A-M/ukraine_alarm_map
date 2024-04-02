@@ -394,6 +394,7 @@ async def get_data_from_memcached(mc):
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
+        explosions_cashed_data_full = {}
     else:
         if alerts_cached_v1:
             alerts_cached_data_v1 = alerts_cached_v1.decode('utf-8')
@@ -403,6 +404,22 @@ async def get_data_from_memcached(mc):
             alerts_cached_data_v2 = alerts_cached_v2.decode('utf-8')
         else:
             alerts_cached_data_v2 = '[]'
+
+        if explosions_cashed:
+            explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
+            explosions_cashed_data_v1 = []
+            for state, data in regions.items():
+                if state in explosions_cashed_data_full:
+                    region_data = explosions_cashed_data_full.get(state, {})
+                    isoDatetimeStr = explosions_cashed_data_full[state]['changed']
+                    datetimeObj = datetime.fromisoformat(isoDatetimeStr)
+                    datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
+                    explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
+                else:
+                    explosions_cashed_data_v1.append(0)
+        else:
+            explosions_cashed_data_v1 = []
+            explosions_cashed_data_full = {}
 
     if weather_cached_v1:
         weather_cached_data_v1 = weather_cached_v1.decode('utf-8')
@@ -428,22 +445,6 @@ async def get_data_from_memcached(mc):
         weather_full_cached_data = json.loads(weather_full_cached.decode('utf-8'))['states']
     else:
         weather_full_cached_data = {}
-
-    if explosions_cashed:
-        explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
-        explosions_cashed_data_v1 = []
-        for state, data in regions.items():
-            if state in explosions_cashed_data_full:
-                region_data = explosions_cashed_data_full.get(state, {})
-                isoDatetimeStr = explosions_cashed_data_full[state]['changed']
-                datetimeObj = datetime.fromisoformat(isoDatetimeStr)
-                datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
-                explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
-            else:
-                explosions_cashed_data_v1.append(0)
-    else:
-        explosions_cashed_data_v1 = []
-        explosions_cashed_data_full = {}
 
     return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, explosions_cashed_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data_full
 
