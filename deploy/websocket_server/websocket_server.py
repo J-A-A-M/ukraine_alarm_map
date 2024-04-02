@@ -37,7 +37,7 @@ class SharedData:
         self.alerts_full = {}
         self.weather_v1 = '[]'
         self.weather_full = {}
-        self.explosions = {}
+        self.explosions_v1 = '[]'
         self.bins = '[]'
         self.test_bins = '[]'
         self.clients = {}
@@ -129,15 +129,11 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new test_bins")
                 client['test_bins'] = shared_data.test_bins
-            if client['explosions'] != shared_data.explosions:
-                explosions = []
-                cached_data = json.dumps(shared_data.explosions)
-                for state, data in cached_data.items():
-                    explosions.append([regions[state]["id"], datetime.fromisoformat(data['changed']).replace(tzinfo=timezone.utc).timestamp()])
-                payload = '{"payload": "explosions", "explosions": %s}' % explosions
+            if client['explosions'] != shared_data.explosions_v1:
+                payload = '{"payload": "explosions", "explosions": %s}' % json.dumps(shared_data.explosions_v1)
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new explosions")
-                client['explosions'] = shared_data.explosions
+                client['explosions'] = shared_data.explosions_v1
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
@@ -293,7 +289,7 @@ async def district_data_v1(district_id):
 async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
-        alerts_v1, alerts_v2, weather_v1, bins, test_bins, alerts_full, weather_full, explosions = await get_data_from_memcached(mc)
+        alerts_v1, alerts_v2, weather_v1, explosions_v1, bins, test_bins, alerts_full, weather_full, explosions_full = await get_data_from_memcached(mc)
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -312,9 +308,16 @@ async def update_shared_data(shared_data, mc):
         try:
             if weather_v1 != shared_data.weather_v1:
                 shared_data.weather_v1 = weather_v1
-                logger.info(f"weather updated: {weather_v1}")
+                logger.info(f"weather_v1 updated: {weather_v1}")
         except Exception as e:
             logger.error(f"error in weather_v1: {e}")
+
+        try:
+            if explosions_v1 != shared_data.explosions_v1:
+                shared_data.explosions = explosions_v1
+                logger.info(f"explosions_v1 updated: {explosions_v1}")
+        except Exception as e:
+            logger.error(f"error in explosions_v1: {e}")
 
         try:
             if bins != shared_data.bins:
@@ -343,13 +346,13 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"weather_full updated")
         except Exception as e:
             logger.error(f"error in weather_full: {e}")
-        
+
         try:
-            if explosions != shared_data.explosions:
-                shared_data.explosions = explosions
-                logger.info(f"explosions updated: {explosions}")
+            if explosions_full != shared_data.explosions_full:
+                shared_data.explosions_full = explosions_full
+                logger.info(f"explosions_full updated")
         except Exception as e:
-            logger.error(f"error in explosions: {e}")
+            logger.error(f"error in explosions_full: {e}")
         
         await asyncio.sleep(memcache_fetch_interval)
 
@@ -376,6 +379,8 @@ async def get_data_from_memcached(mc):
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
     explosions_cashed = await mc.get(b"explosions")
+
+    logger.info(f"explosions from memcache: {explosions_cashed}")
 
     if random_mode:
         values_v1 = []
@@ -422,11 +427,21 @@ async def get_data_from_memcached(mc):
         weather_full_cached_data = {}
 
     if explosions_cashed:
-        explosions_cashed_data = json.loads(explosions_cashed.decode('utf-8'))['states']
+        explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
+        explosions_cashed_data_v1 = []
+        for state, data in regions.items():
+            isoDatetimeStr = explosions_cashed_data_full[state]['changed']
+            if isoDatetimeStr:
+                datetimeObj = datetime.fromisoformat(isoDatetimeStr)
+                datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
+                explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
+            else:
+                explosions_cashed_data_v1.append(0)
     else:
-        explosions_cashed_data = {}
+        explosions_cashed_data_v1 = []
+        explosions_cashed_data_full = {}
 
-    return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data
+    return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, explosions_cashed_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data_full
 
 
 start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
