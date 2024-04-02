@@ -2905,7 +2905,6 @@ void setupRouting() {
   webserver.on("/", HTTP_GET, handleRoot);
   webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
   webserver.on("/saveColors", HTTP_POST, handleSaveColors);
-  webserver.on("/saveWeather", HTTP_POST, handleSaveWeather);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
 #if BUZZER_ENABLED
   webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
@@ -3143,28 +3142,25 @@ const activePage = urlParams.get('p');
 var target = '';
 switch (activePage) {
     case 'brgh':
-        target = 'collapseBrightness';
+        target = 'clB';
         break;
     case 'clrs':
-        target = 'collapseColors';
-        break;
-    case 'wthr':
-        target = 'collapseWeather';
+        target = 'clC';
         break;
     case 'mds':
-        target = 'collapseModes';
+        target = 'clM';
         break;
     case 'snd':
-        target = 'collapseSounds';
+        target = 'clS';
         break;
     case 'tlmtr':
-        target = 'collapseTelemetry';
+        target = 'clT';
         break;
     case 'tch':
-        target = 'collapseTech';
+        target = 'cTc';
         break;
     case 'fw':
-        target = 'collapseFirmware';
+        target = 'clF';
         break;
 }
 
@@ -3377,31 +3373,28 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
-  html += "<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseBrightness' aria-expanded='false' aria-controls='collapseBrightness'>";
+  html += "<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>";
   html += "Яскравість";
   html += "</button>";
-  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseColors' aria-expanded='false' aria-controls='collapseColors'>";
+  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>";
   html += "Кольори";
   html += "</button>";
-  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseWeather' aria-expanded='false' aria-controls='collapseWeather'>";
-  html += "Погода";
-  html += "</button>";
-  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseModes' aria-expanded='false' aria-controls='collapseModes'>";
+  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clM' aria-expanded='false' aria-controls='clM'>";
   html += "Режими";
   html += "</button>";
 #if BUZZER_ENABLED
-  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#collapseSounds' aria-expanded='false' aria-controls='collapseSounds'>";
+  html += " <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clS' aria-expanded='false' aria-controls='clS'>";
   html += "Звуки";
   html += "</button>";
 #endif
-  html += " <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#collapseTelemetry' aria-expanded='false' aria-controls='collapseTelemetry'>";
+  html += " <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>";
   html += "Телеметрія";
   html += "</button>";
-  html += " <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#collapseTech' aria-expanded='false' aria-controls='collapseTech'>";
+  html += " <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#cTc' aria-expanded='false' aria-controls='cTc'>";
   html += "DEV";
   html += "</button>";
 #if FW_UPDATE_ENABLED
-  html += " <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#collapseFirmware' aria-expanded='false' aria-controls='collapseFirmware'>";
+  html += " <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#clF' aria-expanded='false' aria-controls='clF'>";
   html += "Прошивка";
   html += "</button>";
 #endif
@@ -3410,7 +3403,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</div>";
   html += "<form action='/saveBrightness' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseBrightness' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clB' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3437,7 +3430,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   html += addSliderInt("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   html += addSliderFloat("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1, 10, 0.1);
-  html += "<p class='text-info'>Коефіцієнт чутливості працює наступним чином: Значення менше 1 - знижує чутливість, більше 1 - підвищує. Формула для розрахунку - <b>L = Ls * K</b>, де <b>Ls</b> - дані з сенсора, <b>K</b> - коефіцієнт чутливості, <b>L</b> - рівень освітлення, що використовується для регулювання яскравості мапи.<br>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
+  html += "<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3445,7 +3438,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
   html += "<form action='/saveColors' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseColors' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3461,21 +3454,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</div>";
   html += "</form>";
-  html += "<form action='/saveWeather' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseWeather' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
-  html += addSliderInt("weather_min_temp", "Нижній рівень температури", settings.weather_min_temp, -20, 10, 1, "°C");
-  html += addSliderInt("weather_max_temp", "Верхній рівень температури", settings.weather_max_temp, 11, 40, 1, "°C");
-  html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
-  html += "</div>";
-  html += "</div>";
-  html += "</div>";
-  html += "</div>";
-  html += "</form>";
   html += "<form action='/saveModes' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseModes' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3501,6 +3481,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (bme280Inited || bmp280Inited) {
     html += addSliderFloat("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
+  html += addSliderInt("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
+  html += addSliderInt("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
   html += addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
   html += addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   html += addSelectBox("home_district", "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
@@ -3523,7 +3505,7 @@ void handleRoot(AsyncWebServerRequest* request) {
 #endif
   html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
-    html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди на задній частині плати");
+    html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }
   html += addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
   html += addSliderInt("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
@@ -3535,7 +3517,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</form>";
 #if BUZZER_ENABLED
   html += "<form action='/saveSounds' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseSounds' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clS' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3547,7 +3529,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addCheckbox("sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
   html += addSelectBox("melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  html += addSelectBox("melody_on_explosion", "Мелодія при при вибухах у домашньому регіоні", settings.melody_on_explosion, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
+  html += addSelectBox("melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
   html += addCheckbox("sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
   html += addCheckbox("mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -3561,7 +3543,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</form>";
 #endif
   html += "<form action='/refreshTelemetry' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseTelemetry' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3597,16 +3579,16 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
   html += "<form action='/saveDev' method='POST'>";
-  html += "<div class='row collapse justify-content-center' id='collapseTech' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
   html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
   #if HA_ENABLED
-  html += addInputText("ha_brokeraddress", "Адреса mqtt-сервера Home Assistant", "text", settings.ha_brokeraddress, 30);
-  html += addInputText("ha_mqttport", "Порт mqtt-сервера Home Assistant", "number", String(settings.ha_mqttport).c_str());
-  html += addInputText("ha_mqttuser", "Користувач mqtt-сервера Home Assistant", "text", settings.ha_mqttuser, 30);
-  html += addInputText("ha_mqttpassword", "Пароль mqtt-сервера Home Assistant", "text", settings.ha_mqttpassword, 50);
+  html += addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
+  html += addInputText("ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
+  html += addInputText("ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
+  html += addInputText("ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
   #endif
 
   html += addInputText("serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
@@ -3614,21 +3596,21 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addInputText("updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
   html += addInputText("devicename", "Назва пристрою", "text", settings.devicename, 30);
   html += addInputText("devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
-  html += addInputText("broadcastname", ("Локальна адреса в мережі (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
+  html += addInputText("broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy) {
     html += addInputText("pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
     html += addInputText("buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
   }
   html += addInputText("alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
   html += addCheckbox("enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
-  html += addInputText("lightpin", "Пін сенсора освітлення (фоторезистора, має бути analog)", "number", String(settings.lightpin).c_str());
+  html += addInputText("lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
   html += addInputText("buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
   html += "<b>";
   html += "<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусувого перезаватаження мапи.</p>";
-  html += "<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до часткової або повної відмови прoшивки, якщо налаштування будуть несумісні з логікою роботи. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
-  html += "<p class='text-danger'>У випадку, коли мапа втратить і не відновить працездатність після змін і перезавантаження (при умові втрати доступу до сторінки керування) - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі Arduino IDE) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання внутрішньої памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
+  html += "<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>";
+  html += "<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>";
   html += "</b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
@@ -3637,7 +3619,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</div>";
   html += "</form>";
 #if FW_UPDATE_ENABLED
-  html += "<div class='row collapse justify-content-center' id='collapseFirmware' data-parent='#accordion'>";
+  html += "<div class='row collapse justify-content-center' id='clF' data-parent='#accordion'>";
   html += "<div class='col-md-9'>";
   html += "<div class='row'>";
   html += "<div class='by col-md-12 mt-2'>";
@@ -3646,7 +3628,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (displayInited) html += addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
 #endif
   html += addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
-  html += "<b><p class='text-danger'>УВАГА: Прошивки, що розповсюджуються BETA каналом можуть містити помилки, або вивести мапу з ладу. Якщо у Вас немає можливості прошити мапу через кабель, або ви не знаєте як це зробити, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
+  html += "<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель - будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</form>";
   html += "<form action='/update' method='POST'>";
@@ -3876,16 +3858,6 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   request->redirect(url);
 }
 
-void handleSaveWeather(AsyncWebServerRequest* request) {
-  bool saved = false;
-  saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
-  saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
-
-  char url[15];
-  sprintf(url, "/?p=wthr&svd=%d", saved);
-  request->redirect(url);
-}
-
 void handleSaveModes(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveInt(request->getParam("map_mode", true), &settings.map_mode, "mapmode", saveMapMode) || saved;
@@ -3896,6 +3868,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, localTempHumSensorCycle) || saved;
   saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, localTempHumSensorCycle) || saved;
   saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, localTempHumSensorCycle) || saved;
+  saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
+  saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
   saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
   saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
