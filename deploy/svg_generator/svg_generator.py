@@ -73,7 +73,7 @@ async def svg_generator(mc, shared_data):
     try:
         await asyncio.sleep(loop_time)
         local_time = await get_local_time_formatted()
-        cached = await mc.get(b"tcp")
+        cached = await mc.get(b"svg")
 
         if cached:
             cached_data = json.loads(cached.decode('utf-8'))
@@ -84,12 +84,15 @@ async def svg_generator(mc, shared_data):
         weather_svg_data = {}
 
         if cached_data != shared_data.data:
-            alerts_data, weather_data = cached_data.split(':')
+            alerts_data, weather_data, explosions_data = cached_data.split(':')
             alerts = [
                 int(alert) for alert in alerts_data.split(',')
             ]
             weathers = [
                 float(weather) for weather in weather_data.split(',')
+            ]
+            explosions = [
+                int(explosion) for explosion in explosions_data.split(',')
             ]
 
             position = 0
@@ -103,6 +106,8 @@ async def svg_generator(mc, shared_data):
                         alerts_svg_data[regions[position]] = "bbff33"
                     case 3:
                         alerts_svg_data[regions[position]] = "ffa533"
+                if (explosions[position] == 1):
+                    alerts_svg_data[regions[position]] = "00ffff"
                 position += 1
             file_path = os.path.join(shared_path, 'alerts_map.png')
             await generate_map(time=local_time, output_file=file_path, **alerts_svg_data)

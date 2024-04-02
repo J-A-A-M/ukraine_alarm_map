@@ -375,11 +375,12 @@ async def get_data_from_memcached(mc):
     alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
     alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
     weather_cached_v1 = await mc.get(b"weather_websocket_v1")
+    explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
-    explosions_cashed = await mc.get(b"explosions")
+    explosions_full_cashed = await mc.get(b"explosions")
 
     if random_mode:
         values_v1 = []
@@ -405,21 +406,10 @@ async def get_data_from_memcached(mc):
         else:
             alerts_cached_data_v2 = '[]'
 
-        if explosions_cashed:
-            explosions_cashed_data_full = json.loads(explosions_cashed.decode('utf-8'))['states']
-            explosions_cashed_data_v1 = []
-            for state, data in regions.items():
-                if state in explosions_cashed_data_full:
-                    region_data = explosions_cashed_data_full.get(state, {})
-                    isoDatetimeStr = explosions_cashed_data_full[state]['changed']
-                    datetimeObj = datetime.fromisoformat(isoDatetimeStr)
-                    datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
-                    explosions_cashed_data_v1.append(int(datetimeObjUtc.timestamp()))
-                else:
-                    explosions_cashed_data_v1.append(0)
+        if explosions_cached_v1:
+            explosions_cashed_data_v1 = explosions_cached_v1.decode('utf-8')
         else:
-            explosions_cashed_data_v1 = []
-            explosions_cashed_data_full = {}
+            explosions_cashed_data_v1 = '[]'
 
     if weather_cached_v1:
         weather_cached_data_v1 = weather_cached_v1.decode('utf-8')
@@ -445,6 +435,11 @@ async def get_data_from_memcached(mc):
         weather_full_cached_data = json.loads(weather_full_cached.decode('utf-8'))['states']
     else:
         weather_full_cached_data = {}
+
+    if explosions_full_cashed:
+        explosions_cashed_data_full = json.loads(explosions_full_cashed.decode('utf-8'))['states']
+    else:
+        explosions_cashed_data_full = {}
 
     return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, explosions_cashed_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data_full
 
