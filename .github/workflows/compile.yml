@@ -82,7 +82,6 @@
             with:
               name: lint-report
               path: ${{ github.workspace }}/lint-report.json
-                - name: Setup Python
           - name: Setup Python      
             uses: actions/setup-python@v5
             with:
