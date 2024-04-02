@@ -5,6 +5,7 @@ import logging
 from aiomcache import Client
 import cairosvg
 import random
+import pytz
 
 from datetime import datetime, timezone
 
@@ -64,8 +65,8 @@ class SharedData:
 
 
 async def get_local_time_formatted():
-    local_time = datetime.now(timezone.utc)
-    formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    local_time = datetime.now(pytz.timezone('Europe/Kiev'))
+    formatted_local_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
     return formatted_local_time
 
 
@@ -110,13 +111,13 @@ async def svg_generator(mc, shared_data):
                     alerts_svg_data[regions[position]] = "00ffff"
                 position += 1
             file_path = os.path.join(shared_path, 'alerts_map.png')
-            await generate_map(time=local_time, output_file=file_path, **alerts_svg_data)
+            await generate_map(time=local_time, output_file=file_path, show_legend=True, **alerts_svg_data)
             position = 0
             for weather in weathers:
                 weather_svg_data[regions[position]] = calculate_html_color_from_hsb(weather)
                 position += 1
             file_path = os.path.join(shared_path, 'weather_map.png')
-            await generate_map(time=local_time, output_file=file_path, **weather_svg_data)
+            await generate_map(time=local_time, output_file=file_path, show_legend=False, **weather_svg_data)
             shared_data.data = cached_data
     except Exception as e:
         logging.error(f"Request failed with status code: {e}")
@@ -195,7 +196,7 @@ def calculate_html_color_from_hsb(temp):
     return hex_color
 
 
-async def generate_map(time, output_file, **kwargs):
+async def generate_map(time, output_file, show_legend, **kwargs):
     print('generate map')
     svg_data = f'''
           <svg
@@ -210,16 +211,16 @@ async def generate_map(time, output_file, **kwargs):
           xmlns="http://www.w3.org/2000/svg"
           style="background-color: transparent;"
           >
-            <circle cx="20" cy="430" r="10" fill="#FF5733" />
-            <text x="35" y="435" font-family="Arial" font-size="16" fill="white">- тривога</text>
-            <circle cx="20" cy="455" r="10" fill="#32CD32" />
-            <text x="35" y="460" font-family="Arial" font-size="16" fill="white">- немає тривоги</text>
-            <circle cx="20" cy="480" r="10" fill="#FFA533" />
-            <text x="35" y="485" font-family="Arial" font-size="16" fill="white">- оголошено тривогу (до 5 хв. тому)</text>
-            <circle cx="20" cy="505" r="10" fill="#BBFF33" />
-            <text x="35" y="510" font-family="Arial" font-size="16" fill="white">- оголошено відбій (до 5 хв. тому)</text>
-            <circle cx="20" cy="530" r="10" fill="#00FFFF" />
-            <text x="35" y="535" font-family="Arial" font-size="16" fill="white">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+            <circle cx="20" cy="430" r="10" fill="#FF5733" visibility="{"visible" if show_legend else "hidden"}"/>
+            <text x="35" y="435" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- тривога</text>
+            <circle cx="20" cy="455" r="10" fill="#32CD32" visibility="{"visible" if show_legend else "hidden"}" />
+            <text x="35" y="460" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- немає тривоги</text>
+            <circle cx="20" cy="480" r="10" fill="#FFA533" visibility="{"visible" if show_legend else "hidden"}" />
+            <text x="35" y="485" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- оголошено тривогу (до 5 хв. тому)</text>
+            <circle cx="20" cy="505" r="10" fill="#BBFF33" visibility="{"visible" if show_legend else "hidden"}" />
+            <text x="35" y="510" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- оголошено відбій (до 5 хв. тому)</text>
+            <circle cx="20" cy="530" r="10" fill="#00FFFF" visibility="{"visible" if show_legend else "hidden"}" />
+            <text x="35" y="535" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_legend else "hidden"}">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
 
             <rect x="10" y="620" width="60" height="20" fill="#005BBB" />
             <rect x="10" y="640" width="60" height="20" fill="#FEDF00" />
