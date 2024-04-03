@@ -259,9 +259,9 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             <text x="35" y="535" font-family="Arial" font-size="16" fill="white" visibility="{"visible" if show_alert_info else "hidden"}">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
             
             <rect x="40" y="430" width="30" height="150" fill="url(#weather)" visibility="{"visible" if show_weather_info else "hidden"}" />
-            <text x="86" y="445" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">30°C</text>
+            <text x="86" y="437" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">30°C</text>
             <text x="86" y="513" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">10°C</text>
-            <text x="80" y="580" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">-10°C</text>
+            <text x="80" y="585" font-family="Arial" font-size="20" fill="white" visibility="{"visible" if show_weather_info else "hidden"}">-10°C</text>
 
             <rect x="10" y="620" width="60" height="20" fill="#005BBB" />
             <rect x="10" y="640" width="60" height="20" fill="#FEDF00" />
