@@ -6,6 +6,7 @@ from aiomcache import Client
 import cairosvg
 import random
 import pytz
+import math
 
 from datetime import datetime, timezone
 
@@ -171,28 +172,48 @@ def calculate_html_color_from_hsb(temp):
     if normalized_value < 0:
         normalized_value = 0
     hue = 275 + normalized_value * (0 - 275)
-    hue %= 360
+    h = hue / 360.0
+    s = 1.0
+    v = 1.0
 
-    hue /= 60
-    c = 1
-    x = 1 - abs((hue % 2) - 1)
-    rgb = [0, 0, 0]
+    i = math.floor(h * 6)
+    f = h * 6 - i
+    p = v * (1 - s)
+    q = v * (1 - f * s)
+    t = v * (1 - (1 - f) * s)
 
-    if 0 <= hue < 1:
-        rgb = [c, x, 0]
-    elif 1 <= hue < 2:
-        rgb = [x, c, 0]
-    elif 2 <= hue < 3:
-        rgb = [0, c, x]
-    elif 3 <= hue < 4:
-        rgb = [0, x, c]
-    elif 4 <= hue < 5:
-        rgb = [x, 0, c]
-    elif 5 <= hue < 6:
-        rgb = [c, 0, x]
+    match i % 6:
+        case 0:
+            r = v
+            g = t
+            b = p
+        case 1:
+            r = q
+            g = v
+            b = p
+        case 2:
+            r = p
+            g = v
+            b = t
+        case 3:
+            r = p
+            g = q
+            b = v
+        case 4:
+            r = t
+            g = p
+            b = v
+        case 5:
+            r = v
+            g = p
+            b = q
+        case _:
+            r = 1.0
+            g = 1.0
+            b = 1.0
 
     # Convert RGB to hexadecimal
-    hex_color = "{:02X}{:02X}{:02X}".format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+    hex_color = "{:02X}{:02X}{:02X}".format(round(r * 255), round(g * 255), round(b * 255))
     return hex_color
 
 
@@ -214,7 +235,9 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             <defs>
               <linearGradient id="weather" x1="0%" x2="0%" y1="0%" y2="100%">
                 <stop offset="0%" stop-color="#FF0000" />
+                <stop offset="25%" stop-color="#D9FF00" />
                 <stop offset="50%" stop-color="#00FF4A" />
+                <stop offset="75%" stop-color="#008FFF" />
                 <stop offset="100%" stop-color="#9400FF" />
               </linearGradient>
             </defs>
