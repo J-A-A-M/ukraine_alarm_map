@@ -115,7 +115,8 @@ async def svg_generator(mc, shared_data):
             await generate_map(time=local_time, output_file=file_path, show_alert_info=True, **alerts_svg_data)
             position = 0
             for weather in weathers:
-                weather_svg_data[regions[position]] = calculate_html_color_from_hsb(weather)
+                logging.debug(f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}")
+                weather_svg_data[regions[position]] = calculate_html_color_from_temp(weather)
                 position += 1
             file_path = os.path.join(shared_path, 'weather_map.png')
             await generate_map(time=local_time, output_file=file_path, show_weather_info=True, **weather_svg_data)
@@ -159,13 +160,13 @@ async def generate_lamp():
 async def generate_random():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
-        flag_svg_data[regions[index]] = calculate_html_color_from_hsb(random.randint(-10, 30))
+        flag_svg_data[regions[index]] = calculate_html_color_from_temp(random.randint(-10, 30))
     file_path = os.path.join(shared_path, 'random_map.png')
     await generate_map(time='', output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
 
 
-def calculate_html_color_from_hsb(temp):
+def calculate_html_color_from_temp(temp):
     normalized_value = float(temp - min_temp) / float(max_temp - min_temp)
     if normalized_value > 1:
         normalized_value = 1
@@ -427,9 +428,6 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             fill="#{kwargs.get('KRIMEA','000000')}"
           ></path>
 
-          <circle cx="306.4" cy="364.1" id="0"></circle>
-          <circle cx="538.5" cy="370.9" id="1"></circle>
-          <circle cx="77.6" cy="251.3" id="2"></circle>
           </svg>
     '''
 
