@@ -168,6 +168,8 @@ async def generate_random():
 
 
 def calculate_html_color_from_temp(temp):
+    min_temp = -10
+    max_temp = 30
     normalized_value = float(temp - min_temp) / float(max_temp - min_temp)
     if normalized_value > 1:
         normalized_value = 1
@@ -175,8 +177,49 @@ def calculate_html_color_from_temp(temp):
         normalized_value = 0
     hue = round(275 + normalized_value * (0 - 275))
     hue %= 360
-    hsl_color = "hsl({}, 100%, 50%)".format(hue)
-    return hsl_color
+    h = hue / 360.0
+    s = 1.0
+    v = 1.0
+
+    i = math.floor(h * 6)
+    f = h * 6 - i
+    p = v * (1 - s)
+    q = v * (1 - f * s)
+    t = v * (1 - (1 - f) * s)
+
+    match i % 6:
+        case 0:
+            r = v
+            g = t
+            b = p
+        case 1:
+            r = q
+            g = v
+            b = p
+        case 2:
+            r = p
+            g = v
+            b = t
+        case 3:
+            r = p
+            g = q
+            b = v
+        case 4:
+            r = t
+            g = p
+            b = v
+        case 5:
+            r = v
+            g = p
+            b = q
+        case _:
+            r = 1.0
+            g = 1.0
+            b = 1.0
+
+    # Convert RGB to hexadecimal
+    hex_color = "#{:02X}{:02X}{:02X}".format(round(r * 255), round(g * 255), round(b * 255))
+    return hex_color
 
 
 async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
