@@ -3295,9 +3295,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += currentFwVersion;
   html += "</h2>";
   html += "<div class='row justify-content-center'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += "<img class='full-screen-img' src='http://alerts.net.ua/";
   switch (getCurrentMapMode()) {
     case 0:
@@ -3321,12 +3319,17 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "'>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "<div class='row justify-content-center'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
+#if FW_UPDATE_ENABLED
+  if (fwUpdateAvailable) {
+    html += "<div class='alert alert-success text-center'>";
+    html += "Доступна нова версія прошивки - <b>";
+    html += newFwVersion;
+    html += "</b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>";
+    html += "</div>";
+  }
+#endif
   html += "Локальна IP-адреса: <b>";
   html += getLocalIP();
   html += "</b></br>";
@@ -3353,29 +3356,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   #endif
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
-#if FW_UPDATE_ENABLED
-  if (fwUpdateAvailable) {
-    html += "<div class='row justify-content-center'>";
-    html += "<div class='col-md-9'>";
-    html += "<div class='row'>";
-    html += "<div class='by col-md-12 mt-2' style='background-color: #d4edda; color: #155724; border-color: #c3e6cb; border: 1px solid transparent;'>";
-    html += "<h8>Доступна нова версія прошивки - <b><a href='https://github.com/v00g100skr/ukraine_alarm_map/releases/tag/";
-    html += newFwVersion;
-    html += "'>";
-    html += newFwVersion;
-    html += "</a></b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>";
-    html += "</div>";
-    html += "</div>";
-    html += "</div>";
-    html += "</div>";
-  }
-#endif
   html += "<div class='row justify-content-center'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += "<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>";
   html += "Яскравість";
   html += "</button>";
@@ -3403,13 +3385,9 @@ void handleRoot(AsyncWebServerRequest* request) {
 #endif
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "<form action='/saveBrightness' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clB' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += "<div class='alert alert-success' role='alert'>Поточний рівень яскравості: <b>";
   html += settings.map_mode == 5 ? settings.ha_light_brightness : settings.current_brightness;
   html += "%</b><br>\"Нічний режим\": <b>";
@@ -3437,14 +3415,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
   html += "<form action='/saveColors' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += addSliderInt("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
   html += addSliderInt("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
   html += addSliderInt("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
@@ -3454,14 +3428,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
   html += "<form action='/saveModes' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   if (settings.legacy) {
   html += addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
@@ -3515,15 +3485,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
 #if BUZZER_ENABLED
   html += "<form action='/saveSounds' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clS' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += addCheckbox("sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
   html += addSelectBox("melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
@@ -3541,15 +3507,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
 #endif
   html += "<form action='/refreshTelemetry' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += "<div class='row justify-content-center'>";
 
   html += addCard("Час роботи", uptimeChar, "", 4);
@@ -3578,14 +3540,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
   html += "<form action='/saveDev' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
   #if HA_ENABLED
   html += addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
@@ -3618,14 +3576,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
-  html += "</div>";
-  html += "</div>";
   html += "</form>";
 #if FW_UPDATE_ENABLED
   html += "<div class='row collapse justify-content-center' id='clF' data-parent='#accordion'>";
-  html += "<div class='col-md-9'>";
-  html += "<div class='row'>";
-  html += "<div class='by col-md-12 mt-2'>";
+  html += "<div class='by col-md-9 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
 #if DISPLAY_ENABLED
   if (displayInited) html += addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
@@ -3648,8 +3602,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "</br>";
   html += "<button type='submit' class='btn btn-danger'>ОНОВИТИ ПРОШИВКУ</button>";
   html += "</form>";
-  html += "</div>";
-  html += "</div>";
   html += "</div>";
   html += "</div>";
 #endif
