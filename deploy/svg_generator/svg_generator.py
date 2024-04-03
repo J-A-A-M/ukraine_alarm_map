@@ -435,7 +435,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
           </svg>
     '''
 
-    cairosvg.svg2png(bytestring=svg_data, write_to=output_file)
+    cairosvg.svg2png(bytestring=svg_data, write_to=output_file, scale=2)
 
 
 async def main():
