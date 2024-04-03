@@ -59,16 +59,23 @@ async def update_data(mc):
     try:
         await asyncio.sleep(loop_time)
         tcp_cached = await mc.get(b"tcp")
+        svg_cached = await mc.get(b"svg")
         alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
         alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
         weather_cached_v1 = await mc.get(b"weather_websocket_v1")
+        explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
         alerts_data = await mc.get(b'alerts')
         weather_data = await mc.get(b'weather')
+        explosions_data = await mc.get(b'explosions')
 
         if tcp_cached:
             tcp_cached_data = json.loads(tcp_cached.decode('utf-8'))
         else:
             tcp_cached_data = {}
+        if svg_cached:
+            svg_cached_data = json.loads(svg_cached.decode('utf-8'))
+        else:
+            svg_cached_data = []
         if alerts_cached_v1:
             alerts_cached_data_v1 = json.loads(alerts_cached_v1.decode('utf-8'))
         else:
@@ -81,11 +88,16 @@ async def update_data(mc):
             weather_cached_data_v1 = json.loads(weather_cached_v1.decode('utf-8'))
         else:
             weather_cached_data_v1 = []
+        if explosions_cached_v1:
+            explosions_cached_data_v1 = json.loads(explosions_cached_v1.decode('utf-8'))
+        else:
+            explosions_cached_data_v1 = []
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
         alerts_data = json.loads(alerts_data.decode('utf-8')) if alerts_data else "No data from Memcached"
         weather_data = json.loads(weather_data.decode('utf-8')) if weather_data else "No data from Memcached"
+        explosions_data = json.loads(explosions_data.decode('utf-8')) if explosions_data else "No data from Memcached"
 
         logger.debug(f"Alerts updated: {alerts_data['info']['last_update']}")
         logger.debug(f"Weather updated: {weather_data['info']['last_update']}")
@@ -96,6 +108,8 @@ async def update_data(mc):
         alerts_v1 = []
         alerts_v2 = []
         weather_v1 = []
+        explosions_v1 = []
+        explosions_svg = []
 
         try:
             for region_name in regions:
@@ -125,7 +139,28 @@ async def update_data(mc):
         except Exception as e:
             logger.error(f"Weather error: {e}")
 
+        try:
+            for region in regions:
+                if region in explosions_data['states']:
+                    isoDatetimeStr = explosions_data['states'][region]['changed']
+                    datetimeObj = datetime.fromisoformat(isoDatetimeStr)
+                    datetimeObjUtc = datetimeObj.replace(tzinfo=timezone.utc)
+                    timestamp = int(datetimeObjUtc.timestamp())
+                    explosions_v1.append(str(timestamp))
+                    time_diff = int(datetime.now().timestamp()) - timestamp
+                    if time_diff > 180:
+                        exp_mod = 0
+                    else:
+                        exp_mod = 1
+                    explosions_svg.append(str(exp_mod))
+                else:
+                    explosions_v1.append(str(0))
+                    explosions_svg.append(str(0))
+        except Exception as e:
+            logger.error(f"Explosions error: {e}")
+
         tcp_data = "%s:%s" % (",".join(alerts_v1), ",".join(weather_v1))
+        svg_data = "%s:%s:%s" % (",".join(alerts_v1), ",".join(weather_v1), ",".join(explosions_svg))
 
         if tcp_cached_data != tcp_data:
             logging.debug("store tcp data: %s" % current_datetime)
@@ -133,6 +168,13 @@ async def update_data(mc):
             logging.debug("tcp data stored")
         else:
             logging.debug("tcp data not changed")
+
+        if svg_cached_data != svg_data:
+            logging.debug("store svg data: %s" % current_datetime)
+            await mc.set(b"svg", json.dumps(svg_data).encode('utf-8'))
+            logging.debug("svg data stored")
+        else:
+            logging.debug("svg data not changed")
 
         if alerts_cached_data_v1 != alerts_v1:
             logging.debug("store alerts_v1: %s" % current_datetime)
@@ -154,6 +196,13 @@ async def update_data(mc):
             logging.debug("weather_v1 stored")
         else:
             logging.debug("weather_v1 not changed")
+
+        if explosions_cached_data_v1 != explosions_v1:
+            logging.debug("store explosions_v1: %s" % current_datetime)
+            await mc.set(b"explosions_websocket_v1", json.dumps(explosions_v1).encode('utf-8'))
+            logging.debug("explosions_v1 stored")
+        else:
+            logging.debug("explosions_v1 not changed")
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
         raise
