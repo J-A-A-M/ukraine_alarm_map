@@ -1114,7 +1114,7 @@ void initSettings() {
   settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
   settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
   settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
-  settings.explosion_time        = preferences.getInt("ext", settings.explosion_time);
+  settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   
 
@@ -1127,14 +1127,25 @@ void initSettings() {
   distributeBrightnessLevels();
 }
 
-void sendSettingsAnalitycs(const char* settingKey, const char* settingValue) {
+void reportSettingsChange(const char* settingKey, int newValue) {
+  char settingsValue[10];
+  sprintf(settingsValue, "%d", newValue);
+  reportSettingsChange(settingKey, settingsValue);
+}
+
+void reportSettingsChange(const char* settingKey, float newValue) {
+  char settingsValue[10];
+  sprintf(settingsValue, "%.1f", newValue);
+  reportSettingsChange(settingKey, settingsValue);
+}
+
+void reportSettingsChange(const char* settingKey, const char* settingValue) {
   char settingsInfo[100];
   JsonDocument settings;
   settings[settingKey] = settingValue;
   sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
   client_websocket.send(settingsInfo);
   Serial.printf("Sent settings analytics: %s\n", settingsInfo);
-
 }
 
 void InitAlertPin() {
@@ -2206,7 +2217,7 @@ bool saveMapMode(int newMapMode) {
   preferences.begin("storage", false);
   preferences.putInt("mapmode", settings.map_mode);
   preferences.end();
-  sendSettingsAnalitycs("map_mode", String(settings.map_mode).c_str());
+  reportSettingsChange("map_mode", settings.map_mode);
   Serial.print("map_mode commited to preferences: ");
   Serial.println(settings.map_mode);
   #if HA_ENABLED
@@ -2228,7 +2239,7 @@ bool saveHaBrightness(int newBrightness) {
   preferences.begin("storage", false);
   preferences.putInt("brightness", settings.brightness);
   preferences.end();
-  sendSettingsAnalitycs("brightness", String(settings.brightness).c_str());
+  reportSettingsChange("brightness", settings.brightness);
   Serial.print("brightness commited to preferences");
   Serial.println(settings.ha_light_brightness);
 #if HA_ENABLED
@@ -2246,7 +2257,7 @@ bool saveHaBrightnessAuto(int autoBrightnessMode) {
   preferences.begin("storage", false);
   preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
-  sendSettingsAnalitycs("brightness_mode", String(settings.brightness_mode).c_str());
+  reportSettingsChange("brightness_mode", settings.brightness_mode);
   Serial.print("brightness_mode commited to preferences: ");
   Serial.println(settings.brightness_mode);
 #if HA_ENABLED
@@ -2265,7 +2276,7 @@ bool saveHaAlarmAuto(int newMode) {
   preferences.begin("storage", false);
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
-  sendSettingsAnalitycs("alarms_auto_switch", String(settings.alarms_auto_switch).c_str());
+  reportSettingsChange("alarms_auto_switch", settings.alarms_auto_switch);
   Serial.print("alarms_auto_switch commited to preferences: ");
   Serial.println(settings.alarms_auto_switch);
 #if HA_ENABLED
@@ -2276,8 +2287,6 @@ bool saveHaAlarmAuto(int newMode) {
   return true;
 }
 
-
-
 bool saveHaNightMode(bool newState) {
   nightMode = newState;
   if (nightMode) {
@@ -2286,7 +2295,7 @@ bool saveHaNightMode(bool newState) {
   showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
   autoBrightnessUpdate();
   mapCycle();
-  sendSettingsAnalitycs("nightMode", nightMode ? "true" : "false");
+  reportSettingsChange("nightMode", nightMode ? "true" : "false");
   Serial.print("nightMode: ");
   Serial.println(nightMode ? "true" : "false");
 #if HA_ENABLED
@@ -2303,7 +2312,7 @@ bool saveHaShowHomeAlarmTime(bool newState) {
   preferences.begin("storage", false);
   preferences.putInt("hat", settings.home_alert_time);
   preferences.end();
-  sendSettingsAnalitycs("home_alert_time", String(settings.home_alert_time).c_str());
+  reportSettingsChange("home_alert_time", settings.home_alert_time ? "true" : "false");
   Serial.print("home_alert_time commited to preferences: ");
   Serial.println(settings.home_alert_time ? "true" : "false");
 #if HA_ENABLED && DISPLAY_ENABLED
@@ -2320,7 +2329,7 @@ bool saveHaLightBrightness(int newBrightness) {
   preferences.begin("storage", false);
   preferences.putInt("ha_lbri", settings.ha_light_brightness);
   preferences.end();
-  sendSettingsAnalitycs("ha_light_brightness", String(settings.ha_light_brightness).c_str());
+  reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
   Serial.print("ha_light_brightness commited to preferences: ");
   Serial.println(settings.ha_light_brightness);
 #if HA_ENABLED
@@ -2355,7 +2364,9 @@ bool saveHaLightRgb(RGBColor newRgb) {
     Serial.println(settings.ha_light_b);
   }
   preferences.end();
-  sendSettingsAnalitycs("ha_light_rgb", rgbToHexString(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).c_str());
+  char rgbHex[8];
+  sprintf(rgbHex, "#%02x%02x%02x", settings.ha_light_r, settings.ha_light_g, settings.ha_light_b);
+  reportSettingsChange("ha_light_rgb", rgbHex);
 #if HA_ENABLED
   if (enableHA) {
     haLight->setRGBColor(HALight::RGBColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b));
@@ -2363,14 +2374,6 @@ bool saveHaLightRgb(RGBColor newRgb) {
 #endif
   mapCycle();
   return true;
-}
-
-String rgbToHexString(int r, int g, int b) {
-  String hexString = "#";
-  hexString += String(r, HEX);
-  hexString += String(g, HEX);
-  hexString += String(b, HEX);
-  return hexString;
 }
 
 void nextDisplayMode() {
@@ -2395,7 +2398,7 @@ bool saveDisplayMode(int newDisplayMode) {
   preferences.begin("storage", false);
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
-  sendSettingsAnalitycs("display_mode", String(settings.display_mode).c_str());
+  reportSettingsChange("display_mode", settings.display_mode);
   Serial.print("display_mode commited to preferences: ");
   Serial.println(settings.display_mode);
   int localDisplayMode = getLocalDisplayMode(settings.display_mode);
@@ -2417,9 +2420,9 @@ bool saveHomeDistrict(int newHomeDistrict) {
   preferences.begin("storage", false);
   preferences.putInt("hd", settings.home_district);
   preferences.end();
-  sendSettingsAnalitycs("home_district", String(settings.home_district).c_str());
+  reportSettingsChange("home_district", districts[settings.home_district]);
   Serial.print("home_district commited to preferences: ");
-  Serial.println(settings.home_district);
+  Serial.println(districts[settings.home_district]);
 #if HA_ENABLED
   if (enableHA) {
     haHomeDistrict->setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
@@ -3742,7 +3745,7 @@ void saveInt(int *setting, const char* settingsKey, int newValue, const char* pa
   *setting = newValue;
   preferences.putInt(settingsKey, *setting);
   preferences.end();
-  sendSettingsAnalitycs(paramName, String(*setting).c_str());
+  reportSettingsChange(paramName, *setting);
   Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
 }
 
@@ -3758,7 +3761,7 @@ bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey
     *setting = paramValue;
     preferences.putFloat(settingsKey, *setting);
     preferences.end();
-    sendSettingsAnalitycs(paramName, String(*setting).c_str());
+    reportSettingsChange(paramName, *setting);
     Serial.printf("%s commited to preferences: %.1f\n", paramName, *setting);
     if (additionalFun) {
       additionalFun();
@@ -3778,7 +3781,7 @@ bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, con
     *setting = paramValue;
     preferences.putInt(settingsKey, *setting);
     preferences.end();
-    sendSettingsAnalitycs(paramName, *setting ? "true" : "false");
+    reportSettingsChange(paramName, *setting ? "true" : "false");
     Serial.printf("%s commited to preferences: %s\n", paramName, *setting ? "true" : "false");
     if (additionalFun) {
       additionalFun();
@@ -3800,7 +3803,7 @@ bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey
     strcpy(setting, paramValue);
     preferences.putString(settingsKey, setting);
     preferences.end();
-    sendSettingsAnalitycs(paramName, setting);
+    reportSettingsChange(paramName, setting);
     Serial.printf("%s commited to preferences: %s\n", paramName, setting);
     if (additionalFun) {
       additionalFun();
