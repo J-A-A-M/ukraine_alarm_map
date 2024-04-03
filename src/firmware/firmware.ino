@@ -4430,7 +4430,7 @@ int processWeather(float temp) {
   if (normalizedValue < 0) {
     normalizedValue = 0;
   }
-  int hue = 275 + normalizedValue * (0 - 275);
+  int hue = round(275 + normalizedValue * (0 - 275));
   hue %= 360;
   return hue;
 }
@@ -4559,9 +4559,7 @@ void mapWeather() {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    int hue = processWeather(adapted_weather_leds[i]);
-    RGBColor rgb = hue2rgb(hue);
-    strip->SetPixelColor(i, RgbColor(rgb.r, rgb.g, rgb.b).Dim(round(settings.current_brightness * 255 / 200.0f)));
+    strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]) / 360.0f, 1.0, settings.current_brightness / 400.0f));
   }
   strip->Show();
 }
