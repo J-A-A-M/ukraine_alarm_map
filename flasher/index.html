@@ -74,18 +74,18 @@
                 <div class='center'>
                     <esp-web-install-button manifest="manifest.json">
                         <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.8.1</button>
-                        <span slot="unsupported">
+                        <div slot="unsupported">
                             <div class='alert alert-danger'>
                                 <p>Ваш браузер не підтримується!</p>
                                 <p>Спробуйте встановити через Chrome, Edge або Opera.</p>
                             </div>
-                        </span>
-                        <span slot="not-allowed">
+                        </div>
+                        <div slot="not-allowed">
                             <div class='alert alert-danger'>
                                 <p>Встановлення через HTTP заборонено!</p>
                                 <p>Спробуйте встановити через HTTPS.</p>
                             </div>
-                        </span>
+                        </div>
                     </esp-web-install-button>
                     <esp-web-install-button manifest="manifest-beta.json">
                         <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 3.9 Beta 54</button>
