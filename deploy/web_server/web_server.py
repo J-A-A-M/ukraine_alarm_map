@@ -315,47 +315,47 @@ def etryvoga_v3(cached):
 
 
 async def explosives_v1(request):
-    cached = await mc.get(b'explosions')
+    cached = await mc.get(b"explosions")
     return JSONResponse(etryvoga_v1(cached))
 
 
 async def explosives_v2(request):
-    cached = await mc.get(b'explosions')
+    cached = await mc.get(b"explosions")
     return JSONResponse(etryvoga_v2(cached))
 
 
 async def explosives_v3(request):
-    cached = await mc.get(b'explosions')
+    cached = await mc.get(b"explosions")
     return JSONResponse(etryvoga_v3(cached))
 
 
 async def rockets_v1(request):
-    cached = await mc.get(b'rockets')
+    cached = await mc.get(b"rockets')
     return JSONResponse(etryvoga_v1(cached))
 
 
 async def rockets_v2(request):
-    cached = await mc.get(b'rockets')
+    cached = await mc.get(b"rockets")
     return JSONResponse(etryvoga_v2(cached))
 
 
 async def rockets_v3(request):
-    cached = await mc.get(b'rockets')
+    cached = await mc.get(b"rockets")
     return JSONResponse(etryvoga_v3(cached))
 
 
 async def drones_v1(request):
-    cached = await mc.get(b'drones')
+    cached = await mc.get(b"drones')
     return JSONResponse(etryvoga_v1(cached))
 
 
 async def drones_v2(request):
-    cached = await mc.get(b'drones')
+    cached = await mc.get(b"drones")
     return JSONResponse(etryvoga_v2(cached))
 
 
 async def drones_v3(request):
-    cached = await mc.get(b'drones')
+    cached = await mc.get(b"drones")
     return JSONResponse(etryvoga_v3(cached))
 
 
@@ -517,25 +517,25 @@ async def stats(request):
 
 middleware = [Middleware(LogUserIPMiddleware)]
 app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
-    Route('/', main),
-    Route('/alerts_statuses_v1.json', alerts_v1),
-    Route('/alerts_statuses_v2.json', alerts_v2),
-    Route('/alerts_statuses_v3.json', alerts_v3),
-    Route('/weather_statuses_v1.json', weather_v1),
-    Route('/explosives_statuses_v1.json', explosives_v1),
-    Route('/explosives_statuses_v2.json', explosives_v2),
-    Route('/explosives_statuses_v3.json', explosives_v3),
-    Route('/rockets_statuses_v1.json', rockets_v1),
-    Route('/rockets_statuses_v2.json', rockets_v2),
-    Route('/rockets_statuses_v3.json', rockets_v3),
-    Route('/drones_statuses_v1.json', drones_v1),
-    Route('/drones_statuses_v2.json', drones_v2),
-    Route('/drones_statuses_v3.json', drones_v3),
-    Route('/tcp_statuses_v1.json', tcp_v1),
-    Route('/api_status.json', api_status),
-    Route('/map/region/v1/{region}', region_data_v1),
-    Route('/{filename}.png', map),
-    Route('/t{token}', stats),
+    Route("/", main),
+    Route("/alerts_statuses_v1.json", alerts_v1),
+    Route("/alerts_statuses_v2.json", alerts_v2),
+    Route("/alerts_statuses_v3.json", alerts_v3),
+    Route("/weather_statuses_v1.json", weather_v1),
+    Route("/explosives_statuses_v1.json", explosives_v1),
+    Route("/explosives_statuses_v2.json", explosives_v2),
+    Route("/explosives_statuses_v3.json", explosives_v3),
+    Route("/rockets_statuses_v1.json", rockets_v1),
+    Route("/rockets_statuses_v2.json", rockets_v2),
+    Route("/rockets_statuses_v3.json", rockets_v3),
+    Route("/drones_statuses_v1.json", drones_v1),
+    Route("/drones_statuses_v2.json", drones_v2),
+    Route("/drones_statuses_v3.json", drones_v3),
+    Route("/tcp_statuses_v1.json", tcp_v1),
+    Route("/api_status.json", api_status),
+    Route("/map/region/v1/{region}", region_data_v1),
+    Route("/{filename}.png", map),
+    Route("/t{token}", stats),
 ])
 
 if __name__ == "__main__":
