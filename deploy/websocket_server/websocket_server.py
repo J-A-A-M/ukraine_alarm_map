@@ -267,8 +267,8 @@ async def echo(websocket, path):
         try:
             await data_task
         except asyncio.CancelledError:
-            logger.info(f"{client_ip}:{client_id} !!! tasks cancelled")
-        logger.info(f"{client_ip}:{client_id} !!! end")
+            logger.info(f"{client_ip}:{client_port} !!! tasks cancelled")
+        logger.info(f"{client_ip}:{client_port} !!! end")
 
 
 async def district_data_v1(district_id):
