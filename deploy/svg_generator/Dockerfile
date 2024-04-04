@@ -1,5 +1,5 @@
-FROM python:3.10.6
-ADD svg_generator.py .
-ADD requirements.txt .
-RUN pip install -r requirements.txt --no-cache-dir && rm -f requirements.txt
+FROM python:3.12-slim
+COPY svg_generator.py .
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    python -m pip install --no-cache-dir -r /tmp/requirements.txt
 CMD python svg_generator.py
