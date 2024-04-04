@@ -11,36 +11,35 @@ from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
 from ga4mp.store import DictStore
 
-debug_level = os.environ.get('DEBUG_LEVEL') or 'INFO'
-websocket_port = os.environ.get('WEBSOCKET_PORT') or 38440
-ping_interval = int(os.environ.get('PING_INTERVAL', 60))
-memcache_fetch_interval = int(os.environ.get('MEMCACHE_FETCH_INTERVAL', 1))
-random_mode = os.environ.get('RANDOM_MODE', 'False').lower() in ('true', '1', 't')
-api_secret = os.environ.get('API_SECRET') or ''
-measurement_id = os.environ.get('MEASUREMENT_ID') or ''
-environment = os.environ.get('ENVIRONMENT') or 'PROD'
+debug_level = os.environ.get("DEBUG_LEVEL") or "INFO"
+websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
+ping_interval = int(os.environ.get("PING_INTERVAL", 60))
+memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
+random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
+api_secret = os.environ.get("API_SECRET") or ""
+measurement_id = os.environ.get("MEASUREMENT_ID") or ""
+environment = os.environ.get("ENVIRONMENT") or "PROD"
 
-logging.basicConfig(level=debug_level,
-                    format='%(asctime)s %(levelname)s : %(message)s')
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
 
-memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
+memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
-geo = database.Reader('GeoLite2-City.mmdb')
+geo = database.Reader("GeoLite2-City.mmdb")
 
 
 class SharedData:
     def __init__(self):
-        self.alerts_v1 = '[]'
-        self.alerts_v2 = '[]'
+        self.alerts_v1 = "[]"
+        self.alerts_v2 = "[]"
         self.alerts_full = {}
-        self.weather_v1 = '[]'
+        self.weather_v1 = "[]"
         self.weather_full = {}
-        self.explosions_v1 = '[]'
+        self.explosions_v1 = "[]"
         self.explosions_full = {}
-        self.bins = '[]'
-        self.test_bins = '[]'
+        self.bins = "[]"
+        self.test_bins = "[]"
         self.clients = {}
         self.trackers = {}
         self.blocked_ips = []
@@ -87,55 +86,55 @@ regions = {
 async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip, client_port = websocket.remote_address
     while True:
-        match client['firmware']:
-            case 'unknown':
+        match client["firmware"]:
+            case "unknown":
                 client_id = client_port
             case _:
-                client_id = client['firmware']
+                client_id = client["firmware"]
         try:
             logger.debug(f"{client_ip}:{client_id}: check")
             match alert_version:
                 case AlertVersion.v1:
-                    if client['alerts'] != shared_data.alerts_v1:
+                    if client["alerts"] != shared_data.alerts_v1:
                         alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts_v1)])
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
                         logger.info(f"{client_ip}:{client_id} <<< new alerts")
-                        client['alerts'] = shared_data.alerts_v1
+                        client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
-                    if client['alerts'] != shared_data.alerts_v2:
+                    if client["alerts"] != shared_data.alerts_v2:
                         alerts = []
                         for alert in json.loads(shared_data.alerts_v2):
                             datetime_obj = datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
                             datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-                            alerts.append([int(alert[0]),int(datetime_obj_utc.timestamp())])
+                            alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
                         logger.info(f"{client_ip}:{client_id} <<< new alerts")
-                        client['alerts'] = shared_data.alerts_v2
-            if client['explosions'] != shared_data.explosions_v1:
+                        client["alerts"] = shared_data.alerts_v2
+            if client["explosions"] != shared_data.explosions_v1:
                 explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new explosions")
-                client['explosions'] = shared_data.explosions_v1
-            if client['weather'] != shared_data.weather_v1:
+                client["explosions"] = shared_data.explosions_v1
+            if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new weather")
-                client['weather'] = shared_data.weather_v1
-            if client['bins'] != shared_data.bins:
+                client["weather"] = shared_data.weather_v1
+            if client["bins"] != shared_data.bins:
                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new bins")
-                client['bins'] = shared_data.bins
-            if client['test_bins'] != shared_data.test_bins:
+                client["bins"] = shared_data.bins
+            if client["test_bins"] != shared_data.test_bins:
                 payload = '{"payload": "test_bins", "test_bins": %s}' % shared_data.test_bins
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{client_id} <<< new test_bins")
-                client['test_bins'] = shared_data.test_bins
+                client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
@@ -154,33 +153,35 @@ async def echo(websocket, path):
 
     try:
         response = geo.city(client_ip)
-        city = response.city.name or 'not-in-db'
-        region = response.subdivisions.most_specific.name or 'not-in-db'
-        country = response.country.iso_code or 'not-in-db'
+        city = response.city.name or "not-in-db"
+        region = response.subdivisions.most_specific.name or "not-in-db"
+        country = response.country.iso_code or "not-in-db"
     except errors.AddressNotFoundError:
-        city = 'not-found'
-        region = 'not-found'
-        country = 'not-found'
+        city = "not-found"
+        region = "not-found"
+        country = "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
     #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
     #     return
 
-    client = shared_data.clients[f'{client_ip}_{client_port}'] = {
-        'alerts': '[]',
-        'weather': '[]',
-        'explosions': '[]',
-        'bins': '[]',
-        'test_bins': '[]',
-        'firmware': 'unknown',
-        'chip_id': 'unknown',
-        'city': city,
-        'region': region,
-        'country': country,
+    client = shared_data.clients[f"{client_ip}_{client_port}"] = {
+        "alerts": "[]",
+        "weather": "[]",
+        "explosions": "[]",
+        "bins": "[]",
+        "test_bins": "[]",
+        "firmware": "unknown",
+        "chip_id": "unknown",
+        "city": city,
+        "region": region,
+        "country": country,
     }
 
-    tracker = shared_data.trackers[f'{client_ip}_{client_port}'] = GtagMP(api_secret=api_secret, measurement_id=measurement_id, client_id='temp_id')
+    tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
+        api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
+    )
 
     match path:
         case "/data_v1":
@@ -194,58 +195,58 @@ async def echo(websocket, path):
     try:
         while True:
             async for message in websocket:
-                match client['firmware']:
-                    case 'unknown':
+                match client["firmware"]:
+                    case "unknown":
                         client_id = client_port
                     case _:
-                        client_id = client['firmware']
+                        client_id = client["firmware"]
                 logger.info(f"{client_ip}:{client_id} >>> {message}")
 
                 def split_message(message):
-                    parts = message.split(':', 1)  # Split at most into 2 parts
+                    parts = message.split(":", 1)  # Split at most into 2 parts
                     header = parts[0]
-                    data = parts[1] if len(parts) > 1 else ''
+                    data = parts[1] if len(parts) > 1 else ""
                     return header, data
 
                 header, data = split_message(message)
                 match header:
-                    case 'district':
+                    case "district":
                         district_data = await district_data_v1(int(data))
-                        payload = json.dumps(district_data).encode('utf-8')
+                        payload = json.dumps(district_data).encode("utf-8")
                         await websocket.send(payload)
                         logger.info(f"{client_ip}:{client_id} <<< district {payload} ")
-                    case 'firmware':
-                        client['firmware'] = data
-                        parts = data.split('_', 1)
-                        tracker.store.set_user_property('firmware_v', parts[0])
-                        tracker.store.set_user_property('identifier', parts[1])
+                    case "firmware":
+                        client["firmware"] = data
+                        parts = data.split("_", 1)
+                        tracker.store.set_user_property("firmware_v", parts[0])
+                        tracker.store.set_user_property("identifier", parts[1])
                         logger.warning(f"{client_ip}:{client_id} >>> firmware saved")
-                    case 'user_info':
+                    case "user_info":
                         json_data = json.loads(data)
                         for key, value in json_data.items():
                             tracker.store.set_user_property(key, value)
-                    case 'chip_id':
-                        client['chip_id'] = data
+                    case "chip_id":
+                        client["chip_id"] = data
                         tracker.client_id = data
-                        tracker.store.set_session_parameter('session_id', f'{data}_{datetime.now().timestamp()}')
-                        tracker.store.set_user_property('user_id', data)
-                        tracker.store.set_user_property('chip_id', data)
-                        tracker.store.set_user_property('country', country)
-                        tracker.store.set_user_property('region', region)
-                        tracker.store.set_user_property('city', city)
-                        tracker.store.set_user_property('ip', client_ip)
-                        online_event = tracker.create_new_event('status')
-                        online_event.set_event_param('online', 'true')
+                        tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
+                        tracker.store.set_user_property("user_id", data)
+                        tracker.store.set_user_property("chip_id", data)
+                        tracker.store.set_user_property("country", country)
+                        tracker.store.set_user_property("region", region)
+                        tracker.store.set_user_property("city", city)
+                        tracker.store.set_user_property("ip", client_ip)
+                        online_event = tracker.create_new_event("status")
+                        online_event.set_event_param("online", "true")
                         tracker.send(events=[online_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
-                    case 'pong':
-                        ping_event = tracker.create_new_event('ping')
-                        ping_event.set_event_param('state', 'alive')
+                    case "pong":
+                        ping_event = tracker.create_new_event("ping")
+                        ping_event.set_event_param("state", "alive")
                         tracker.send(events=[ping_event], date=datetime.now())
                         logger.info(f"{client_ip}:{client_id} >>> ping analytics sent")
-                    case 'settings':
+                    case "settings":
                         json_data = json.loads(data)
-                        settings_event = tracker.create_new_event('settings')
+                        settings_event = tracker.create_new_event("settings")
                         for key, value in json_data.items():
                             settings_event.set_event_param(key, value)
                         tracker.send(events=[settings_event], date=datetime.now())
@@ -257,41 +258,44 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
-        offline_event = tracker.create_new_event('status')
-        offline_event.set_event_param('online', 'false')
+        offline_event = tracker.create_new_event("status")
+        offline_event.set_event_param("online", "false")
         tracker.send(events=[offline_event], date=datetime.now())
         data_task.cancel()
-        del shared_data.trackers[f'{client_ip}_{client_port}']
-        del shared_data.clients[f'{client_ip}_{client_port}']
+        del shared_data.trackers[f"{client_ip}_{client_port}"]
+        del shared_data.clients[f"{client_ip}_{client_port}"]
         try:
             await data_task
         except asyncio.CancelledError:
-            logger.info(f"{client_ip}:{client_id} !!! tasks cancelled")
-        logger.info(f"{client_ip}:{client_id} !!! end")
+            logger.info(f"{client_ip}:{client_port} !!! tasks cancelled")
+        logger.info(f"{client_ip}:{client_port} !!! end")
+
 
 async def district_data_v1(district_id):
     alerts_cached_data = shared_data.alerts_full
     weather_cached_data = shared_data.weather_full
 
     for region, data in regions.items():
-        if data['id'] == district_id:
+        if data["id"] == district_id:
             break
 
-    iso_datetime_str = alerts_cached_data[region]['changed']
+    iso_datetime_str = alerts_cached_data[region]["changed"]
     datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
     datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-    alerts_cached_data[region]['changed'] = int(datetime_obj_utc.timestamp())
+    alerts_cached_data[region]["changed"] = int(datetime_obj_utc.timestamp())
 
     return {
         "payload": "district",
-        "district": {**{'name': region}, **alerts_cached_data[region], **weather_cached_data[region]}
+        "district": {**{"name": region}, **alerts_cached_data[region], **weather_cached_data[region]},
     }
 
 
 async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
-        alerts_v1, alerts_v2, weather_v1, explosions_v1, bins, test_bins, alerts_full, weather_full, explosions_full = await get_data_from_memcached(mc)
+        alerts_v1, alerts_v2, weather_v1, explosions_v1, bins, test_bins, alerts_full, weather_full, explosions_full = (
+            await get_data_from_memcached(mc)
+        )
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -327,7 +331,7 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"bins updated: {bins}")
         except Exception as e:
             logger.error(f"error in bins: {e}")
-            
+
         try:
             if test_bins != shared_data.test_bins:
                 shared_data.test_bins = test_bins
@@ -355,7 +359,7 @@ async def update_shared_data(shared_data, mc):
                 logger.info(f"explosions_full updated")
         except Exception as e:
             logger.error(f"error in explosions_full: {e}")
-        
+
         await asyncio.sleep(memcache_fetch_interval)
 
 
@@ -366,8 +370,8 @@ async def print_clients(shared_data, mc):
             logger.info(f"Clients:")
             for client, data in shared_data.clients.items():
                 logger.info(client)
-            websoket_key = b"websocket_clients" if environment == 'PROD' else b"websocket_clients_dev"
-            await mc.set(websoket_key, json.dumps(shared_data.clients).encode('utf-8'))
+            websoket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
+            await mc.set(websoket_key, json.dumps(shared_data.clients).encode("utf-8"))
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
 
@@ -390,7 +394,9 @@ async def get_data_from_memcached(mc):
         for i in range(26):
             values_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
-            values_v2.append([random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime('%Y-%m-%dT%H:%M:%SZ')])
+            values_v2.append(
+                [random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ")]
+            )
         explosion_index = random.randint(0, 25)
         explosions_v1[explosion_index] = int(datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
@@ -399,50 +405,60 @@ async def get_data_from_memcached(mc):
         explosions_cashed_data_full = {}
     else:
         if alerts_cached_v1:
-            alerts_cached_data_v1 = alerts_cached_v1.decode('utf-8')
+            alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8")
         else:
-            alerts_cached_data_v1 = '[]'
+            alerts_cached_data_v1 = "[]"
         if alerts_cached_v2:
-            alerts_cached_data_v2 = alerts_cached_v2.decode('utf-8')
+            alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8")
         else:
-            alerts_cached_data_v2 = '[]'
+            alerts_cached_data_v2 = "[]"
 
         if explosions_cached_v1:
-            explosions_cashed_data_v1 = explosions_cached_v1.decode('utf-8')
+            explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8")
         else:
-            explosions_cashed_data_v1 = '[]'
+            explosions_cashed_data_v1 = "[]"
 
     if weather_cached_v1:
-        weather_cached_data_v1 = weather_cached_v1.decode('utf-8')
+        weather_cached_data_v1 = weather_cached_v1.decode("utf-8")
     else:
-        weather_cached_data_v1 = '[]'
+        weather_cached_data_v1 = "[]"
 
     if bins_cached:
-        bins_cached_data = bins_cached.decode('utf-8')
+        bins_cached_data = bins_cached.decode("utf-8")
     else:
-        bins_cached_data = '[]'
-                
+        bins_cached_data = "[]"
+
     if test_bins_cached:
-        test_bins_cached_data = test_bins_cached.decode('utf-8')
+        test_bins_cached_data = test_bins_cached.decode("utf-8")
     else:
-        test_bins_cached_data = '[]'
+        test_bins_cached_data = "[]"
 
     if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode('utf-8'))['states']
+        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))["states"]
     else:
         alerts_full_cached_data = {}
 
     if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode('utf-8'))['states']
+        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))["states"]
     else:
         weather_full_cached_data = {}
 
     if explosions_full_cashed:
-        explosions_cashed_data_full = json.loads(explosions_full_cashed.decode('utf-8'))['states']
+        explosions_cashed_data_full = json.loads(explosions_full_cashed.decode("utf-8"))["states"]
     else:
         explosions_cashed_data_full = {}
 
-    return alerts_cached_data_v1, alerts_cached_data_v2, weather_cached_data_v1, explosions_cashed_data_v1, bins_cached_data, test_bins_cached_data, alerts_full_cached_data, weather_full_cached_data, explosions_cashed_data_full
+    return (
+        alerts_cached_data_v1,
+        alerts_cached_data_v2,
+        weather_cached_data_v1,
+        explosions_cashed_data_v1,
+        bins_cached_data,
+        test_bins_cached_data,
+        alerts_full_cached_data,
+        weather_full_cached_data,
+        explosions_cashed_data_full,
+    )
 
 
 start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)

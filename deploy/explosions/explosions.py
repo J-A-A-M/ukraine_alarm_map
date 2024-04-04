@@ -12,40 +12,40 @@ version = 2
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-etryvoga_url = os.environ.get('ETRYVOGA_HOST') or 'localhost'
+etryvoga_url = os.environ.get("ETRYVOGA_HOST") or "localhost"
 
-memcached_host = os.environ.get('MEMCACHED_HOST') or 'localhost'
+memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 
-etryvoga_loop_time = int(os.environ.get('ETRYVOGA_PERIOD', 30))
+etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
 
 
 regions = {
-  'ZAKARPATSKA': {"name": "Закарпатська область"},
-  'IVANOFRANKIWSKA': {"name": "Івано-Франківська область"},
-  'TERNOPILSKA': {"name": "Тернопільська область"},
-  'LVIVKA': {"name": "Львівська область"},
-  'VOLYNSKA': {"name": "Волинська область"},
-  'RIVENSKA': {"name": "Рівненська область"},
-  'JITOMIRSKAYA': {"name": "Житомирська область"},
-  'KIYEWSKAYA': {"name": "Київська область"},
-  'CHERNIGIWSKA': {"name": "Чернігівська область"},
-  'SUMSKA': {"name": "Сумська область"},
-  'HARKIVSKA': {"name": "Харківська область"},
-  'LUGANSKA': {"name": "Луганська область"},
-  'DONETSKAYA': {"name": "Донецька область"},
-  'ZAPORIZKA': {"name": "Запорізька область"},
-  'HERSONSKA': {"name": "Херсонська область"},
-  'KRIMEA': {"name": "Автономна Республіка Крим"},
-  'ODESKA': {"name": "Одеська область"},
-  'MYKOLAYIV': {"name": "Миколаївська область"},
-  'DNIPROPETROVSKAYA': {"name": "Дніпропетровська область"},
-  'POLTASKA': {"name": "Полтавська область"},
-  'CHERKASKA': {"name": "Черкаська область"},
-  'KIROWOGRADSKA': {"name": "Кіровоградська область"},
-  'VINNYTSA': {"name": "Вінницька область"},
-  'HMELNYCKA': {"name": "Хмельницька область"},
-  'CHERNIVETSKA': {"name": "Чернівецька область"},
-  'KIYEW': {"name": "м. Київ"}
+    "ZAKARPATSKA": {"name": "Закарпатська область"},
+    "IVANOFRANKIWSKA": {"name": "Івано-Франківська область"},
+    "TERNOPILSKA": {"name": "Тернопільська область"},
+    "LVIVKA": {"name": "Львівська область"},
+    "VOLYNSKA": {"name": "Волинська область"},
+    "RIVENSKA": {"name": "Рівненська область"},
+    "JITOMIRSKAYA": {"name": "Житомирська область"},
+    "KIYEWSKAYA": {"name": "Київська область"},
+    "CHERNIGIWSKA": {"name": "Чернігівська область"},
+    "SUMSKA": {"name": "Сумська область"},
+    "HARKIVSKA": {"name": "Харківська область"},
+    "LUGANSKA": {"name": "Луганська область"},
+    "DONETSKAYA": {"name": "Донецька область"},
+    "ZAPORIZKA": {"name": "Запорізька область"},
+    "HERSONSKA": {"name": "Херсонська область"},
+    "KRIMEA": {"name": "Автономна Республіка Крим"},
+    "ODESKA": {"name": "Одеська область"},
+    "MYKOLAYIV": {"name": "Миколаївська область"},
+    "DNIPROPETROVSKAYA": {"name": "Дніпропетровська область"},
+    "POLTASKA": {"name": "Полтавська область"},
+    "CHERKASKA": {"name": "Черкаська область"},
+    "KIROWOGRADSKA": {"name": "Кіровоградська область"},
+    "VINNYTSA": {"name": "Вінницька область"},
+    "HMELNYCKA": {"name": "Хмельницька область"},
+    "CHERNIVETSKA": {"name": "Чернівецька область"},
+    "KIYEW": {"name": "м. Київ"},
 }
 
 

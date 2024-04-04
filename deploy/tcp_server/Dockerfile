@@ -1,6 +1,6 @@
-FROM python:3.10.6
-ADD tcp_server.py .
-ADD GeoLite2-City.mmdb .
-ADD requirements.txt .
-RUN pip install -r requirements.txt --no-cache-dir && rm -f requirements.txt
+FROM python:3.12-slim
+COPY tcp_server.py .
+COPY GeoLite2-City.mmdb .
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    python -m pip install --no-cache-dir -r /tmp/requirements.txt
 CMD python tcp_server.py
