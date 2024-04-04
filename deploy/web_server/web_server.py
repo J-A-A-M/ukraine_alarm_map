@@ -107,6 +107,10 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case '/explosives_statuses_v3.json':
                 api_clients[client_ip] = [start_time, client_path]
+            case '/rockets_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
+            case '/drones_statuses_v1.json':
+                api_clients[client_ip] = [start_time, client_path]
             case '/tcp_statuses_v1.json':
                 api_clients[client_ip] = [start_time, client_path]
             case '/api_status.json':
@@ -263,22 +267,21 @@ async def weather_v1(request):
     return JSONResponse(cached_data)
 
 
-async def explosives_v1(request):
+def etryvoga_v1(cached):
     try:
-        cached = await mc.get(b'explosions')
         if cached:
             cached_data = json.loads(cached.decode('utf-8'))
+            cached_data['info']['description'] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
         cached_data = {'error': 'Failed to decode cached data'}
 
-    return JSONResponse(cached_data)
+    return cached_data
 
 
-async def explosives_v2(request):
+def etryvoga_v2(cached):
     try:
-        cached = await mc.get(b'explosions')
         if cached:
             cached_data = json.loads(cached.decode('utf-8'))
             cached_data['version'] = 2
@@ -286,18 +289,18 @@ async def explosives_v2(request):
             for state, data in cached_data['states'].items():
                 new_data[state] = data['changed']
             cached_data['states'] = new_data
+            cached_data['info']['description'] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
         cached_data = {'error': 'Failed to decode cached data'}
 
-    return JSONResponse(cached_data)
+    return cached_data
 
 
-async def explosives_v3(request):
+def etryvoga_v3(cached):
     try:
         local_time = get_local_time_formatted()
-        cached = await mc.get(b'explosions')
         if cached:
             cached_data = json.loads(cached.decode('utf-8'))
             cached_data['version'] = 3
@@ -305,13 +308,58 @@ async def explosives_v3(request):
             for state, data in cached_data['states'].items():
                 new_data[state] = calculate_time_difference(data['changed'].replace("+00:00", "Z"), local_time)
             cached_data['states'] = new_data
-            cached_data['info']['description'] = "Час в секундах з моменту зміни статусу"
+            cached_data['info']['description'] = "Час в секундах з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
         cached_data = {'error': 'Failed to decode cached data'}
 
-    return JSONResponse(cached_data)
+    return cached_data
+
+
+async def explosives_v1(request):
+    cached = await mc.get(b'explosions')
+    return JSONResponse(etryvoga_v1(cached))
+
+
+async def explosives_v2(request):
+    cached = await mc.get(b'explosions')
+    return JSONResponse(etryvoga_v2(cached))
+
+
+async def explosives_v3(request):
+    cached = await mc.get(b'explosions')
+    return JSONResponse(etryvoga_v3(cached))
+
+
+async def rockets_v1(request):
+    cached = await mc.get(b'rockets')
+    return JSONResponse(etryvoga_v1(cached))
+
+
+async def rockets_v2(request):
+    cached = await mc.get(b'rockets')
+    return JSONResponse(etryvoga_v2(cached))
+
+
+async def rockets_v3(request):
+    cached = await mc.get(b'rockets')
+    return JSONResponse(etryvoga_v3(cached))
+
+
+async def drones_v1(request):
+    cached = await mc.get(b'drones')
+    return JSONResponse(etryvoga_v1(cached))
+
+
+async def drones_v2(request):
+    cached = await mc.get(b'drones')
+    return JSONResponse(etryvoga_v2(cached))
+
+
+async def drones_v3(request):
+    cached = await mc.get(b'drones')
+    return JSONResponse(etryvoga_v3(cached))
 
 
 async def tcp_v1(request):
@@ -476,6 +524,12 @@ app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception
     Route('/explosives_statuses_v1.json', explosives_v1),
     Route('/explosives_statuses_v2.json', explosives_v2),
     Route('/explosives_statuses_v3.json', explosives_v3),
+    Route('/rockets_statuses_v1.json', rockets_v1),
+    Route('/rockets_statuses_v2.json', rockets_v2),
+    Route('/rockets_statuses_v3.json', rockets_v3),
+    Route('/drones_statuses_v1.json', drones_v1),
+    Route('/drones_statuses_v2.json', drones_v2),
+    Route('/drones_statuses_v3.json', drones_v3),
     Route('/tcp_statuses_v1.json', tcp_v1),
     Route('/api_status.json', api_status),
     Route('/map/region/v1/{region}', region_data_v1),
