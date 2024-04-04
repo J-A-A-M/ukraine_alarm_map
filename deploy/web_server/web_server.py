@@ -267,8 +267,10 @@ async def weather_v1(request):
 def etryvoga_v1(cached):
     try:
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
-            cached_data['info']['description'] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["info"][
+                "description"
+            ] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -283,10 +285,12 @@ def etryvoga_v2(cached):
             cached_data = json.loads(cached.decode("utf-8"))
             cached_data["version"] = 2
             new_data = {}
-            for state, data in cached_data['states'].items():
-                new_data[state] = data['changed']
+            for state, data in cached_data["states"].items():
+                new_data[state] = data["changed"]
             cached_data["states"] = new_data
-            cached_data["info"]["description"] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+            cached_data["info"][
+                "description"
+            ] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -303,9 +307,11 @@ def etryvoga_v3(cached):
             cached_data["version"] = 3
             new_data = {}
             for state, data in cached_data["states"].items():
-                new_data[state] = calculate_time_difference(data['changed'].replace("+00:00", "Z"), local_time)
+                new_data[state] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
             cached_data["states"] = new_data
-            cached_data["info"]["description"] = "Час в секундах з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+            cached_data["info"][
+                "description"
+            ] = "Час в секундах з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
         else:
             cached_data = {}
     except json.JSONDecodeError:
@@ -330,7 +336,7 @@ async def explosives_v3(request):
 
 
 async def rockets_v1(request):
-    cached = await mc.get(b"rockets')
+    cached = await mc.get(b"rockets")
     return JSONResponse(etryvoga_v1(cached))
 
 
@@ -345,7 +351,7 @@ async def rockets_v3(request):
 
 
 async def drones_v1(request):
-    cached = await mc.get(b"drones')
+    cached = await mc.get(b"drones")
     return JSONResponse(etryvoga_v1(cached))
 
 
@@ -516,27 +522,32 @@ async def stats(request):
 
 
 middleware = [Middleware(LogUserIPMiddleware)]
-app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
-    Route("/", main),
-    Route("/alerts_statuses_v1.json", alerts_v1),
-    Route("/alerts_statuses_v2.json", alerts_v2),
-    Route("/alerts_statuses_v3.json", alerts_v3),
-    Route("/weather_statuses_v1.json", weather_v1),
-    Route("/explosives_statuses_v1.json", explosives_v1),
-    Route("/explosives_statuses_v2.json", explosives_v2),
-    Route("/explosives_statuses_v3.json", explosives_v3),
-    Route("/rockets_statuses_v1.json", rockets_v1),
-    Route("/rockets_statuses_v2.json", rockets_v2),
-    Route("/rockets_statuses_v3.json", rockets_v3),
-    Route("/drones_statuses_v1.json", drones_v1),
-    Route("/drones_statuses_v2.json", drones_v2),
-    Route("/drones_statuses_v3.json", drones_v3),
-    Route("/tcp_statuses_v1.json", tcp_v1),
-    Route("/api_status.json", api_status),
-    Route("/map/region/v1/{region}", region_data_v1),
-    Route("/{filename}.png", map),
-    Route("/t{token}", stats),
-])
+app = Starlette(
+    debug=debug,
+    middleware=middleware,
+    exception_handlers=exception_handlers,
+    routes=[
+        Route("/", main),
+        Route("/alerts_statuses_v1.json", alerts_v1),
+        Route("/alerts_statuses_v2.json", alerts_v2),
+        Route("/alerts_statuses_v3.json", alerts_v3),
+        Route("/weather_statuses_v1.json", weather_v1),
+        Route("/explosives_statuses_v1.json", explosives_v1),
+        Route("/explosives_statuses_v2.json", explosives_v2),
+        Route("/explosives_statuses_v3.json", explosives_v3),
+        Route("/rockets_statuses_v1.json", rockets_v1),
+        Route("/rockets_statuses_v2.json", rockets_v2),
+        Route("/rockets_statuses_v3.json", rockets_v3),
+        Route("/drones_statuses_v1.json", drones_v1),
+        Route("/drones_statuses_v2.json", drones_v2),
+        Route("/drones_statuses_v3.json", drones_v3),
+        Route("/tcp_statuses_v1.json", tcp_v1),
+        Route("/api_status.json", api_status),
+        Route("/map/region/v1/{region}", region_data_v1),
+        Route("/{filename}.png", map),
+        Route("/t{token}", stats),
+    ],
+)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
