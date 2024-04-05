@@ -41,20 +41,20 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd explosions
+cd etryvoga
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_explosions -f Dockerfile .
+docker build -t map_etryvoga -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_explosions || true
-docker rm map_explosions || true
+docker stop map_etryvoga || true
+docker rm map_etryvoga || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_explosions --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_explosions
+docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_etryvoga
 
 echo "Container deployed successfully!"
 

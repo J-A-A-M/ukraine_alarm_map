@@ -139,7 +139,7 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_svg_generator.sh -m ${{ secrets.MEMCACHED_HOST }}
-          - name: Redeploy Explosions
+          - name: Redeploy Etryvoga
             if: ${{ inputs.redeploy_explosions || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
@@ -151,7 +151,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_explosions.sh -e ${{ secrets.ETRYVOGA_HOST }} -m ${{ secrets.MEMCACHED_HOST }}
+                bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Alerts
             if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3

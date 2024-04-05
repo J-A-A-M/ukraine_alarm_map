@@ -364,6 +364,10 @@ async def drones_v3(request):
     cached = await mc.get(b"drones")
     return JSONResponse(etryvoga_v3(cached))
 
+async def etryvoga_full(request):
+    etryvoga_full = await mc.get(b"etryvoga_full")
+    return JSONResponse(etryvoga_full)
+
 
 async def tcp_v1(request):
     try:
@@ -541,6 +545,7 @@ app = Starlette(
         Route("/drones_statuses_v1.json", drones_v1),
         Route("/drones_statuses_v2.json", drones_v2),
         Route("/drones_statuses_v3.json", drones_v3),
+        Route("/etryvoga_full.json", etryvoga_full),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/api_status.json", api_status),
         Route("/map/region/v1/{region}", region_data_v1),
