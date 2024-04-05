@@ -307,7 +307,9 @@ def etryvoga_v3(cached):
             cached_data["version"] = 3
             new_data = {}
             for state, data in cached_data["states"].items():
-                new_data[state] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
+                new_data[state] = calculate_time_difference(
+                    data["changed"].replace("+00:00", "Z"), local_time
+                )
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -364,9 +366,10 @@ async def drones_v3(request):
     cached = await mc.get(b"drones")
     return JSONResponse(etryvoga_v3(cached))
 
+
 async def etryvoga_full(request):
     etryvoga_full = await mc.get(b"etryvoga_full")
-    return JSONResponse(etryvoga_full)
+    return JSONResponse(json.loads(etryvoga_full.decode("utf-8")))
 
 
 async def tcp_v1(request):
@@ -407,9 +410,15 @@ async def api_status(request):
     cached = await mc.get(b"explosions")
     etryvoga_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
 
-    alert_time_diff = calculate_time_difference(alerts_cached_data["info"]["last_update"], local_time)
-    weather_time_diff = calculate_time_difference(weather_cached_data["info"]["last_update"], local_time)
-    etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data["info"]["last_update"], local_time)
+    alert_time_diff = calculate_time_difference(
+        alerts_cached_data["info"]["last_update"], local_time
+    )
+    weather_time_diff = calculate_time_difference(
+        weather_cached_data["info"]["last_update"], local_time
+    )
+    etryvoga_time_diff = calculate_time_difference(
+        etryvoga_cached_data["info"]["last_update"], local_time
+    )
 
     return JSONResponse(
         {
@@ -441,7 +450,9 @@ async def region_data_v1(request):
         iso_datetime_str = alerts_cached_data["states"][region]["changed"]
         datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
         datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-        alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
+        alerts_cached_data["states"][region]["changed"] = int(
+            datetime_obj_utc.timestamp()
+        )
 
         return JSONResponse(
             {
@@ -496,16 +507,26 @@ async def dataparcer(clients, connection_type):
 async def stats(request):
     if request.path_params["token"] == data_token:
         tcp_clients = await mc.get(b"tcp_clients")
-        tcp_clients_data = json.loads(tcp_clients.decode("utf-8")) if tcp_clients else {}
+        tcp_clients_data = (
+            json.loads(tcp_clients.decode("utf-8")) if tcp_clients else {}
+        )
 
         websocket_clients = await mc.get(b"websocket_clients")
-        websocket_clients_data = json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
+        websocket_clients_data = (
+            json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
+        )
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
-        websocket_clients_dev_data = json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
+        websocket_clients_dev_data = (
+            json.loads(websocket_clients_dev.decode("utf-8"))
+            if websocket_clients_dev
+            else {}
+        )
 
         tcp_clients = await dataparcer(tcp_clients_data, "tcp")
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
-        websocket_clients_dev = await dataparcer(websocket_clients_dev_data, "websockets_dev")
+        websocket_clients_dev = await dataparcer(
+            websocket_clients_dev_data, "websockets_dev"
+        )
 
         map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
@@ -516,9 +537,18 @@ async def stats(request):
                     for data in map_clients_data
                 },
                 "google": map_clients_data,
-                "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
-                "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
-                "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
+                "api": {
+                    ip: f"{int(time.time() - float(data[0]))} {data[1]}"
+                    for ip, data in api_clients.items()
+                },
+                "img": {
+                    ip: f"{int(time.time() - float(data[0]))} {data[1]}"
+                    for ip, data in image_clients.items()
+                },
+                "web": {
+                    ip: f"{int(time.time() - float(data[0]))} {data[1]}"
+                    for ip, data in web_clients.items()
+                },
             }
         )
     else:
