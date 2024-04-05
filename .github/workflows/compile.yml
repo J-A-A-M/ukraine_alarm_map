@@ -4,9 +4,6 @@
       types: [ opened, synchronize, reopened ]
       branches:
         - develop
-    push:
-      branches:
-        - develop
     workflow_dispatch:
   env:
     SKETCHES_REPORTS_PATH: sketches-reports
@@ -85,3 +82,21 @@
             with:
               name: lint-report
               path: ${{ github.workspace }}/lint-report.json
+          - name: Setup Python      
+            uses: actions/setup-python@v5
+            with:
+              python-version: "3.12"
+          - name: Setup uncompromising Python code formatter
+            run: |
+              python -m pip install black==24.3.0
+          - name: Run Black in the check mode (and ignore output)
+            run: |
+              black --check --verbose --line-length 120 --target-version py312 deploy
+    check_flasher:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Check flasher with proof-html
+            uses: anishathalye/proof-html@v2
+            with:
+              directory: ${{ github.workspace }}/flasher

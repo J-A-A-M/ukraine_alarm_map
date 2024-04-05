@@ -1,9 +1,19 @@
 name: 🧪 Deploy Dev Websockets
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      random_mode:
+        type: boolean
+        default: false
+        description: Random Alerst Mode
+      fetch_interval:
+        type: number
+        default: 1
+        description: Memcached Fetch Interval (seconds)
 
 run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
 jobs:
-    deploy_microservices:
+    deploy_websocket_dev:
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy Dev WebSockets
@@ -15,6 +25,6 @@ jobs:
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
-                git checkout ${{ github.ref_name }}
+                git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_websocket_server_dev.sh -m ${{ secrets.MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }}
+                bash redeploy_websocket_server_dev.sh -m ${{ secrets.MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -r ${{ inputs.random_mode && 'True' || 'False' }} -f ${{ inputs.fetch_interval }}

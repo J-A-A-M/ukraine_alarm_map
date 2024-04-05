@@ -19,14 +19,14 @@ from datetime import datetime, timezone
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-debug = os.environ.get('DEBUG', False)
+debug = os.environ.get("DEBUG", False)
 
-memcached_host = os.environ.get('MEMCACHED_HOST', 'localhost')
-memcached_port = int(os.environ.get('MEMCACHED_PORT', 11211))
+memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
+memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
 
-shared_path = os.environ.get('SHARED_PATH') or '/shared_data'
+shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 
-data_token = os.environ.get('DATA_TOKEN') or None
+data_token = os.environ.get("DATA_TOKEN") or None
 
 mc = Client(memcached_host, memcached_port)
 
@@ -35,24 +35,21 @@ image_clients = {}
 web_clients = {}
 
 
-HTML_404_PAGE = '''page not found'''
-HTML_500_PAGE = '''request error'''
+HTML_404_PAGE = """page not found"""
+HTML_500_PAGE = """request error"""
 
 
 async def not_found(request: Request, exc: HTTPException):
-    logger.debug(f'Request time: {exc.args}')
+    logger.debug(f"Request time: {exc.args}")
     return HTMLResponse(content=HTML_404_PAGE)
 
 
 async def server_error(request: Request, exc: HTTPException):
-    logger.debug(f'Request time: {exc.args}')
+    logger.debug(f"Request time: {exc.args}")
     return HTMLResponse(content=HTML_500_PAGE)
 
 
-exception_handlers = {
-    404: not_found,
-    500: server_error
-}
+exception_handlers = {404: not_found, 500: server_error}
 
 regions = {
     "Закарпатська область": {"id": 0},
@@ -91,37 +88,43 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
         client_path = request.url.path
 
         match client_path:
-            case '/':
+            case "/":
                 web_clients[client_ip] = [start_time, client_path]
-            case '/alerts_statuses_v1.json':
+            case "/alerts_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/alerts_statuses_v2.json':
+            case "/alerts_statuses_v2.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/alerts_statuses_v3.json':
+            case "/alerts_statuses_v3.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/weather_statuses_v1.json':
+            case "/weather_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/explosives_statuses_v1.json':
+            case "/explosives_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/explosives_statuses_v2.json':
+            case "/explosives_statuses_v2.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/tcp_statuses_v1.json':
+            case "/explosives_statuses_v3.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/api_status.json':
+            case "/rockets_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case '/alerts_map.png':
+            case "/drones_statuses_v1.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/tcp_statuses_v1.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/api_status.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/alerts_map.png":
                 image_clients[client_ip] = [start_time, client_path]
-            case '/weather_map.png':
+            case "/weather_map.png":
                 image_clients[client_ip] = [start_time, client_path]
 
         response = await call_next(request)
         elapsed_time = time.time() - start_time
-        logger.debug(f'Request time: {elapsed_time}')
+        logger.debug(f"Request time: {elapsed_time}")
         return response
 
 
 async def main(request):
-    response = '''
+    response = """
     <!DOCTYPE html>
     <html lang='en'>
     <head>
@@ -162,7 +165,7 @@ async def main(request):
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
-                        <li>Вибухи: (інформація з ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>]</li>
+                        <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
                         <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
@@ -171,7 +174,7 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
-                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам з ЗМІ)</a></li>
+                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам зі ЗМІ)</a></li>
                         <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
                         <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>                         
                     </ul>
@@ -187,122 +190,200 @@ async def main(request):
         <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9081c22b7b7f418fb1789d1813cadb9c"}'></script><!-- End Cloudflare Web Analytics -->
     </body>
     </html>
-    '''
+    """
     return HTMLResponse(response)
 
 
 async def alerts_v1(request):
     try:
-        cached = await mc.get(b'alerts')
+        cached = await mc.get(b"alerts")
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
-            cached_data['version'] = 1
-            for state, data in cached_data['states'].items():
-                data['enabled'] = data['alertnow']
-                data['type'] = 'state'
-                match data['alertnow']:
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["version"] = 1
+            for state, data in cached_data["states"].items():
+                data["enabled"] = data["alertnow"]
+                data["type"] = "state"
+                match data["alertnow"]:
                     case True:
-                        data['enabled_at'] = data['changed']
-                        data['disabled_at'] = None
+                        data["enabled_at"] = data["changed"]
+                        data["disabled_at"] = None
                     case False:
-                        data['disabled_at'] = data['changed']
-                        data['enabled_at'] = None
-                data.pop('changed')
-                data.pop('alertnow')
+                        data["disabled_at"] = data["changed"]
+                        data["enabled_at"] = None
+                data.pop("changed")
+                data.pop("alertnow")
         else:
             cached_data = {}
     except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+        cached_data = {"error": "Failed to decode cached data"}
 
     return JSONResponse(cached_data)
 
 
 async def alerts_v2(request):
     try:
-        cached = await mc.get(b'alerts')
+        cached = await mc.get(b"alerts")
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data = json.loads(cached.decode("utf-8"))
         else:
             cached_data = {}
     except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+        cached_data = {"error": "Failed to decode cached data"}
 
     return JSONResponse(cached_data)
 
 
 async def alerts_v3(request):
     try:
-        cached = await mc.get(b'alerts')
+        cached = await mc.get(b"alerts")
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
-            cached_data['version'] = 3
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["version"] = 3
             new_data = {}
-            for state, data in cached_data['states'].items():
-                new_data[state] = data['alertnow']
-            cached_data['states'] = new_data
+            for state, data in cached_data["states"].items():
+                new_data[state] = data["alertnow"]
+            cached_data["states"] = new_data
         else:
             cached_data = {}
     except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+        cached_data = {"error": "Failed to decode cached data"}
 
     return JSONResponse(cached_data)
 
 
 async def weather_v1(request):
     try:
-        cached = await mc.get(b'weather')
+        cached = await mc.get(b"weather")
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data = json.loads(cached.decode("utf-8"))
         else:
             cached_data = {}
     except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+        cached_data = {"error": "Failed to decode cached data"}
 
     return JSONResponse(cached_data)
+
+
+def etryvoga_v1(cached):
+    try:
+        if cached:
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["info"][
+                "description"
+            ] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {"error": "Failed to decode cached data"}
+
+    return cached_data
+
+
+def etryvoga_v2(cached):
+    try:
+        if cached:
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["version"] = 2
+            new_data = {}
+            for state, data in cached_data["states"].items():
+                new_data[state] = data["changed"]
+            cached_data["states"] = new_data
+            cached_data["info"][
+                "description"
+            ] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {"error": "Failed to decode cached data"}
+
+    return cached_data
+
+
+def etryvoga_v3(cached):
+    try:
+        local_time = get_local_time_formatted()
+        if cached:
+            cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["version"] = 3
+            new_data = {}
+            for state, data in cached_data["states"].items():
+                new_data[state] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
+            cached_data["states"] = new_data
+            cached_data["info"][
+                "description"
+            ] = "Час в секундах з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
+        else:
+            cached_data = {}
+    except json.JSONDecodeError:
+        cached_data = {"error": "Failed to decode cached data"}
+
+    return cached_data
 
 
 async def explosives_v1(request):
-    try:
-        cached = await mc.get(b'explosions')
-        if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
-
-    return JSONResponse(cached_data)
+    cached = await mc.get(b"explosions")
+    return JSONResponse(etryvoga_v1(cached))
 
 
 async def explosives_v2(request):
-    try:
-        cached = await mc.get(b'explosions')
-        if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
-            cached_data['version'] = 2
-            new_data = {}
-            for state, data in cached_data['states'].items():
-                new_data[state] = data['changed']
-            cached_data['states'] = new_data
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+    cached = await mc.get(b"explosions")
+    return JSONResponse(etryvoga_v2(cached))
 
-    return JSONResponse(cached_data)
+
+async def explosives_v3(request):
+    cached = await mc.get(b"explosions")
+    return JSONResponse(etryvoga_v3(cached))
+
+
+async def rockets_v1(request):
+    cached = await mc.get(b"rockets")
+    return JSONResponse(etryvoga_v1(cached))
+
+
+async def rockets_v2(request):
+    cached = await mc.get(b"rockets")
+    return JSONResponse(etryvoga_v2(cached))
+
+
+async def rockets_v3(request):
+    cached = await mc.get(b"rockets")
+    return JSONResponse(etryvoga_v3(cached))
+
+
+async def drones_v1(request):
+    cached = await mc.get(b"drones")
+    return JSONResponse(etryvoga_v1(cached))
+
+
+async def drones_v2(request):
+    cached = await mc.get(b"drones")
+    return JSONResponse(etryvoga_v2(cached))
+
+
+async def drones_v3(request):
+    cached = await mc.get(b"drones")
+    return JSONResponse(etryvoga_v3(cached))
+
+
+async def etryvoga_full(request):
+    if request.path_params["token"] == data_token:
+        etryvoga_full = await mc.get(b"etryvoga_full")
+        return JSONResponse(json.loads(etryvoga_full.decode("utf-8")))
+    else:
+        return JSONResponse({})
 
 
 async def tcp_v1(request):
     try:
-        cached = await mc.get(b'tcp')
+        cached = await mc.get(b"tcp")
         if cached:
-            cached_data = json.loads(cached.decode('utf-8'))
+            cached_data = json.loads(cached.decode("utf-8"))
         else:
             cached_data = {}
     except json.JSONDecodeError:
-        cached_data = {'error': 'Failed to decode cached data'}
+        cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse({'tcp_stored_data': cached_data})
+    return JSONResponse({"tcp_stored_data": cached_data})
 
 
 def get_local_time_formatted():
@@ -318,61 +399,66 @@ def calculate_time_difference(timestamp1, timestamp2):
     time2 = datetime.strptime(timestamp2, format_str)
 
     time_difference = (time2 - time1).total_seconds()
-    return abs(time_difference)
+    return int(abs(time_difference))
 
 
 async def api_status(request):
     local_time = get_local_time_formatted()
-    cached = await mc.get(b'alerts')
-    alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached = await mc.get(b'weather')
-    weather_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached = await mc.get(b'explosions')
-    etryvoga_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+    cached = await mc.get(b"alerts")
+    alerts_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
+    cached = await mc.get(b"weather")
+    weather_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
+    cached = await mc.get(b"explosions")
+    etryvoga_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
 
-    alert_time_diff = calculate_time_difference(alerts_cached_data['info']['last_update'], local_time)
-    weather_time_diff = calculate_time_difference(weather_cached_data['info']['last_update'], local_time)
-    etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data['info']['last_update'], local_time)
+    alert_time_diff = calculate_time_difference(alerts_cached_data["info"]["last_update"], local_time)
+    weather_time_diff = calculate_time_difference(weather_cached_data["info"]["last_update"], local_time)
+    etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data["info"]["last_update"], local_time)
 
-    return JSONResponse({
-        'version': 1,
-        'desc': 'Час в секундах з моменту останнього оновлення',
-        'data': {
-            'alert_last_changed': alert_time_diff,
-            'weather_last_changed': weather_time_diff,
-            'explosions_last_changed': etryvoga_time_diff
+    return JSONResponse(
+        {
+            "version": 1,
+            "desc": "Час в секундах з моменту останнього оновлення",
+            "data": {
+                "alert_last_changed": alert_time_diff,
+                "weather_last_changed": weather_time_diff,
+                "explosions_last_changed": etryvoga_time_diff,
+            },
         }
-    })
+    )
 
 
 async def region_data_v1(request):
-    cached = await mc.get(b'alerts')
-    alerts_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
-    cached = await mc.get(b'weather')
-    weather_cached_data = json.loads(cached.decode('utf-8')) if cached else ''
+    cached = await mc.get(b"alerts")
+    alerts_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
+    cached = await mc.get(b"weather")
+    weather_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
 
     region_id = False
 
     for region, data in regions.items():
-        if data['id'] == int(request.path_params['region']):
-            region_id = int(request.path_params['region'])
+        if data["id"] == int(request.path_params["region"]):
+            region_id = int(request.path_params["region"])
             break
 
     if region_id:
-        iso_datetime_str = alerts_cached_data['states'][region]['changed']
+        iso_datetime_str = alerts_cached_data["states"][region]["changed"]
         datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
         datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
-        alerts_cached_data['states'][region]['changed'] = int(datetime_obj_utc.timestamp())
+        alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
 
-        return JSONResponse({
-            'version': 1,
-            'data': {**{'name': region}, **alerts_cached_data['states'][region], **weather_cached_data['states'][region]}
-        })
+        return JSONResponse(
+            {
+                "version": 1,
+                "data": {
+                    **{"name": region},
+                    **alerts_cached_data["states"][region],
+                    **weather_cached_data["states"][region],
+                },
+            }
+        )
     else:
-        return JSONResponse({
-            'version': 1,
-            'data': {}
-        })
+        return JSONResponse({"version": 1, "data": {}})
 
 
 async def map(request):
@@ -384,78 +470,93 @@ async def dataparcer(clients, connection_type):
     for client, data in clients.items():
         client_ip, client_port = client.split("_")
         match data.get("firmware"):
-            case '3.2':
-                version, plate_id = '3.2', 'unknown'
-            case 'unknown':
-                version, plate_id = 'unknown', 'unknown'
-            case firmware if firmware.startswith('map'):
+            case "3.2":
+                version, plate_id = "3.2", "unknown"
+            case "unknown":
+                version, plate_id = "unknown", "unknown"
+            case firmware if firmware.startswith("map"):
                 version1, version2, plate_id = data.get("firmware").split("_")
-                version = f'{version1}_{version2}'
+                version = f"{version1}_{version2}"
             case _:
                 try:
                     version, plate_id = data.get("firmware").split("_")
                 except ValueError:
-                    version, plate_id = data.get("firmware"), 'unmatched'
-        google.append({
-            'ip': client_ip,
-            'port': client_port,
-            'version': version,
-            'id': plate_id,
-            'chip_id': data.get("chip_id"),
-            'district': data.get("region"),
-            'city': data.get("city"),
-            'connection': connection_type
-        })
+                    version, plate_id = data.get("firmware"), "unmatched"
+        google.append(
+            {
+                "ip": client_ip,
+                "port": client_port,
+                "version": version,
+                "id": plate_id,
+                "chip_id": data.get("chip_id"),
+                "district": data.get("region"),
+                "city": data.get("city"),
+                "connection": connection_type,
+            }
+        )
     return google
 
 
 async def stats(request):
     if request.path_params["token"] == data_token:
-        tcp_clients = await mc.get(b'tcp_clients')
-        tcp_clients_data = json.loads(tcp_clients.decode('utf-8')) if tcp_clients else {}
+        tcp_clients = await mc.get(b"tcp_clients")
+        tcp_clients_data = json.loads(tcp_clients.decode("utf-8")) if tcp_clients else {}
 
-        websocket_clients = await mc.get(b'websocket_clients')
-        websocket_clients_data = json.loads(websocket_clients.decode('utf-8')) if websocket_clients else {}
+        websocket_clients = await mc.get(b"websocket_clients")
+        websocket_clients_data = json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
+        websocket_clients_dev = await mc.get(b"websocket_clients_dev")
+        websocket_clients_dev_data = json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
 
-        tcp_clients = await dataparcer(tcp_clients_data, 'tcp')
-        websocket_clients = await dataparcer(websocket_clients_data, 'websockets')
+        tcp_clients = await dataparcer(tcp_clients_data, "tcp")
+        websocket_clients = await dataparcer(websocket_clients_data, "websockets")
+        websocket_clients_dev = await dataparcer(websocket_clients_dev_data, "websockets_dev")
 
-        map_clients_data = tcp_clients + websocket_clients
+        map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
-        return JSONResponse ({
-
-            'map': {
-                f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}' for data in map_clients_data
-            },
-            'google': map_clients_data,
-            'api': {
-                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in api_clients.items()
-            },
-            'img': {
-                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in image_clients.items()
-            },
-            'web': {
-                ip: f'{int(time.time() - float(data[0]))} {data[1]}' for ip, data in web_clients.items()
-            },
-        })
+        return JSONResponse(
+            {
+                "map": {
+                    f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
+                    for data in map_clients_data
+                },
+                "google": map_clients_data,
+                "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
+                "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
+                "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
+            }
+        )
     else:
         return JSONResponse({})
 
+
 middleware = [Middleware(LogUserIPMiddleware)]
-app = Starlette(debug=debug, middleware=middleware, exception_handlers=exception_handlers, routes=[
-    Route('/', main),
-    Route('/alerts_statuses_v1.json', alerts_v1),
-    Route('/alerts_statuses_v2.json', alerts_v2),
-    Route('/alerts_statuses_v3.json', alerts_v3),
-    Route('/weather_statuses_v1.json', weather_v1),
-    Route('/explosives_statuses_v1.json', explosives_v1),
-    Route('/explosives_statuses_v2.json', explosives_v2),
-    Route('/tcp_statuses_v1.json', tcp_v1),
-    Route('/api_status.json', api_status),
-    Route('/map/region/v1/{region}', region_data_v1),
-    Route('/{filename}.png', map),
-    Route('/t{token}', stats),
-])
+app = Starlette(
+    debug=debug,
+    middleware=middleware,
+    exception_handlers=exception_handlers,
+    routes=[
+        Route("/", main),
+        Route("/alerts_statuses_v1.json", alerts_v1),
+        Route("/alerts_statuses_v2.json", alerts_v2),
+        Route("/alerts_statuses_v3.json", alerts_v3),
+        Route("/weather_statuses_v1.json", weather_v1),
+        Route("/explosives_statuses_v1.json", explosives_v1),
+        Route("/explosives_statuses_v2.json", explosives_v2),
+        Route("/explosives_statuses_v3.json", explosives_v3),
+        Route("/rockets_statuses_v1.json", rockets_v1),
+        Route("/rockets_statuses_v2.json", rockets_v2),
+        Route("/rockets_statuses_v3.json", rockets_v3),
+        Route("/drones_statuses_v1.json", drones_v1),
+        Route("/drones_statuses_v2.json", drones_v2),
+        Route("/drones_statuses_v3.json", drones_v3),
+        Route("/etryvoga_{token}.json", etryvoga_full),
+        Route("/tcp_statuses_v1.json", tcp_v1),
+        Route("/api_status.json", api_status),
+        Route("/map/region/v1/{region}", region_data_v1),
+        Route("/{filename}.png", map),
+        Route("/t{token}", stats),
+    ],
+)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)

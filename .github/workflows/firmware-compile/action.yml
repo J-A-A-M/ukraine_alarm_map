@@ -48,7 +48,7 @@ runs:
           - name: NTPTime
             version: 1.2.1
           - name: NeoPixelBus by Makuna
-            version: 2.7.8
+            version: 2.7.9
           - name: WiFiManager
             version: 2.0.17
           - name: arduino-sht
