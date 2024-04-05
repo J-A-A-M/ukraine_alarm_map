@@ -365,6 +365,14 @@ async def drones_v3(request):
     return JSONResponse(etryvoga_v3(cached))
 
 
+async def etryvoga_full(request):
+    if request.path_params["token"] == data_token:
+        etryvoga_full = await mc.get(b"etryvoga_full")
+        return JSONResponse(json.loads(etryvoga_full.decode("utf-8")))
+    else:
+        return JSONResponse({})
+
+
 async def tcp_v1(request):
     try:
         cached = await mc.get(b"tcp")
@@ -541,6 +549,7 @@ app = Starlette(
         Route("/drones_statuses_v1.json", drones_v1),
         Route("/drones_statuses_v2.json", drones_v2),
         Route("/drones_statuses_v3.json", drones_v3),
+        Route("/etryvoga_{token}.json", etryvoga_full),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/api_status.json", api_status),
         Route("/map/region/v1/{region}", region_data_v1),

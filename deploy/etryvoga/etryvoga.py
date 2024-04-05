@@ -84,8 +84,8 @@ async def explosions_data(mc):
         async with aiohttp.ClientSession() as session:
             response = await session.get(etryvoga_url)
             if response.status == 200:
-                new_data = await response.text()
-                data = json.loads(new_data)
+                etryvoga_full = await response.text()
+                data = json.loads(etryvoga_full)
                 for message in data[::-1]:
                     if int(message["id"]) > last_id_cached:
                         print(message["id"])
@@ -115,6 +115,7 @@ async def explosions_data(mc):
                 await mc.set(b"rockets", json.dumps(rockets_cached_data).encode("utf-8"))
                 await mc.set(b"drones", json.dumps(drones_cached_data).encode("utf-8"))
                 await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
+                await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))
                 logging.debug("etryvoga data stored")
             else:
                 logging.error(f"Request failed with status code: {response.status_code}")
