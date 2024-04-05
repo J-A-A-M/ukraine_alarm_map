@@ -38,10 +38,10 @@ on:
         type: boolean
         default: false
         description: SVG Generator
-      redeploy_explosions:
+      redeploy_etryvoga:
         type: boolean
         default: false
-        description: Explosions
+        description: Etryvoga
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 jobs:
@@ -140,7 +140,7 @@ jobs:
                 git pull
                 bash redeploy_svg_generator.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Etryvoga
-            if: ${{ inputs.redeploy_explosions || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_etryvoga || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
               host: ${{ secrets.SERVER_IP }}
