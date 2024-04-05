@@ -53,15 +53,32 @@ async def explosions_data(mc):
     try:
         await asyncio.sleep(etryvoga_loop_time)
 
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        etryvoga_cached = await mc.get(b"explosions")
+        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        last_id_cached = await mc.get(b"etryvoga_last_id")
+        explosions_cached = await mc.get(b"explosions")
+        rockets_cached = await mc.get(b"rockets")
+        drones_cached = await mc.get(b"drones")
 
-        if etryvoga_cached:
-            etryvoga_cached_data = json.loads(etryvoga_cached.decode("utf-8"))
+        if last_id_cached:
+            last_id_cached = json.loads(last_id_cached)["last_id"]
         else:
-            etryvoga_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+            last_id_cached = 0
 
-        last_id_cached = int(etryvoga_cached_data["info"]["last_id"])
+        if explosions_cached:
+            explosions_cached_data = json.loads(explosions_cached.decode("utf-8"))
+        else:
+            explosions_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+
+        if rockets_cached:
+            rockets_cached_data = json.loads(rockets_cached.decode("utf-8"))
+        else:
+            rockets_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+
+        if drones_cached:
+            drones_cached_data = json.loads(drones_cached.decode("utf-8"))
+        else:
+            drones_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+
         last_id = None
 
         async with aiohttp.ClientSession() as session:
@@ -71,20 +88,34 @@ async def explosions_data(mc):
                 data = json.loads(new_data)
                 for message in data[::-1]:
                     if int(message["id"]) > last_id_cached:
-
-                        if message["type"] == "INFO":
-                            region_name = regions[message["region"]]["name"]
-                            region_data = {
-                                "changed": message["createdAt"],
-                            }
-                            etryvoga_cached_data["states"][region_name] = region_data
+                        print(message["id"])
+                        region_name = regions[message["region"]]["name"]
+                        region_data = {
+                            "changed": message["createdAt"],
+                        }
+                        match message["type"]:
+                            case "INFO":
+                                explosions_cached_data["states"][region_name] = region_data
+                            case "ROCKET_FIRE":
+                                rockets_cached_data["states"][region_name] = region_data
+                            case "DRONE":
+                                drones_cached_data["states"][region_name] = region_data
+                            case _:
+                                pass
                     last_id = int(message["id"])
 
-                etryvoga_cached_data["info"]["last_id"] = last_id
-                etryvoga_cached_data["info"]["last_update"] = current_datetime
-                logging.debug("store explosions data: %s" % current_datetime)
-                await mc.set(b"explosions", json.dumps(etryvoga_cached_data).encode("utf-8"))
-                logging.debug("explosions data stored")
+                explosions_cached_data["info"]["last_id"] = last_id
+                explosions_cached_data["info"]["last_update"] = current_datetime
+                rockets_cached_data["info"]["last_id"] = last_id
+                rockets_cached_data["info"]["last_update"] = current_datetime
+                drones_cached_data["info"]["last_id"] = last_id
+                drones_cached_data["info"]["last_update"] = current_datetime
+                logging.debug("store etryvoga data: %s" % current_datetime)
+                await mc.set(b"explosions", json.dumps(explosions_cached_data).encode("utf-8"))
+                await mc.set(b"rockets", json.dumps(rockets_cached_data).encode("utf-8"))
+                await mc.set(b"drones", json.dumps(drones_cached_data).encode("utf-8"))
+                await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
+                logging.debug("etryvoga data stored")
             else:
                 logging.error(f"Request failed with status code: {response.status_code}")
     except Exception as e:
