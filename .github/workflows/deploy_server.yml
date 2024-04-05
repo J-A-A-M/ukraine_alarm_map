@@ -165,9 +165,6 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.MEMCACHED_HOST }}
-    docker:
-        runs-on: ubuntu-latest
-        steps:
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.0.3
             with:
