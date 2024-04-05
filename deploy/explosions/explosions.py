@@ -53,7 +53,7 @@ async def explosions_data(mc):
     try:
         await asyncio.sleep(etryvoga_loop_time)
 
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%Z")
+        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         last_id_cached = await mc.get(b"etryvoga_last_id")
         explosions_cached = await mc.get(b"explosions")
         rockets_cached = await mc.get(b"rockets")
