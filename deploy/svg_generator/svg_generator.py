@@ -138,12 +138,8 @@ async def svg_generator(mc, shared_data):
             )
             position = 0
             for weather in weathers:
-                logging.debug(
-                    f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}"
-                )
-                weather_svg_data[regions[position]] = calculate_html_color_from_temp(
-                    weather
-                )
+                logging.debug(f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}")
+                weather_svg_data[regions[position]] = calculate_html_color_from_temp(weather)
                 position += 1
             file_path = os.path.join(shared_path, "weather_map.png")
             await generate_map(
@@ -192,9 +188,7 @@ async def generate_lamp():
 async def generate_random():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
-        flag_svg_data[regions[index]] = calculate_html_color_from_temp(
-            random.randint(-10, 30)
-        )
+        flag_svg_data[regions[index]] = calculate_html_color_from_temp(random.randint(-10, 30))
     file_path = os.path.join(shared_path, "random_map.png")
     await generate_map(time="", output_file=file_path, **flag_svg_data)
     await asyncio.sleep(loop_time)
@@ -251,15 +245,11 @@ def calculate_html_color_from_temp(temp):
             b = 1.0
 
     # Convert RGB to hexadecimal
-    hex_color = "#{:02X}{:02X}{:02X}".format(
-        round(r * 255), round(g * 255), round(b * 255)
-    )
+    hex_color = "#{:02X}{:02X}{:02X}".format(round(r * 255), round(g * 255), round(b * 255))
     return hex_color
 
 
-async def generate_map(
-    time, output_file, show_alert_info=False, show_weather_info=False, **kwargs
-):
+async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
     print("generate map")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
