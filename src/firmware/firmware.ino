@@ -35,7 +35,7 @@
 #endif
 #include <NeoPixelBus.h>
 #if DISPLAY_ENABLED
-#include <Adafruit_SSD1306.h>
+#include "JaamDisplay.h"
 #endif
 #if FW_UPDATE_ENABLED
 #include <HTTPUpdate.h>
@@ -156,6 +156,7 @@ struct Settings {
   int     button_mode            = 0;
   int     button_mode_long       = 0;
   int     alarms_notify_mode     = 2;
+  int     display_model          = 1;
   int     display_width          = 128;
   int     display_height         = 32;
   int     day_start              = 8;
@@ -203,9 +204,7 @@ NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 #if DISPLAY_ENABLED
-Adafruit_SSD1306  display(settings.display_width, settings.display_height, &Wire, -1);
-#define MAX_DISPLAY_BRIGHTNESS 0xCF
-#define MIN_DISPLAY_BRIGHTNESS 0x01
+JaamDisplay  display;
 #endif
 #if BH1750_ENABLED
 BH1750_WE         bh1750;
@@ -613,7 +612,7 @@ int     wifiSignal;
 #define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 #if DISPLAY_ENABLED
-int     currentDisplayBrightness = MAX_DISPLAY_BRIGHTNESS;
+int     currentDimDisplay = 0;
 #endif
 
 // Button variables
@@ -875,6 +874,14 @@ char* alertNotifyOptions[ALERT_NOTIFY_OPTIONS_COUNT] = {
   "Колір + зміна яскравості"
 };
 
+#define DISPLAY_MODEL_OPTIONS_COUNT 4
+char* displayModelOptions[DISPLAY_MODEL_OPTIONS_COUNT] = {
+  "Без дисплея",
+  "SSD1306",
+  "SH1106G",
+  "SH1107"
+};
+
 #define DISPLAY_HEIGHT_OPTIONS_COUNT 2
 char* displayHeightOptions[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   "128x32",
@@ -908,6 +915,7 @@ void initLegacy() {
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
     settings.buttonpin = 35;
+    settings.display_model = 1;
     settings.display_height = 64;
     break;
   case 1:
@@ -1072,6 +1080,7 @@ void initSettings() {
   settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
   preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
   preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
+  settings.display_model          = preferences.getInt("dsmd", settings.display_model);
   settings.display_width          = preferences.getInt("dw", settings.display_width);
   settings.display_height         = preferences.getInt("dh", settings.display_height);
   settings.day_start              = preferences.getInt("ds", settings.day_start);
@@ -1783,12 +1792,9 @@ bool detectI2CDevice(uint8_t address, const char* deviceName) {
 
 void initDisplay() {
 #if DISPLAY_ENABLED
-  displayInited = detectI2CDevice(0x3C, "OLED SSD1306");
+  displayInited = display.init(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
 
   if (displayInited) {
-    display = Adafruit_SSD1306(settings.display_width, settings.display_height, &Wire, -1);
-    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-    display.display();
     display.clearDisplay();
     display.setTextColor(INVERSE);
     updateInvertDisplayMode();
@@ -1849,12 +1855,11 @@ void updateInvertDisplayMode() {
 void updateDisplayBrightness() {
 #if DISPLAY_ENABLED
   if (!displayInited) return;
-  int localBrightness = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(MAX_DISPLAY_BRIGHTNESS, MAX_DISPLAY_BRIGHTNESS, settings.dim_display_on_night ? MIN_DISPLAY_BRIGHTNESS : MAX_DISPLAY_BRIGHTNESS, NULL);
-  if (localBrightness == currentDisplayBrightness) return;
-  currentDisplayBrightness = localBrightness;
-  Serial.printf("Set display brightness: %d\n", currentDisplayBrightness);
-  display.ssd1306_command(SSD1306_SETCONTRAST);
-  display.ssd1306_command(currentDisplayBrightness);
+  int localDimDisplay = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(0, 0, settings.dim_display_on_night ? 1 : 0, NULL);
+  if (localDimDisplay == currentDimDisplay) return;
+  currentDimDisplay = localDimDisplay;
+  Serial.printf("Set display dim: %s\n", currentDimDisplay ? "ON" : "OFF");
+  display.dim(currentDimDisplay);
 #endif
 }
 
@@ -3470,12 +3475,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSliderInt("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSliderInt("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
-
-#if DISPLAY_ENABLED
-  if (settings.legacy && displayInited) {
-    html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
-  }
-#endif
   html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
     html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
@@ -3545,6 +3544,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
   html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
+#if DISPLAY_ENABLED
+  if (settings.legacy && displayInited) {
+    html += addSelectBox("display_model", "Тип дисплею", settings.display_model, displayModelOptions, DISPLAY_MODEL_OPTIONS_COUNT);
+    html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
+  }
+#endif
   #if HA_ENABLED
   html += addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
   html += addInputText("ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
@@ -3834,7 +3839,6 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
   saved = saveInt(request->getParam("explosion_time", true), &settings.explosion_time, "ext") || saved;
   saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
-  bool reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh");
   saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveHaAlarmAuto) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
   saved = saveBool(request->getParam("min_of_silence", true), "min_of_silence", &settings.min_of_silence, "mos") || saved;
@@ -3847,12 +3851,6 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     int selectedHue = request->getParam("color_lamp", true)->value().toInt();
     RGBColor rgb = hue2rgb(selectedHue);
     saved = saveHaLightRgb(rgb) || saved;
-  }
-
-  if (reboot) {
-    request->redirect("/");
-    rebootDevice(3000, true);
-    return;
   }
 
   char url[15];
@@ -3888,6 +3886,8 @@ void handleRefreshTelemetry(AsyncWebServerRequest* request) {
 void handleSaveDev(AsyncWebServerRequest* request) {
   bool reboot = false;
   reboot = saveInt(request->getParam("legacy", true), &settings.legacy, "legacy") || reboot;
+  reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh") || reboot;
+  reboot = saveInt(request->getParam("display_model", true), &settings.display_model, "dsmd") || reboot;
   reboot = saveString(request->getParam("ha_brokeraddress", true), settings.ha_brokeraddress, "ha_brokeraddr") || reboot;
   reboot = saveInt(request->getParam("ha_mqttport", true), &settings.ha_mqttport, "ha_mqttport") || reboot;
   reboot = saveString(request->getParam("ha_mqttuser", true), settings.ha_mqttuser, "ha_mqttuser") || reboot;
