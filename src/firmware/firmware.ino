@@ -554,17 +554,6 @@ const uint8_t* neighboring_districts[DISTRICTS_COUNT] PROGMEM = {
   d20, d21, d22, d23, d24, d25
 };
 
-const unsigned char trident_small[] PROGMEM = {
-  0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
-  0x07, 0xc1, 0xc1, 0xf0, 0x06, 0xc1, 0xc1, 0xb0, 0x06, 0xe1, 0xc3, 0xb0, 0x06, 0x61, 0xc3, 0x30,
-  0x06, 0x71, 0xc7, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30,
-  0x06, 0x31, 0xc6, 0x30, 0x06, 0x31, 0xc6, 0x30, 0x06, 0xf1, 0xc7, 0xb0, 0x07, 0xe1, 0xc3, 0xf0,
-  0x07, 0x83, 0xe0, 0xf0, 0x07, 0x03, 0x60, 0x70, 0x07, 0x87, 0x70, 0xf0, 0x07, 0xc6, 0x31, 0xf0,
-  0x06, 0xee, 0x3b, 0xb0, 0x06, 0x7f, 0x7f, 0x30, 0x06, 0x3d, 0xde, 0x30, 0x06, 0x19, 0xcc, 0x30,
-  0x07, 0xff, 0xff, 0xf0, 0x03, 0xff, 0xff, 0xe0, 0x01, 0xfc, 0x9f, 0xc0, 0x00, 0x0c, 0xd8, 0x00,
-  0x00, 0x07, 0xf0, 0x00, 0x00, 0x03, 0xe0, 0x00, 0x00, 0x01, 0xc0, 0x00, 0x00, 0x00, 0x80, 0x00
-};
-
 #if HA_ENABLED
 bool    enableHA;
 #endif
@@ -1244,19 +1233,7 @@ void printNtpStatus() {
 void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
 #if DISPLAY_ENABLED
   if (!displayInited) return;
-  if (messageTextSize == -1) {
-    messageTextSize = getTextSizeToFitDisplay(message);
-  }
-  display.clearDisplay();
-  bool withTitle = strlen(title) > 0;
-  if (withTitle) {
-    char cyrTitle[strlen(title)];
-    display.setCursor(1, 1);
-    display.setTextSize(1);
-    utf8cyr(cyrTitle, title);
-    display.println(cyrTitle);
-  }
-  displayCenter(message, withTitle, messageTextSize);
+  display.displayMessage(message, title, messageTextSize);
 #endif
 }
 
@@ -1264,7 +1241,7 @@ void showServiceMessage(const char* message, const char* title = "", int duratio
 #if DISPLAY_ENABLED
   serviceMessage.title = title;
   serviceMessage.message = message;
-  serviceMessage.textSize = getTextSizeToFitDisplay(message);
+  serviceMessage.textSize = display.getTextSizeToFitDisplay(message);
   serviceMessage.endTime = millis() + duration;
   serviceMessage.expired = false;
   displayCycle();
@@ -1792,32 +1769,14 @@ bool detectI2CDevice(uint8_t address, const char* deviceName) {
 
 void initDisplay() {
 #if DISPLAY_ENABLED
-  displayInited = display.init(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
+  displayInited = display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
 
   if (displayInited) {
     display.clearDisplay();
     display.setTextColor(INVERSE);
     updateInvertDisplayMode();
     updateDisplayBrightness();
-    int16_t centerY = (settings.display_height - 32) / 2;
-    display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
-    display.setTextSize(1);
-    char text1[15] = "";
-    char text2[15] = "";
-    utf8cyr(text1, "Just Another");
-    utf8cyr(text2, "Alert Map");
-    int16_t x;
-    int16_t y;
-    uint16_t width;
-    uint16_t height;
-    display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
-    display.setCursor(35, ((settings.display_height - height) / 2) - 9);
-    display.print(text1);
-    display.setCursor(35, ((settings.display_height - height) / 2));
-    display.print(text2);
-    display.setCursor(35, ((settings.display_height - height) / 2) + 9);
-    display.print(currentFwVersion);
-    display.display();
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Just Another", "Alert Map", currentFwVersion);
     delay(3000);
   }
 #endif
@@ -2492,100 +2451,6 @@ void displayCycle() {
 }
 
 #if DISPLAY_ENABLED
-void displayCenter(const char* text, bool withTitle, int textSize) {
-  int16_t x;
-  int16_t y;
-  uint16_t width;
-  uint16_t height;
-  char utf8Text[strlen(text)];
-  utf8cyr(utf8Text, text);
-  display.setTextSize(textSize);
-  display.getTextBounds(utf8Text, 0, 0, &x, &y, &width, &height);
-  int offsetY = (withTitle ? 10 : 0);
-  int cursorX = (settings.display_width - width) / 2;
-  int cursorY = max(((settings.display_height - height - offsetY) / 2), 0) + offsetY;
-  display.setCursor(cursorX, cursorY);
-  display.println(utf8Text);
-  display.display();
-}
-
-int getTextSizeToFitDisplay(const char* text) {
-  int16_t x;
-  int16_t y;
-  uint16_t textWidth;
-  uint16_t height;
-
-  display.setTextWrap(false);
-  char utf8Text[strlen(text)]; 
-  utf8cyr(utf8Text, text);
-  display.setCursor(0, 0);
-  display.setTextSize(4);
-  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
-
-  if (settings.display_height > 32 && display.width() >= textWidth) {
-    display.setTextWrap(true);
-    return 4;
-  }
-
-  display.setTextSize(3);
-  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
-
-  if (display.width() >= textWidth) {
-    display.setTextWrap(true);
-    return 3;
-  }
-
-  display.setTextSize(2);
-  display.getTextBounds(utf8Text, 0, 0, &x, &y, &textWidth, &height);
-
-  display.setTextWrap(true);
-  if (display.width() >= textWidth) {
-    return 2;
-  } else {
-    return 1;
-  }
-}
-
-void utf8cyr(char* target, const char* source) {
-  int i, k;
-  unsigned char n;
-  char m[2] = { '0', '\0' };
-  strcpy(target, "");
-
-  k = strlen(source);
-  i = 0;
-  while (i < k) {
-    n = source[i];
-    i++;
-    if (n >= 0xC0) {
-      switch (n) {
-        case 0xD0: {
-          n = source[i]; i++;
-          if (n == 0x81) { n = 0xA8; break; }       //  Ё
-          if (n == 0x84) { n = 0xAA; break; }       //  Є
-          if (n == 0x86) { n = 0xB1; break; }       //  І
-          if (n == 0x87) { n = 0xAF; break; }       //  Ї
-          if (n >= 0x90 && n <= 0xBF) n = n + 0x2F; break;
-        }
-        case 0xD1: {
-          n = source[i]; i++;
-          if (n == 0x91) { n = 0xB7; break; }       //  ё
-          if (n == 0x94) { n = 0xB9; break; }       //  є
-          if (n == 0x96) { n = 0xB2; break; }       //  і
-          if (n == 0x97) { n = 0xBE; break; }       //  ї
-          if (n >= 0x80 && n <= 0x8F) n = n + 0x6F; break;
-        }
-        case 0xD2: {
-          n = source[i]; i++;
-          if (n == 0x90) { n = 0xA5; break; }       //  Ґ
-          if (n == 0x91) { n = 0xB3; break; }       //  ґ
-        }
-      }
-    }
-    m[0] = n;
-    strcat(target, m);
-  }
-}
 
 void serviceMessageUpdate() {
   if (!serviceMessage.expired && millis() > serviceMessage.endTime) {
@@ -2641,51 +2506,19 @@ void displayMinuteOfSilence() {
 }
 
 void showMinOfSilanceScreen(int screen) {
-  display.clearDisplay();
-  int16_t centerY = (settings.display_height - 32) / 2;
-  display.drawBitmap(0, centerY, trident_small, 32, 32, 1);
-  int textSize;
-  char text1[20] = "";
-  char text2[20] = "";
-  char text3[20] = "";
-  int gap = 40;
-  switch (screen)
-  {
+  switch (screen) {
   case 0:
-    textSize = 1;
-    utf8cyr(text1, "Шана");
-    utf8cyr(text2, "Полеглим");
-    utf8cyr(text3, "Героям!");
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Шана", "Полеглим", "Героям!");
     break;
   case 1:
-    textSize = 2;
-    utf8cyr(text1, "Слава");
-    utf8cyr(text3, "Україні!");
-    gap = 32;
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Слава", "", "Україні!");
     break;
   case 2:
-   textSize = 2;
-    utf8cyr(text1, "Смерть");
-    utf8cyr(text3, "ворогам!");
-    gap = 32;
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Смерть", "", "ворогам!");
     break;
   default:
     break;
   }
-  display.setTextSize(textSize);
-
-  int16_t x;
-  int16_t y;
-  uint16_t width;
-  uint16_t height;
-  display.getTextBounds(text1, 0, 0, &x, &y, &width, &height);
-  display.setCursor(gap, ((settings.display_height - height) / 2) - 9);
-  display.print(text1);
-  display.setCursor(gap, ((settings.display_height - height) / 2));
-  display.print(text2);
-  display.setCursor(gap, ((settings.display_height - height) / 2) + 9);
-  display.print(text3);
-  display.display();
 }
 
 void displayServiceMessage(ServiceMessage message) {
@@ -3341,7 +3174,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   #if DISPLAY_ENABLED
   html += "Дисплей: <b>";
   if (displayInited) {
-    html += "SSD1306 (128x";
+    html += displayModelOptions[settings.display_model];
+    html += " (128x";
     html += display.height();
     html += ")";
   } else {
@@ -3545,7 +3379,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='by col-md-9 mt-2'>";
   html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
 #if DISPLAY_ENABLED
-  if (settings.legacy && displayInited) {
+  if ((settings.legacy == 1 || settings.legacy == 2) && displayInited) {
     html += addSelectBox("display_model", "Тип дисплею", settings.display_model, displayModelOptions, DISPLAY_MODEL_OPTIONS_COUNT);
     html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
@@ -4206,7 +4040,8 @@ void socketConnect() {
     JsonDocument userInfoJson;
     userInfoJson["legacy"] = settings.legacy;
     userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;
-    userInfoJson["display"] = displayInited ? settings.display_height : 0;
+    userInfoJson["display_model"] = displayInited ? displayModelOptions[settings.display_model] : "none";
+    if (displayInited) userInfoJson["display_height"] = settings.display_height;
     userInfoJson["bh1750"] = bh1750Inited;
     userInfoJson["bme280"] = bme280Inited;
     userInfoJson["bmp280"] = bmp280Inited;
