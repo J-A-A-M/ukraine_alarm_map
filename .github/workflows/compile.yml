@@ -82,6 +82,18 @@
             with:
               name: lint-report
               path: ${{ github.workspace }}/lint-report.json
+    check_flasher:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Check flasher with proof-html
+            uses: anishathalye/proof-html@v2
+            with:
+              directory: ${{ github.workspace }}/flasher
+    run_black:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
           - name: Setup Python      
             uses: actions/setup-python@v5
             with:
@@ -92,11 +104,3 @@
           - name: Run Black in the check mode (and ignore output)
             run: |
               black --check --verbose --line-length 120 --target-version py312 deploy
-    check_flasher:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Check flasher with proof-html
-            uses: anishathalye/proof-html@v2
-            with:
-              directory: ${{ github.workspace }}/flasher
