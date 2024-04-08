@@ -1,12 +1,15 @@
 #include "JaamDisplay.h"
 
+#if DISPLAY_ENABLED
 Adafruit_SSD1306 *ssd1306;
 Adafruit_SH110X *sh110x;
-JaamDisplay::DisplayModel displayModel;
-bool displayConnected;
 #define MAX_DISPLAY_BRIGHTNESS_SSD1306 0xCF
 #define MAX_DISPLAY_BRIGHTNESS_SH110X 0x7F
 #define MIN_DISPLAY_BRIGHTNESS 0x01
+#endif
+JaamDisplay::DisplayModel displayModel = JaamDisplay::DisplayModel::NONE;
+bool displayConnected;
+
 
 const unsigned char trident_small[] PROGMEM = {
   0x04, 0x00, 0x80, 0x10, 0x06, 0x01, 0xc0, 0x30, 0x07, 0x01, 0xc0, 0x70, 0x07, 0x81, 0xc0, 0xf0,
@@ -24,6 +27,7 @@ JaamDisplay::JaamDisplay() {
 }
 
 bool detectDisplay() {
+#if DISPLAY_ENABLED
   Wire.begin();
   Wire.beginTransmission(0x3C);
   uint8_t error = Wire.endTransmission();
@@ -34,9 +38,13 @@ bool detectDisplay() {
     Serial.println("Display NOT found! Checked address - 0x3C");
     return false;
   }
+#else
+    return false;
+#endif
 }
 
 bool JaamDisplay::begin(DisplayModel type,int displayWidth, int displayHeight) {
+#if DISPLAY_ENABLED
     displayConnected = type > 0 && detectDisplay();
     Serial.printf("Display model: %d\n", type);
     if (displayConnected) {
@@ -58,10 +66,12 @@ bool JaamDisplay::begin(DisplayModel type,int displayWidth, int displayHeight) {
             break;
         }
     }
+#endif
     return displayConnected;
 }
 
 void JaamDisplay::display() {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -74,9 +84,11 @@ void JaamDisplay::display() {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::clearDisplay() {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -89,9 +101,11 @@ void JaamDisplay::clearDisplay() {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::dim(bool dim) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -105,9 +119,11 @@ void JaamDisplay::dim(bool dim) {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::setCursor(int x, int y) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -120,9 +136,11 @@ void JaamDisplay::setCursor(int x, int y) {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::setTextColor(int color) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -135,9 +153,11 @@ void JaamDisplay::setTextColor(int color) {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::setTextSize(int size) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -150,9 +170,11 @@ void JaamDisplay::setTextSize(int size) {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::getTextBounds(const char *string, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -165,9 +187,11 @@ void JaamDisplay::getTextBounds(const char *string, int16_t x, int16_t y, int16_
     default:
         break;
     }
+#endif
 }
 
 size_t JaamDisplay::print(const char *str) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return 0;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -178,9 +202,11 @@ size_t JaamDisplay::print(const char *str) {
     default:
         return 0;
     }
+#endif
 }
 
 size_t JaamDisplay::println(const char *str) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return 0;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -191,9 +217,11 @@ size_t JaamDisplay::println(const char *str) {
     default:
         return 0;
     }
+#endif
 }
 
 void JaamDisplay::setTextWrap(bool wrap) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -206,9 +234,11 @@ void JaamDisplay::setTextWrap(bool wrap) {
     default:
         break;
     }
+#endif
 }
 
 void JaamDisplay::invertDisplay(bool invert) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -221,9 +251,11 @@ void JaamDisplay::invertDisplay(bool invert) {
     default:
         break;
     }
+#endif
 }
 
 int JaamDisplay::width() {
+#if DISPLAY_ENABLED
     if (!displayConnected) return 0;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -234,9 +266,13 @@ int JaamDisplay::width() {
     default:
         return 0;
     }
+#else
+    return 0;
+#endif
 }
 
 int JaamDisplay::height() {
+#if DISPLAY_ENABLED
     if (!displayConnected) return 0;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -247,9 +283,13 @@ int JaamDisplay::height() {
     default:
         return 0;
     }
+#else
+    return 0;
+#endif
 }
 
 void JaamDisplay::drawBitmap(int x, int y, const uint8_t *bitmap, int w, int h, int color) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return;
     switch (displayModel) {
     case JaamDisplay::SSD1306:
@@ -261,6 +301,32 @@ void JaamDisplay::drawBitmap(int x, int y, const uint8_t *bitmap, int w, int h, 
         break;
     default:
         break;
+    }
+#endif
+}
+
+bool JaamDisplay::isDisplayAvailable() {
+    return displayConnected;
+}
+
+bool JaamDisplay::isDisplayEnabled() {
+#if DISPLAY_ENABLED
+    return true;
+#else
+    return false;
+#endif
+}
+
+String JaamDisplay::getDisplayModel() {
+    switch (displayModel) {
+    case JaamDisplay::SSD1306:
+        return "SSD1306";
+    case JaamDisplay::SH1106G:
+        return "SH1106G";
+    case JaamDisplay::SH1107:
+        return "SH1107";
+    default:
+        return "None";
     }
 }
 
@@ -315,6 +381,7 @@ const unsigned char* getIcon(JaamDisplay::Icon icon) {
 }
 
 int JaamDisplay::getTextSizeToFitDisplay(const char* text) {
+#if DISPLAY_ENABLED
     if (!displayConnected) return 0;
     int16_t x;
     int16_t y;
@@ -351,9 +418,13 @@ int JaamDisplay::getTextSizeToFitDisplay(const char* text) {
     else {
         return 1;
     }
+#else
+    return 0;
+#endif
 }
 
 void JaamDisplay::displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
+#if DISPLAY_ENABLED
     if (messageTextSize == -1) {
     messageTextSize = getTextSizeToFitDisplay(message);
   }
@@ -367,9 +438,11 @@ void JaamDisplay::displayMessage(const char* message, const char* title = "", in
     println(cyrTitle);
   }
   displayCenter(message, withTitle, messageTextSize);
+#endif
 }
 
 void JaamDisplay::displayTextWithIcon(Icon icon, const char* text1, const char* text2, const char* text3) {
+#if DISPLAY_ENABLED
     clearDisplay();
     if (icon != Icon::NO_ICON) {
         int16_t centerY = (height() - 32) / 2;
@@ -403,9 +476,11 @@ void JaamDisplay::displayTextWithIcon(Icon icon, const char* text1, const char* 
     setCursor(gap, ((height() - textHeight) / 2) + 9);
     print(string3);
     display();
+#endif
 }
 
 void JaamDisplay::displayCenter(const char* text, bool withTitle, int textSize) {
+#if DISPLAY_ENABLED
   int16_t x;
   int16_t y;
   uint16_t textWidth;
@@ -420,4 +495,5 @@ void JaamDisplay::displayCenter(const char* text, bool withTitle, int textSize) 
   setCursor(cursorX, cursorY);
   println(utf8Text);
   display();
+#endif
 }

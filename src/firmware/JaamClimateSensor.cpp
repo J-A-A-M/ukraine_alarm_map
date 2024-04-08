@@ -21,6 +21,9 @@ JaamClimateSensor::JaamClimateSensor() {
 }
 
 bool JaamClimateSensor::begin() {
+#if BME280_ENABLED || BMP280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
+  Wire.begin();
+#endif
 #if BME280_ENABLED
   bme280 = new ForcedBME280Float();
   bme280->begin();
