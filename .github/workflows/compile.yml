@@ -48,6 +48,14 @@
             with:
               name: firmware-lite.bin
               path: ${{ github.workspace }}/firmware-lite.bin
+    memory_usage_change:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Memory usage change
+            uses: ./.github/workflows/firmware-compile
+            with:
+              enable-deltas-report: true  
     compile_updater:
       runs-on: ubuntu-latest
       steps:
