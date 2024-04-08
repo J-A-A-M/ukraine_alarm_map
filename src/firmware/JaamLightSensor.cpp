@@ -33,9 +33,9 @@ void JaamLightSensor::read() {
 #if BH1750_ENABLED
     if (!bh1750Initialized) return;
     lightLevel = bh1750->getLux();
-    Serial.print("BH1750!\tLight: ");
-    Serial.print(lightLevel);
-    Serial.println(" lx");
+    // Serial.print("BH1750!\tLight: ");
+    // Serial.print(lightLevel);
+    // Serial.println(" lx");
 #endif
 }
 
