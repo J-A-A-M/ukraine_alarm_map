@@ -50,12 +50,17 @@
               path: ${{ github.workspace }}/firmware-lite.bin
     memory_usage_change:
         runs-on: ubuntu-latest
+        permissions:
+          contents: read
+          pull-requests: write
         steps:
           - uses: actions/checkout@v4
           - name: Memory usage change
             uses: ./.github/workflows/firmware-compile
             with:
-              enable-deltas-report: true  
+              enable-deltas-report: true
+          - name: Report Delta to PR
+            uses: arduino/report-size-deltas@v1
     compile_updater:
       runs-on: ubuntu-latest
       steps:

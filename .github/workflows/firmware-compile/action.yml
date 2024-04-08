@@ -65,6 +65,3 @@ runs:
         cli-compile-flags: |
           - --export-binaries
           - --warnings=default
-    - name: Report Delta to PR
-      uses: arduino/report-size-deltas@v1
-      if: ${{ inputs.enable-deltas-report }}
