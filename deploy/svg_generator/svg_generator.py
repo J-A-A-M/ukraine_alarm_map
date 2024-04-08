@@ -942,16 +942,16 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             style="stroke:#2c2c2c;stroke-width:1;stroke-linecap:round;stroke-linejoin:round">
 
             <g id="ALERTS_LEGEND" visibility="{"visible" if show_alert_info else "hidden"}">
-               <circle cx="50" cy="630" r="20" fill="#ff5733" id="circle224" />
-               <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- тривога</text>
-               <circle cx="50" cy="680" r="20" fill="#32cd32" id="circle228" />
-               <text x="75" y="686" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
-               <circle cx="50" cy="730" r="20" fill="#ffa533" id="circle232" />
-               <text x="75" y="736" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
-               <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
-               <text x="75" y="787" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
-               <circle cx="50" cy="830" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+               <circle cx="30" cy="630" r="20" fill="#ff5733" id="circle224" />
+               <text x="55" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- тривога</text>
+               <circle cx="30" cy="680" r="20" fill="#32cd32" id="circle228" />
+               <text x="55" y="686" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
+               <circle cx="30" cy="730" r="20" fill="#ffa533" id="circle232" />
+               <text x="55" y="736" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
+               <circle cx="30" cy="780" r="20" fill="#bbff33" id="circle236" />
+               <text x="55" y="787" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
+               <circle cx="30" cy="830" r="20" fill="#00ffff" id="circle240" />
+               <text x="55" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>
 
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">

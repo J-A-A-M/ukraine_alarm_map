@@ -18,9 +18,7 @@
 #include <map>
 #include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
-#if BH1750_ENABLED
-#include <BH1750_WE.h>
-#endif
+#include "JaamLightSensor.h"
 #include "JaamClimateSensor.h"
 #include <NTPtime.h>
 #if BUZZER_ENABLED
@@ -174,9 +172,7 @@ NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 JaamDisplay       display;
-#if BH1750_ENABLED
-BH1750_WE         bh1750;
-#endif
+JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
@@ -541,8 +537,6 @@ bool    isDisplayOff = false;
 bool    nightMode = false;
 int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
-bool    bh1750Inited = false;
-float   lightInLuxes = -1;
 int     beepHour = -1;
 char    uptimeChar[25];
 float   cpuTemp;
@@ -709,12 +703,10 @@ void initHaVars() {
     sprintf(haLocalPressureID, "%s_local_pressure", chipID);
     haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
   }
-#if BH1750_ENABLED
-    if (bh1750Inited) {
-      sprintf(haLightLevelID, "%s_light_level", chipID);
-      haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
-    }
-#endif
+  if (lightSensor.isLightSensorAvailable()) {
+    sprintf(haLightLevelID, "%s_light_level", chipID);
+    haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
+  }
   sprintf(haHomeTempID, "%s_home_temp", chipID);
   haHomeTemp = new HASensorNumber(haHomeTempID, HASensorNumber::PrecisionP2);
 
@@ -871,7 +863,6 @@ void initLegacy() {
   Serial.printf("Offset: %d\n", offset);
 }
 
-
 void initBuzzer() {
 #if BUZZER_ENABLED
   player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
@@ -954,14 +945,14 @@ bool needToPlaySound(SoundType type) {
 }
 
 int getNightModeType() {
-    // Night Mode activated by button
-    if (nightMode) return 1;
-    // Night mode activated by time
-    if (settings.brightness_mode == 1 && isItNightNow()) return 2;
-    // Night mode activated by sensor
-    if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
-    //Night mode is off
-    return 0;
+  // Night Mode activated by button
+  if (nightMode) return 1;
+  // Night mode activated by time
+  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
+  // Night mode activated by sensor
+  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
+  // Night mode is off
+  return 0;
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
@@ -1060,8 +1051,6 @@ void initSettings() {
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   
-
-
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
@@ -1116,7 +1105,7 @@ void initTime() {
   timeClient.begin();
   syncTime(7);
 }
-  
+
 void syncTime(int8_t attempts) {
   timeClient.tick();
   if (timeClient.status() == UNIX_OK) return;
@@ -1174,7 +1163,6 @@ void printNtpStatus() {
     }
 }
 
-
 void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
   display.displayMessage(message, title, messageTextSize);
 }
@@ -1203,9 +1191,9 @@ void rebootDevice(int time = 2000, bool async = false) {
 
 void initWifi() {
   Serial.println("Init Wifi");
-  WiFi.mode(WIFI_STA);  // explicitly set mode, esp defaults to STA+AP
-  //reset settings - wipe credentials for testing
-  //wm.resetSettings();
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+  // reset settings - wipe credentials for testing
+  // wm.resetSettings();
 
   wm.setHostname(settings.broadcastname);
   wm.setTitle(settings.devicename);
@@ -1517,40 +1505,38 @@ void initHA() {
       haAlarmAtHome->setDeviceClass("safety");
       haAlarmAtHome->setCurrentState(alarmNow);
 
-    if (climate.isTemperatureAvailable()) {
-      haLocalTemp->setIcon("mdi:thermometer");
-      haLocalTemp->setName("Local Temperature");
-      haLocalTemp->setUnitOfMeasurement("°C");
-      haLocalTemp->setDeviceClass("temperature");
-      haLocalTemp->setStateClass("measurement");
-      haLocalTemp->setCurrentValue(climate.getTemperature(settings.temp_correction));
-    }
-    if (climate.isHumidityAvailable()) {
-      haLocalHum->setIcon("mdi:water-percent");
-      haLocalHum->setName("Local Humidity");
-      haLocalHum->setUnitOfMeasurement("%");
-      haLocalHum->setDeviceClass("humidity");
-      haLocalHum->setStateClass("measurement");
-      haLocalHum->setCurrentValue(climate.getHumidity(settings.hum_correction));
-    }
-    if (climate.isPressureAvailable()) {
-      haLocalPressure->setIcon("mdi:gauge");
-      haLocalPressure->setName("Local Pressure");
-      haLocalPressure->setUnitOfMeasurement("mmHg");
-      haLocalPressure->setDeviceClass("pressure");
-      haLocalPressure->setStateClass("measurement");
-      haLocalPressure->setCurrentValue(climate.getPressure(settings.pressure_correction));
-    }
-#if BH1750_ENABLED
-    if (bh1750Inited) {
-      haLightLevel->setIcon("mdi:brightness-5");
-      haLightLevel->setName("Light Level");
-      haLightLevel->setUnitOfMeasurement("lx");
-      haLightLevel->setDeviceClass("illuminance");
-      haLightLevel->setStateClass("measurement");
-      haLightLevel->setCurrentValue(lightInLuxes);
-    }
-#endif
+      if (climate.isTemperatureAvailable()) {
+        haLocalTemp->setIcon("mdi:thermometer");
+        haLocalTemp->setName("Local Temperature");
+        haLocalTemp->setUnitOfMeasurement("°C");
+        haLocalTemp->setDeviceClass("temperature");
+        haLocalTemp->setStateClass("measurement");
+        haLocalTemp->setCurrentValue(climate.getTemperature(settings.temp_correction));
+      }
+      if (climate.isHumidityAvailable()) {
+        haLocalHum->setIcon("mdi:water-percent");
+        haLocalHum->setName("Local Humidity");
+        haLocalHum->setUnitOfMeasurement("%");
+        haLocalHum->setDeviceClass("humidity");
+        haLocalHum->setStateClass("measurement");
+        haLocalHum->setCurrentValue(climate.getHumidity(settings.hum_correction));
+      }
+      if (climate.isPressureAvailable()) {
+        haLocalPressure->setIcon("mdi:gauge");
+        haLocalPressure->setName("Local Pressure");
+        haLocalPressure->setUnitOfMeasurement("mmHg");
+        haLocalPressure->setDeviceClass("pressure");
+        haLocalPressure->setStateClass("measurement");
+        haLocalPressure->setCurrentValue(climate.getPressure(settings.pressure_correction));
+      }
+      if (lightSensor.isLightSensorAvailable()) {
+        haLightLevel->setIcon("mdi:brightness-5");
+        haLightLevel->setName("Light Level");
+        haLightLevel->setUnitOfMeasurement("lx");
+        haLightLevel->setDeviceClass("illuminance");
+        haLightLevel->setStateClass("measurement");
+        haLightLevel->setCurrentValue(lightSensor.getLightLevel(settings.light_sensor_factor));
+      }
 
       haHomeTemp->setIcon("mdi:home-thermometer");
       haHomeTemp->setName("Home District Temperature");
@@ -1675,7 +1661,7 @@ int getSettingsDisplayMode(int localDisplayMode) {
   while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
     newDisplayMode++;
   }
-  
+
   int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
   if (newDisplayMode < lastModeIndex) return newDisplayMode;
   if (newDisplayMode >= lastModeIndex) return 9;
@@ -1688,7 +1674,7 @@ int getHaDisplayMode(int localDisplayMode) {
 }
 
 void initDisplay() {
-   display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
+  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
 
   if (display.isDisplayAvailable()) {
     display.clearDisplay();
@@ -1736,32 +1722,20 @@ void updateDisplayBrightness() {
   display.dim(currentDimDisplay);
 }
 
-void initI2cSensors() {
-#if BH1750_ENABLED
-  initBh1750LightSensor();
-#endif
-// init climate sensor
-climate.begin();
-// try to get climate sensor data
-climateSensorCycle();
-
-initDisplayModes();
-}
-
-#if BH1750_ENABLED
-void initBh1750LightSensor() {
-  Wire.begin();
-  bh1750Inited = bh1750.init();
-  if (bh1750Inited) {
-    bh1750.setMode(CHM_2);
-    delay(500); //waiting to get first measurement
-    bh1750LightSensorCycle();
-    Serial.println("Found BH1750 light sensor! Success.");
-  } else {
-    Serial.println("Not found BH1750 light sensor!");
+void initSensors() {
+  lightSensor.begin();
+  if (lightSensor.isLightSensorAvailable()) {
+    lightSensorCycle();
   }
+  lightSensor.setPhotoresistorPin(settings.lightpin);
+
+  // init climate sensor
+  climate.begin();
+  // try to get climate sensor data
+  climateSensorCycle();
+
+  initDisplayModes();
 }
-#endif
 
 void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
@@ -1789,7 +1763,6 @@ void fillFwVersion(char* result, Firmware firmware) {
 #else
   sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
 #endif
-
 }
 
 //--Update
@@ -1813,7 +1786,7 @@ void saveLatestFirmware() {
 }
 
 bool prefix(const char *pre, const char *str) {
-    return strncmp(pre, str, strlen(pre)) == 0;
+  return strncmp(pre, str, strlen(pre)) == 0;
 }
 
 bool firstIsNewer(Firmware first, Firmware second) {
@@ -1897,7 +1870,7 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 void checkServicePins() {
   if (!settings.legacy) {
     if (settings.service_diodes_mode) {
-      //Serial.println("Dioded enabled");
+      // Serial.println("Dioded enabled");
       servicePin(settings.powerpin, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(settings.wifipin, LOW, true);
@@ -1918,7 +1891,7 @@ void checkServicePins() {
         servicePin(settings.datapin, HIGH, true);
       }
     } else {
-      //Serial.println("Dioded disables");
+      // Serial.println("Dioded disables");
       servicePin(settings.powerpin, LOW, true);
       servicePin(settings.wifipin, LOW, true);
       servicePin(settings.hapin, LOW, true);
@@ -1926,7 +1899,6 @@ void checkServicePins() {
     }
   }
 }
-
 
 //--Service end
 
@@ -1937,11 +1909,11 @@ void buttonUpdate() {
   // read the state of the switch/button:
   currentState = digitalRead(settings.buttonpin);
 
-  if (lastState == HIGH && currentState == LOW) {  // button is pressed
+  if (lastState == HIGH && currentState == LOW) { // button is pressed
     pressedTime = millis();
     isPressing = true;
     isLongDetected = false;
-  } else if (lastState == LOW && currentState == HIGH) {  // button is released
+  } else if (lastState == LOW && currentState == HIGH) { // button is released
     isPressing = false;
     releasedTime = millis();
 
@@ -2047,13 +2019,13 @@ bool saveMapMode(int newMapMode) {
   reportSettingsChange("map_mode", settings.map_mode);
   Serial.print("map_mode commited to preferences: ");
   Serial.println(settings.map_mode);
-  #if HA_ENABLED
+#if HA_ENABLED
   if (enableHA) {
     haLight->setState(settings.map_mode == 5);
     haMapMode->setState(settings.map_mode);
     haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
   }
-  #endif
+#endif
   showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
@@ -2170,7 +2142,7 @@ bool saveHaLightBrightness(int newBrightness) {
 
 bool saveHaLightRgb(RGBColor newRgb) {
   if (settings.ha_light_r == newRgb.r && settings.ha_light_g == newRgb.g && settings.ha_light_b == newRgb.b) return false;
-  
+
   preferences.begin("storage", false);
   if (settings.ha_light_r != newRgb.r) {
     settings.ha_light_r = newRgb.r;
@@ -2215,7 +2187,7 @@ void nextDisplayMode() {
   if (newDisplayMode == DISPLAY_MODE_OPTIONS_MAX - 1) {
     newDisplayMode = 9;
   }
-  
+
   saveDisplayMode(newDisplayMode);
 }
 
@@ -2359,7 +2331,7 @@ bool shouldDisplayBeOff() {
 }
 
 void displayMinuteOfSilence() {
-  // every 3 sec.  
+  // every 3 sec.
   int periodIndex = getCurrentPeriodIndex(3, 3);
   showMinOfSilanceScreen(periodIndex);
 }
@@ -2414,11 +2386,10 @@ void showNewFirmwareNotification() {
     strcpy(title, "Для оновл. натисніть");
     sprintf(message, "та тримайте кнопку %c", (char)24);
   }
-  
+
   displayMessage(message, title);
 }
 #endif
-
 
 void showClock() {
   char time[7];
@@ -2440,32 +2411,32 @@ void showTechInfo() {
   char message[25];
   switch (periodIndex) {
   case 0:
-  // IP address
+    // IP address
     strcpy(title, "IP-адреса мапи:");
     strcpy(message, getLocalIP());
     break;
   case 1:
-  // Wifi Signal level
+    // Wifi Signal level
     strcpy(title, "Сигнал WiFi:");
     sprintf(message, "%d dBm", wifiSignal);
     break;
   case 2:
-  // Uptime
+    // Uptime
     strcpy(title, "Час роботи:");
     fillFromTimer(message, millis() / 1000);
     break;
   case 3:
-  // map-API status
+    // map-API status
     strcpy(title, "Статус map-API:");
     strcpy(message, apiConnected ? "Підключено" : "Відключено");
     break;
   case 4:
-  // HA Status
+    // HA Status
     strcpy(title, "Home Assistant:");
     strcpy(message, haConnected ? "Підключено" : "Відключено");
     break;
   case 5:
-  // Fw version
+    // Fw version
     strcpy(title, "Версія прошивки:");
     strcpy(message, currentFwVersion);
     break;
@@ -2571,7 +2542,7 @@ char getDivider() {
 }
 //--Display end
 
-Firmware parseFirmwareVersion(const char *version) {
+Firmware parseFirmwareVersion(const char* version) {
 
   Firmware firmware;
 
@@ -3041,11 +3012,11 @@ void handleRoot(AsyncWebServerRequest* request) {
     }
     html += "</b>";
   }
-  #if BH1750_ENABLED
-  html += "</br>Сенсор освітлення: <b>";
-  html += bh1750Inited ? "BH1750" : "Немає";
-  html += "</b>";
-  #endif
+  if (lightSensor.isLightSensorEnabled()) {
+    html += "</br>Сенсор освітлення: <b>";
+    html += lightSensor.getSensorModel();
+    html += "</b>";
+  }
   if (climate.isAnySensorAvailable()) {
     html += "</br>Сенсор клімату: <b>";
     html += climate.getSensorModel();
@@ -3205,9 +3176,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addCard("Використана памʼять", usedHeapSize, "кБ");
   html += addCard("WiFi сигнал", wifiSignal, "dBm");
   html += addCard(districts[settings.home_district], weather_leds[calculateOffset(settings.home_district)], "°C");
-  #if HA_ENABLED
+#if HA_ENABLED
   html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
-  #endif
+#endif
   html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
   if (climate.isTemperatureAvailable()) {
     html += addCard("Температура", climate.getTemperature(settings.temp_correction), "°C");
@@ -3218,8 +3189,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   if (climate.isPressureAvailable()) {
     html += addCard("Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
   }
-  if (bh1750Inited) {
-    html += addCard("Освітленість", lightInLuxes, "lx");
+  if (lightSensor.isLightSensorAvailable()) {
+    html += addCard("Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
   }
   html += "</div>";
   html += "<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>";
@@ -3230,16 +3201,16 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
   html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
-  if ((settings.legacy == 1 || settings.legacy == 2 ) && display.isDisplayEnabled()) {
+  if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
     html += addSelectBox("display_model", "Тип дисплею", settings.display_model, displayModelOptions, DISPLAY_MODEL_OPTIONS_COUNT);
     html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
-  #if HA_ENABLED
+#if HA_ENABLED
   html += addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
   html += addInputText("ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
   html += addInputText("ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
   html += addInputText("ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
-  #endif
+#endif
 
   html += addInputText("serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
   html += addInputText("websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
@@ -3279,7 +3250,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "Файл прошивки";
   html += "<select name='bin_name' class='form-control' id='sb16'>";
   const int count = settings.fw_update_channel ? testBinsCount : binsCount;
-    for (int i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++) {
     String filename = String(settings.fw_update_channel ? test_bin_list[i] : bin_list[i]);
     html += "<option value='" + filename + "'";
     if (filename == "latest.bin" || filename == "latest_beta.bin") html += " selected";
@@ -3708,20 +3679,16 @@ int getBrightnessFromSensor(int brightnessLevels[]) {
 int getCurrentBrightnessLevel() {
   int currentValue;
   int maxValue;
-#if BH1750_ENABLED
-  if (bh1750Inited) {
-    // BH1750 have higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
-    currentValue = round(lightInLuxes);
+  if (lightSensor.isLightSensorAvailable()) {
+    // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
+    currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
     maxValue = 500;
   } else {
-#endif
     // reads the input on analog pin (value between 0 and 4095)
-    currentValue = round(analogRead(settings.lightpin) * settings.light_sensor_factor);
+    currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
     // 2600 - very bright indoor environment.
     maxValue = 2600;
-#if BH1750_ENABLED
   }
-#endif
   int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
   // Serial.print("Brightness level: ");
   // Serial.println(level);
@@ -3746,7 +3713,7 @@ int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrigh
   if (settings.brightness_mode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
 
   // if auto brightnes deactivated, return regular brightnes
-  //default
+  // default
   return defaultBrightness;
 }
 
@@ -3757,8 +3724,7 @@ bool isItNightNow() {
   int currentHour = timeClient.hour();
 
   // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
-  if (settings.night_start > settings.day_start)
-    return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
+  if (settings.night_start > settings.day_start) return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
 
   // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
   return currentHour < settings.day_start && currentHour >= settings.night_start ? true : false;
@@ -3890,7 +3856,7 @@ void socketConnect() {
     userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;
     userInfoJson["display_model"] = display.getDisplayModel();
     if (display.isDisplayAvailable()) userInfoJson["display_height"] = settings.display_height;
-    userInfoJson["bh1750"] = bh1750Inited;
+    userInfoJson["bh1750"] = lightSensor.isLightSensorAvailable();
     userInfoJson["bme280"] = climate.isBME280Available();
     userInfoJson["bmp280"] = climate.isBMP280Available();
     userInfoJson["sht2x"] = climate.isSHT2XAvailable();
@@ -3962,7 +3928,6 @@ int calculateOffsetDistrict(int initial_position) {
   return position;
 }
 
-
 HsbColor processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
   HsbColor hue;
   int local_color;
@@ -3977,9 +3942,9 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
 
   // explosions has highest priority
   if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-      color_switch = settings.color_explosion;
-      hue = HsbColor(color_switch / 360.0f, 1.0, explosionBrightness * local_brightness_explosion);
-      return hue;
+    color_switch = settings.color_explosion;
+    hue = HsbColor(color_switch / 360.0f, 1.0, explosionBrightness * local_brightness_explosion);
+    return hue;
   }
 
   switch (led) {
@@ -3987,7 +3952,6 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
       if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
         hue = HsbColor(color_switch / 360.0f, 1.0, alertBrightness * local_brightness_alert_over);
-        
       } else {
         if (position == local_district) {
           color_switch = settings.color_home_district;
@@ -4039,7 +4003,7 @@ void checkMinuteOfSilence() {
     // play mos beep every 2 sec during min of silence
     if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       clockBeepInterval = asyncEngine.setInterval(playMinOfSilenceSound, 2000); // every 2 sec
-      }
+    }
     // turn off mos beep
     if (!minuteOfSilence && clockBeepInterval >= 0) {
       asyncEngine.clearInterval(clockBeepInterval);
@@ -4164,7 +4128,6 @@ void mapAlarms() {
       adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
     }
     adapted_explosion_timers[7] = max(explosions_time[25], explosions_time[7]);
-
   }
   float blinkBrightness = settings.current_brightness / 200.0f;
   float explosionBrightness = settings.current_brightness / 200.0f;
@@ -4231,7 +4194,7 @@ void mapRandom() {
 }
 
 int getCurrentMapMode() {
-  if (minuteOfSilence || uaAnthemPlaying) return 3; //ua flag
+  if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
 
   int currentMapMode = isMapOff ? 0 : settings.map_mode;
   int position = settings.home_district;
@@ -4341,48 +4304,39 @@ void checkCurrentTimeAndPlaySound() {
   }
 }
 
-void bh1750LightSensorCycle() {
-#if BH1750_ENABLED
-  if (!bh1750Inited) return;
-  lightInLuxes = bh1750.getLux() * settings.light_sensor_factor;
+void lightSensorCycle() {
+  lightSensor.read();
   updateHaLightSensors();
-  // Serial.print("BH1750!\tLight: ");
-  // Serial.print(lightInLuxes);
-  // Serial.println(" lx");
-#endif
 }
 
 void updateHaTempSensors() {
 #if HA_ENABLED
-  if (enableHA) {
-    float localTemp = climate.getTemperature(settings.temp_correction);
-    if (localTemp > -273) haLocalTemp->setValue(localTemp);
+  if (enableHA && climate.isTemperatureAvailable()) {
+    haLocalTemp->setValue(climate.getTemperature(settings.temp_correction));
   }
 #endif
 }
 
 void updateHaHumSensors() {
 #if HA_ENABLED
-  if (enableHA) {
-    float localHum = climate.getHumidity(settings.hum_correction);
-    if (localHum > 0) haLocalHum->setValue(localHum);
+  if (enableHA && climate.isHumidityAvailable()) {
+    haLocalHum->setValue(climate.getHumidity(settings.hum_correction));
   }
 #endif
 }
 
 void updateHaPressureSensors() {
 #if HA_ENABLED
-  if (enableHA) {
-    float localPressure = climate.getPressure(settings.pressure_correction);
-    if (localPressure > 0) haLocalPressure->setValue(localPressure);
+  if (enableHA && climate.isPressureAvailable()) {
+      haLocalPressure->setValue(climate.getPressure(settings.pressure_correction));
   }
 #endif
 }
 
 void updateHaLightSensors() {
 #if HA_ENABLED
-  if (enableHA && bh1750Inited) {
-    haLightLevel->setValue(lightInLuxes);
+  if (enableHA && lightSensor.isLightSensorAvailable()) {
+    haLightLevel->setValue(lightSensor.getLightLevel(settings.light_sensor_factor));
   }
 #endif
 }
@@ -4390,9 +4344,9 @@ void updateHaLightSensors() {
 void climateSensorCycle() {
   if (!climate.isAnySensorAvailable()) return;
   climate.read();
-  if(climate.isTemperatureAvailable()) updateHaTempSensors();
-  if(climate.isHumidityAvailable()) updateHaHumSensors();
-  if(climate.isPressureAvailable()) updateHaPressureSensors();
+  updateHaTempSensors();
+  updateHaHumSensors();
+  updateHaPressureSensors();
 }
 
 void setup() {
@@ -4405,7 +4359,7 @@ void setup() {
   InitAlertPin();
   initStrip();
   initDisplay();
-  initI2cSensors();
+  initSensors();
   initWifi();
   initTime();
 
@@ -4419,7 +4373,7 @@ void setup() {
   asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
-  asyncEngine.setInterval(bh1750LightSensorCycle, 2000);
+  asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
 }
@@ -4438,7 +4392,7 @@ void loop() {
 #endif
   client_websocket.poll();
   syncTime(2);
-  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2 ) {
+  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
     mapCycle();
   }
 }
