@@ -40,7 +40,7 @@ jobs:
       - name: Replace version and build type in firmware source
         run: |
           sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/src/firmware/firmware.ino
-          sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
+          sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/Definitions.h
       - name: Compile firmware
         uses: ./.github/workflows/firmware-compile
       - name: Copy bin to upload

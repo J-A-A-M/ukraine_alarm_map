@@ -1,27 +1,4 @@
-#define LITE 0
-
-#if LITE
-#define ARDUINO_OTA_ENABLED 0
-#define FW_UPDATE_ENABLED 0
-#define HA_ENABLED 0
-#define DISPLAY_ENABLED 0
-#define BME280_ENABLED 0
-#define SHT2X_ENABLED 0
-#define SHT3X_ENABLED 0
-#define BH1750_ENABLED 0
-#define BUZZER_ENABLED 0
-#else
-#define ARDUINO_OTA_ENABLED 0
-#define FW_UPDATE_ENABLED 1
-#define HA_ENABLED 1
-#define DISPLAY_ENABLED 1
-#define BME280_ENABLED 1
-#define SHT2X_ENABLED 1
-#define SHT3X_ENABLED 1
-#define BH1750_ENABLED 1
-#define BUZZER_ENABLED 1
-#endif
-
+#include "Definitions.h"
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
@@ -46,12 +23,7 @@
 #if BH1750_ENABLED
 #include <BH1750_WE.h>
 #endif
-#if BME280_ENABLED
-#include <forcedBMX280.h>
-#endif
-#if SHT2X_ENABLED || SHT3X_ENABLED
-#include <SHTSensor.h>
-#endif
+#include "JaamClimateSensor.h"
 #include <NTPtime.h>
 #if BUZZER_ENABLED
 #include <melody_player.h>
@@ -204,20 +176,12 @@ NTPtime           timeClient(2);
 DSTime            dst(3, 0, 7, 3, 10, 0, 7, 4); //https://en.wikipedia.org/wiki/Eastern_European_Summer_Time
 Async             asyncEngine = Async(20);
 #if DISPLAY_ENABLED
-JaamDisplay  display;
+JaamDisplay       display;
 #endif
 #if BH1750_ENABLED
 BH1750_WE         bh1750;
 #endif
-#if BME280_ENABLED
-ForcedBME280Float bme280;
-#endif
-#if SHT2X_ENABLED
-SHTSensor         htu2x(SHTSensor::SHT2X);
-#endif
-#if SHT3X_ENABLED
-SHTSensor         sht3x(SHTSensor::SHT3X);
-#endif
+JaamClimateSensor climate;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 const char uaAnthem[]             PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
@@ -583,13 +547,6 @@ int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 bool    bh1750Inited = false;
 float   lightInLuxes = -1;
-bool    bme280Inited = false;
-bool    bmp280Inited = false;
-bool    sht3xInited = false;
-bool    htu2xInited = false;
-float   localTemp = -273;
-float   localHum = -1;
-float   localPressure = -1;
 int     beepHour = -1;
 bool    displayInited = false;
 char    uptimeChar[25];
@@ -751,19 +708,18 @@ void initHaVars() {
   sprintf(haAlarmAtHomeID, "%s_alarm_at_home", chipID);
   haAlarmAtHome = new HABinarySensor(haAlarmAtHomeID);
 
-#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
-    if (bme280Inited || htu2xInited || sht3xInited) {
-      sprintf(haLocalTempID, "%s_local_temp", chipID);
-      haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
-
-      sprintf(haLocalHumID, "%s_local_hum", chipID);
-      haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
-    }
-    if (bme280Inited || bmp280Inited) {
-      sprintf(haLocalPressureID, "%s_local_pressure", chipID);
-      haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
-    }
-#endif
+  if (climate.isTemperatureAvailable()) {
+    sprintf(haLocalTempID, "%s_local_temp", chipID);
+    haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
+  }
+  if (climate.isHumidityAvailable()) {
+    sprintf(haLocalHumID, "%s_local_hum", chipID);
+    haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
+  }
+  if (climate.isPressureAvailable()) {
+    sprintf(haLocalPressureID, "%s_local_pressure", chipID);
+    haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
+  }
 #if BH1750_ENABLED
     if (bh1750Inited) {
       sprintf(haLightLevelID, "%s_light_level", chipID);
@@ -1577,31 +1533,30 @@ void initHA() {
       haAlarmAtHome->setDeviceClass("safety");
       haAlarmAtHome->setCurrentState(alarmNow);
 
-#if BME280_ENABLED || SH2X_ENABLED || SHT3X_ENABLED
-    if (bme280Inited || htu2xInited || sht3xInited) {
+    if (climate.isTemperatureAvailable()) {
       haLocalTemp->setIcon("mdi:thermometer");
       haLocalTemp->setName("Local Temperature");
       haLocalTemp->setUnitOfMeasurement("°C");
       haLocalTemp->setDeviceClass("temperature");
       haLocalTemp->setStateClass("measurement");
-      haLocalTemp->setCurrentValue(localTemp);
-
+      haLocalTemp->setCurrentValue(climate.getTemperature(settings.temp_correction));
+    }
+    if (climate.isHumidityAvailable()) {
       haLocalHum->setIcon("mdi:water-percent");
       haLocalHum->setName("Local Humidity");
       haLocalHum->setUnitOfMeasurement("%");
       haLocalHum->setDeviceClass("humidity");
       haLocalHum->setStateClass("measurement");
-      haLocalHum->setCurrentValue(localHum);
+      haLocalHum->setCurrentValue(climate.getHumidity(settings.hum_correction));
     }
-    if (bme280Inited || bmp280Inited) {
+    if (climate.isPressureAvailable()) {
       haLocalPressure->setIcon("mdi:gauge");
       haLocalPressure->setName("Local Pressure");
       haLocalPressure->setUnitOfMeasurement("mmHg");
       haLocalPressure->setDeviceClass("pressure");
       haLocalPressure->setStateClass("measurement");
-      haLocalPressure->setCurrentValue(localPressure);
+      haLocalPressure->setCurrentValue(climate.getPressure(settings.pressure_correction));
     }
-#endif
 #if BH1750_ENABLED
     if (bh1750Inited) {
       haLightLevel->setIcon("mdi:brightness-5");
@@ -1823,21 +1778,15 @@ void updateDisplayBrightness() {
 }
 
 void initI2cSensors() {
-#if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
-  Wire.begin();
-#endif
+// #if BH1750_ENABLED || BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
+//   Wire.begin();
+// #endif
 #if BH1750_ENABLED
   initBh1750LightSensor();
 #endif
-#if BME280_ENABLED
-  initBme280TempSensor();
-#endif
-#if SHT3X_ENABLED
-  initSht3xTempSensor();
-#endif
-#if SHT2X_ENABLED
-  initHtu2xTempSensor();
-#endif
+climate.begin();
+// try to get climate sensor data
+climateSensorCycle();
 
 initDisplayModes();
 }
@@ -1856,52 +1805,8 @@ void initBh1750LightSensor() {
 }
 #endif
 
-#if SHT3X_ENABLED
-void initSht3xTempSensor() {
-  sht3xInited = sht3x.init();
-  if (sht3xInited) {
-    Serial.println("Found SHT3x temp/hum sensor! Success.");
-  } else {
-    Serial.println("Not found SHT3x temp/hum sensor!");
-  }
-}
-#endif
-
-#if SHT2X_ENABLED
-void initHtu2xTempSensor() {
-  htu2xInited = htu2x.init();
-  if (htu2xInited) {
-    Serial.println("Found HTU2x temp/hum sensor! Success.");
-  } else {
-    Serial.println("Not found HTU2x temp/hum sensor!");
-  }
-}
-#endif
-
-#if BME280_ENABLED
-void initBme280TempSensor() {
-  bme280.begin();
-  switch (bme280.getChipID()) {
-    case CHIP_ID_BME280:
-      bme280Inited = true;
-      Serial.println("Found BME280 temp/hum/presure sensor! Success.");
-      break;
-    case CHIP_ID_BMP280:
-      bmp280Inited = true;
-      Serial.println("Found BMP280 temp/presure sensor! No Humidity available.");
-      break;
-    default:
-      bme280Inited = false;
-      bmp280Inited = false;
-      Serial.println("Not found BME280 or BMP280!");
-  }
-}
-#endif
-
 void initDisplayModes() {
-  if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
-    localTempHumSensorCycle();
-  } else {
+  if (!climate.isAnySensorAvailable()) {
     // remove climate sensor options from display optins list
     ignoreDisplayModeOptions[0] = 4;
     // change display mode to "changing" if it's not available
@@ -2623,32 +2528,32 @@ void showClimate() {
 
 void showLocalTemp() {
   char message[10];
-  sprintf(message, "%.1f%cC", localTemp, (char)128);
+  sprintf(message, "%.1f%cC", climate.getTemperature(settings.temp_correction), (char)128);
   displayMessage(message, "Температура");
 }
 
 void showLocalHum() {
   char message[10];
-  sprintf(message, "%.1f%%", localHum);
+  sprintf(message, "%.1f%%", climate.getHumidity(settings.hum_correction));
   displayMessage(message, "Вологість");
 }
 
 void showLocalPresure() {
   char message[12];
-  sprintf(message, "%.1fmmHg", localPressure);
+  sprintf(message, "%.1fmmHg", climate.getPressure(settings.pressure_correction));
   displayMessage(message, "Тиск");
 }
 
 void showLocalClimateInfo(int index) {
-  if (index == 0 && localTemp > -273) {
+  if (index == 0 && climate.isTemperatureAvailable()) {
     showLocalTemp();
     return;
   }
-  if (index <= 1 && localHum > 0) {
+  if (index <= 1 && climate.isHumidityAvailable()) {
     showLocalHum();
     return;
   }
-  if (index <= 2 && localPressure > 0) {
+  if (index <= 2 && climate.isPressureAvailable()) {
     showLocalPresure();
     return;
   }
@@ -2656,9 +2561,9 @@ void showLocalClimateInfo(int index) {
 
 int getClimateInfoSize() {
   int size = 0;
-  if (localTemp > -273) size++;
-  if (localHum > 0) size++;
-  if (localPressure > 0) size++;
+  if (climate.isTemperatureAvailable()) size++;
+  if (climate.isHumidityAvailable()) size++;
+  if (climate.isPressureAvailable()) size++;
   return size;
 }
 
@@ -3188,11 +3093,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += bh1750Inited ? "BH1750" : "Немає";
   html += "</b></br>";
   #endif
-  #if BME280_ENABLED || SHT2X_ENABLED || SHT3X_ENABLED
-  html += "Сенсор клімату: <b>";
-  html += bme280Inited ? "BME280" : bmp280Inited ? "BMP280" : sht3xInited ? "SHT3x" : htu2xInited ? "SHT2x" : "Немає";
-  html += "</b></br>";
-  #endif
+  if (climate.isAnySensorAvailable()) {
+    html += "Сенсор клімату: <b>";
+    html += climate.getSensorModel();
+    html += "</b></br>";
+  }
   html += "</div>";
   html += "</div>";
   html += "<div class='row justify-content-center'>";
@@ -3284,13 +3189,13 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSliderInt("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
 #endif
-  if (sht3xInited || bme280Inited || bmp280Inited || htu2xInited) {
+  if (climate.isTemperatureAvailable()) {
     html += addSliderFloat("temp_correction", "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
   }
-  if (sht3xInited || bme280Inited || htu2xInited) {
+  if (climate.isHumidityAvailable()) {
     html += addSliderFloat("hum_correction", "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
   }
-  if (bme280Inited || bmp280Inited) {
+  if (climate.isPressureAvailable()) {
     html += addSliderFloat("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
   }
   html += addSliderInt("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
@@ -3357,14 +3262,14 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
   #endif
   html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
-  if (bme280Inited || bmp280Inited || sht3xInited || htu2xInited) {
-    html += addCard("Температура", localTemp, "°C");
+  if (climate.isTemperatureAvailable()) {
+    html += addCard("Температура", climate.getTemperature(settings.temp_correction), "°C");
   }
-  if (bme280Inited || sht3xInited || htu2xInited) {
-    html += addCard("Вологість", localHum, "%");
+  if (climate.isHumidityAvailable()) {
+    html += addCard("Вологість", climate.getHumidity(settings.hum_correction), "%");
   }
-  if (bme280Inited || bmp280Inited) {
-    html += addCard("Тиск", localPressure, "mmHg", 2);
+  if (climate.isPressureAvailable()) {
+    html += addCard("Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
   }
   if (bh1750Inited) {
     html += addCard("Освітленість", lightInLuxes, "lx");
@@ -3659,9 +3564,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
   saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
-  saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, localTempHumSensorCycle) || saved;
-  saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, localTempHumSensorCycle) || saved;
-  saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, localTempHumSensorCycle) || saved;
+  saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, climateSensorCycle) || saved;
+  saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, climateSensorCycle) || saved;
+  saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, climateSensorCycle) || saved;
   saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
   saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
   saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
@@ -4043,10 +3948,10 @@ void socketConnect() {
     userInfoJson["display_model"] = displayInited ? displayModelOptions[settings.display_model] : "none";
     if (displayInited) userInfoJson["display_height"] = settings.display_height;
     userInfoJson["bh1750"] = bh1750Inited;
-    userInfoJson["bme280"] = bme280Inited;
-    userInfoJson["bmp280"] = bmp280Inited;
-    userInfoJson["sht2x"] = htu2xInited;
-    userInfoJson["sht3x"] = sht3xInited;
+    userInfoJson["bme280"] = climate.isBME280Available();
+    userInfoJson["bmp280"] = climate.isBMP280Available();
+    userInfoJson["sht2x"] = climate.isSHT2XAvailable();
+    userInfoJson["sht3x"] = climate.isSHT3XAvailable();
 #if HA_ENABLED
     userInfoJson["ha"] = enableHA;
 #else
@@ -4509,6 +4414,7 @@ void bh1750LightSensorCycle() {
 void updateHaTempSensors() {
 #if HA_ENABLED
   if (enableHA) {
+    float localTemp = climate.getTemperature(settings.temp_correction);
     if (localTemp > -273) haLocalTemp->setValue(localTemp);
   }
 #endif
@@ -4517,6 +4423,7 @@ void updateHaTempSensors() {
 void updateHaHumSensors() {
 #if HA_ENABLED
   if (enableHA) {
+    float localHum = climate.getHumidity(settings.hum_correction);
     if (localHum > 0) haLocalHum->setValue(localHum);
   }
 #endif
@@ -4525,6 +4432,7 @@ void updateHaHumSensors() {
 void updateHaPressureSensors() {
 #if HA_ENABLED
   if (enableHA) {
+    float localPressure = climate.getPressure(settings.pressure_correction);
     if (localPressure > 0) haLocalPressure->setValue(localPressure);
   }
 #endif
@@ -4538,65 +4446,12 @@ void updateHaLightSensors() {
 #endif
 }
 
-void localTempHumSensorCycle() {
-#if BME280_ENABLED
-  if (bme280Inited || bmp280Inited) {
-    bme280.takeForcedMeasurement();
-
-    localTemp = bme280.getTemperatureCelsiusAsFloat() + settings.temp_correction;
-    updateHaTempSensors();
-    localPressure = bme280.getPressureAsFloat() * 0.75006157584566 + settings.pressure_correction;  //mmHg
-    updateHaPressureSensors();
-
-    if (bme280Inited) {
-      localHum = bme280.getRelativeHumidityAsFloat() + settings.hum_correction;
-      updateHaHumSensors();
-    }
-
-    // Serial.print("BME280! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.print("%");
-    // Serial.print("\tPressure: ");
-    // Serial.print(localPressure);
-    // Serial.println("mmHg");
-    return;
-  }
-#endif
-#if SHT3X_ENABLED
-  if (sht3xInited && sht3x.readSample()) {
-    localTemp = sht3x.getTemperature() + settings.temp_correction;
-    updateHaTempSensors();
-    localHum = sht3x.getHumidity() + settings.hum_correction;
-    updateHaHumSensors();
-
-    // Serial.print("SHT3X! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.println("%");
-    return;
-  }
-#endif
-#if SHT2X_ENABLED
-  if (htu2xInited && htu2x.readSample()) {
-    localTemp = htu2x.getTemperature() + settings.temp_correction;
-    updateHaTempSensors();
-    localHum = htu2x.getHumidity() + settings.hum_correction;
-    updateHaHumSensors();
-
-    // Serial.print("HTU2X! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.println("%");
-    return;
-  }
-#endif
+void climateSensorCycle() {
+  if (!climate.isAnySensorAvailable()) return;
+  climate.read();
+  if(climate.isTemperatureAvailable()) updateHaTempSensors();
+  if(climate.isHumidityAvailable()) updateHaHumSensors();
+  if(climate.isPressureAvailable()) updateHaPressureSensors();
 }
 
 void setup() {
@@ -4624,7 +4479,7 @@ void setup() {
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);
   asyncEngine.setInterval(bh1750LightSensorCycle, 2000);
-  asyncEngine.setInterval(localTempHumSensorCycle, 5000);
+  asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
 }
 

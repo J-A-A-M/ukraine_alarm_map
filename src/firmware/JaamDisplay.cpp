@@ -378,8 +378,6 @@ void JaamDisplay::displayTextWithIcon(Icon icon, const char* text1, const char* 
     int textSize = 2;
     int gap = 32;
     bool hasText2 = strlen(text2) > 0;
-    Serial.printf("Text2: %s\n", text2);
-    Serial.printf("HasText2: %d\n", hasText2);
     char string1[20] = "";
     char string2[20] = "";
     char string3[20] = "";
