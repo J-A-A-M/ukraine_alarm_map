@@ -1196,6 +1196,8 @@ void rebootDevice(int time = 2000, bool async = false) {
   }
   showServiceMessage("Перезавантаження..", "", time);
   delay(time);
+  display.clearDisplay();
+  display.display();
   ESP.restart();
 }
 
