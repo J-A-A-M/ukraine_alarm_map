@@ -1,6 +1,10 @@
 
+#include "Definitions.h"
+#if DISPLAY_ENABLED
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_SH110X.h>
+#endif
+#include <WString.h>
 
 class JaamDisplay {
 
@@ -38,4 +42,7 @@ public:
                      int16_t *y1, uint16_t *w, uint16_t *h);
     size_t print(const char *str);
     size_t println(const char *str);
+    bool isDisplayAvailable();
+    bool isDisplayEnabled();
+    String getDisplayModel();
 };

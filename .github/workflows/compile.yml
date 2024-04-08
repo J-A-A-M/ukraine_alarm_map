@@ -94,7 +94,7 @@
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
-          - name: Run Black in the check mode (and ignore output)
+          - name: Run Black in the check mode
             uses: psf/black@stable
             with:
               options: "--check --verbose --line-length 120 --target-version py312 deploy"

@@ -951,7 +951,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
                <text x="75" y="787" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
                <circle cx="50" cy="830" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи</text>
             </g>
 
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">
