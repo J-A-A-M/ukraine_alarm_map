@@ -37,7 +37,7 @@
           - uses: actions/checkout@v4
           - name: Switch to LITE version
             run: |
-              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
+              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/Definitions.h
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
           - name: Copy bin file
