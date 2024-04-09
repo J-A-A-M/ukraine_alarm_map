@@ -2013,19 +2013,27 @@ String addCheckbox(const char* name, bool isChecked, const char* label, const ch
   return html;
 }
 
-String addSliderInt(const char* name, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
+template <typename V>
+
+String addSlider(const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   String html;
   html += label;
   html += ": <span id='sv";
   html += sliderIndex;
   html += "'>";
-  html += value;
+  if (std::is_same<V, float>::value) {
+    char stringValue[10];
+    sprintf(stringValue, "%.1f", value);
+    html += stringValue;
+  } else {
+    html += value;
+  }
   html += "</span>";
   html += unitOfMeasurement;
   if (needColorBox) {
     html += "</br><div class='color-box' id='cb";
     html += sliderIndex;
-    RGBColor valueColor = hue2rgb(value);
+    RGBColor valueColor = hue2rgb((int) value);
     html += "' style='background-color: rgb(";
     html += valueColor.r;
     html += ", ";
@@ -2054,40 +2062,6 @@ String addSliderInt(const char* name, const char* label, int value, int min, int
   } else {
     html += " oninput='window.updateVal(\"sv";
   }
-  html += sliderIndex;
-  html += "\", this.value);'";
-  if (disabled) html += " disabled";
-  html += "/>";
-  html += "</br>";
-  sliderIndex++;
-  return html;
-}
-
-String addSliderFloat(const char* name, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
-  String html;
-  html += label;
-  html += ": <span id='sv";
-  html += sliderIndex;
-  html += "'>";
-  char stringValue[10];
-  sprintf(stringValue, "%.1f", value);
-  html += stringValue;
-  html += "</span>";
-  html += unitOfMeasurement;
-  html += "<input type='range' name='";
-  html += name;
-  html += "' class='form-control-range' id='s";
-  html += sliderIndex;
-  html += "' min='";
-  html += min;
-  html += "' max='";
-  html += max;
-  html += "' step='";
-  html += step;
-  html += "' value='";
-  html += value;
-  html += "'";
-  html += " oninput='window.updateVal(\"sv";
   html += sliderIndex;
   html += "\", this.value);'";
   if (disabled) html += " disabled";
@@ -2448,21 +2422,21 @@ void handleRoot(AsyncWebServerRequest* request) {
   int nightModeType = getNightModeType();
   html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
   html += "</b></div>";
-  html += addSliderInt("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
-  html += addSliderInt("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
-  html += addSliderInt("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
-  html += addSliderInt("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
-  html += addSliderInt("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSlider("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
+  html += addSlider("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
+  html += addSlider("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
+  html += addSlider("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSlider("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   if (display.isDisplayAvailable()) {
     html += addCheckbox("dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
   html += addSelectBox("brightness_auto", "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
-  html += addSliderInt("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
-  html += addSliderInt("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
-  html += addSliderInt("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
-  html += addSliderFloat("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1, 10, 0.1);
+  html += addSlider("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
+  html += addSlider("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
+  html += addSlider("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
+  html += addSlider("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
+  html += addSlider("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
+  html += addSlider("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   html += "<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
@@ -2471,12 +2445,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<form action='/saveColors' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
-  html += addSliderInt("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  html += addSlider("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  html += addSlider("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  html += addSlider("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  html += addSlider("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  html += addSlider("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  html += addSlider("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -2488,24 +2462,24 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
   html += addSelectBox("map_mode", "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
-  html += addSliderInt("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
-  html += addSliderInt("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
+  html += addSlider("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
+  html += addSlider("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
     html += addSelectBox("display_mode", "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     html += addCheckbox("invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    html += addSliderInt("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    html += addSlider("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
   if (climate.isTemperatureAvailable()) {
-    html += addSliderFloat("temp_correction", "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
+    html += addSlider("temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
   }
   if (climate.isHumidityAvailable()) {
-    html += addSliderFloat("hum_correction", "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
+    html += addSlider("hum_correction", "Корегування вологості", settings.hum_correction, -20.0f, 20.0f, 0.5f, "%");
   }
   if (climate.isPressureAvailable()) {
-    html += addSliderFloat("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
+    html += addSlider("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50.0f, 50.0f, 0.5f, " мм.рт.ст.");
   }
-  html += addSliderInt("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
-  html += addSliderInt("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
+  html += addSlider("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
+  html += addSlider("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
   html += addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
   html += addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   html += addSelectBox("home_district", "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
@@ -2514,16 +2488,16 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += addCheckbox("home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
   html += addSelectBox("alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
-  html += addSliderInt("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  html += addSlider("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
   html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
     html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }
   html += addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
-  html += addSliderInt("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
+  html += addSlider("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -2683,7 +2657,7 @@ bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bo
     return true;
   }
   return false;
-};
+}
 
 void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
   preferences.begin("storage", false);
@@ -2714,7 +2688,7 @@ bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey
     return true;
   }
   return false;
-};
+}
 
 bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, const char* settingsKey, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
   int paramValue = param ? 1 : 0;
@@ -2734,7 +2708,7 @@ bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, con
     return true;
   }
   return false;
-};
+}
 
 bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey, bool (*saveFun)(const char*) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
@@ -2756,7 +2730,8 @@ bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey
     return true;
   }
   return false;
-};
+}
+
 #if FW_UPDATE_ENABLED
 void handleUpdate(AsyncWebServerRequest* request) {
   Serial.println("do_update triggered");
