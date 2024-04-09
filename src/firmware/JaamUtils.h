@@ -410,3 +410,33 @@ void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], in
   Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
 }
 #endif
+
+float mapf(float value, float istart, float istop, float ostart, float ostop) {
+  return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
+}
+
+void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
+  int minBrightness = min(dayBrightness, nightBrightness);
+  int maxBrightness = max(dayBrightness, nightBrightness);
+  float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
+  Serial.printf("%s brightness levels: [", logTitle);
+  for (int i = 0; i < BR_LEVELS_COUNT; i++) {
+    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
+    Serial.print(brightnessLevels[i]);
+    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
+  }
+  Serial.println("]");
+}
+
+void fillUptime(int uptimeValue, char* uptimeChar) {
+  unsigned long seconds = uptimeValue;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  seconds %= 60;
+  minutes %= 60;
+  if (hours > 0) {
+    sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
+  } else {
+    sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
+  }
+}

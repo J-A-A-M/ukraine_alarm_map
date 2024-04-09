@@ -71,7 +71,7 @@ char* melodyNames[MELODIES_COUNT] PROGMEM = {
   "Сирена 2"
 };
 #endif
-
+#define BR_LEVELS_COUNT 20
 #define MAX_BINS_LIST_SIZE 10
 
 const uint8_t legacy_flag_leds[26] PROGMEM = {
