@@ -65,4 +65,4 @@ runs:
         cli-compile-flags: |
           - --export-binaries
           - --warnings=default
-          - --build-properties build.partitions=min_spiffs,upload.maximum_size=1966080
+          - --build-property "build.partitions=min_spiffs,upload.maximum_size=1966080"
