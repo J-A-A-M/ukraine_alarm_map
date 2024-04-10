@@ -65,4 +65,4 @@ runs:
         cli-compile-flags: |
           - --export-binaries
           - --warnings=default
-          - --build-property "build.partitions=min_spiffs,upload.maximum_size=1966080"
+          - --board-options PartitionScheme=min_spiffs
