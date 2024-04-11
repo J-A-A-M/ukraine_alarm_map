@@ -1,5 +1,4 @@
 #include "JaamLightSensor.h"
-#include <pins_arduino.h>
 #include <Arduino.h>
 
 #if BH1750_ENABLED

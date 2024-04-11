@@ -107,14 +107,6 @@ static std::map<int, int> getHaOptions(char* result, char* options[], int option
 
 bool haEnabled = false;
 
-
-// bool isValueInArray(int value, int* array, int arraySize) {
-  // for (int i = 0; i < arraySize; i++) {
-    // if (array[i] == value) return true;
-  // }
-  // return false;
-// }
-
 JaamHomeAssistant::JaamHomeAssistant() {
 }
 
