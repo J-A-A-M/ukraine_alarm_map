@@ -1,9 +1,12 @@
 #include "Definitions.h"
+#include "JaamUtils.h"
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <async.h>
+#include <ArduinoJson.h>
+#include <NTPtime.h>
 #if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
 #endif
@@ -15,12 +18,9 @@
 #if FW_UPDATE_ENABLED
 #include <HTTPUpdate.h>
 #endif
-#include <map>
-#include <ArduinoJson.h>
 #include <ArduinoWebsockets.h>
 #include "JaamLightSensor.h"
 #include "JaamClimateSensor.h"
-#include <NTPtime.h>
 #if BUZZER_ENABLED
 #include <melody_player.h>
 #include <melody_factory.h>
@@ -148,14 +148,6 @@ struct Settings {
 
 Settings settings;
 
-struct Firmware {
-  int major = 0;
-  int minor = 0;
-  int patch = 0;
-  int betaBuild = 0;
-  bool isBeta = false;
-};
-
 Firmware currentFirmware;
 #if FW_UPDATE_ENABLED
 Firmware latestFirmware;
@@ -176,76 +168,6 @@ JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
-const char uaAnthem[]             PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
-const char OiULuzi[]              PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a#4,2d.,4e,2f,2e,2d.";
-const char CossacksMarch[]        PROGMEM = "CossacksMarch:d=32,o=5,b=200:2d.,8a#4,8d,2f.,8d,8f,4d,8a#4,8d,4f,8d,8f,4d,8a#4,8d,4f,8d,8f,1d.";
-const char harryPother[]          PROGMEM = "HarryPotter:d=8,o=6,b=100:b5,e.,16g,f#,4e,b,4a.,4f#.,e.,16g,f#,4d,f,2b5";
-const char siren[]                PROGMEM = "Siren:d=32,o=6,b=225:16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#,16c#,d,d#,4e.,d#,d,8c#";
-const char communicator[]         PROGMEM = "Communicator:d=32,o=7,b=180:d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f,2p,d#,e,g,d#,g,d#,f#,e,f";
-const char starWars[]             PROGMEM = "StarWars:d=4,o=5,b=180:8f,8f,8f,2a#.,2f.6,8d#6,8d6,8c6,2a#.6,f.6,8d#6,8d6,8c6,2a#.6,f.6,8d#6,8d6,8d#6,2c6";
-const char imperialMarch[]        PROGMEM = "ImperialMarch:d=4,o=5,b=112:8d.,16p,8d.,16p,8d.,16p,8a#4,16p,16f,8d.,16p,8a#4,16p,16f,d.,8p,8a.,16p,8a.,16p,8a.,16p,8a#,16p,16f,8c#.,16p,8a#4,16p,16f,d.";
-const char starTrack[]            PROGMEM = "StarTrek:d=4,o=5,b=63:32p,8f.,16a#,d#.6,8d6,16a#.,16g.,16c.6,f6";
-const char indianaJones[]         PROGMEM = "IndianaJones:d=4,o=5,b=250:e,8p,8f,8g,8p,2c.6,8p.,d,8p,8e,1f,p.,g,8p,8a,8b,8p,2f.6,p,a,8p,8b,2c6,2d6,2e6";
-const char backToTheFuture[]      PROGMEM = "BackToTheFuture:d=4,o=6,b=180:2c,8b5,8a5,b5,a5,g5,1a5,p,d,2c,8b5,8a5,b5,a5,g5,1a5";
-const char kissIWasMade[]         PROGMEM = "KissIWasMade:d=4,o=5,b=125:c6,d6,8d#6,8p,8f6,8g6,8p,8g6,f6,d#6,d6,c6,d6,8d#6,8p,8f6,8g6,8p,8g6,f.6";
-const char theLittleMermaid[]     PROGMEM = "TheLittleMermaid:d=32,o=7,b=100:16c5,16f5,16a5,16c6,16p,16c6,16p,16c6,8a#5,8d6,8c6,8a5,16f4,16a4,16c5,16f5,16p,16f5,16p,16f5,8e5,8g5,8f5";
-const char nokiaTun[]             PROGMEM = "NokiaTun:d=4,o=5,b=225:8e6,8d6,f#,g#,8c#6,8b,d,e,8b,8a,c#,e,2a";
-const char packman[]              PROGMEM = "Pacman:d=32,o=5,b=112:32p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,c6,p,c7,p,g6,p,e6,p,c7,g6,16p,16e6,16p,b,p,b6,p,f#6,p,d#6,p,b6,f#6,16p,16d#6,16p,d#6,e6,f6,p,f6,f#6,g6,p,g6,g#6,a6,p,b.6";
-const char shchedryk[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g#,a,4f#,4a,g#,a,4f#";
-const char xmen[]                 PROGMEM = "XMen:d=4,o=6,b=125:16d#4,16g4,16c5,16d#5,4d5,8c5,8g4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8g#4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8d#5,2p,8d5,8c5,8g5,16g5,32a5,32b5,4c6";
-const char avengers[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4p.,16e4,16p,8e4,16p,16b4,4a4,4p,4g4,4f#4,16d4,16e4,8p,16e4,16f#4,8p,16d5,16e5,8p,16e5,16f#5,8p,4e4";
-const char siren2[]               PROGMEM = "Siren2:d=4,o=5,b=200:a.,8g#,a.,8g#,a.,8g#";
-
-
-const char clockBeep[]            PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
-const char mosBeep[]              PROGMEM = "MosBeep:d=4,o=4,b=250:g";
-const char singleClickSound[]     PROGMEM = "SingleClick:d=8,o=4,b=300:f";
-const char longClickSound[]       PROGMEM = "LongClick:d=8,o=4,b=300:4f";
-
-#define MELODIES_COUNT 19
-const char* melodies[MELODIES_COUNT] PROGMEM = {
-  uaAnthem,
-  OiULuzi,
-  CossacksMarch,
-  harryPother,
-  siren,
-  communicator,
-  starWars,
-  imperialMarch,
-  starTrack,
-  indianaJones,
-  backToTheFuture,
-  kissIWasMade,
-  theLittleMermaid,
-  nokiaTun,
-  packman,
-  shchedryk,
-  xmen,
-  avengers,
-  siren2
-};
-
-char* melodyNames[MELODIES_COUNT] PROGMEM = {
-  "Гімн України",
-  "Ой у лузі",
-  "Козацький марш",
-  "Гаррі Поттер",
-  "Сирена",
-  "Комунікатор",
-  "Зоряні війни",
-  "Імперський марш",
-  "Зоряний шлях",
-  "Індіана Джонс",
-  "Назад у майбутнє",
-  "Kiss - I Was Made",
-  "Русалонька",
-  "Nokia tune",
-  "Пакмен",
-  "Щедрик",
-  "Люди Х",
-  "Месники",
-  "Сирена 2"
-};
 #endif
 
 enum SoundType {
@@ -268,12 +190,6 @@ struct ServiceMessage {
   int expired;
 };
 
-struct RGBColor {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-};
-
 ServiceMessage serviceMessage;
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
@@ -283,237 +199,11 @@ long      alarm_time[26];
 float     weather_leds[26];
 long      explosions_time[26];
 uint8_t   flag_leds[26];
-// int     flag_leds[26] = {
-//   60,60,60,180,180,60,60,60,60,60,60,
-//   60,180,180,180,180,180,180,
-//   180,180,180,60,60,60,60,180
-// };
-const uint8_t legacy_flag_leds[26] PROGMEM = {
-  60, 60, 60, 180, 180, 180, 180, 180, 180,
-  180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
-  180, 180, 60, 60, 60, 60, 180
-};
-
-const uint8_t d0[] PROGMEM = { 0, 1, 3 };
-const uint8_t d1[] PROGMEM = { 1, 0, 2, 3, 24 };
-const uint8_t d2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
-const uint8_t d3[] PROGMEM = { 3, 0, 1, 2, 4 };
-const uint8_t d4[] PROGMEM = { 4, 2, 3, 5 };
-const uint8_t d5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
-const uint8_t d6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
-const uint8_t d7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
-const uint8_t d8[] PROGMEM = { 8, 7, 9, 19, 20 };
-const uint8_t d9[] PROGMEM = { 9, 8, 10, 19 };
-const uint8_t d10[] PROGMEM = { 10, 9, 12, 18, 19 };
-const uint8_t d11[] PROGMEM = { 11, 10, 12 };
-const uint8_t d12[] PROGMEM = { 12, 10, 13, 18 };
-const uint8_t d13[] PROGMEM = { 13, 12, 14, 18 };
-const uint8_t d14[] PROGMEM = { 14, 13, 17, 18 };
-const uint8_t d15[] PROGMEM = { 15, 14 };
-const uint8_t d16[] PROGMEM = { 16, 17, 20, 21, 22 };
-const uint8_t d17[] PROGMEM = { 17, 14, 16, 18, 21 };
-const uint8_t d18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
-const uint8_t d19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
-const uint8_t d20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
-const uint8_t d21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
-const uint8_t d22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
-const uint8_t d23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
-const uint8_t d24[] PROGMEM = { 24, 1, 2, 22, 23 };
-const uint8_t d25[] PROGMEM = { 25, 7 };
-
-
-const uint8_t counters[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
-
-#define DISTRICTS_COUNT 26
-
-char* districts[DISTRICTS_COUNT] = {
-  "Закарпатська обл.",
-  "Ів.-Франківська обл.",
-  "Тернопільська обл.",
-  "Львівська обл.",
-  "Волинська обл.",
-  "Рівненська обл.",
-  "Житомирська обл.",
-  "Київська обл.",
-  "Чернігівська обл.",
-  "Сумська обл.",
-  "Харківська обл.",
-  "Луганська обл.",
-  "Донецька обл.",
-  "Запорізька обл.",
-  "Херсонська обл.",
-  "АР Крим",
-  "Одеська обл.",
-  "Миколаївська обл.",
-  "Дніпропетровська обл.",
-  "Полтавська обл.",
-  "Черкаська обл.",
-  "Кіровоградська обл.",
-  "Вінницька обл.",
-  "Хмельницька обл.",
-  "Чернівецька обл.",
-  "Київ"
-};
-
-char* districtsAlphabetical[DISTRICTS_COUNT] = {
-  "АР Крим",
-  "Вінницька область",
-  "Волинська область",
-  "Дніпропетровська область",
-  "Донецька область",
-  "Житомирська область",
-  "Закарпатська область",
-  "Запорізька область",
-  "Івано-Франківська область",
-  "Київська область",
-  "Київ",
-  "Кіровоградська область",
-  "Луганська область",
-  "Львівська область",
-  "Миколаївська область",
-  "Одеська область",
-  "Полтавська область",
-  "Рівненська область",
-  "Сумська область",
-  "Тернопільська область",
-  "Харківська область",
-  "Херсонська область",
-  "Хмельницька область",
-  "Черкаська область",
-  "Чернівецька область",
-  "Чернігівська область"
-};
-
-int alphabetDistrictToNum(int alphabet) {
-  switch (alphabet) {
-    case 0:
-      return 15;
-    case 1:
-      return 22;
-    case 2:
-      return 4;
-    case 3:
-      return 18;
-    case 4:
-      return 12;
-    case 5:
-      return 6;
-    case 6:
-      return 0;
-    case 7:
-      return 13;
-    case 8:
-      return 1;
-    case 9:
-      return 7;
-    case 10:
-      return 25;
-    case 11:
-      return 21;
-    case 12:
-      return 11;
-    case 13:
-      return 3;
-    case 14:
-      return 17;
-    case 15:
-      return 16;
-    case 16:
-      return 19;
-    case 17:
-      return 5;
-    case 18:
-      return 9;
-    case 19:
-      return 2;
-    case 20:
-      return 10;
-    case 21:
-      return 14;
-    case 22:
-      return 23;
-    case 23:
-      return 20;
-    case 24:
-      return 24;
-    case 25:
-      return 8;
-    default:
-      // return Київ by default
-      return 25;
-  }
-}
-
-int numDistrictToAlphabet(int num) {
-  switch (num) {
-    case 0:
-      return 6;
-    case 1:
-      return 8;
-    case 2:
-      return 19;
-    case 3:
-      return 13;
-    case 4:
-      return 2;
-    case 5:
-      return 17;
-    case 6:
-      return 5;
-    case 7:
-      return 9;
-    case 8:
-      return 25;
-    case 9:
-      return 18;
-    case 10:
-      return 20;
-    case 11:
-      return 12;
-    case 12:
-      return 4;
-    case 13:
-      return 7;
-    case 14:
-      return 21;
-    case 15:
-      return 0;
-    case 16:
-      return 15;
-    case 17:
-      return 14;
-    case 18:
-      return 3;
-    case 19:
-      return 16;
-    case 20:
-      return 23;
-    case 21:
-      return 11;
-    case 22:
-      return 1;
-    case 23:
-      return 22;
-    case 24:
-      return 24;
-    case 25:
-      return 10;
-    default:
-      // return Київ by default
-      return 10;
-  }
-}
-
-const uint8_t* neighboring_districts[DISTRICTS_COUNT] PROGMEM = {
-  d0, d1, d2, d3, d4, d5, d6, d7, d8, d9,
-  d10, d11, d12, d13, d14, d15, d16, d17, d18, d19,
-  d20, d21, d22, d23, d24, d25
-};
 
 #if HA_ENABLED
 bool    enableHA;
 #endif
-bool    wifiReconnect = false;
+bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
@@ -544,7 +234,6 @@ float   usedHeapSize;
 float   freeHeapSize;
 int     wifiSignal;
 
-#define BR_LEVELS_COUNT 20
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
 
@@ -559,7 +248,6 @@ bool isPressing = false;
 bool isLongDetected = false;
 #define NIGHT_BRIGHTNESS_LEVEL 2
 
-#define MAX_BINS_LIST_SIZE 10
 int binsCount = 0;
 char* bin_list[MAX_BINS_LIST_SIZE];
 
@@ -626,339 +314,37 @@ HASensorNumber*  haHomeTemp;
 HASwitch*        haNightMode;
 #endif
 
+std::map<int, int> displayModeHAMap;
+int ignoreDisplayModeOptions[DISPLAY_MODE_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1};
+int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1};
+int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
+
+void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
+  if (!display.isDisplayAvailable()) return;
+  serviceMessage.title = title;
+  serviceMessage.message = message;
+  serviceMessage.textSize = display.getTextSizeToFitDisplay(message);
+  serviceMessage.endTime = millis() + duration;
+  serviceMessage.expired = false;
+  displayCycle();
+}
+
+void rebootDevice(int time = 2000, bool async = false) {
+  if (async) {
+    needRebootWithDelay = time;
+    return;
+  }
+  showServiceMessage("Перезавантаження..", "", time);
+  delay(time);
+  display.clearDisplay();
+  display.display();
+  ESP.restart();
+}
+
 void initChipID() {
   uint64_t chipid = ESP.getEfuseMac();
   sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
   Serial.printf("ChipID Inited: '%s'\n", chipID);
-}
-
-void initHaVars() {
-#if HA_ENABLED
-  sprintf(haUptimeID, "%s_uptime", chipID);
-  haUptime = new HASensorNumber(haUptimeID);
-
-  sprintf(haWifiSignalID, "%s_wifi_signal", chipID);
-  haWifiSignal = new HASensorNumber(haWifiSignalID);
-
-  sprintf(haFreeMemoryID, "%s_free_memory", chipID);
-  haFreeMemory = new HASensorNumber(haFreeMemoryID);
-
-  sprintf(haUsedMemoryID, "%s_used_memory", chipID);
-  haUsedMemory = new HASensorNumber(haUsedMemoryID);
-
-  sprintf(haCpuTempID, "%s_cpu_temp", chipID);
-  haCpuTemp = new HASensorNumber(haCpuTempID, HASensorNumber::PrecisionP2);
-
-  sprintf(haBrightnessID, "%s_brightness", chipID);
-  haBrightness = new HANumber(haBrightnessID);
-
-  sprintf(haMapModeID, "%s_map_mode", chipID);
-  haMapMode = new HASelect(haMapModeID);
-  if (display.isDisplayAvailable()) {
-    sprintf(haDisplayModeID, "%s_display_mode", chipID);
-    haDisplayMode = new HASelect(haDisplayModeID);
-
-    sprintf(haToggleDisplayModeID, "%s_toggle_display_mode", chipID);
-    haToggleDisplayMode = new HAButton(haToggleDisplayModeID);
-
-    sprintf(haShowHomeAlarmTimeID, "%s_show_home_alarm_time", chipID);
-    haShowHomeAlarmTime = new HASwitch(haShowHomeAlarmTimeID);
-  }
-  sprintf(haBrightnessAutoID, "%s_brightness_auto", chipID);
-  haAlarmsAuto = new HASelect(haBrightnessAutoID);
-
-  sprintf(haAlarmsAutoID, "%s_alarms_auto", chipID);
-  haBrightnessAuto = new HASelect(haAlarmsAutoID);
-
-  sprintf(haMapModeCurrentID, "%s_map_mode_current", chipID);
-  haMapModeCurrent = new HASensor(haMapModeCurrentID);
-
-  sprintf(haHomeDistrictID, "%s_home_district", chipID);
-  haHomeDistrict = new HASensor(haHomeDistrictID);
-
-  sprintf(haMapApiConnectID, "%s_map_api_connect", chipID);
-  haMapApiConnect = new HABinarySensor(haMapApiConnectID);
-
-  sprintf(haRebootID, "%s_reboot", chipID);
-  haReboot = new HAButton(haRebootID);
-
-  sprintf(haToggleMapModeID, "%s_toggle_map_mode", chipID);
-  haToggleMapMode = new HAButton(haToggleMapModeID);
-
-  sprintf(haLightID, "%s_light", chipID);
-  haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
-
-  sprintf(haAlarmAtHomeID, "%s_alarm_at_home", chipID);
-  haAlarmAtHome = new HABinarySensor(haAlarmAtHomeID);
-
-  if (climate.isTemperatureAvailable()) {
-    sprintf(haLocalTempID, "%s_local_temp", chipID);
-    haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
-  }
-  if (climate.isHumidityAvailable()) {
-    sprintf(haLocalHumID, "%s_local_hum", chipID);
-    haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
-  }
-  if (climate.isPressureAvailable()) {
-    sprintf(haLocalPressureID, "%s_local_pressure", chipID);
-    haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
-  }
-  if (lightSensor.isLightSensorAvailable()) {
-    sprintf(haLightLevelID, "%s_light_level", chipID);
-    haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
-  }
-  sprintf(haHomeTempID, "%s_home_temp", chipID);
-  haHomeTemp = new HASensorNumber(haHomeTempID, HASensorNumber::PrecisionP2);
-
-  sprintf(haNightModeID, "%s_night_mode", chipID);
-  haNightMode = new HASwitch(haNightModeID);
-
-#endif
-}
-
-#define MAP_MODES_COUNT 6
-char* mapModes[MAP_MODES_COUNT] = {
-  "Вимкнено",
-  "Тривога",
-  "Погода",
-  "Прапор",
-  "Випадкові кольори",
-  "Лампа"
-};
-
-#define DISPLAY_MODE_OPTIONS_MAX 6
-int ignoreDisplayModeOptions[DISPLAY_MODE_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1};
-std::map<int, int> displayModeHAMap;
-char* displayModes[DISPLAY_MODE_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Годинник",
-  "Погода",
-  "Технічна інформація",
-  "Мікроклімат",
-  "Перемикання"
-};
-
-#define AUTO_ALARM_MODES_COUNT 3
-char* autoAlarms[AUTO_ALARM_MODES_COUNT] = {
-  "Вимкнено",
-  "Домашній та суміжні",
-  "Лише домашній"
-};
-
-#define SINGLE_CLICK_OPTIONS_MAX 7
-int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1};
-char* singleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Перемикання режимів мапи",
-  "Перемикання режимів дисплея",
-  "Увімк./Вимк. мапу",
-  "Увімк./Вимк. дисплей",
-  "Увімк./Вимк. мапу та дисплей",
-  "Увімк./Вимк. нічний режим"
-};
-
-#define LONG_CLICK_OPTIONS_MAX 8
-int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
-char* longClickOptions[LONG_CLICK_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Перемикання режимів мапи",
-  "Перемикання режимів дисплея",
-  "Увімк./Вимк. мапу",
-  "Увімк./Вимк. дисплей",
-  "Увімк./Вимк. мапу та дисплей",
-  "Увімк./Вимк. нічний режим",
-  "Перезавантаження пристрою"
-};
-
-#if FW_UPDATE_ENABLED
-#define FW_UPDATE_CHANNELS_COUNT 2
-char* fwUpdateChannels[FW_UPDATE_CHANNELS_COUNT] = {
-  "Production",
-  "Beta"
-};
-#endif
-
-#define AUTO_BRIGHTNESS_OPTIONS_COUNT 3
-char* autoBrightnessOptions[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "День/Ніч",
-  "Сенсор освітлення"
-};
-
-#define KYIV_LED_MODE_COUNT 4
-char* kyivLedModeOptions[KYIV_LED_MODE_COUNT] = {
-  "Київська область",
-  "Київ",
-  "Київська область + Київ (2 діода)",
-  "Київська область + Київ (1 діод)"
-};
-
-#define ALERT_NOTIFY_OPTIONS_COUNT 3
-char* alertNotifyOptions[ALERT_NOTIFY_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "Колір",
-  "Колір + зміна яскравості"
-};
-
-#define DISPLAY_MODEL_OPTIONS_COUNT 4
-char* displayModelOptions[DISPLAY_MODEL_OPTIONS_COUNT] = {
-  "Без дисплея",
-  "SSD1306",
-  "SH1106G",
-  "SH1107"
-};
-
-#define DISPLAY_HEIGHT_OPTIONS_COUNT 2
-char* displayHeightOptions[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
-  "128x32",
-  "128x64"
-};
-
-#define LEGACY_OPTIONS_COUNT 3
-char* legacyOptions[LEGACY_OPTIONS_COUNT] = {
-  "Плата JAAM",
-  "Початок на Закарпатті",
-  "Початок на Одещині"
-};
-
-//--Init start
-void initLegacy() {
-  switch (settings.legacy) {
-  case 0:
-    Serial.println("Mode: jaam");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
-    }
-
-    pinMode(settings.powerpin, OUTPUT);
-    pinMode(settings.wifipin, OUTPUT);
-    pinMode(settings.datapin, OUTPUT);
-    pinMode(settings.hapin, OUTPUT);
-    //pinMode(settings.reservedpin, OUTPUT);
-
-    servicePin(settings.powerpin, HIGH, false);
-
-    settings.kyiv_district_mode = 3;
-    settings.pixelpin = 13;
-    settings.buttonpin = 35;
-    settings.display_model = 1;
-    settings.display_height = 64;
-    break;
-  case 1:
-    Serial.println("Mode: transcarpathia");
-    offset = 0;
-    for (int i = 0; i < 26; i++) {
-      flag_leds[i] = legacy_flag_leds[i];
-    }
-    settings.service_diodes_mode = 0;
-    break;
-  case 2:
-    Serial.println("Mode: odesa");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i)] = legacy_flag_leds[i];
-    }
-    break;
-  }
-  pinMode(settings.buttonpin, INPUT_PULLUP);
-  Serial.printf("Offset: %d\n", offset);
-}
-
-void initBuzzer() {
-#if BUZZER_ENABLED
-  player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
-  if (needToPlaySound(START_UP)) {
-    playMelody(START_UP);
-  }
-#endif
-}
-
-void playMelody(const char* melodyRtttl) {
-#if BUZZER_ENABLED
-  Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
-  player->playAsync(melody);
-#endif
-}
-
-void playMelody(SoundType type) {
-#if BUZZER_ENABLED
-  switch (type) {
-  case START_UP:
-    playMelody(melodies[settings.melody_on_startup]);
-    break;
-  case MIN_OF_SILINCE:
-    playMelody(mosBeep);
-    break;
-  case MIN_OF_SILINCE_END:
-    playMelody(uaAnthem);
-    break;
-  case ALERT_ON:
-    playMelody(melodies[settings.melody_on_alert]);
-    break;
-  case ALERT_OFF:
-    playMelody(melodies[settings.melody_on_alert_end]);
-    break;
-  case EXPLOSIONS:
-    playMelody(melodies[settings.melody_on_explosion]);
-    break;
-  case REGULAR:
-    playMelody(clockBeep);
-    break;
-  case SINGLE_CLICK:
-    playMelody(singleClickSound);
-    break;
-  case LONG_CLICK:
-    playMelody(longClickSound);
-    break;
-  }
-#endif
-}
-
-bool needToPlaySound(SoundType type) {
-#if BUZZER_ENABLED
-  // ignore mute on alert
-  if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
-
-  // disable sounds on night mode
-  if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
-
-  switch (type) {
-  case START_UP:
-    return settings.sound_on_startup;
-  case MIN_OF_SILINCE:
-    return settings.sound_on_min_of_sl;
-  case MIN_OF_SILINCE_END:
-    return settings.sound_on_min_of_sl;
-  case ALERT_ON:
-    return settings.sound_on_alert;
-  case ALERT_OFF:
-    return settings.sound_on_alert_end;
-  case EXPLOSIONS:
-    return settings.sound_on_explosion;
-  case REGULAR:
-    return settings.sound_on_every_hour;
-  case SINGLE_CLICK:
-  case LONG_CLICK:
-    return settings.sound_on_button_click;
-  }
-#endif
-  return false;
-}
-
-int getNightModeType() {
-  // Night Mode activated by button
-  if (nightMode) return 1;
-  // Night mode activated by time
-  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
-  // Night mode activated by sensor
-  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
-  // Night mode is off
-  return 0;
-}
-
-void servicePin(int pin, uint8_t status, bool force) {
-  if (force || (!settings.legacy && settings.service_diodes_mode)) {
-    digitalWrite(pin, status);
-  }
 }
 
 void initSettings() {
@@ -1059,25 +445,54 @@ void initSettings() {
   distributeBrightnessLevels();
 }
 
-void reportSettingsChange(const char* settingKey, int newValue) {
-  char settingsValue[10];
-  sprintf(settingsValue, "%d", newValue);
-  reportSettingsChange(settingKey, settingsValue);
+void initLegacy() {
+  switch (settings.legacy) {
+  case 0:
+    Serial.println("Mode: jaam");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
+    }
+
+    pinMode(settings.powerpin, OUTPUT);
+    pinMode(settings.wifipin, OUTPUT);
+    pinMode(settings.datapin, OUTPUT);
+    pinMode(settings.hapin, OUTPUT);
+    //pinMode(settings.reservedpin, OUTPUT);
+
+    servicePin(settings.powerpin, HIGH, false);
+
+    settings.kyiv_district_mode = 3;
+    settings.pixelpin = 13;
+    settings.buttonpin = 35;
+    settings.display_model = 1;
+    settings.display_height = 64;
+    break;
+  case 1:
+    Serial.println("Mode: transcarpathia");
+    offset = 0;
+    for (int i = 0; i < 26; i++) {
+      flag_leds[i] = LEGACY_FLAG_LEDS[i];
+    }
+    settings.service_diodes_mode = 0;
+    break;
+  case 2:
+    Serial.println("Mode: odesa");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
+    }
+    break;
+  }
+  pinMode(settings.buttonpin, INPUT_PULLUP);
+  Serial.printf("Offset: %d\n", offset);
 }
 
-void reportSettingsChange(const char* settingKey, float newValue) {
-  char settingsValue[10];
-  sprintf(settingsValue, "%.1f", newValue);
-  reportSettingsChange(settingKey, settingsValue);
-}
-
-void reportSettingsChange(const char* settingKey, const char* settingValue) {
-  char settingsInfo[100];
-  JsonDocument settings;
-  settings[settingKey] = settingValue;
-  sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
-  client_websocket.send(settingsInfo);
-  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
+void initBuzzer() {
+#if BUZZER_ENABLED
+  player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
+  if (needToPlaySound(START_UP)) {
+    playMelody(START_UP);
+  }
+#endif
 }
 
 void InitAlertPin() {
@@ -1097,96 +512,33 @@ void initStrip() {
   mapFlag();
 }
 
-void initTime() {
-  Serial.println("Init time");
-  timeClient.setTimeZone(settings.time_zone);
-  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
-  timeClient.setTimeout(5000); // 5 seconds waiting for reply
-  timeClient.begin();
-  syncTime(7);
-}
+void initDisplay() {
+  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
 
-void syncTime(int8_t attempts) {
-  timeClient.tick();
-  if (timeClient.status() == UNIX_OK) return;
-  Serial.println("Time not synced yet!");
-  printNtpStatus();
-  int8_t count = 1;
-  while (timeClient.NTPstatus() != NTP_OK && count <= attempts) {
-    Serial.printf("Attempt #%d of %d\n", count, attempts);
-    if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
-      Serial.println("Force update!");
-      timeClient.updateNow();
-    }
-    timeClient.tick();
-    if (count < attempts) delay(1000);
-    count++;
-    printNtpStatus();
+  if (display.isDisplayAvailable()) {
+    display.clearDisplay();
+    display.setTextColor(2); // INVERSE
+    updateInvertDisplayMode();
+    updateDisplayBrightness();
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Just Another", "Alert Map", currentFwVersion);
+    delay(3000);
   }
+  initDisplayOptions();
 }
 
-void printNtpStatus() {
-  Serial.print("NTP status: ");
-    switch (timeClient.NTPstatus()) {
-      case 0:
-        Serial.println("OK");
-        Serial.print("Current date and time: ");
-        Serial.println(timeClient.unixToString("DD.MM.YYYY hh:mm:ss"));
-        break;
-      case 1:
-        Serial.println("NOT_STARTED");
-        break;
-      case 2:
-        Serial.println("NOT_CONNECTED_WIFI");
-        break;
-      case 3:
-        Serial.println("NOT_CONNECTED_TO_SERVER");
-        break;
-      case 4:
-        Serial.println("NOT_SENT_PACKET");
-        break;
-      case 5:
-        Serial.println("WAITING_REPLY");
-        break;
-      case 6:
-        Serial.println("TIMEOUT");
-        break;
-      case 7:
-        Serial.println("REPLY_ERROR");
-        break;
-      case 8:
-        Serial.println("NOT_CONNECTED_ETHERNET");
-        break;
-      default:
-        Serial.println("UNKNOWN_STATUS");
-        break;
-    }
-}
-
-void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
-  display.displayMessage(message, title, messageTextSize);
-}
-
-void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
-  if (!display.isDisplayAvailable()) return;
-  serviceMessage.title = title;
-  serviceMessage.message = message;
-  serviceMessage.textSize = display.getTextSizeToFitDisplay(message);
-  serviceMessage.endTime = millis() + duration;
-  serviceMessage.expired = false;
-  displayCycle();
-}
-
-void rebootDevice(int time = 2000, bool async = false) {
-  if (async) {
-    needRebootWithDelay = time;
-    return;
+void initSensors() {
+  lightSensor.begin();
+  if (lightSensor.isLightSensorAvailable()) {
+    lightSensorCycle();
   }
-  showServiceMessage("Перезавантаження..", "", time);
-  delay(time);
-  display.clearDisplay();
-  display.display();
-  ESP.restart();
+  lightSensor.setPhotoresistorPin(settings.lightpin);
+
+  // init climate sensor
+  climate.begin();
+  // try to get climate sensor data
+  climateSensorCycle();
+
+  initDisplayModes();
 }
 
 void initWifi() {
@@ -1225,6 +577,232 @@ void initWifi() {
   initHA();
   socketConnect();
   showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
+}
+
+void initTime() {
+  Serial.println("Init time");
+  timeClient.setTimeZone(settings.time_zone);
+  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
+  timeClient.setTimeout(5000); // 5 seconds waiting for reply
+  timeClient.begin();
+  syncTime(7);
+}
+
+void initHaVars() {
+#if HA_ENABLED
+  sprintf(haUptimeID, "%s_uptime", chipID);
+  haUptime = new HASensorNumber(haUptimeID);
+
+  sprintf(haWifiSignalID, "%s_wifi_signal", chipID);
+  haWifiSignal = new HASensorNumber(haWifiSignalID);
+
+  sprintf(haFreeMemoryID, "%s_free_memory", chipID);
+  haFreeMemory = new HASensorNumber(haFreeMemoryID);
+
+  sprintf(haUsedMemoryID, "%s_used_memory", chipID);
+  haUsedMemory = new HASensorNumber(haUsedMemoryID);
+
+  sprintf(haCpuTempID, "%s_cpu_temp", chipID);
+  haCpuTemp = new HASensorNumber(haCpuTempID, HASensorNumber::PrecisionP2);
+
+  sprintf(haBrightnessID, "%s_brightness", chipID);
+  haBrightness = new HANumber(haBrightnessID);
+
+  sprintf(haMapModeID, "%s_map_mode", chipID);
+  haMapMode = new HASelect(haMapModeID);
+  if (display.isDisplayAvailable()) {
+    sprintf(haDisplayModeID, "%s_display_mode", chipID);
+    haDisplayMode = new HASelect(haDisplayModeID);
+
+    sprintf(haToggleDisplayModeID, "%s_toggle_display_mode", chipID);
+    haToggleDisplayMode = new HAButton(haToggleDisplayModeID);
+
+    sprintf(haShowHomeAlarmTimeID, "%s_show_home_alarm_time", chipID);
+    haShowHomeAlarmTime = new HASwitch(haShowHomeAlarmTimeID);
+  }
+  sprintf(haBrightnessAutoID, "%s_brightness_auto", chipID);
+  haAlarmsAuto = new HASelect(haBrightnessAutoID);
+
+  sprintf(haAlarmsAutoID, "%s_alarms_auto", chipID);
+  haBrightnessAuto = new HASelect(haAlarmsAutoID);
+
+  sprintf(haMapModeCurrentID, "%s_map_mode_current", chipID);
+  haMapModeCurrent = new HASensor(haMapModeCurrentID);
+
+  sprintf(haHomeDistrictID, "%s_home_district", chipID);
+  haHomeDistrict = new HASensor(haHomeDistrictID);
+
+  sprintf(haMapApiConnectID, "%s_map_api_connect", chipID);
+  haMapApiConnect = new HABinarySensor(haMapApiConnectID);
+
+  sprintf(haRebootID, "%s_reboot", chipID);
+  haReboot = new HAButton(haRebootID);
+
+  sprintf(haToggleMapModeID, "%s_toggle_map_mode", chipID);
+  haToggleMapMode = new HAButton(haToggleMapModeID);
+
+  sprintf(haLightID, "%s_light", chipID);
+  haLight = new HALight(haLightID, HALight::BrightnessFeature | HALight::RGBFeature);
+
+  sprintf(haAlarmAtHomeID, "%s_alarm_at_home", chipID);
+  haAlarmAtHome = new HABinarySensor(haAlarmAtHomeID);
+
+  if (climate.isTemperatureAvailable()) {
+    sprintf(haLocalTempID, "%s_local_temp", chipID);
+    haLocalTemp = new HASensorNumber(haLocalTempID, HASensorNumber::PrecisionP2);
+  }
+  if (climate.isHumidityAvailable()) {
+    sprintf(haLocalHumID, "%s_local_hum", chipID);
+    haLocalHum = new HASensorNumber(haLocalHumID, HASensorNumber::PrecisionP2);
+  }
+  if (climate.isPressureAvailable()) {
+    sprintf(haLocalPressureID, "%s_local_pressure", chipID);
+    haLocalPressure = new HASensorNumber(haLocalPressureID, HASensorNumber::PrecisionP2);
+  }
+  if (lightSensor.isLightSensorAvailable()) {
+    sprintf(haLightLevelID, "%s_light_level", chipID);
+    haLightLevel = new HASensorNumber(haLightLevelID, HASensorNumber::PrecisionP2);
+  }
+  sprintf(haHomeTempID, "%s_home_temp", chipID);
+  haHomeTemp = new HASensorNumber(haHomeTempID, HASensorNumber::PrecisionP2);
+
+  sprintf(haNightModeID, "%s_night_mode", chipID);
+  haNightMode = new HASwitch(haNightModeID);
+
+#endif
+}
+
+void playMelody(const char* melodyRtttl) {
+#if BUZZER_ENABLED
+  Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
+  player->playAsync(melody);
+#endif
+}
+
+void playMelody(SoundType type) {
+#if BUZZER_ENABLED
+  switch (type) {
+  case START_UP:
+    playMelody(MELODIES[settings.melody_on_startup]);
+    break;
+  case MIN_OF_SILINCE:
+    playMelody(MOS_BEEP);
+    break;
+  case MIN_OF_SILINCE_END:
+    playMelody(UA_ANTHEM);
+    break;
+  case ALERT_ON:
+    playMelody(MELODIES[settings.melody_on_alert]);
+    break;
+  case ALERT_OFF:
+    playMelody(MELODIES[settings.melody_on_alert_end]);
+    break;
+  case EXPLOSIONS:
+    playMelody(MELODIES[settings.melody_on_explosion]);
+    break;
+  case REGULAR:
+    playMelody(CLOCK_BEEP);
+    break;
+  case SINGLE_CLICK:
+    playMelody(SINGLE_CLICK_SOUND);
+    break;
+  case LONG_CLICK:
+    playMelody(LONG_CLICK_SOUND);
+    break;
+  }
+#endif
+}
+
+bool needToPlaySound(SoundType type) {
+#if BUZZER_ENABLED
+  // ignore mute on alert
+  if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
+
+  // disable sounds on night mode
+  if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
+
+  switch (type) {
+  case START_UP:
+    return settings.sound_on_startup;
+  case MIN_OF_SILINCE:
+    return settings.sound_on_min_of_sl;
+  case MIN_OF_SILINCE_END:
+    return settings.sound_on_min_of_sl;
+  case ALERT_ON:
+    return settings.sound_on_alert;
+  case ALERT_OFF:
+    return settings.sound_on_alert_end;
+  case EXPLOSIONS:
+    return settings.sound_on_explosion;
+  case REGULAR:
+    return settings.sound_on_every_hour;
+  case SINGLE_CLICK:
+  case LONG_CLICK:
+    return settings.sound_on_button_click;
+  }
+#endif
+  return false;
+}
+
+int getNightModeType() {
+  // Night Mode activated by button
+  if (nightMode) return 1;
+  // Night mode activated by time
+  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
+  // Night mode activated by sensor
+  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
+  // Night mode is off
+  return 0;
+}
+
+void servicePin(int pin, uint8_t status, bool force) {
+  if (force || (!settings.legacy && settings.service_diodes_mode)) {
+    digitalWrite(pin, status);
+  }
+}
+
+void reportSettingsChange(const char* settingKey, int newValue) {
+  char settingsValue[10];
+  sprintf(settingsValue, "%d", newValue);
+  reportSettingsChange(settingKey, settingsValue);
+}
+
+void reportSettingsChange(const char* settingKey, float newValue) {
+  char settingsValue[10];
+  sprintf(settingsValue, "%.1f", newValue);
+  reportSettingsChange(settingKey, settingsValue);
+}
+
+void reportSettingsChange(const char* settingKey, const char* settingValue) {
+  char settingsInfo[100];
+  JsonDocument settings;
+  settings[settingKey] = settingValue;
+  sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
+  client_websocket.send(settingsInfo);
+  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
+}
+
+void syncTime(int8_t attempts) {
+  timeClient.tick();
+  if (timeClient.status() == UNIX_OK) return;
+  Serial.println("Time not synced yet!");
+  printNtpStatus(&timeClient);
+  int8_t count = 1;
+  while (timeClient.NTPstatus() != NTP_OK && count <= attempts) {
+    Serial.printf("Attempt #%d of %d\n", count, attempts);
+    if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
+      Serial.println("Force update!");
+      timeClient.updateNow();
+    }
+    timeClient.tick();
+    if (count < attempts) delay(1000);
+    count++;
+    printNtpStatus(&timeClient);
+  }
+}
+
+void displayMessage(const char* message, const char* title = "", int messageTextSize = -1) {
+  display.displayMessage(message, title, messageTextSize);
 }
 
 char* getLocalIP() {
@@ -1346,26 +924,9 @@ void initBroadcast() {
   Serial.println();
 }
 
-std::map<int, int> getHaOptions(char* result, char* options[], int optionsSize, int ignoreOptions[]= NULL) {
-  strcpy(result, "");
-  int haIndex = 0;
-  std::map<int, int> haMap = {};
-  for (int i = 0; i < optionsSize; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
-    char* option = options[i];
-    if (i > 0) {
-      strcat(result, ";");
-    }
-    strcat(result, option);
-    haMap[i] = haIndex;
-    haIndex++;
-  }
-  return haMap;
-}
-
 void initHA() {
 #if HA_ENABLED
-  if (!wifiReconnect) {
+  if (!shouldWifiReconnect) {
     Serial.println("Init Home assistant API");
 
     IPAddress brokerAddr;
@@ -1421,8 +982,8 @@ void initHA() {
       haBrightness->setName("Brightness");
       haBrightness->setCurrentState(settings.brightness);
 
-      char mapModeOptions[sizeOfCharsArray(mapModes, MAP_MODES_COUNT) + MAP_MODES_COUNT];
-      getHaOptions(mapModeOptions, mapModes, MAP_MODES_COUNT);
+      char mapModeOptions[sizeOfCharsArray(MAP_MODES, MAP_MODES_COUNT) + MAP_MODES_COUNT];
+      getHaOptions(mapModeOptions, MAP_MODES, MAP_MODES_COUNT);
       haMapMode->setOptions(mapModeOptions);
       haMapMode->onCommand(onHaMapModeCommand);
       haMapMode->setIcon("mdi:map");
@@ -1430,13 +991,13 @@ void initHA() {
       haMapMode->setCurrentState(settings.map_mode);
 
       if (display.isDisplayAvailable()) {
-        char displayModeOptions[sizeOfCharsArray(displayModes, DISPLAY_MODE_OPTIONS_MAX) + DISPLAY_MODE_OPTIONS_MAX];
-        displayModeHAMap = getHaOptions(displayModeOptions, displayModes, DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions);
+        char displayModeOptions[sizeOfCharsArray(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX) + DISPLAY_MODE_OPTIONS_MAX];
+        displayModeHAMap = getHaOptions(displayModeOptions, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions);
         haDisplayMode->setOptions(displayModeOptions);
         haDisplayMode->onCommand(onHaDisplayModeCommand);
         haDisplayMode->setIcon("mdi:clock-digital");
         haDisplayMode->setName("Display Mode");
-        haDisplayMode->setCurrentState(getLocalDisplayMode(settings.display_mode));
+        haDisplayMode->setCurrentState(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions));
 
         haToggleDisplayMode->onCommand(onHaButtonClicked);
         haToggleDisplayMode->setName("Toggle Display Mode");
@@ -1448,8 +1009,8 @@ void initHA() {
         haShowHomeAlarmTime->setCurrentState(settings.home_alert_time);
       }
 
-      char autoAlarmsModeOptions[sizeOfCharsArray(autoAlarms, AUTO_ALARM_MODES_COUNT) + AUTO_ALARM_MODES_COUNT];
-      getHaOptions(autoAlarmsModeOptions, autoAlarms, AUTO_ALARM_MODES_COUNT);
+      char autoAlarmsModeOptions[sizeOfCharsArray(AUTO_ALRMS_MODES, AUTO_ALARM_MODES_COUNT) + AUTO_ALARM_MODES_COUNT];
+      getHaOptions(autoAlarmsModeOptions, AUTO_ALRMS_MODES, AUTO_ALARM_MODES_COUNT);
       haAlarmsAuto->setOptions(autoAlarmsModeOptions);
       haAlarmsAuto->onCommand(onhaAlarmsAutoCommand);
       haAlarmsAuto->setIcon("mdi:alert-outline");
@@ -1464,8 +1025,8 @@ void initHA() {
       haMapApiConnect->setDeviceClass("connectivity");
       haMapApiConnect->setCurrentState(client_websocket.available());
 
-      char autoBrightnessOptionsString[sizeOfCharsArray(autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT) + AUTO_BRIGHTNESS_OPTIONS_COUNT];
-      getHaOptions(autoBrightnessOptionsString, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+      char autoBrightnessOptionsString[sizeOfCharsArray(AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT) + AUTO_BRIGHTNESS_OPTIONS_COUNT];
+      getHaOptions(autoBrightnessOptionsString, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT);
       haBrightnessAuto->setOptions(autoBrightnessOptionsString);
       haBrightnessAuto->onCommand(onHaBrightnessAutoCommand);
       haBrightnessAuto->setIcon("mdi:brightness-auto");
@@ -1559,23 +1120,15 @@ void initHA() {
 
 #if HA_ENABLED
 void onMqttStateChanged(HAMqtt::ConnectionState state) {
-  Serial.print("Home Assistant MQTT state changed! State: ");
-  Serial.println(state);
   haConnected = state == HAMqtt::StateConnected;
+  Serial.print("Home Assistant MQTT state changed! State: ");
+  Serial.println(haConnected ? "Connected" : "Disconnected");
   servicePin(settings.hapin, haConnected ? HIGH : LOW, false);
   if (enableHA && haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
-    haHomeDistrict->setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
+    haMapModeCurrent->setValue(MAP_MODES[getCurrentMapMode()]);
+    haHomeDistrict->setValue(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.home_district)]);
   }
-}
-
-int sizeOfCharsArray(char* array[], int arraySize) {
-  int result = 0;
-  for (int i = 0; i < arraySize; i++) {
-    result += strlen(array[i]);
-  }
-  return result;
 }
 
 void onHaLightState(bool state, HALight* sender) {
@@ -1601,7 +1154,7 @@ void onHaButtonClicked(HAButton* sender) {
     device.setAvailability(false);
     rebootDevice();
   } else if (sender == haToggleMapMode) {
-    mapModeSwitch();
+    nextMapMode();
   } else if (display.isDisplayAvailable() && sender == haToggleDisplayMode) {
     nextDisplayMode();
   }
@@ -1632,59 +1185,13 @@ void onHaMapModeCommand(int8_t index, HASelect* sender) {
 }
 
 void onHaDisplayModeCommand(int8_t index, HASelect* sender) {
-  int newDisplayMode = getSettingsDisplayMode(index);
+  int newDisplayMode = getSettingsDisplayMode(index, ignoreDisplayModeOptions);
   saveDisplayMode(newDisplayMode);
 }
 #endif
 
-bool isInArray(int value, int* array, int arraySize) {
-  for (int i = 0; i < arraySize; i++) {
-    if (array[i] == value) return true;
-  }
-  return false;
-}
-
-int getLocalDisplayMode(int settingsDisplayMode) {
-  int newDisplayMode = settingsDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode == 9) return lastModeIndex;
-  // default
-  return 0;
-}
-
-int getSettingsDisplayMode(int localDisplayMode) {
-  int newDisplayMode = localDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode >= lastModeIndex) return 9;
-  // default
-  return 0;
-}
-
 int getHaDisplayMode(int localDisplayMode) {
   return displayModeHAMap[localDisplayMode];
-}
-
-void initDisplay() {
-  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
-
-  if (display.isDisplayAvailable()) {
-    display.clearDisplay();
-    display.setTextColor(2); // INVERSE
-    updateInvertDisplayMode();
-    updateDisplayBrightness();
-    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Just Another", "Alert Map", currentFwVersion);
-    delay(3000);
-  }
-  initDisplayOptions();
 }
 
 void initDisplayOptions() {
@@ -1722,21 +1229,6 @@ void updateDisplayBrightness() {
   display.dim(currentDimDisplay);
 }
 
-void initSensors() {
-  lightSensor.begin();
-  if (lightSensor.isLightSensorAvailable()) {
-    lightSensorCycle();
-  }
-  lightSensor.setPhotoresistorPin(settings.lightpin);
-
-  // init climate sensor
-  climate.begin();
-  // try to get climate sensor data
-  climateSensorCycle();
-
-  initDisplayModes();
-}
-
 void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
     // remove climate sensor options from display optins list
@@ -1748,22 +1240,6 @@ void initDisplayModes() {
   }
 }
 //--Init end
-
-void fillFwVersion(char* result, Firmware firmware) {
-  char patch[5] = "";
-  if (firmware.patch > 0) {
-    sprintf(patch, ".%d", firmware.patch);
-  }
-  char beta[5] = "";
-  if (firmware.isBeta) {
-    sprintf(beta, "-b%d", firmware.betaBuild);
-  }
-#if LITE
-  sprintf(result, "%d.%d%s%s-lite", firmware.major, firmware.minor, patch, beta);
-#else
-  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
-#endif
-}
 
 //--Update
 #if FW_UPDATE_ENABLED
@@ -1784,40 +1260,7 @@ void saveLatestFirmware() {
   Serial.printf("Latest firmware version: %s\n", newFwVersion);
   Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
-
-bool prefix(const char *pre, const char *str) {
-  return strncmp(pre, str, strlen(pre)) == 0;
-}
-
-bool firstIsNewer(Firmware first, Firmware second) {
-  if (first.major > second.major) return true;
-  if (first.major == second.major) {
-    if (first.minor > second.minor) return true;
-    if (first.minor == second.minor) {
-      if (first.patch > second.patch) return true;
-      if (first.patch == second.patch) {
-        if (first.isBeta && second.isBeta) {
-          if (first.betaBuild > second.betaBuild) return true;
-        } else {
-          return !first.isBeta && second.isBeta;
-        }
-      }
-    }
-  }
-  return false;
-}
 #endif
-
-JsonDocument parseJson(const char* payload) {
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    Serial.printf("Deserialization error: $s\n", error.f_str());
-    return doc;
-  } else {
-    return doc;
-  }
-}
 
 void doUpdate() {
   if (initUpdate) {
@@ -1879,7 +1322,7 @@ void checkServicePins() {
       }
 #if HA_ENABLED
 
-      if (!mqtt.isConnected()) {
+      if (!haConnected) {
         servicePin(settings.hapin, LOW, true);
       } else {
         servicePin(settings.hapin, HIGH, true);
@@ -1954,7 +1397,7 @@ void handleClick(int event, SoundType soundType) {
   if (event != 0 && needToPlaySound(soundType)) playMelody(soundType);
   switch (event) {
     case 1:
-      mapModeSwitch();
+      nextMapMode();
       break;
     case 2:
       nextDisplayMode();
@@ -1998,7 +1441,7 @@ bool isButtonActivated() {
   return settings.button_mode != 0 || settings.button_mode_long != 0;
 }
 
-void mapModeSwitch() {
+void nextMapMode() {
   int newMapMode = settings.map_mode + 1;
   if (newMapMode > 5) {
     newMapMode = 0;
@@ -2023,10 +1466,10 @@ bool saveMapMode(int newMapMode) {
   if (enableHA) {
     haLight->setState(settings.map_mode == 5);
     haMapMode->setState(settings.map_mode);
-    haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
+    haMapModeCurrent->setValue(MAP_MODES[getCurrentMapMode()]);
   }
 #endif
-  showServiceMessage(mapModes[settings.map_mode], "Режим мапи:");
+  showServiceMessage(MAP_MODES[settings.map_mode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
   return true;
@@ -2065,7 +1508,7 @@ bool saveHaBrightnessAuto(int autoBrightnessMode) {
   }
 #endif
   autoBrightnessUpdate();
-  showServiceMessage(autoBrightnessOptions[settings.brightness_mode], "Авто. яскравість:");
+  showServiceMessage(AUTO_BRIGHTNESS_MODES[settings.brightness_mode], "Авто. яскравість:");
   return true;
 }
 
@@ -2200,13 +1643,13 @@ bool saveDisplayMode(int newDisplayMode) {
   reportSettingsChange("display_mode", settings.display_mode);
   Serial.print("display_mode commited to preferences: ");
   Serial.println(settings.display_mode);
-  int localDisplayMode = getLocalDisplayMode(settings.display_mode);
+  int localDisplayMode = getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions);
 #if HA_ENABLED
   if (enableHA && display.isDisplayAvailable()) {
     haDisplayMode->setState(getHaDisplayMode(localDisplayMode));
   }
 #endif
-  showServiceMessage(displayModes[localDisplayMode], "Режим дисплея:", 1000);
+  showServiceMessage(DISPLAY_MODES[localDisplayMode], "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
   return true;
@@ -2219,21 +1662,17 @@ bool saveHomeDistrict(int newHomeDistrict) {
   preferences.begin("storage", false);
   preferences.putInt("hd", settings.home_district);
   preferences.end();
-  reportSettingsChange("home_district", districts[settings.home_district]);
+  reportSettingsChange("home_district", DISTRICTS[settings.home_district]);
   Serial.print("home_district commited to preferences: ");
-  Serial.println(districts[settings.home_district]);
+  Serial.println(DISTRICTS[settings.home_district]);
 #if HA_ENABLED
   if (enableHA) {
-    haHomeDistrict->setValue(districtsAlphabetical[numDistrictToAlphabet(settings.home_district)]);
-    haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
+    haHomeDistrict->setValue(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.home_district)]);
+    haMapModeCurrent->setValue(MAP_MODES[getCurrentMapMode()]);
   }
 #endif
-  showServiceMessage(districts[settings.home_district], "Домашній регіон:", 2000);
+  showServiceMessage(DISTRICTS[settings.home_district], "Домашній регіон:", 2000);
   return true;
-}
-
-int getCurrentPeriodIndex(int periodLength, int periodCount) {
-  return (timeClient.second() / periodLength) % periodCount;
 }
 
 //--Display start
@@ -2332,7 +1771,7 @@ bool shouldDisplayBeOff() {
 
 void displayMinuteOfSilence() {
   // every 3 sec.
-  int periodIndex = getCurrentPeriodIndex(3, 3);
+  int periodIndex = getCurrentPeriodIndex(3, 3, timeClient.second());
   showMinOfSilanceScreen(periodIndex);
 }
 
@@ -2357,15 +1796,15 @@ void displayServiceMessage(ServiceMessage message) {
 }
 
 void showHomeAlertInfo() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
   char title[50];
   if (periodIndex) {
-    strcpy(title, districts[settings.home_district]);
+    strcpy(title, DISTRICTS[settings.home_district]);
   } else {
     strcpy(title, "Тривога триває:");
   }
   char message[15];
-  int position = calculateOffset(settings.home_district);
+  int position = calculateOffset(settings.home_district, offset);
   fillFromTimer(message, timeClient.unixGMT() - alarm_time[position]);
 
   displayMessage(message, title);
@@ -2373,7 +1812,7 @@ void showHomeAlertInfo() {
 
 #if FW_UPDATE_ENABLED
 void showNewFirmwareNotification() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
   char title[50];
   char message[50];
   if (periodIndex) {
@@ -2393,20 +1832,20 @@ void showNewFirmwareNotification() {
 
 void showClock() {
   char time[7];
-  sprintf(time, "%02d%c%02d", timeClient.hour(), getDivider(), timeClient.minute());
+  sprintf(time, "%02d%c%02d", timeClient.hour(), getDivider(timeClient.second()), timeClient.minute());
   const char* date = timeClient.unixToString("DSTRUA DD.MM.YYYY").c_str();
   displayMessage(time, date);
 }
 
 void showTemp() {
-  int position = calculateOffset(settings.home_district);
+  int position = calculateOffset(settings.home_district, offset);
   char message[10];
   sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
-  displayMessage(message, districts[settings.home_district]);
+  displayMessage(message, DISTRICTS[settings.home_district]);
 }
 
 void showTechInfo() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 6);
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 6, timeClient.second());
   char title[35];
   char message[25];
   switch (periodIndex) {
@@ -2447,7 +1886,7 @@ void showTechInfo() {
 }
 
 void showClimate() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize());
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
   showLocalClimateInfo(periodIndex);
 }
 
@@ -2492,26 +1931,8 @@ int getClimateInfoSize() {
   return size;
 }
 
-void fillFromTimer(char* result, long timerSeconds) {
-  unsigned long seconds = timerSeconds;
-  unsigned long minutes = seconds / 60;
-  unsigned long hours = minutes / 60;
-  if (hours >= 99) {
-    strcpy(result, "99+ год.");
-  } else {
-    seconds %= 60;
-    minutes %= 60;
-    char divider = getDivider();
-    if (hours > 0) {
-      sprintf(result, "%02d%c%02d", hours, divider, minutes);
-    } else {
-      sprintf(result, "%02d%c%02d", minutes, divider, seconds);
-    }
-  }
-}
-
 void showSwitchingModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSize());
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSize(), timeClient.second());
   switch (periodIndex) {
   case 0:
     // Display Mode Clock
@@ -2530,44 +1951,7 @@ void showSwitchingModes() {
     break;
   }
 }
-
-char getDivider() {
-  // Change every second
-  int periodIndex = getCurrentPeriodIndex(1, 2);
-  if (periodIndex) {
-    return ' ';
-  } else {
-    return ':';
-  }
-}
 //--Display end
-
-Firmware parseFirmwareVersion(const char* version) {
-
-  Firmware firmware;
-
-  char* versionCopy = strdup(version);
-  char* token = strtok(versionCopy, ".-");
-
-  while (token) {
-    if (isdigit(token[0])) {
-      if (firmware.major == 0)
-        firmware.major = atoi(token);
-      else if (firmware.minor == 0)
-        firmware.minor = atoi(token);
-      else if (firmware.patch == 0)
-        firmware.patch = atoi(token);
-    } else if (firmware.betaBuild == 0 && token[0] == 'b' && strcmp(token, "bin") != 0) {
-      firmware.isBeta = true;
-      firmware.betaBuild = atoi(token + 1); // Skip the 'b' character
-    }
-    token = strtok(NULL, ".-");
-  }
-
-  free(versionCopy);
-
-  return firmware;
-}
 
 //--Web server start
 void setupRouting() {
@@ -2592,14 +1976,8 @@ void setupRouting() {
   Serial.println("Webportal running");
 }
 
-const char* disableRange(bool isDisabled) {
-  return isDisabled ? " disabled" : "";
-}
-
-String floatToString(float value, int precision = 1) {
-  char result[7];
-  sprintf(result, "%.*f", precision, value);
-  return String(result);
+int getSettingsDisplayMode(int localDisplayMode) {
+  return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
 }
 
 int checkboxIndex = 1;
@@ -2629,19 +2007,27 @@ String addCheckbox(const char* name, bool isChecked, const char* label, const ch
   return html;
 }
 
-String addSliderInt(const char* name, const char* label, int value, int min, int max, int step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
+template <typename V>
+
+String addSlider(const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   String html;
   html += label;
   html += ": <span id='sv";
   html += sliderIndex;
   html += "'>";
-  html += value;
+  if (std::is_same<V, float>::value) {
+    char stringValue[10];
+    sprintf(stringValue, "%.1f", value);
+    html += stringValue;
+  } else {
+    html += value;
+  }
   html += "</span>";
   html += unitOfMeasurement;
   if (needColorBox) {
     html += "</br><div class='color-box' id='cb";
     html += sliderIndex;
-    RGBColor valueColor = hue2rgb(value);
+    RGBColor valueColor = hue2rgb((int) value);
     html += "' style='background-color: rgb(";
     html += valueColor.r;
     html += ", ";
@@ -2670,38 +2056,6 @@ String addSliderInt(const char* name, const char* label, int value, int min, int
   } else {
     html += " oninput='window.updateVal(\"sv";
   }
-  html += sliderIndex;
-  html += "\", this.value);'";
-  if (disabled) html += " disabled";
-  html += "/>";
-  html += "</br>";
-  sliderIndex++;
-  return html;
-}
-
-String addSliderFloat(const char* name, const char* label, float value, float min, float max, float step = 0.1, const char* unitOfMeasurement = "", bool disabled = false) {
-  String html;
-  html += label;
-  html += ": <span id='sv";
-  html += sliderIndex;
-  html += "'>";
-  html += floatToString(value);
-  html += "</span>";
-  html += unitOfMeasurement;
-  html += "<input type='range' name='";
-  html += name;
-  html += "' class='form-control-range' id='s";
-  html += sliderIndex;
-  html += "' min='";
-  html += min;
-  html += "' max='";
-  html += max;
-  html += "' step='";
-  html += step;
-  html += "' value='";
-  html += value;
-  html += "'";
-  html += " oninput='window.updateVal(\"sv";
   html += sliderIndex;
   html += "\", this.value);'";
   if (disabled) html += " disabled";
@@ -2771,7 +2125,9 @@ String addInputText(const char* name, const char* label, const char* type, const
   return html;
 }
 
-String addCard(const char* title, const char* value, const char* unitOfMeasurement = "", int size = 1) {
+template <typename V>
+
+String addCard(const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
   String html;
   html += "<div class='col-auto mb-2'>";
   html += "<div class='card' style='width: 15rem; height: 9rem;'>";
@@ -2782,7 +2138,17 @@ String addCard(const char* title, const char* value, const char* unitOfMeasureme
   html += "<h";
   html += size;
   html += " class='card-title  m-auto'>";
-  html += value;
+  if (std::is_same<V, float>::value) {
+    char valueStr[10];
+    sprintf(valueStr, "%.*f", precision, value);
+    html += valueStr;
+  } else if (std::is_same<V, int>::value) {
+    char valueStr[10];
+    sprintf(valueStr, "%d", value);
+    html += valueStr;
+  } else {
+    html += value;
+  }
   html += unitOfMeasurement;
   html += "</h";
   html += size;
@@ -2791,18 +2157,6 @@ String addCard(const char* title, const char* value, const char* unitOfMeasureme
   html += "</div>";
   html += "</div>";
   return html;
-}
-
-String addCard(const char* title, int value, const char* unitOfMeasurement = "", int size = 1) {
-  char valueStr[10];
-  sprintf(valueStr, "%d", value);
-  return addCard(title, valueStr, unitOfMeasurement, size);
-}
-
-String addCard(const char* title, float value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
-  char valueStr[10];
-  sprintf(valueStr, "%.*f", precision, value);
-  return addCard(title, valueStr, unitOfMeasurement, size);
 }
 
 const char JS_SCRIPT[] PROGMEM = R"=====(
@@ -3017,7 +2371,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     html += lightSensor.getSensorModel();
     html += "</b>";
   }
-  if (climate.isAnySensorAvailable()) {
+  if (climate.isAnySensorEnabled()) {
     html += "</br>Сенсор клімату: <b>";
     html += climate.getSensorModel();
     html += "</b>";
@@ -3062,21 +2416,21 @@ void handleRoot(AsyncWebServerRequest* request) {
   int nightModeType = getNightModeType();
   html += nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення";
   html += "</b></div>";
-  html += addSliderInt("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
-  html += addSliderInt("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
-  html += addSliderInt("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
-  html += addSliderInt("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
-  html += addSliderInt("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSlider("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
+  html += addSlider("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
+  html += addSlider("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
+  html += addSlider("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  html += addSlider("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   if (display.isDisplayAvailable()) {
     html += addCheckbox("dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
-  html += addSelectBox("brightness_auto", "Автоматична яскравість", settings.brightness_mode, autoBrightnessOptions, AUTO_BRIGHTNESS_OPTIONS_COUNT);
-  html += addSliderInt("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
-  html += addSliderInt("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
-  html += addSliderInt("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
-  html += addSliderInt("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
-  html += addSliderFloat("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1, 10, 0.1);
+  html += addSelectBox("brightness_auto", "Автоматична яскравість", settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+  html += addSlider("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
+  html += addSlider("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
+  html += addSlider("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
+  html += addSlider("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
+  html += addSlider("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
+  html += addSlider("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   html += "<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
@@ -3085,12 +2439,12 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<form action='/saveColors' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
-  html += addSliderInt("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
-  html += addSliderInt("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  html += addSlider("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  html += addSlider("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  html += addSlider("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  html += addSlider("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  html += addSlider("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  html += addSlider("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3099,45 +2453,45 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
   if (settings.legacy) {
-  html += addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, kyivLedModeOptions, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
+  html += addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
-  html += addSelectBox("map_mode", "Режим мапи", settings.map_mode, mapModes, MAP_MODES_COUNT);
-  html += addSliderInt("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
-  html += addSliderInt("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
+  html += addSelectBox("map_mode", "Режим мапи", settings.map_mode, MAP_MODES, MAP_MODES_COUNT);
+  html += addSlider("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
+  html += addSlider("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
-    html += addSelectBox("display_mode", "Режим дисплея", settings.display_mode, displayModes, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
+    html += addSelectBox("display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     html += addCheckbox("invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    html += addSliderInt("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    html += addSlider("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
   if (climate.isTemperatureAvailable()) {
-    html += addSliderFloat("temp_correction", "Корегування температури", settings.temp_correction, -10, 10, 0.1, "°C");
+    html += addSlider("temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
   }
   if (climate.isHumidityAvailable()) {
-    html += addSliderFloat("hum_correction", "Корегування вологості", settings.hum_correction, -20, 20, 0.5, "%");
+    html += addSlider("hum_correction", "Корегування вологості", settings.hum_correction, -20.0f, 20.0f, 0.5f, "%");
   }
   if (climate.isPressureAvailable()) {
-    html += addSliderFloat("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50, 50, 0.5, " мм.рт.ст.");
+    html += addSlider("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50.0f, 50.0f, 0.5f, " мм.рт.ст.");
   }
-  html += addSliderInt("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
-  html += addSliderInt("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
-  html += addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, singleClickOptions, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-  html += addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, longClickOptions, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
-  html += addSelectBox("home_district", "Домашній регіон", settings.home_district, districtsAlphabetical, DISTRICTS_COUNT, alphabetDistrictToNum);
+  html += addSlider("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
+  html += addSlider("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
+  html += addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+  html += addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+  html += addSelectBox("home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
 
   if (display.isDisplayAvailable()) {
     html += addCheckbox("home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
-  html += addSelectBox("alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, alertNotifyOptions, ALERT_NOTIFY_OPTIONS_COUNT);
-  html += addSliderInt("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  html += addSliderInt("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
-  html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, autoAlarms, AUTO_ALARM_MODES_COUNT);
+  html += addSelectBox("alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  html += addSlider("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  html += addSlider("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALRMS_MODES, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
     html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }
   html += addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
-  html += addSliderInt("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
+  html += addSlider("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</div>";
   html += "</div>";
@@ -3147,14 +2501,14 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='row collapse justify-content-center' id='clS' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
   html += addCheckbox("sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
-  html += addSelectBox("melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
+  html += addSelectBox("melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
   html += addCheckbox("sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
-  html += addSelectBox("melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
+  html += addSelectBox("melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
-  html += addSelectBox("melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
+  html += addSelectBox("melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  html += addSelectBox("melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, melodyNames, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
+  html += addSelectBox("melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
   html += addCheckbox("sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
   html += addCheckbox("sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
   html += addCheckbox("mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -3175,9 +2529,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addCard("Вільна памʼять", freeHeapSize, "кБ");
   html += addCard("Використана памʼять", usedHeapSize, "кБ");
   html += addCard("WiFi сигнал", wifiSignal, "dBm");
-  html += addCard(districts[settings.home_district], weather_leds[calculateOffset(settings.home_district)], "°C");
+  html += addCard(DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
 #if HA_ENABLED
-  html += addCard("Home Assistant", mqtt.isConnected() ? "Підключено" : "Відключено", "", 2);
+  html += addCard("Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
 #endif
   html += addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
   if (climate.isTemperatureAvailable()) {
@@ -3200,10 +2554,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<form action='/saveDev' method='POST'>";
   html += "<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>";
   html += "<div class='by col-md-9 mt-2'>";
-  html += addSelectBox("legacy", "Режим прошивки", settings.legacy, legacyOptions, LEGACY_OPTIONS_COUNT);
+  html += addSelectBox("legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
-    html += addSelectBox("display_model", "Тип дисплею", settings.display_model, displayModelOptions, DISPLAY_MODEL_OPTIONS_COUNT);
-    html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, displayHeightOptions, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
+    html += addSelectBox("display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
+    html += addSelectBox("display_height", "Розмір дисплею", settings.display_height, DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
 #if HA_ENABLED
   html += addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
@@ -3242,7 +2596,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += "<div class='by col-md-9 mt-2'>";
   html += "<form action='/saveFirmware' method='POST'>";
   if (display.isDisplayAvailable()) html += addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
-  html += addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, fwUpdateChannels, FW_UPDATE_CHANNELS_COUNT);
+  html += addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
   html += "<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>";
   html += "<button type='submit' class='btn btn-info'>Зберегти налаштування</button>";
   html += "</form>";
@@ -3282,57 +2636,6 @@ void handleRoot(AsyncWebServerRequest* request) {
   request->send(200, "text/html", html);
 }
 
-RGBColor hue2rgb(int hue) {
-  float r, g, b;
-
-  float h = hue / 360.0;
-  float s = 1.0;
-  float v = 1.0;
-
-  int i = floor(h * 6);
-  float f = h * 6 - i;
-  float p = v * (1 - s);
-  float q = v * (1 - f * s);
-  float t = v * (1 - (1 - f) * s);
-
-  switch (i % 6) {
-    case 0: r = v, g = t, b = p; break;
-    case 1: r = q, g = v, b = p; break;
-    case 2: r = p, g = v, b = t; break;
-    case 3: r = p, g = q, b = v; break;
-    case 4: r = t, g = p, b = v; break;
-    case 5: r = v, g = p, b = q; break;
-    default: r = 1.0, g = 1.0, b = 1.0; break;
-  }
-  RGBColor rgb;
-  rgb.r = round(r * 255);
-  rgb.g = round(g * 255);
-  rgb.b = round(b * 255);
-  return rgb;
-}
-
-int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
-  float r = red / 255.0;
-  float g = green / 255.0;
-  float b = blue / 255.0;
-
-  float max = fmax(r, fmax(g, b));
-  float min = fmin(r, fmin(g, b));
-  float delta = max - min;
-
-  float h = 0;
-  if (delta == 0) {
-    h = 0;
-  } else if (max == r) {
-    h = 60 * fmod((g - b) / delta, 6);
-  } else if (max == g) {
-    h = 60 * ((b - r) / delta + 2);
-  } else if (max == b) {
-    h = 60 * ((r - g) / delta + 4);
-  }
-  return round(h);
-}
-
 bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   int newValue = param->value().toInt();
@@ -3348,7 +2651,7 @@ bool saveInt(AsyncWebParameter* param, int *setting, const char* settingsKey, bo
     return true;
   }
   return false;
-};
+}
 
 void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
   preferences.begin("storage", false);
@@ -3359,7 +2662,7 @@ void saveInt(int *setting, const char* settingsKey, int newValue, const char* pa
   Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
 }
 
-bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey, bool (*saveFun)(float) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   float paramValue = param->value().toFloat();
   if (saveFun) {
@@ -3379,7 +2682,7 @@ bool saveFloat(AsyncWebParameter* param, float *setting, const char* settingsKey
     return true;
   }
   return false;
-};
+}
 
 bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, const char* settingsKey, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
   int paramValue = param ? 1 : 0;
@@ -3399,7 +2702,7 @@ bool saveBool(AsyncWebParameter* param, const char* paramName, int *setting, con
     return true;
   }
   return false;
-};
+}
 
 bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey, bool (*saveFun)(const char*) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
@@ -3421,7 +2724,8 @@ bool saveString(AsyncWebParameter* param, char* setting, const char* settingsKey
     return true;
   }
   return false;
-};
+}
+
 #if FW_UPDATE_ENABLED
 void handleUpdate(AsyncWebServerRequest* request) {
   Serial.println("do_update triggered");
@@ -3580,8 +2884,8 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 #if BUZZER_ENABLED
 void handlePlayTestSound(AsyncWebServerRequest* request) {
   int soundId = request->getParam("id", false)->value().toInt();
-  playMelody(melodies[soundId]);
-  showServiceMessage(melodyNames[soundId], "Мелодія");
+  playMelody(MELODIES[soundId]);
+  showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
   request->send(200, "text/plain", "Test sound played!");
 }
 #endif
@@ -3590,7 +2894,7 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 //--Service messages start
 void uptime() {
   int   uptimeValue   = millis() / 1000;
-  fillUptime(uptimeValue);
+  fillUptime(uptimeValue, uptimeChar);
 
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   freeHeapSize  = ESP.getFreeHeap() / 1024.0;
@@ -3609,30 +2913,17 @@ void uptime() {
 #endif
 }
 
-void fillUptime(int uptimeValue) {
-  unsigned long seconds = uptimeValue;
-  unsigned long minutes = seconds / 60;
-  unsigned long hours = minutes / 60;
-  seconds %= 60;
-  minutes %= 60;
-  if (hours > 0) {
-    sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
-  } else {
-    sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
-  }
-}
-
 void connectStatuses() {
-  Serial.print("Map API connected: ");
+  Serial.print("Map API status: ");
   apiConnected = client_websocket.available();
-  Serial.println(apiConnected);
+  Serial.println(apiConnected ? "Connected" : "Disconnected");
   haConnected = false;
 #if HA_ENABLED
   if (enableHA) {
-    Serial.print("Home Assistant MQTT connected: ");
-    Serial.println(mqtt.isConnected());
-    if (mqtt.isConnected()) {
-      haConnected = true;
+    haConnected = mqtt.isConnected();
+    Serial.print("Home Assistant MQTT status: ");
+    Serial.println(haConnected ? "Connected" : "Disconnected");
+    if (haConnected) {
       servicePin(settings.hapin, HIGH, false);
     } else {
       servicePin(settings.hapin, LOW, false);
@@ -3644,19 +2935,6 @@ void connectStatuses() {
 
 void distributeBrightnessLevels() {
   distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
-}
-
-void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
-  int minBrightness = min(dayBrightness, nightBrightness);
-  int maxBrightness = max(dayBrightness, nightBrightness);
-  float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
-  Serial.printf("%s brightness levels: [", logTitle);
-  for (int i = 0; i < BR_LEVELS_COUNT; i++) {
-    brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
-    Serial.print(brightnessLevels[i]);
-    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
-  }
-  Serial.println("]");
 }
 
 void autoBrightnessUpdate() {
@@ -3756,25 +3034,25 @@ void onMessageCallback(WebsocketsMessage message) {
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
       for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i)] = data["alerts"][i][0];
-        alarm_time[calculateOffset(i)] = data["alerts"][i][1];
+        alarm_leds[calculateOffset(i, offset)] = data["alerts"][i][0];
+        alarm_time[calculateOffset(i, offset)] = data["alerts"][i][1];
       }
       Serial.println("Successfully parsed alerts data");
     } else if (payload == "weather") {
       for (int i = 0; i < 26; ++i) {
-        weather_leds[calculateOffset(i)] = data["weather"][i];
+        weather_leds[calculateOffset(i, offset)] = data["weather"][i];
       }
       Serial.println("Successfully parsed weather data");
-    } else if (payload == "explosions") {
-      for (int i = 0; i < 26; ++i) {
-        explosions_time[calculateOffset(i)] = data["explosions"][i];
-      }
-      Serial.println("Successfully parsed explosions data");
 #if HA_ENABLED
       if (enableHA) {
-        haHomeTemp->setValue(weather_leds[calculateOffset(settings.home_district)]);
+        haHomeTemp->setValue(weather_leds[calculateOffset(settings.home_district, offset)]);
       }
 #endif
+    } else if (payload == "explosions") {
+      for (int i = 0; i < 26; ++i) {
+        explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
+      }
+      Serial.println("Successfully parsed explosions data");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3786,19 +3064,6 @@ void onMessageCallback(WebsocketsMessage message) {
     }
   }
 }
-
-#if FW_UPDATE_ENABLED
-void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
-  JsonArray arr = data[payloadKey].as<JsonArray>();
-  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
-  for (int i = 0; i < *binsCount; i++) {
-    const char* filename = arr[i].as<const char*>();
-    binsList[i] = new char[strlen(filename)];
-    strcpy(binsList[i], filename);
-  }
-  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
-}
-#endif
 
 void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
@@ -3883,50 +3148,6 @@ void socketConnect() {
 //--Websocket process end
 
 //--Map processing start
-int calculateOffset(int initial_position) {
-  int position;
-  if (initial_position == 25) {
-    position = 25;
-  } else {
-    position = initial_position + offset;
-    if (position >= 25) {
-      position -= 25;
-    }
-  }
-  return position;
-}
-
-int calculateOffsetDistrict(int initial_position) {
-  int position;
-  if (initial_position == 25) {
-    position = 25;
-  } else {
-    position = initial_position + offset;
-    if (position >= 25) {
-      position -= 25;
-    }
-  }
-  if (settings.kyiv_district_mode == 2) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  if (settings.kyiv_district_mode == 3) {
-
-    if (position == 25) {
-      return 8 + offset;
-    }
-    if (position > 7 + offset) {
-      return position + 1;
-    }
-  }
-  if (settings.kyiv_district_mode == 4) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  return position;
-}
 
 HsbColor processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
   HsbColor hue;
@@ -3937,7 +3158,7 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
   float local_brightness_alert_over = settings.brightness_alert_over / 100.0f;
   float local_brightness_explosion = settings.brightness_explosion / 100.0f;
 
-  int local_district = calculateOffsetDistrict(settings.home_district);
+  int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
   int color_switch;
 
   // explosions has highest priority
@@ -3987,17 +3208,13 @@ float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
   return blinkBrightness;
 }
 
-float mapf(float value, float istart, float istop, float ostart, float ostop) {
-  return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
-}
-
 void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
 #if HA_ENABLED
     if (enableHA) {
-      haMapModeCurrent->setValue(mapModes[getCurrentMapMode()]);
+      haMapModeCurrent->setValue(MAP_MODES[getCurrentMapMode()]);
     }
 #endif
     // play mos beep every 2 sec during min of silence
@@ -4092,32 +3309,12 @@ void mapLamp() {
 }
 
 void mapAlarms() {
-  int adapted_alarm_leds[26];
-  int lastValueColor = alarm_leds[25];
-  int adapted_alarm_timers[26];
-  int adapted_explosion_timers[26];
-  int lastValueTimer = alarm_time[25];
-  int lastValueExplosionTimer = explosions_time[25];
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    adapted_alarm_leds[i] = alarm_leds[i];
-    adapted_alarm_timers[i] = alarm_time[i];
-    adapted_explosion_timers[i] = explosions_time[i];
-  }
-  if (settings.kyiv_district_mode == 2) {
-    adapted_alarm_leds[7] = alarm_leds[25];
-    adapted_alarm_timers[7] = alarm_time[25];
-    adapted_explosion_timers[7] = explosions_time[25];
-  }
-  if (settings.kyiv_district_mode == 3) {
-    for (int i = 24; i >= 8 + offset; i--) {
-      adapted_alarm_leds[i + 1] = alarm_leds[i];
-      adapted_alarm_timers[i + 1] = alarm_time[i];
-      adapted_explosion_timers[i + 1] = explosions_time[i];
-    }
-    adapted_alarm_leds[8 + offset] = lastValueColor;
-    adapted_alarm_timers[8 + offset] = lastValueTimer;
-    adapted_explosion_timers[8 + offset] = lastValueExplosionTimer;
-  }
+  uint8_t adapted_alarm_leds[26];
+  long adapted_alarm_timers[26];
+  long adapted_explosion_timers[26];
+  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, strip->PixelCount(), offset);
+  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, strip->PixelCount(), offset);
+  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, strip->PixelCount(), offset);
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
@@ -4142,20 +3339,8 @@ void mapAlarms() {
 }
 
 void mapWeather() {
-  int adapted_weather_leds[26];
-  int lastValue = weather_leds[25];
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    adapted_weather_leds[i] = weather_leds[i];
-  }
-  if (settings.kyiv_district_mode == 2) {
-    adapted_weather_leds[7] = weather_leds[25];
-  }
-  if (settings.kyiv_district_mode == 3) {
-    for (int i = 24; i >= 8 + offset; i--) {
-      adapted_weather_leds[i + 1] = weather_leds[i];
-    }
-    adapted_weather_leds[8 + offset] = lastValue;
-  }
+  float adapted_weather_leds[26];
+  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, strip->PixelCount(), offset);
   if (settings.kyiv_district_mode == 4) {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
@@ -4166,20 +3351,8 @@ void mapWeather() {
 }
 
 void mapFlag() {
-  int adapted_flag_leds[26];
-  int lastValue = flag_leds[25];
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    adapted_flag_leds[i] = flag_leds[i];
-  }
-  if (settings.kyiv_district_mode == 2) {
-    adapted_flag_leds[7] = flag_leds[25];
-  }
-  if (settings.kyiv_district_mode == 3) {
-    for (int i = 24; i >= 8 + offset; i--) {
-      adapted_flag_leds[i + 1] = flag_leds[i];
-    }
-    adapted_flag_leds[8 + offset] = lastValue;
-  }
+  uint8_t adapted_flag_leds[26];
+  adaptLeds(settings.kyiv_district_mode, flag_leds, adapted_flag_leds, strip->PixelCount(), offset);
   for (uint16_t i = 0; i < strip->PixelCount(); i++) {
     strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.current_brightness / 200.0f));
   }
@@ -4200,31 +3373,31 @@ int getCurrentMapMode() {
   int position = settings.home_district;
   switch (settings.alarms_auto_switch) {
     case 1:
-      for (int j = 0; j < counters[position]; j++) {
-        int alarm_led_id = calculateOffset(neighboring_districts[position][j]);
+      for (int j = 0; j < COUNTERS[position]; j++) {
+        int alarm_led_id = calculateOffset(NEIGHBORING_DISTRICS[position][j], offset);
         if (alarm_leds[alarm_led_id] != 0) {
           currentMapMode = 1;
         }
       }
       break;
     case 2:
-      if (alarm_leds[calculateOffset(position)] != 0) {
+      if (alarm_leds[calculateOffset(position, offset)] != 0) {
         currentMapMode = 1;
       }
   }
 #if HA_ENABLED
   if (enableHA) {
-    haMapModeCurrent->setValue(mapModes[currentMapMode]);
+    haMapModeCurrent->setValue(MAP_MODES[currentMapMode]);
   }
 #endif
   return currentMapMode;
 }
 //--Map processing end
 
-void WifiReconnect() {
+void wifiReconnect() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFI Reconnect");
-    wifiReconnect = true;
+    shouldWifiReconnect = true;
     initWifi();
   }
 }
@@ -4267,8 +3440,8 @@ void calculateStates() {
 }
 
 void checkHomeDistrictAlerts() {
-  int ledStatus = alarm_leds[calculateOffset(settings.home_district)];
-  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district)];
+  int ledStatus = alarm_leds[calculateOffset(settings.home_district, offset)];
+  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district, offset)];
   bool localAlarmNow = ledStatus == 1;
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
@@ -4278,9 +3451,9 @@ void checkHomeDistrictAlerts() {
     alertPinCycle();
 
     if (alarmNow) {
-      showServiceMessage("Тривога!", districts[settings.home_district], 5000);
+      showServiceMessage("Тривога!", DISTRICTS[settings.home_district], 5000);
     } else {
-      showServiceMessage("Відбій!", districts[settings.home_district], 5000);
+      showServiceMessage("Відбій!", DISTRICTS[settings.home_district], 5000);
     }
 #if HA_ENABLED
     if (enableHA) {
@@ -4291,7 +3464,7 @@ void checkHomeDistrictAlerts() {
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
     if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-      showServiceMessage("Вибухи!", districts[settings.home_district], 5000);
+      showServiceMessage("Вибухи!", DISTRICTS[settings.home_district], 5000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
@@ -4349,6 +3522,68 @@ void climateSensorCycle() {
   updateHaPressureSensors();
 }
 
+#if FW_UPDATE_ENABLED
+static void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
+  JsonArray arr = data[payloadKey].as<JsonArray>();
+  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
+  for (int i = 0; i < *binsCount; i++) {
+    const char* filename = arr[i].as<const char*>();
+    binsList[i] = new char[strlen(filename)];
+    strcpy(binsList[i], filename);
+  }
+  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
+}
+#endif
+
+static JsonDocument parseJson(const char* payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.printf("Deserialization error: $s\n", error.f_str());
+    return doc;
+  } else {
+    return doc;
+  }
+}
+
+static void printNtpStatus(NTPtime* timeClient) {
+  Serial.print("NTP status: ");
+    switch (timeClient->NTPstatus()) {
+      case 0:
+        Serial.println("OK");
+        Serial.print("Current date and time: ");
+        Serial.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
+        break;
+      case 1:
+        Serial.println("NOT_STARTED");
+        break;
+      case 2:
+        Serial.println("NOT_CONNECTED_WIFI");
+        break;
+      case 3:
+        Serial.println("NOT_CONNECTED_TO_SERVER");
+        break;
+      case 4:
+        Serial.println("NOT_SENT_PACKET");
+        break;
+      case 5:
+        Serial.println("WAITING_REPLY");
+        break;
+      case 6:
+        Serial.println("TIMEOUT");
+        break;
+      case 7:
+        Serial.println("REPLY_ERROR");
+        break;
+      case 8:
+        Serial.println("NOT_CONNECTED_ETHERNET");
+        break;
+      default:
+        Serial.println("UNKNOWN_STATUS");
+        break;
+    }
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -4367,7 +3602,7 @@ void setup() {
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(WifiReconnect, 1000);
+  asyncEngine.setInterval(wifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   asyncEngine.setInterval(doUpdate, 1000);
   asyncEngine.setInterval(websocketProcess, 3000);

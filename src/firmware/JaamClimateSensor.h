@@ -16,6 +16,7 @@ class JaamClimateSensor {
         bool isHumidityAvailable();
         bool isPressureAvailable();
         bool isAnySensorAvailable();
+        bool isAnySensorEnabled();
         bool isBME280Available();
         bool isBMP280Available();
         bool isSHT2XAvailable();
