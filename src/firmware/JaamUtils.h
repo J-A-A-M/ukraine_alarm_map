@@ -1,7 +1,4 @@
 #include "Constants.h"
-#include <ArduinoJson.h>
-#include <NTPtime.h>
-#include <map>
 
 struct Firmware {
   int major = 0;
@@ -11,7 +8,7 @@ struct Firmware {
   bool isBeta = false;
 };
 
-int alphabetDistrictToNum(int alphabet) {
+static int alphabetDistrictToNum(int alphabet) {
   switch (alphabet) {
     case 0: return 15;
     case 1: return 22;
@@ -44,7 +41,7 @@ int alphabetDistrictToNum(int alphabet) {
   }
 }
 
-int numDistrictToAlphabet(int num) {
+static int numDistrictToAlphabet(int num) {
   switch (num) {
     case 0: return 6;
     case 1: return 8;
@@ -77,7 +74,7 @@ int numDistrictToAlphabet(int num) {
   }
 }
 
-Firmware parseFirmwareVersion(const char* version) {
+static Firmware parseFirmwareVersion(const char* version) {
 
   Firmware firmware;
 
@@ -104,7 +101,7 @@ Firmware parseFirmwareVersion(const char* version) {
   return firmware;
 }
 
-void fillFwVersion(char* result, Firmware firmware) {
+static void fillFwVersion(char* result, Firmware firmware) {
   char patch[5] = "";
   if (firmware.patch > 0) {
     sprintf(patch, ".%d", firmware.patch);
@@ -121,11 +118,11 @@ void fillFwVersion(char* result, Firmware firmware) {
 }
 
 #if FW_UPDATE_ENABLED
-bool prefix(const char *pre, const char *str) {
+static bool prefix(const char *pre, const char *str) {
   return strncmp(pre, str, strlen(pre)) == 0;
 }
 
-bool firstIsNewer(Firmware first, Firmware second) {
+static bool firstIsNewer(Firmware first, Firmware second) {
   if (first.major > second.major) return true;
   if (first.major == second.major) {
     if (first.minor > second.minor) return true;
@@ -144,80 +141,14 @@ bool firstIsNewer(Firmware first, Firmware second) {
 }
 #endif
 
-JsonDocument parseJson(const char* payload) {
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    Serial.printf("Deserialization error: $s\n", error.f_str());
-    return doc;
-  } else {
-    return doc;
-  }
-}
-
-void printNtpStatus(NTPtime* timeClient) {
-  Serial.print("NTP status: ");
-    switch (timeClient->NTPstatus()) {
-      case 0:
-        Serial.println("OK");
-        Serial.print("Current date and time: ");
-        Serial.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
-        break;
-      case 1:
-        Serial.println("NOT_STARTED");
-        break;
-      case 2:
-        Serial.println("NOT_CONNECTED_WIFI");
-        break;
-      case 3:
-        Serial.println("NOT_CONNECTED_TO_SERVER");
-        break;
-      case 4:
-        Serial.println("NOT_SENT_PACKET");
-        break;
-      case 5:
-        Serial.println("WAITING_REPLY");
-        break;
-      case 6:
-        Serial.println("TIMEOUT");
-        break;
-      case 7:
-        Serial.println("REPLY_ERROR");
-        break;
-      case 8:
-        Serial.println("NOT_CONNECTED_ETHERNET");
-        break;
-      default:
-        Serial.println("UNKNOWN_STATUS");
-        break;
-    }
-}
-
-bool isInArray(int value, int* array, int arraySize) {
+static bool isInArray(int value, int* array, int arraySize) {
   for (int i = 0; i < arraySize; i++) {
     if (array[i] == value) return true;
   }
   return false;
 }
 
-std::map<int, int> getHaOptions(char* result, char* options[], int optionsSize, int ignoreOptions[]= NULL) {
-  strcpy(result, "");
-  int haIndex = 0;
-  std::map<int, int> haMap = {};
-  for (int i = 0; i < optionsSize; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
-    char* option = options[i];
-    if (i > 0) {
-      strcat(result, ";");
-    }
-    strcat(result, option);
-    haMap[i] = haIndex;
-    haIndex++;
-  }
-  return haMap;
-}
-
-int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[]) {
+static int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[]) {
   int newDisplayMode = settingsDisplayMode;
   while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
     newDisplayMode++;
@@ -229,7 +160,7 @@ int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[])
   return 0;
 }
 
-int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[]) {
+static int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[]) {
   int newDisplayMode = localDisplayMode;
   while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
     newDisplayMode++;
@@ -242,15 +173,15 @@ int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[])
   return 0;
 }
 
-const char* disableRange(bool isDisabled) {
+static const char* disableRange(bool isDisabled) {
   return isDisabled ? " disabled" : "";
 }
 
-int getCurrentPeriodIndex(int periodLength, int periodCount, long currentSeconds) {
+static int getCurrentPeriodIndex(int periodLength, int periodCount, long currentSeconds) {
   return (currentSeconds / periodLength) % periodCount;
 }
 
-char getDivider(long currentSeconds) {
+static char getDivider(long currentSeconds) {
   // Change every second
   int periodIndex = getCurrentPeriodIndex(1, 2, currentSeconds);
   if (periodIndex) {
@@ -260,7 +191,7 @@ char getDivider(long currentSeconds) {
   }
 }
 
-void fillFromTimer(char* result, long timerSeconds) {
+static void fillFromTimer(char* result, long timerSeconds) {
   unsigned long seconds = timerSeconds;
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;
@@ -284,7 +215,7 @@ struct RGBColor {
   uint8_t b;
 };
 
-RGBColor hue2rgb(int hue) {
+static RGBColor hue2rgb(int hue) {
   float r, g, b;
 
   float h = hue / 360.0;
@@ -313,7 +244,7 @@ RGBColor hue2rgb(int hue) {
   return rgb;
 }
 
-int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
+static int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
   float r = red / 255.0;
   float g = green / 255.0;
   float b = blue / 255.0;
@@ -337,7 +268,7 @@ int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
 
 template <typename T>
 
-void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, int offset) {
+static void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, int offset) {
   T lastValue = leds[size - 1];
   for (uint16_t i = 0; i < size; i++) {
     adaptedLeds[i] = leds[i];
@@ -353,7 +284,7 @@ void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, int offs
   }
 }
 
-int calculateOffset(int initial_position, int offset) {
+static int calculateOffset(int initial_position, int offset) {
   int position;
   if (initial_position == 25) {
     position = 25;
@@ -366,7 +297,7 @@ int calculateOffset(int initial_position, int offset) {
   return position;
 }
 
-int calculateOffsetDistrict(int kyivDistrictMode, int initialPosition, int offset) {
+static int calculateOffsetDistrict(int kyivDistrictMode, int initialPosition, int offset) {
   int position;
   if (initialPosition == 25) {
     position = 25;
@@ -398,24 +329,11 @@ int calculateOffsetDistrict(int kyivDistrictMode, int initialPosition, int offse
   return position;
 }
 
-#if FW_UPDATE_ENABLED
-void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
-  JsonArray arr = data[payloadKey].as<JsonArray>();
-  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
-  for (int i = 0; i < *binsCount; i++) {
-    const char* filename = arr[i].as<const char*>();
-    binsList[i] = new char[strlen(filename)];
-    strcpy(binsList[i], filename);
-  }
-  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
-}
-#endif
-
-float mapf(float value, float istart, float istop, float ostart, float ostop) {
+static float mapf(float value, float istart, float istop, float ostart, float ostop) {
   return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
 
-void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
+static void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *brightnessLevels, const char* logTitle) {
   int minBrightness = min(dayBrightness, nightBrightness);
   int maxBrightness = max(dayBrightness, nightBrightness);
   float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
@@ -428,7 +346,7 @@ void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness, int *
   Serial.println("]");
 }
 
-void fillUptime(int uptimeValue, char* uptimeChar) {
+static void fillUptime(int uptimeValue, char* uptimeChar) {
   unsigned long seconds = uptimeValue;
   unsigned long minutes = seconds / 60;
   unsigned long hours = minutes / 60;

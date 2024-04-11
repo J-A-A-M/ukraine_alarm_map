@@ -46,7 +46,6 @@ bool detectDisplay() {
 bool JaamDisplay::begin(DisplayModel type,int displayWidth, int displayHeight) {
 #if DISPLAY_ENABLED
     displayConnected = type > 0 && detectDisplay();
-    Serial.printf("Display model: %d\n", type);
     if (displayConnected) {
         displayModel = type;
         switch (type) {
