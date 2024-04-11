@@ -26,7 +26,7 @@ runs:
         fqbn: esp32:esp32:esp32:PartitionScheme=min_spiffs
         platforms: |
           - name: esp32:esp32
-            source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+            source-url: https://github.com/espressif/arduino-esp32/releases/download/2.0.14/package_esp32_index.json
             version: 2.0.14
         libraries: |
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
