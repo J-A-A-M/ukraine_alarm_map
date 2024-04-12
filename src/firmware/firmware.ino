@@ -284,7 +284,6 @@ void initChipID() {
   uint64_t chipid = ESP.getEfuseMac();
   sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
   Serial.printf("ChipID Inited: '%s'\n", chipID);
-  ha.setChipID(chipID);
 }
 
 void initSettings() {
@@ -784,17 +783,16 @@ void initHA() {
   if (shouldWifiReconnect) return;
     Serial.println("Init Home assistant API");
     
-  ha.setMqttServer(settings.ha_brokeraddress);
-  if (!ha.isHaAvailable()) {
-    Serial.println("Invalid IP-address format!");
+  if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
+    Serial.println("Home Assistant is not available!");
     return;
   }
-  ha.initDevice(settings.devicename, currentFwVersion, settings.devicedescription);
 
   ha.initUptimeSensor();
   ha.initWifiSignalSensor();
   ha.initFreeMemorySensor();
   ha.initUsedMemorySensor();
+  ha.initCpuTempSensor(temperatureRead());
   ha.initBrightnessSensor(settings.brightness, saveBrightness);
   ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
   if (display.isDisplayAvailable()) {
@@ -803,14 +801,13 @@ void initHA() {
     ha.initDisplayModeToggleSensor(nextDisplayMode);
     ha.initShowHomeAlarmTimeSensor(settings.home_alert_time, saveShowHomeAlarmTime);
   }
-  ha.initAutoAlarmModeSensor(settings.alarms_auto_switch, AUTO_ALRMS_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
-  ha.initMapModeCurrentSensor();
-  ha.initMapApiConnectSensor(client_websocket.available());
+  ha.initAutoAlarmModeSensor(settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
   ha.initAutoBrightnessModeSensor(settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
+  ha.initMapModeCurrentSensor();
+  ha.initHomeDistrictSensor();
+  ha.initMapApiConnectSensor(apiConnected);
   ha.initRebootSensor([] { rebootDevice(); });
   ha.initMapModeToggleSensor(nextMapMode);
-  ha.initCpuTempSensor(temperatureRead());
-  ha.initHomeDistrictSensor();
   ha.initLampSensor(settings.map_mode == 5, settings.ha_light_brightness, settings.ha_light_r, settings.ha_light_g, settings.ha_light_b,
     onNewLampStateFromHa, saveLampBrightness, saveLampRgb);
   ha.initAlarmAtHomeSensor(alarmNow);
@@ -2107,7 +2104,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   html += addSlider("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSlider("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   html += addSlider("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
-  html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALRMS_MODES, AUTO_ALARM_MODES_COUNT);
+  html += addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (!settings.legacy) {
     html += addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }

@@ -115,8 +115,11 @@ bool haEnabled = false;
 JaamHomeAssistant::JaamHomeAssistant() {
 }
 
-void JaamHomeAssistant::initDevice(const char* deviceName, const char* currentFwVersion, const char* deviceDescription) {
+bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID) {
 #if HA_ENABLED
+  haEnabled = mqttServer.fromString(mqttServerIp);
+  if (!haEnabled) return false;
+  strcpy(deviceUniqueID, chipID);
   WiFi.macAddress(macAddress);
   sprintf(configUrl, "http://%s:80", WiFi.localIP().toString());
   device = new HADevice(macAddress, sizeof(macAddress));
@@ -131,6 +134,7 @@ void JaamHomeAssistant::initDevice(const char* deviceName, const char* currentFw
   device->enableSharedAvailability();
   device->enableLastWill();
 #endif
+return haEnabled;
 }
 
 void JaamHomeAssistant::loop() {
@@ -149,18 +153,6 @@ bool JaamHomeAssistant::isHaEnabled() {
   return true;
 #else
   return false;
-#endif
-}
-
-void JaamHomeAssistant::setChipID(const char* chipId) {
-#if HA_ENABLED
-  strcpy(deviceUniqueID, chipId);
-#endif
-}
-
-void JaamHomeAssistant::setMqttServer(const char* mqttServerIp) {
-#if HA_ENABLED
-  haEnabled = mqttServer.fromString(mqttServerIp);
 #endif
 }
 
@@ -365,9 +357,9 @@ void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMo
   if (!haEnabled) return;
   sprintf(haBrightnessAutoID, "%s_brightness_auto", deviceUniqueID);
   haAutoBrightnessMode = new HASelect(haBrightnessAutoID);
-  char autoBrightnessOptionsString[sizeOfCharsArray(autoBrightnessModes, autoBrightmesSize) + autoBrightmesSize];
-  getHaOptions(autoBrightnessOptionsString, autoBrightnessModes, autoBrightmesSize);
-  haAutoBrightnessMode->setOptions(autoBrightnessOptionsString);
+  char autoBrightnessOptions[sizeOfCharsArray(autoBrightnessModes, autoBrightmesSize) + autoBrightmesSize];
+  getHaOptions(autoBrightnessOptions, autoBrightnessModes, autoBrightmesSize);
+  haAutoBrightnessMode->setOptions(autoBrightnessOptions);
   onHaAutoBrightnessModeChanged = onChange;
   haAutoBrightnessMode->onCommand([](int8_t index, HASelect* sender) { onHaAutoBrightnessModeChanged(index); });
   haAutoBrightnessMode->setIcon("mdi:brightness-auto");

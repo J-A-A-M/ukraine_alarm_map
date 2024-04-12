@@ -197,7 +197,7 @@ static char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
 };
 
 #define AUTO_ALARM_MODES_COUNT 3
-static char* AUTO_ALRMS_MODES[AUTO_ALARM_MODES_COUNT] = {
+static char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
   "Вимкнено",
   "Домашній та суміжні",
   "Лише домашній"

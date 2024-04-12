@@ -9,14 +9,12 @@ class JaamHomeAssistant {
 public:
     JaamHomeAssistant();
     
-    void initDevice(const char* deviceName, const char* currentFwVersion, const char* deviceDescription);
+    bool initDevice(const char* mqttServeIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID);
     void loop();
 
     bool isHaAvailable();
     bool isHaEnabled();
 
-    void setChipID(const char* chipID);
-    void setMqttServer(const char* mqttServer);
     bool connectToMqtt(const uint16_t serverPort, const char* mqttUser, const char* mqttPassword, void (*onStatusChanged)(bool connected));
     bool isMqttConnected();
 
