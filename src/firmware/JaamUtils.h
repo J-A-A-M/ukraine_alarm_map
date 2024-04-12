@@ -1,5 +1,4 @@
 #include "Constants.h"
-#include <map>
 
 struct Firmware {
   int major = 0;
@@ -358,29 +357,4 @@ static void fillUptime(int uptimeValue, char* uptimeChar) {
   } else {
     sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
   }
-}
-
-static std::map<int, int> getHaOptions(char* result, char* options[], int optionsSize, int ignoreOptions[]= NULL) {
-  strcpy(result, "");
-  int haIndex = 0;
-  std::map<int, int> haMap = {};
-  for (int i = 0; i < optionsSize; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
-    char* option = options[i];
-    if (i > 0) {
-      strcat(result, ";");
-    }
-    strcat(result, option);
-    haMap[i] = haIndex;
-    haIndex++;
-  }
-  return haMap;
-}
-
-static int sizeOfCharsArray(char* array[], int arraySize) {
-  int result = 0;
-  for (int i = 0; i < arraySize; i++) {
-    result += strlen(array[i]);
-  }
-  return result;
 }
