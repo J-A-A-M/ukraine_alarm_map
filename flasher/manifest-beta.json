@@ -1,6 +1,6 @@
 {
     "name": "JAAM Beta",
-    "version": "3.10-b56",
+    "version": "3.10-b57",
     "funding_url": "https://send.monobank.ua/jar/7GzS1PhPa2",
     "new_install_improv_wait_time": 0,
     "new_install_prompt_erase": true,
