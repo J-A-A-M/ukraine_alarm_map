@@ -383,7 +383,6 @@ void initSettings() {
   fillFwVersion(currentFwVersion, currentFirmware);
   Serial.printf("Current firmware version: %s\n", currentFwVersion);
   distributeBrightnessLevels();
-  ha.setMqttServer(settings.ha_brokeraddress);
 }
 
 void initLegacy() {
@@ -784,7 +783,8 @@ void initBroadcast() {
 void initHA() {
   if (shouldWifiReconnect) return;
     Serial.println("Init Home assistant API");
-
+    
+  ha.setMqttServer(settings.ha_brokeraddress);
   if (!ha.isHaAvailable()) {
     Serial.println("Invalid IP-address format!");
     return;
