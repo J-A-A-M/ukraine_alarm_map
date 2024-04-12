@@ -18,6 +18,7 @@ runs:
       run: |
         unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
         unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
+        unzip -q ${{ github.workspace }}/libs/melody-player-2.4.0.zip -d ${{ github.workspace }}/libs/
     - name: Compile firmware
       uses: arduino/compile-sketches@v1
       with:
@@ -31,6 +32,7 @@ runs:
         libraries: |
           - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
           - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
+          - source-path: ${{ github.workspace }}/libs/melody-player-2.4.0
           - name: Adafruit SSD1306
             version: 2.5.9
           - name: Adafruit SH110X
@@ -45,8 +47,6 @@ runs:
             version: 1.1.10
           - name: ESP Async WebServer
             version: 2.9.0
-          - name: Melody Player
-            version: 2.4.0
           - name: NTPTime
             version: 1.2.1
           - name: NeoPixelBus by Makuna

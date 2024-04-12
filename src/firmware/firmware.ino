@@ -166,7 +166,6 @@ JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 JaamHomeAssistant ha;
 std::map<int, int> displayModeHAMap;
-char haConfigUrl[30];
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 #endif
@@ -790,11 +789,7 @@ void initHA() {
     Serial.println("Invalid IP-address format!");
     return;
   }
-  byte mac[6];
-  WiFi.macAddress(mac);
-  sprintf(haConfigUrl, "http://%s:80", getLocalIP());
-  Serial.printf("HA Device configurationUrl: '%s'\n", haConfigUrl);
-  ha.initDevice(client, mac, settings.devicename, currentFwVersion, settings.devicedescription, haConfigUrl);
+  ha.initDevice(settings.devicename, currentFwVersion, settings.devicedescription);
 
   ha.initUptimeSensor();
   ha.initWifiSignalSensor();

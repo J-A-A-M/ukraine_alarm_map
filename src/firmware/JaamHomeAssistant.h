@@ -9,8 +9,7 @@ class JaamHomeAssistant {
 public:
     JaamHomeAssistant();
     
-    void initDevice(Client& netClient, const byte* mac, const char* deviceName,
-        const char* currentFwVersion, const char* deviceDescription, const char* configUrl);
+    void initDevice(const char* deviceName, const char* currentFwVersion, const char* deviceDescription);
     void loop();
 
     bool isHaAvailable();

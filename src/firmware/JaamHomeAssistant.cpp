@@ -1,7 +1,9 @@
 #include "JaamHomeAssistant.h"
 #include "JaamUtils.h"
+#include <WiFi.h>
 
 #if HA_ENABLED
+WiFiClient       netClient;
 HADevice*        device;
 HAMqtt*          mqtt;
 
@@ -75,6 +77,9 @@ bool (*onLampColorChanged)(int newR, int newG, int newB);
 bool (*onNightModeChanged)(bool newState);
 void (*onMqqtConnectionStatusChanged)(bool connected);
 
+char configUrl[30];
+byte macAddress[6];
+
 #define SENSORS_COUNT 26
 
 char deviceUniqueID[15];
@@ -110,14 +115,17 @@ bool haEnabled = false;
 JaamHomeAssistant::JaamHomeAssistant() {
 }
 
-void JaamHomeAssistant::initDevice(Client& netClient, const byte* mac, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* configUrl) {
+void JaamHomeAssistant::initDevice(const char* deviceName, const char* currentFwVersion, const char* deviceDescription) {
 #if HA_ENABLED
-  device = new HADevice(mac, sizeof(mac));
+  WiFi.macAddress(macAddress);
+  sprintf(configUrl, "http://%s:80", WiFi.localIP().toString());
+  device = new HADevice(macAddress, sizeof(macAddress));
   mqtt = new HAMqtt(netClient, *device, SENSORS_COUNT);
   device->setName(deviceName);
   device->setSoftwareVersion(currentFwVersion);
   device->setManufacturer("v00g100skr");
   device->setModel(deviceDescription);
+  Serial.printf("HA Device configurationUrl: '%s'\n", configUrl);
   device->setConfigurationUrl(configUrl);
   device->enableExtendedUniqueIds();
   device->enableSharedAvailability();
