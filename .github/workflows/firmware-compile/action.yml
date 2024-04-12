@@ -24,7 +24,7 @@ runs:
       with:
         sketch-paths: |
           - ${{ github.workspace }}/src/firmware
-        fqbn: esp32:esp32:esp32:PartitionScheme=min_spiffs
+        fqbn: esp32:esp32:esp32
         platforms: |
           - name: esp32:esp32
             source-url: https://github.com/espressif/arduino-esp32/releases/download/2.0.14/package_esp32_index.json
