@@ -2,8 +2,16 @@
 
 version: 2
 updates:
+  # Enable version updates for pip dependencies
   - package-ecosystem: "pip"
     directory: "/deploy/"
+    schedule:
+      interval: "weekly"
+    target:
+      branch: "develop"
+
+  # Enable version updates for github actions
+  - package-ecosystem: "github-actions"
     schedule:
       interval: "weekly"
     target:
