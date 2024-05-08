@@ -1,0 +1,10 @@
+# Configure dependabot to check dependency weekly and make dependency update to `develop` branch
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/deploy/"
+    schedule:
+      interval: "weekly"
+    target:
+      branch: "develop"
