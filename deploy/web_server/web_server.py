@@ -156,8 +156,8 @@ async def main(request):
                     <p>Корисні посилання:</p>
                     <ul>
                         <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
-                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li> 
-                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>                             
+                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li>
+                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>
                     </ul>
                 </div>
                 <div class='col-md-6 offset-md-3'>
@@ -166,17 +166,19 @@ async def main(request):
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
                         <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
+                        <li>Ракети: (інформація зі ЗМІ) [<a href="/rockets_statuses_v1.json">v1</a>], [<a href="/rockets_statuses_v2.json">v2</a>], [<a href="/rockets_statuses_v3.json">v3</a>]</li>
+                        <li>Дрони:  (інформація зі ЗМІ) [<a href="/drones_statuses_v1.json">v1</a>], [<a href="/drones_statuses_v2.json">v2</a>], [<a href="/drones_statuses_v3.json">v3</a>]</li>
                         <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
-                
+
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
                         <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам зі ЗМІ)</a></li>
                         <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
-                        <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>                         
+                        <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>
                     </ul>
                 </div>
                 <div class='col-md-6 offset-md-3'>
