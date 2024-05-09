@@ -156,7 +156,7 @@ async def main(request):
                     <p>Корисні посилання:</p>
                     <ul>
                         <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
-                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li>
+                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь ласка :-) </li>
                         <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>
                     </ul>
                 </div>
