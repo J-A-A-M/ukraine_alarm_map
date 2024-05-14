@@ -9,9 +9,8 @@ from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
-from ga4mp.store import DictStore
 
-debug_level = os.environ.get("DEBUG_LEVEL") or "INFO"
+debug_level = os.environ.get("LOGGING")
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 60))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
@@ -99,7 +98,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                         alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts_v1)])
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.info(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
                     if client["alerts"] != shared_data.alerts_v2:
@@ -111,29 +110,29 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.info(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
             if client["explosions"] != shared_data.explosions_v1:
                 explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
-                logger.info(f"{client_ip}:{client_id} <<< new explosions")
+                logger.debug(f"{client_ip}:{client_id} <<< new explosions")
                 client["explosions"] = shared_data.explosions_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
-                logger.info(f"{client_ip}:{client_id} <<< new weather")
+                logger.debug(f"{client_ip}:{client_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
                 payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
                 await websocket.send(payload)
-                logger.info(f"{client_ip}:{client_id} <<< new bins")
+                logger.debug(f"{client_ip}:{client_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
                 payload = '{"payload": "test_bins", "test_bins": %s}' % shared_data.test_bins
                 await websocket.send(payload)
-                logger.info(f"{client_ip}:{client_id} <<< new test_bins")
+                logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
@@ -145,7 +144,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
 
 async def echo(websocket, path):
     client_ip, client_port = websocket.remote_address
-    logger.info(f"{client_ip}:{client_port} >>> new client")
+    logger.debug(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
         logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
@@ -200,7 +199,7 @@ async def echo(websocket, path):
                         client_id = client_port
                     case _:
                         client_id = client["firmware"]
-                logger.info(f"{client_ip}:{client_id} >>> {message}")
+                logger.debug(f"{client_ip}:{client_id} >>> {message}")
 
                 def split_message(message):
                     parts = message.split(":", 1)  # Split at most into 2 parts
@@ -214,13 +213,13 @@ async def echo(websocket, path):
                         district_data = await district_data_v1(int(data))
                         payload = json.dumps(district_data).encode("utf-8")
                         await websocket.send(payload)
-                        logger.info(f"{client_ip}:{client_id} <<< district {payload} ")
+                        logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
                     case "firmware":
                         client["firmware"] = data
                         parts = data.split("_", 1)
                         tracker.store.set_user_property("firmware_v", parts[0])
                         tracker.store.set_user_property("identifier", parts[1])
-                        logger.warning(f"{client_ip}:{client_id} >>> firmware saved")
+                        logger.debug(f"{client_ip}:{client_id} >>> firmware saved")
                     case "user_info":
                         json_data = json.loads(data)
                         for key, value in json_data.items():
@@ -238,21 +237,21 @@ async def echo(websocket, path):
                         online_event = tracker.create_new_event("status")
                         online_event.set_event_param("online", "true")
                         tracker.send(events=[online_event], date=datetime.now())
-                        logger.info(f"{client_ip}:{client_id} >>> chip_id saved")
+                        logger.debug(f"{client_ip}:{client_id} >>> chip_id saved")
                     case "pong":
                         ping_event = tracker.create_new_event("ping")
                         ping_event.set_event_param("state", "alive")
                         tracker.send(events=[ping_event], date=datetime.now())
-                        logger.info(f"{client_ip}:{client_id} >>> ping analytics sent")
+                        logger.debug(f"{client_ip}:{client_id} >>> ping analytics sent")
                     case "settings":
                         json_data = json.loads(data)
                         settings_event = tracker.create_new_event("settings")
                         for key, value in json_data.items():
                             settings_event.set_event_param(key, value)
                         tracker.send(events=[settings_event], date=datetime.now())
-                        logger.info(f"{client_ip}:{client_id} >>> settings analytics sent")
+                        logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
                     case _:
-                        logger.info(f"{client_ip}:{client_id} !!! unknown data request")
+                        logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
         logger.error(f"Connection closed with error - {e}")
     except Exception as e:
@@ -267,8 +266,8 @@ async def echo(websocket, path):
         try:
             await data_task
         except asyncio.CancelledError:
-            logger.info(f"{client_ip}:{client_port} !!! tasks cancelled")
-        logger.info(f"{client_ip}:{client_port} !!! end")
+            logger.debug(f"{client_ip}:{client_port} !!! tasks cancelled")
+        logger.debug(f"{client_ip}:{client_port} !!! end")
 
 
 async def district_data_v1(district_id):
@@ -300,63 +299,63 @@ async def update_shared_data(shared_data, mc):
         try:
             if alerts_v1 != shared_data.alerts_v1:
                 shared_data.alerts_v1 = alerts_v1
-                logger.info(f"alerts_v1 updated: {alerts_v1}")
+                logger.debug(f"alerts_v1 updated: {alerts_v1}")
         except Exception as e:
             logger.error(f"error in alerts_v1: {e}")
 
         try:
             if alerts_v2 != shared_data.alerts_v2:
                 shared_data.alerts_v2 = alerts_v2
-                logger.info(f"alerts_v2 updated: {alerts_v2}")
+                logger.debug(f"alerts_v2 updated: {alerts_v2}")
         except Exception as e:
             logger.error(f"error in alerts_v2: {e}")
 
         try:
             if weather_v1 != shared_data.weather_v1:
                 shared_data.weather_v1 = weather_v1
-                logger.info(f"weather_v1 updated: {weather_v1}")
+                logger.debug(f"weather_v1 updated: {weather_v1}")
         except Exception as e:
             logger.error(f"error in weather_v1: {e}")
 
         try:
             if explosions_v1 != shared_data.explosions_v1:
                 shared_data.explosions_v1 = explosions_v1
-                logger.info(f"explosions_v1 updated: {explosions_v1}")
+                logger.debug(f"explosions_v1 updated: {explosions_v1}")
         except Exception as e:
             logger.error(f"error in explosions_v1: {e}")
 
         try:
             if bins != shared_data.bins:
                 shared_data.bins = bins
-                logger.info(f"bins updated: {bins}")
+                logger.debug(f"bins updated: {bins}")
         except Exception as e:
             logger.error(f"error in bins: {e}")
 
         try:
             if test_bins != shared_data.test_bins:
                 shared_data.test_bins = test_bins
-                logger.info(f"test bins updated: {test_bins}")
+                logger.debug(f"test bins updated: {test_bins}")
         except Exception as e:
             logger.error(f"error in test_bins: {e}")
 
         try:
             if alerts_full != shared_data.alerts_full:
                 shared_data.alerts_full = alerts_full
-                logger.info(f"alerts_full updated")
+                logger.debug(f"alerts_full updated")
         except Exception as e:
             logger.error(f"error in alerts_full: {e}")
 
         try:
             if weather_full != shared_data.weather_full:
                 shared_data.weather_full = weather_full
-                logger.info(f"weather_full updated")
+                logger.debug(f"weather_full updated")
         except Exception as e:
             logger.error(f"error in weather_full: {e}")
 
         try:
             if explosions_full != shared_data.explosions_full:
                 shared_data.explosions_full = explosions_full
-                logger.info(f"explosions_full updated")
+                logger.debug(f"explosions_full updated")
         except Exception as e:
             logger.error(f"error in explosions_full: {e}")
 
@@ -367,9 +366,9 @@ async def print_clients(shared_data, mc):
     while True:
         try:
             await asyncio.sleep(60)
-            logger.info(f"Clients:")
+            logger.debug(f"Clients:")
             for client, data in shared_data.clients.items():
-                logger.info(client)
+                logger.debug(client)
             websoket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
             await mc.set(websoket_key, json.dumps(shared_data.clients).encode("utf-8"))
         except Exception as e:

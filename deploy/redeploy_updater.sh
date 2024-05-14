@@ -3,6 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 UPDATER_PERIOD=1
+LOGGING="DEBUG"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--etryvoga-period)
             UPDATER_PERIOD="$2"
+            shift 2
+            ;;
+        -l|--logging)
+            LOGGING="$2"
             shift 2
             ;;
         *)
@@ -26,6 +31,7 @@ echo "UPDATER"
 
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "UPDATER_PERIOD: $UPDATER_PERIOD"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -48,7 +54,7 @@ docker rm map_updater || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_updater --restart unless-stopped -d --env UPDATER_PERIOD="$UPDATER_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_updater
+docker run --name map_updater --restart unless-stopped -d --env UPDATER_PERIOD="$UPDATER_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_updater
 
 echo "Container deployed successfully!"
 

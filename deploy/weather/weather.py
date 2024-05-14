@@ -7,19 +7,16 @@ from aiomcache import Client
 
 from datetime import datetime
 
-from copy import copy
-
 version = 1
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 weather_url = "http://api.openweathermap.org/data/2.5/weather"
-
 weather_token = os.environ.get("WEATHER_TOKEN") or "token"
-
 weather_loop_time = int(os.environ.get("WEATHER_PERIOD", 60))
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 
 weather_regions = {
@@ -86,12 +83,12 @@ async def weather_data(mc):
                     logging.error(f"Request failed with status code: {response.status_code}")
 
         weather_cached_data["info"]["last_update"] = current_datetime
-        logging.debug("store weather data: %s" % current_datetime)
+        logger.debug("store weather data: %s" % current_datetime)
         await mc.set(b"weather", json.dumps(weather_cached_data).encode("utf-8"))
-        logging.debug("weather data stored")
+        logger.debug("weather data stored")
         await asyncio.sleep(weather_loop_time)
     except Exception as e:
-        logging.error(f"Error fetching data: {str(e)}")
+        logger.error(f"Error fetching data: {str(e)}")
         await asyncio.sleep(weather_loop_time)
 
 
@@ -99,27 +96,27 @@ async def main():
     mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     while True:
         try:
-            logging.debug("Task started")
+            logger.debug("Task started")
             await weather_data(mc)
 
         except asyncio.CancelledError:
-            logging.info("Task canceled. Shutting down...")
+            logger.error("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logging.error(f"Caught an exception: {e}")
+            logger.error(f"Caught an exception: {e}")
             await asyncio.sleep(weather_loop_time)
 
         finally:
-            logging.debug("Task completed")
+            logger.debug("Task completed")
             pass
 
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logger.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt")
+        logger.error("KeyboardInterrupt")
         pass

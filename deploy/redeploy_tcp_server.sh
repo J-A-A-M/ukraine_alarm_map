@@ -3,6 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 TCP_PORT=12345
+LOGGING="DEBUG"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -l|--logging)
+            LOGGING="$2"
             shift 2
             ;;
         *)
@@ -26,6 +31,7 @@ echo "TCP SERVER"
 
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "TCP_PORT: $TCP_PORT"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -48,7 +54,7 @@ docker rm map_tcp_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_tcp_server --restart unless-stopped -d  -p "$TCP_PORT":"$TCP_PORT" --env TCP_PORT="$TCP_PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_tcp_server
+docker run --name map_tcp_server --restart unless-stopped -d  -p "$TCP_PORT":"$TCP_PORT" --env TCP_PORT="$TCP_PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_tcp_server
 
 echo "Container deployed successfully!"
 
