@@ -4,7 +4,7 @@
 DATA_TOKEN=""
 MEMCACHED_HOST=""
 PORT=8080
-LOGGING="INFO"
+LOGGING="WARNING"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
