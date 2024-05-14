@@ -85,7 +85,7 @@ async def weather_data(mc):
         weather_cached_data["info"]["last_update"] = current_datetime
         logger.debug("store weather data: %s" % current_datetime)
         await mc.set(b"weather", json.dumps(weather_cached_data).encode("utf-8"))
-        logger.debug("weather data stored")
+        logger.info("weather data stored")
         await asyncio.sleep(weather_loop_time)
     except Exception as e:
         logger.error(f"Error fetching data: {str(e)}")
