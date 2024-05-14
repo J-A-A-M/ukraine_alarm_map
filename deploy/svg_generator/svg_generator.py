@@ -148,7 +148,7 @@ async def svg_generator(mc, shared_data):
                 **weather_svg_data,
             )
             shared_data.data = cached_data
-            logger.info(f"{file_path} ready")
+            logger.info(f"map generated")
     except Exception as e:
         logger.error(f"Request failed with status code: {e}")
         raise ""
