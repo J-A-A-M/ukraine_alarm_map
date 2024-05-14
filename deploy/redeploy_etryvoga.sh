@@ -4,7 +4,7 @@
 ETRYVOGA_HOST=""
 MEMCACHED_HOST=""
 ETRYVOGA_PERIOD=30
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

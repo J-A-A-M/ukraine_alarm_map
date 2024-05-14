@@ -3,7 +3,7 @@
 # Default values
 ALERT_TOKEN=""
 MEMCACHED_HOST=""
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

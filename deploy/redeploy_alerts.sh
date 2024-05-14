@@ -4,7 +4,7 @@
 ALERT_TOKEN=""
 MEMCACHED_HOST=""
 ALERT_PERIOD=10
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

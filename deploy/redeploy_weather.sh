@@ -4,7 +4,7 @@
 WEATHER_TOKEN=""
 MEMCACHED_HOST=""
 WEATHER_PERIOD=600
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

@@ -2,7 +2,7 @@
 
 # Default values
 MEMCACHED_HOST=""
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

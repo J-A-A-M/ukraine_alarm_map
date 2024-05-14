@@ -5,7 +5,7 @@ SHARED_PATH=""
 SHARED_BETA_PATH=""
 MEMCACHED_HOST=""
 PORT=8090
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

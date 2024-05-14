@@ -3,7 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 UPDATER_PERIOD=1
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do

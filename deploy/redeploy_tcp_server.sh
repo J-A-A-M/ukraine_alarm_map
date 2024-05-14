@@ -3,7 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 TCP_PORT=12345
-LOGGING="DEBUG"
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
