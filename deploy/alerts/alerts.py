@@ -11,16 +11,16 @@ from copy import copy
 
 version = 2
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 
+debug_level = os.environ.get("LOGGING")
 alert_token = os.environ.get("ALERT_TOKEN") or "token"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-
 alert_loop_time = int(os.environ.get("ALERT_PERIOD", 3))
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 # Authorization header
 headers = {"Authorization": "%s" % alert_token}
@@ -85,10 +85,10 @@ async def alarm_data(mc):
             alerts_cached_data.get("info", {}).get("is_started", False) is False
             or alerts_cached_data.get("version", 0) != version
         ):
-            logging.debug("fill empty fields")
+            logger.debug("fill empty fields")
             alerts_cached_data = {"version": version, "states": {}, "info": {"last_update": None, "is_started": False}}
 
-            logging.debug("fill start data")
+            logger.debug("fill start data")
             async with aiohttp.ClientSession() as session:
                 response = await session.get(region_url, headers=headers)  # Replace with your URL
                 new_data = await response.text()
@@ -104,13 +104,13 @@ async def alarm_data(mc):
                     region_data = json.loads(new_data)[0]
                 alerts_cached_data["states"][region_name]["changed"] = region_data["lastUpdate"]
 
-        logging.debug("get data")
+        logger.debug("get data")
         async with aiohttp.ClientSession() as session:
             response = await session.get(alarm_url, headers=headers)  # Replace with your URL
             new_data = await response.text()
             data = json.loads(new_data)
 
-        logging.debug("parse activeAlerts")
+        logger.debug("parse activeAlerts")
         alert_region_names = []
         for item in data:
             for alert in item["activeAlerts"]:
@@ -122,7 +122,7 @@ async def alarm_data(mc):
                     region_data["changed"] = alert["lastUpdate"]
                     alerts_cached_data["states"][region_name] = region_data
 
-        logging.debug("parse states")
+        logger.debug("parse states")
         for region_name, data in regions.items():
             if region_name not in alert_region_names and alerts_cached_data["states"][region_name]["alertnow"] is True:
                 alerts_cached_data["states"][region_name]["alertnow"] = False
@@ -130,12 +130,12 @@ async def alarm_data(mc):
 
         alerts_cached_data["info"]["is_started"] = True
         alerts_cached_data["info"]["last_update"] = current_datetime
-        logging.debug("store alerts data: %s" % current_datetime)
+        logger.debug("store alerts data: %s" % current_datetime)
         await mc.set(b"alerts", json.dumps(alerts_cached_data).encode("utf-8"))
-        logging.debug("alerts data stored")
+        logger.info("alerts data stored")
 
     except Exception as e:
-        logging.error(f"Error fetching data: {str(e)}")
+        logger.error(f"Error fetching data: {str(e)}")
         await asyncio.sleep(alert_loop_time)
 
 
@@ -143,26 +143,26 @@ async def main():
     mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     while True:
         try:
-            logging.debug("Task started")
+            logger.debug("Task started")
             await alarm_data(mc)
 
         except asyncio.CancelledError:
-            logging.info("Task canceled. Shutting down...")
+            logger.error("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logging.error(f"Caught an exception: {e}")
+            logger.error(f"Caught an exception: {e}")
 
         finally:
-            logging.debug("Task completed")
+            logger.debug("Task completed")
             pass
 
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logger.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt")
+        logger.info("KeyboardInterrupt")
         pass

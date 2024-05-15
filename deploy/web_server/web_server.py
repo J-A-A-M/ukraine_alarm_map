@@ -16,17 +16,15 @@ from aiomcache import Client
 
 from datetime import datetime, timezone
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
-
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
-
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
-
 data_token = os.environ.get("DATA_TOKEN") or None
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 mc = Client(memcached_host, memcached_port)
 

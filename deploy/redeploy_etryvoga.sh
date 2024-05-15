@@ -4,6 +4,7 @@
 ETRYVOGA_HOST=""
 MEMCACHED_HOST=""
 ETRYVOGA_PERIOD=30
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
             ETRYVOGA_PERIOD="$2"
             shift 2
             ;;
+        -l|--logging)
+            LOGGING="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -27,11 +32,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "EXPLOSIONS"
+echo "ETRYVOGA"
 
 echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "ETRYVOGA_PERIOD: $ETRYVOGA_PERIOD"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -54,7 +60,7 @@ docker rm map_etryvoga || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_etryvoga
+docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
 
 echo "Container deployed successfully!"
 

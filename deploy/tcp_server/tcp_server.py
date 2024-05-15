@@ -7,11 +7,12 @@ from geoip2 import database
 from datetime import datetime
 from time import time
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 tcp_port = os.environ.get("TCP_PORT") or 12345
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 
 class SharedData:
@@ -22,7 +23,7 @@ class SharedData:
 
 
 async def handle_client(reader, writer, shared_data, geo):
-    logger.info(f"New client connected from {writer.get_extra_info('peername')}")
+    logger.debug(f"New client connected from {writer.get_extra_info('peername')}")
     data_from_client = False
 
     client_ip = writer.get_extra_info("peername")[0]
@@ -57,9 +58,9 @@ async def handle_client(reader, writer, shared_data, geo):
         "region": response.subdivisions.most_specific.name or "unknown",
     }
 
-    logging.info(shared_data.clients[f"{client_ip}_{client_port}"])
+    logger.debug(shared_data.clients[f"{client_ip}_{client_port}"])
 
-    logging.debug(f"Received data from {client_ip}:{client_port}: {data_from_client}")
+    logger.debug(f"Received data from {client_ip}:{client_port}: {data_from_client}")
     writer.data_sent = shared_data.data
     writer.last_ping = int(time())
     writer.write(shared_data.data.encode())
@@ -71,7 +72,7 @@ async def handle_client(reader, writer, shared_data, geo):
             current_timestamp = int(time())
             if (current_timestamp - writer.last_ping) > 1:
                 ping_data = "p"
-                logger.info(f"Client {client_ip}:{client_port} ({writer.firmware}) ping")
+                logger.debug(f"Client {client_ip}:{client_port} ({writer.firmware}) ping")
                 writer.last_ping = current_timestamp
                 writer.write(ping_data.encode())
                 shared_data.clients[f"{client_ip}_{client_port}"]["last_ping"] = current_timestamp
@@ -80,7 +81,7 @@ async def handle_client(reader, writer, shared_data, geo):
 
             if shared_data.data != writer.data_sent:
                 writer.write(shared_data.data.encode())
-                logger.info(f"Data changed. Broadcasting to {client_ip}:{client_port}")
+                logger.debug(f"Data changed. Broadcasting to {client_ip}:{client_port}")
                 writer.data_sent = shared_data.data
                 shared_data.clients[f"{client_ip}_{client_port}"]["last_data"] = current_timestamp
                 await writer.drain()
@@ -89,7 +90,7 @@ async def handle_client(reader, writer, shared_data, geo):
         pass
 
     finally:
-        logger.info(
+        logger.debug(
             f"Client from {writer.get_extra_info('peername')[0]}:{writer.get_extra_info('peername')[1]} disconnected"
         )
         del shared_data.clients[f"{client_ip}_{client_port}"]
@@ -107,7 +108,7 @@ async def update_shared_data(shared_data, mc):
 
             if data_from_memcached != shared_data.data:
                 shared_data.data = data_from_memcached
-                logger.info(f"Data updated: {data_from_memcached}")
+                logger.debug(f"Data updated: {data_from_memcached}")
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
@@ -123,7 +124,7 @@ async def print_clients(shared_data, mc):
             await mc.set(b"tcp_clients", json.dumps(shared_data.clients).encode("utf-8"))
 
             for client, data in shared_data.clients.items():
-                logger.info(f"{client}: {data['firmware']}")
+                logger.debug(f"{client}: {data['firmware']}")
 
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
@@ -162,10 +163,12 @@ async def main():
 
     try:
         async with server:
+            logger.info("Start")
             await server.serve_forever()
     except KeyboardInterrupt:
         logger.debug("Server shutting down...")
     finally:
+        logger.info("Shutdown")
         updater_task.cancel()
         await mc.close()
         await updater_task

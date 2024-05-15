@@ -9,14 +9,13 @@ from datetime import datetime
 
 version = 2
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 etryvoga_url = os.environ.get("ETRYVOGA_HOST") or "localhost"
-
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-
 etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 
 regions = {
@@ -110,17 +109,17 @@ async def explosions_data(mc):
                 rockets_cached_data["info"]["last_update"] = current_datetime
                 drones_cached_data["info"]["last_id"] = last_id
                 drones_cached_data["info"]["last_update"] = current_datetime
-                logging.debug("store etryvoga data: %s" % current_datetime)
+                logger.debug("store etryvoga data: %s" % current_datetime)
                 await mc.set(b"explosions", json.dumps(explosions_cached_data).encode("utf-8"))
                 await mc.set(b"rockets", json.dumps(rockets_cached_data).encode("utf-8"))
                 await mc.set(b"drones", json.dumps(drones_cached_data).encode("utf-8"))
                 await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
                 await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))
-                logging.debug("etryvoga data stored")
+                logger.info("etryvoga data stored")
             else:
-                logging.error(f"Request failed with status code: {response.status_code}")
+                logger.error(f"Request failed with status code: {response.status_code}")
     except Exception as e:
-        logging.error(f"Request failed with status code: {e.message}")
+        logger.error(f"Request failed with status code: {e.message}")
         await asyncio.sleep(etryvoga_loop_time)
 
 
@@ -128,26 +127,26 @@ async def main():
     mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     while True:
         try:
-            logging.debug("Task started")
+            logger.debug("Task started")
             await explosions_data(mc)
 
         except asyncio.CancelledError:
-            logging.info("Task canceled. Shutting down...")
+            logger.error("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logging.error(f"Caught an exception: {e}")
+            logger.error(f"Caught an exception: {e}")
 
         finally:
-            logging.debug("Task completed")
+            logger.debug("Task completed")
             pass
 
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logger.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt")
+        logger.error("KeyboardInterrupt")
         pass

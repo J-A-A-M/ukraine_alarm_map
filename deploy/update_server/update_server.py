@@ -12,17 +12,15 @@ from starlette.routing import Route
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
-
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
-
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 HTML_404_PAGE = """page not found"""
 HTML_500_PAGE = """request error"""
