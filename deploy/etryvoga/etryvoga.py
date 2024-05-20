@@ -75,7 +75,9 @@ def format_time(time):
 
 async def explosions_data(mc):
     try:
+        logger.debug("main task enter")
         await asyncio.sleep(etryvoga_loop_time)
+        logger.debug("main task started")
 
         current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         last_id_cached = await mc.get(b"etryvoga_last_id")
