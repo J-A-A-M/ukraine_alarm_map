@@ -3,7 +3,9 @@ import os
 import asyncio
 import aiohttp
 import logging
+import hashlib
 from aiomcache import Client
+from functools import partial
 
 from datetime import datetime
 
@@ -11,8 +13,10 @@ version = 2
 
 debug_level = os.environ.get("LOGGING")
 etryvoga_url = os.environ.get("ETRYVOGA_HOST") or "localhost"
+etryvoga_districts_url = os.environ.get("ETRYVOGA_DISTRICTS_HOST") or "localhost"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
+etryvoga_districts_loop_time = int(os.environ.get("ETRYVOGA_DISTRICTS_PERIOD", 600))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -45,7 +49,22 @@ regions = {
     "HMELNYCKA": {"name": "Хмельницька область"},
     "CHERNIVETSKA": {"name": "Чернівецька область"},
     "KIYEW": {"name": "м. Київ"},
+    "UNKNOWN": {"name": "Невідомо"},
 }
+
+
+def make_hex(json_doc):
+    json_str = json.dumps(json_doc, sort_keys=True)
+    json_bytes = json_str.encode('utf-8')
+    hash_object = hashlib.sha256()
+    hash_object.update(json_bytes)
+    current_hex = hash_object.hexdigest()
+    return current_hex
+
+
+def get_slug(name, districts_slug):
+    slug_name = districts_slug.get(name) or 'UNKNOWN'
+    return slug_name
 
 
 async def explosions_data(mc):
@@ -54,6 +73,7 @@ async def explosions_data(mc):
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         last_id_cached = await mc.get(b"etryvoga_last_id")
+        districts_slug_cached = await mc.get(b"etryvoga_districts_struct")
         explosions_cached = await mc.get(b"explosions")
         rockets_cached = await mc.get(b"rockets")
         drones_cached = await mc.get(b"drones")
@@ -62,6 +82,11 @@ async def explosions_data(mc):
             last_id_cached = json.loads(last_id_cached)["last_id"]
         else:
             last_id_cached = 0
+
+        if districts_slug_cached:
+            districts_slug_cached = json.loads(districts_slug_cached)
+        else:
+            districts_slug_cached = {}
 
         if explosions_cached:
             explosions_cached_data = json.loads(explosions_cached.decode("utf-8"))
@@ -86,22 +111,22 @@ async def explosions_data(mc):
                 etryvoga_full = await response.text()
                 data = json.loads(etryvoga_full)
                 for message in data[::-1]:
-                    if int(message["id"]) > last_id_cached:
-                        print(message["id"])
-                        region_name = regions[message["region"]]["name"]
-                        region_data = {
-                            "changed": message["createdAt"],
-                        }
-                        match message["type"]:
-                            case "INFO":
-                                explosions_cached_data["states"][region_name] = region_data
-                            case "ROCKET_FIRE":
-                                rockets_cached_data["states"][region_name] = region_data
-                            case "DRONE":
-                                drones_cached_data["states"][region_name] = region_data
-                            case _:
-                                pass
-                    last_id = int(message["id"])
+                    current_hex = make_hex(message)
+                    print(message["id"])
+                    region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
+                    region_data = {
+                        "changed": message["createdAt"],
+                    }
+                    match message["type"]:
+                        case "EXPLOSION":
+                            explosions_cached_data["states"][region_name] = region_data
+                        case "ROCKET_FIRE":
+                            rockets_cached_data["states"][region_name] = region_data
+                        case "DRONE":
+                            drones_cached_data["states"][region_name] = region_data
+                        case _:
+                            pass
+                    last_id = current_hex
 
                 explosions_cached_data["info"]["last_id"] = last_id
                 explosions_cached_data["info"]["last_update"] = current_datetime
@@ -123,30 +148,79 @@ async def explosions_data(mc):
         await asyncio.sleep(etryvoga_loop_time)
 
 
-async def main():
-    mc = Client(memcached_host, 11211)  # Connect to your Memcache server
+async def districts_data(mc):
+    try:
+        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(etryvoga_districts_url)
+            if response.status == 200:
+                etryvoga_full = await response.text()
+                data = json.loads(etryvoga_full)
+                data_struct = make_districts_struct(data)
+                logger.debug("store etryvoga districts data: %s" % current_datetime)
+                await mc.set(b"etryvoga_districts", json.dumps(data).encode("utf-8"))
+                await mc.set(b"etryvoga_districts_struct", json.dumps(data_struct).encode("utf-8"))
+                logger.info("etryvoga districts data stored")
+            else:
+                logger.error(f"Request failed with status code: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Request failed with status code: {e.message}")
+    await asyncio.sleep(etryvoga_districts_loop_time)
+
+
+def make_districts_struct(data):
+    struct = {}
+    for district in data:
+        district_slug = district['slug']
+        struct[district_slug] = district_slug
+        for city in district['cities']:
+            struct[city['slug']] = district_slug
+
+    return struct
+
+
+async def parse_districts(mc):
     while True:
         try:
-            logger.debug("Task started")
-            await explosions_data(mc)
+            logger.debug("parse_districs task started")
+            await districts_data(mc)
 
         except asyncio.CancelledError:
-            logger.error("Task canceled. Shutting down...")
+            logger.error("parse_districs task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logger.error(f"Caught an exception: {e}")
+            logger.error(f"parse_districs task caught an exception: {e}")
+
+
+async def main(mc):
+    while True:
+        try:
+            logger.debug("main task started")
+            await explosions_data(mc)
+
+        except asyncio.CancelledError:
+            logger.error("main task canceled. Shutting down...")
+            await mc.close()
+            break
+
+        except Exception as e:
+            logger.error(f"main task caught an exception: {e}")
 
         finally:
             logger.debug("Task completed")
             pass
 
 
-if __name__ == "__main__":
-    try:
-        logger.info("Start")
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.error("KeyboardInterrupt")
-        pass
+mc = Client(memcached_host, 11211)
+
+
+main_coroutime = partial(main, mc)()
+asyncio.get_event_loop().create_task(main_coroutime)
+
+parse_districts_coroutine = partial(parse_districts, mc)()
+asyncio.get_event_loop().create_task(parse_districts_coroutine)
+
+asyncio.get_event_loop().run_forever()

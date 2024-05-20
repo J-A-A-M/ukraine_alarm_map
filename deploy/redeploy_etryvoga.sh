@@ -2,8 +2,10 @@
 
 # Default values
 ETRYVOGA_HOST=""
+ETRYVOGA_DISTRICTS_HOST=""
 MEMCACHED_HOST=""
 ETRYVOGA_PERIOD=30
+ETRYVOGA_DISTRICTS_PERIOD=600
 LOGGING="INFO"
 
 # Check for arguments
@@ -13,12 +15,20 @@ while [[ $# -gt 0 ]]; do
             ETRYVOGA_HOST="$2"
             shift 2
             ;;
+        -ed|--etryvoga-districts-host)
+            ETRYVOGA_DISTRICTS_HOST="$2"
+            shift 2
+            ;;
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
             shift 2
             ;;
         -p|--etryvoga-period)
             ETRYVOGA_PERIOD="$2"
+            shift 2
+            ;;
+        -ep|--etryvoga-districts-period)
+            ETRYVOGA_DISTRICTS_PERIOD="$2"
             shift 2
             ;;
         -l|--logging)
@@ -35,8 +45,10 @@ done
 echo "ETRYVOGA"
 
 echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
+echo "ETRYVOGA_DISTRICTS_HOST: $ETRYVOGA_DISTRICTS_HOST"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "ETRYVOGA_PERIOD: $ETRYVOGA_PERIOD"
+echo "ETRYVOGA_DISTRICTS_PERIOD: $ETRYVOGA_DISTRICTS_PERIOD"
 echo "LOGGING: $LOGGING"
 
 
@@ -60,7 +72,7 @@ docker rm map_etryvoga || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
+docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
 
 echo "Container deployed successfully!"
 
