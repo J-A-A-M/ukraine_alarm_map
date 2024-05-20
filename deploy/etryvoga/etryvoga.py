@@ -4,10 +4,10 @@ import asyncio
 import aiohttp
 import logging
 import hashlib
+import datetime
 from aiomcache import Client
 from functools import partial
 
-from datetime import datetime
 
 version = 2
 
@@ -68,7 +68,7 @@ def get_slug(name, districts_slug):
 
 
 def format_time(time):
-    dt = datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
     formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
     return formatted_timestamp
 
@@ -77,7 +77,7 @@ async def explosions_data(mc):
     try:
         await asyncio.sleep(etryvoga_loop_time)
 
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         last_id_cached = await mc.get(b"etryvoga_last_id")
         districts_slug_cached = await mc.get(b"etryvoga_districts_struct")
         explosions_cached = await mc.get(b"explosions")
@@ -156,7 +156,7 @@ async def explosions_data(mc):
 
 async def districts_data(mc):
     try:
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         async with aiohttp.ClientSession() as session:
             response = await session.get(etryvoga_districts_url)
