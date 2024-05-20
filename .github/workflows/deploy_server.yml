@@ -151,7 +151,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }}-m ${{ secrets.MEMCACHED_HOST }}
+                bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }} -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Alerts
             if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
