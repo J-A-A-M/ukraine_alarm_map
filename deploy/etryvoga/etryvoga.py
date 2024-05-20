@@ -75,7 +75,7 @@ def format_time(time):
 
 async def explosions_data(mc):
     try:
-        #await asyncio.sleep(etryvoga_loop_time)
+        await asyncio.sleep(etryvoga_loop_time)
 
         current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         last_id_cached = await mc.get(b"etryvoga_last_id")
@@ -226,7 +226,7 @@ mc = Client(memcached_host, 11211)
 main_coroutime = partial(main, mc)()
 asyncio.get_event_loop().create_task(main_coroutime)
 
-# parse_districts_coroutine = partial(parse_districts, mc)()
-# asyncio.get_event_loop().create_task(parse_districts_coroutine)
+parse_districts_coroutine = partial(parse_districts, mc)()
+asyncio.get_event_loop().create_task(parse_districts_coroutine)
 
 asyncio.get_event_loop().run_forever()
