@@ -80,16 +80,11 @@ async def explosions_data(mc):
         logger.debug("main task started")
 
         current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        last_id_cached = await mc.get(b"etryvoga_last_id")
         districts_slug_cached = await mc.get(b"etryvoga_districts_struct")
         explosions_cached = await mc.get(b"explosions")
         rockets_cached = await mc.get(b"rockets")
         drones_cached = await mc.get(b"drones")
 
-        if last_id_cached:
-            last_id_cached = json.loads(last_id_cached)["last_id"]
-        else:
-            last_id_cached = 0
 
         if districts_slug_cached:
             districts_slug_cached = json.loads(districts_slug_cached)
