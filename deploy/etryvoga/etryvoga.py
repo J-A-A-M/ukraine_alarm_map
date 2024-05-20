@@ -118,7 +118,7 @@ async def explosions_data(mc):
                 data = json.loads(etryvoga_full)
                 for message in data[::-1]:
                     current_hex = make_hex(message)
-                    print(message["id"])
+                    logger.debug("data : %s, %s, %s" % message["region"], message["type"], message["body"])
                     region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
                     if region_name == 'Невідомо':
                         continue
@@ -137,7 +137,10 @@ async def explosions_data(mc):
                     last_id = current_hex
 
                 explosions_cached_data["states"]["Харківська область"]
-                del explosions_cached_data["states"]["Невідомо"]
+                try:
+                    del explosions_cached_data["states"]["Невідомо"]
+                except:
+                    pass
                 explosions_cached_data["info"]["last_id"] = last_id
                 explosions_cached_data["info"]["last_update"] = current_datetime
                 rockets_cached_data["info"]["last_id"] = last_id
