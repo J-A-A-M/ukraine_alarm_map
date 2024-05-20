@@ -120,6 +120,8 @@ async def explosions_data(mc):
                     current_hex = make_hex(message)
                     print(message["id"])
                     region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
+                    if region_name == 'Невідомо':
+                        continue
                     region_data = {
                         "changed": format_time(message["createdAt"]),
                     }
@@ -134,6 +136,8 @@ async def explosions_data(mc):
                             pass
                     last_id = current_hex
 
+                explosions_cached_data["states"]["Харківська область"]
+                del explosions_cached_data["states"]["Невідомо"]
                 explosions_cached_data["info"]["last_id"] = last_id
                 explosions_cached_data["info"]["last_update"] = current_datetime
                 rockets_cached_data["info"]["last_id"] = last_id
