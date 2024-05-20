@@ -153,6 +153,8 @@ async def explosions_data(mc):
                 logger.info("etryvoga data stored")
             else:
                 logger.error(f"Request failed with status code: {response.status_code}")
+    except KeyError as e:
+        logger.error(f"Request failed with key: {e.args[0]}")
     except Exception as e:
         logger.error(f"Request failed with status code: {e.message}")
         await asyncio.sleep(etryvoga_loop_time)
