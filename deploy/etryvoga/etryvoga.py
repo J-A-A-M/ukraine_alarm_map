@@ -117,8 +117,9 @@ async def explosions_data(mc):
                 data = json.loads(etryvoga_full)
                 for message in data[::-1]:
                     current_hex = make_hex(message)
-                    logger.debug("data : %s, %s, %s" % (message["region"], message["type"], message["body"]))
+
                     region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
+                    logger.debug("data : %s (%s), %s" % (region_name, message["region"], message["type"], message["body"]))
                     if region_name == 'Невідомо':
                         continue
                     region_data = {
