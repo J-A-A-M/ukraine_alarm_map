@@ -29,7 +29,7 @@ regions = {
     "LVIVKA": {"name": "Львівська область"},
     "VOLYNSKA": {"name": "Волинська область"},
     "RIVENSKA": {"name": "Рівненська область"},
-    "JITOMIRSKAYA": {"name": "Житомирська область"},
+    "ZHYTOMYRSKA": {"name": "Житомирська область"},
     "KIYEWSKAYA": {"name": "Київська область"},
     "CHERNIGIWSKA": {"name": "Чернігівська область"},
     "SUMSKA": {"name": "Сумська область"},
@@ -50,6 +50,8 @@ regions = {
     "CHERNIVETSKA": {"name": "Чернівецька область"},
     "KIYEW": {"name": "м. Київ"},
     "UNKNOWN": {"name": "Невідомо"},
+    "ALL": {"name": "Вся Україна"},
+    "TEST": {"name": "Тест"},
 }
 
 
