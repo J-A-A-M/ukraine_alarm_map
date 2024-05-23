@@ -119,7 +119,7 @@ async def explosions_data(mc):
                     current_hex = make_hex(message)
 
                     region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
-                    logger.debug("data : %s (%s), %s" % (region_name, message["region"], message["type"], message["body"]))
+                    logger.debug("data : %s (%s), %s, %s" % (region_name, message["region"], message["type"], message["body"]))
                     if region_name == 'Невідомо':
                         continue
                     region_data = {
@@ -159,7 +159,7 @@ async def explosions_data(mc):
     except KeyError as e:
         logger.error(f"Request failed with key: {e.args[0]}")
     except Exception as e:
-        logger.error(f"Request failed with status code: {e.message}")
+        logger.error(f"Request failed: {e.args[0]}")
         await asyncio.sleep(etryvoga_loop_time)
 
 
