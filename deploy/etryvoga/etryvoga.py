@@ -57,7 +57,7 @@ regions = {
 
 def make_hex(json_doc):
     json_str = json.dumps(json_doc, sort_keys=True)
-    json_bytes = json_str.encode('utf-8')
+    json_bytes = json_str.encode("utf-8")
     hash_object = hashlib.sha256()
     hash_object.update(json_bytes)
     current_hex = hash_object.hexdigest()
@@ -65,7 +65,7 @@ def make_hex(json_doc):
 
 
 def get_slug(name, districts_slug):
-    slug_name = districts_slug.get(name) or 'UNKNOWN'
+    slug_name = districts_slug.get(name) or "UNKNOWN"
     return slug_name
 
 
@@ -86,7 +86,6 @@ async def explosions_data(mc):
         explosions_cached = await mc.get(b"explosions")
         rockets_cached = await mc.get(b"rockets")
         drones_cached = await mc.get(b"drones")
-
 
         if districts_slug_cached:
             districts_slug_cached = json.loads(districts_slug_cached)
@@ -119,8 +118,10 @@ async def explosions_data(mc):
                     current_hex = make_hex(message)
 
                     region_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
-                    logger.debug("data : %s (%s), %s, %s" % (region_name, message["region"], message["type"], message["body"]))
-                    if region_name == 'Невідомо':
+                    logger.debug(
+                        "data : %s (%s), %s, %s" % (region_name, message["region"], message["type"], message["body"])
+                    )
+                    if region_name == "Невідомо":
                         continue
                     region_data = {
                         "changed": format_time(message["createdAt"]),
@@ -187,10 +188,10 @@ async def districts_data(mc):
 def make_districts_struct(data):
     struct = {}
     for district in data:
-        district_slug = district['slug']
+        district_slug = district["slug"]
         struct[district_slug] = district_slug
-        for city in district['cities']:
-            struct[city['slug']] = district_slug
+        for city in district["cities"]:
+            struct[city["slug"]] = district_slug
 
     return struct
 
