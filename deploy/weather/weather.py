@@ -26,7 +26,7 @@ weather_regions = {
     702550: {"name": "Львівська область", "lat": 49.841952, "lon": 24.0315921},
     702569: {"name": "Волинська область", "lat": 50.7450733, "lon": 25.320078},
     695594: {"name": "Рівненська область", "lat": 50.6196175, "lon": 26.2513165},
-    686967: {"name": "Житомирська область", "lat": 50.2598298,"lon": 28.6692345},
+    686967: {"name": "Житомирська область", "lat": 50.2598298, "lon": 28.6692345},
     703448: {"name": "Київська область", "lat": 50.5111168, "lon": 30.7900482},
     710735: {"name": "Чернігівська область", "lat": 51.494099, "lon": 31.294332},
     692194: {"name": "Сумська область", "lat": 50.9119775, "lon": 34.8027723},
@@ -67,12 +67,12 @@ async def weather_data(mc):
 
         for weather_region_id, weather_region_data in weather_regions.items():
             params = {
-                "lat" : weather_region_data["lat"],
+                "lat": weather_region_data["lat"],
                 "lon": weather_region_data["lon"],
                 "lang": "ua",
                 "exclude": "minutely,hourly,daily,alerts",
                 "units": "metric",
-                "appid": weather_token
+                "appid": weather_token,
             }
             async with aiohttp.ClientSession() as session:
                 response = await session.get(weather_url, params=params)
