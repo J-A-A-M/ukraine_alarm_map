@@ -3,7 +3,7 @@
 # Default values
 WEATHER_TOKEN=""
 MEMCACHED_HOST=""
-WEATHER_PERIOD=600
+WEATHER_PERIOD=3600
 LOGGING="INFO"
 
 # Check for arguments
