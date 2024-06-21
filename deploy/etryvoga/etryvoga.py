@@ -137,7 +137,6 @@ async def explosions_data(mc):
                             pass
                     last_id = current_hex
 
-                explosions_cached_data["states"]["Харківська область"]
                 try:
                     del explosions_cached_data["states"]["Невідомо"]
                 except:
