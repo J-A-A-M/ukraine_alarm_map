@@ -11,7 +11,7 @@ version = 1
 
 debug_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-weather_url = "http://api.openweathermap.org/data/2.5/weather"
+weather_url = "https://api.openweathermap.org/data/3.0/onecall"
 weather_token = os.environ.get("WEATHER_TOKEN") or "token"
 weather_loop_time = int(os.environ.get("WEATHER_PERIOD", 60))
 
@@ -20,32 +20,32 @@ logger = logging.getLogger(__name__)
 
 
 weather_regions = {
-    690548: {"name": "Закарпатська область"},
-    707471: {"name": "Івано-Франківська область"},
-    691650: {"name": "Тернопільська область"},
-    702550: {"name": "Львівська область"},
-    702569: {"name": "Волинська область"},
-    695594: {"name": "Рівненська область"},
-    686967: {"name": "Житомирська область"},
-    703448: {"name": "Київська область"},
-    710735: {"name": "Чернігівська область"},
-    692194: {"name": "Сумська область"},
-    706483: {"name": "Харківська область"},
-    702658: {"name": "Луганська область"},
-    709717: {"name": "Донецька область"},
-    687700: {"name": "Запорізька область"},
-    706448: {"name": "Херсонська область"},
-    703883: {"name": "Автономна Республіка Крим"},
-    698740: {"name": "Одеська область"},
-    700569: {"name": "Миколаївська область"},
-    709930: {"name": "Дніпропетровська область"},
-    696643: {"name": "Полтавська область"},
-    710791: {"name": "Черкаська область"},
-    705811: {"name": "Кіровоградська область"},
-    689558: {"name": "Вінницька область"},
-    706369: {"name": "Хмельницька область"},
-    710719: {"name": "Чернівецька область"},
-    703447: {"name": "м. Київ"},
+    690548: {"name": "Закарпатська область", "lat": 48.6223732, "lon": 22.3022569},
+    707471: {"name": "Івано-Франківська область", "lat": 48.9225224, "lon": 24.7103188},
+    691650: {"name": "Тернопільська область", "lat": 49.5557716, "lon": 25.591886},
+    702550: {"name": "Львівська область", "lat": 49.841952, "lon": 24.0315921},
+    702569: {"name": "Волинська область", "lat": 50.7450733, "lon": 25.320078},
+    695594: {"name": "Рівненська область", "lat": 50.6196175, "lon": 26.2513165},
+    686967: {"name": "Житомирська область", "lat": 50.2598298, "lon": 28.6692345},
+    703448: {"name": "Київська область", "lat": 50.5111168, "lon": 30.7900482},
+    710735: {"name": "Чернігівська область", "lat": 51.494099, "lon": 31.294332},
+    692194: {"name": "Сумська область", "lat": 50.9119775, "lon": 34.8027723},
+    706483: {"name": "Харківська область", "lat": 49.9923181, "lon": 36.2310146},
+    702658: {"name": "Луганська область", "lat": 48.5717084, "lon": 39.2973153},
+    709717: {"name": "Донецька область", "lat": 48.0158753, "lon": 37.8013407},
+    687700: {"name": "Запорізька область", "lat": 47.8507859, "lon": 35.1182867},
+    706448: {"name": "Херсонська область", "lat": 46.6412644, "lon": 32.625794},
+    703883: {"name": "Автономна Республіка Крим", "lat": 44.4970713, "lon": 34.1586871},
+    698740: {"name": "Одеська область", "lat": 46.4843023, "lon": 30.7322878},
+    700569: {"name": "Миколаївська область", "lat": 46.9758615, "lon": 31.9939666},
+    709930: {"name": "Дніпропетровська область", "lat": 48.4680221, "lon": 35.0417711},
+    696643: {"name": "Полтавська область", "lat": 49.5897423, "lon": 34.5507948},
+    710791: {"name": "Черкаська область", "lat": 49.4447888, "lon": 32.0587805},
+    705811: {"name": "Кіровоградська область", "lat": 48.5105805, "lon": 32.2656283},
+    689558: {"name": "Вінницька область", "lat": 49.2320162, "lon": 28.467975},
+    706369: {"name": "Хмельницька область", "lat": 49.4196404, "lon": 26.9793793},
+    710719: {"name": "Чернівецька область", "lat": 48.2864702, "lon": 25.9376532},
+    703447: {"name": "м. Київ", "lat": 50.4500336, "lon": 30.5241361},
 }
 
 
@@ -64,19 +64,27 @@ async def weather_data(mc):
                 "last_update": None,
             },
         }
+
         for weather_region_id, weather_region_data in weather_regions.items():
-            params = {"lang": "ua", "id": weather_region_id, "units": "metric", "appid": weather_token}
+            params = {
+                "lat": weather_region_data["lat"],
+                "lon": weather_region_data["lon"],
+                "lang": "ua",
+                "exclude": "minutely,hourly,daily,alerts",
+                "units": "metric",
+                "appid": weather_token,
+            }
             async with aiohttp.ClientSession() as session:
                 response = await session.get(weather_url, params=params)
                 if response.status == 200:
                     new_data = await response.text()
                     data = json.loads(new_data)
                     region_data = {
-                        "temp": data["main"]["temp"],
-                        "desc": data["weather"][0]["description"],
-                        "pressure": data["main"]["pressure"],
-                        "humidity": data["main"]["humidity"],
-                        "wind": data["wind"]["speed"],
+                        "temp": data["current"]["temp"],
+                        "desc": data["current"]["weather"][0]["description"],
+                        "pressure": data["current"]["pressure"],
+                        "humidity": data["current"]["humidity"],
+                        "wind": data["current"]["wind_speed"],
                     }
                     weather_cached_data["states"][weather_region_data["name"]] = region_data
                 else:
