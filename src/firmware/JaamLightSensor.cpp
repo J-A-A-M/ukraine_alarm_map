@@ -14,6 +14,14 @@ JaamLightSensor::JaamLightSensor() {
 bool JaamLightSensor::begin() {
 #if BH1750_ENABLED
   Wire.begin();
+
+  // init BH1750 
+  pinMode(19, OUTPUT);
+  digitalWrite(19, HIGH); 
+  digitalWrite(19, LOW);
+  delay(50); 
+  digitalWrite(19, HIGH);
+
   bh1750 = new BH1750_WE();
   bh1750Initialized = bh1750->init();
   if (bh1750Initialized) {
