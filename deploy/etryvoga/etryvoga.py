@@ -155,7 +155,7 @@ async def explosions_data(mc):
                 await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))
                 logger.info("etryvoga data stored")
             else:
-                logger.error(f"Request failed with status code: {response.status_code}")
+                logger.error(f"Request failed with status code: {response.status}")
     except KeyError as e:
         logger.error(f"Request failed with key: {e.args[0]}")
     except Exception as e:
