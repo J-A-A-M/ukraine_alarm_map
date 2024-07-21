@@ -478,7 +478,7 @@ void initDisplay() {
 }
 
 void initSensors() {
-  lightSensor.begin();
+  lightSensor.begin(settings.legacy);
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
