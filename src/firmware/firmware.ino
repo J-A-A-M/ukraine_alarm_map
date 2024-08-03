@@ -41,6 +41,7 @@ struct Settings {
   char    devicename[31]         = "Alarm Map";
   char    devicedescription[51]  = "Alarm Map Informer";
   char    broadcastname[31]      = "alarmmap";
+  char    ntphost[31]            = "pool.ntp.org";
   char    serverhost[31]         = "alerts.net.ua";
   int     websocket_port         = 38440;
   int     updateport             = 8090;
@@ -294,6 +295,7 @@ void initSettings() {
   preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
   preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
   preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
   preferences.getString("id", settings.identifier, sizeof(settings.identifier));
   settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
   settings.updateport             = preferences.getInt("upport", settings.updateport);
@@ -427,7 +429,7 @@ void initLegacy() {
 
 void initBuzzer() {
 #if BUZZER_ENABLED
-  player = new MelodyPlayer(settings.buzzerpin, 0, HIGH);
+  player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
   if (needToPlaySound(START_UP)) {
     playMelody(START_UP);
   }
@@ -520,6 +522,8 @@ void initWifi() {
 
 void initTime() {
   Serial.println("Init time");
+  Serial.printf("NTP host: %s\n", settings.ntphost);
+  timeClient.setHost(settings.ntphost);
   timeClient.setTimeZone(settings.time_zone);
   timeClient.setDSTauto(&dst); // auto update on summer/winter time.
   timeClient.setTimeout(5000); // 5 seconds waiting for reply
@@ -2183,6 +2187,7 @@ if (ha.isHaEnabled()) {
     html += addInputText("ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
     html += addInputText("ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
   }
+  html += addInputText("ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
   html += addInputText("serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
   html += addInputText("websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
   html += addInputText("updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
@@ -2470,6 +2475,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveString(request->getParam("devicedescription", true), settings.devicedescription, "dd") || reboot;
   reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
   reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "host") || reboot;
+  reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
   reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
   reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
