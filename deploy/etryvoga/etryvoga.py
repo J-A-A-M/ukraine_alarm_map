@@ -129,7 +129,7 @@ async def explosions_data(mc):
                     match message["type"]:
                         case "EXPLOSION":
                             explosions_cached_data["states"][region_name] = region_data
-                        case ("ROCKET" | "ROCKET_FIRE"):
+                        case "ROCKET" | "ROCKET_FIRE":
                             rockets_cached_data["states"][region_name] = region_data
                         case "DRONE":
                             drones_cached_data["states"][region_name] = region_data
