@@ -389,7 +389,7 @@ void initSettings() {
 void initLegacy() {
   switch (settings.legacy) {
   case 0:
-    Serial.println("Mode: jaam");
+    Serial.println("Mode: jaam 1");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
@@ -421,6 +421,18 @@ void initLegacy() {
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
+    break;
+  case 3:
+    Serial.println("Mode: jaam 2");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
+    }
+
+    settings.kyiv_district_mode = 3;
+    settings.pixelpin = 13;
+    settings.buttonpin = 2;
+    settings.display_model = 1;
+    settings.display_height = 64;
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
@@ -468,7 +480,7 @@ void initDisplay() {
 }
 
 void initSensors() {
-  lightSensor.begin();
+  lightSensor.begin(settings.legacy);
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
@@ -615,7 +627,7 @@ int getNightModeType() {
 }
 
 void servicePin(int pin, uint8_t status, bool force) {
-  if (force || (!settings.legacy && settings.service_diodes_mode)) {
+  if (force || (settings.legacy == 0 && settings.service_diodes_mode)) {
     digitalWrite(pin, status);
   }
 }
@@ -972,7 +984,7 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 
 //--Service
 void checkServicePins() {
-  if (!settings.legacy) {
+  if (settings.legacy == 0) {
     if (settings.service_diodes_mode) {
       // Serial.println("Dioded enabled");
       servicePin(settings.powerpin, HIGH, true);
@@ -2074,7 +2086,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  if (settings.legacy) {
+  if (settings.legacy == 1 || settings.legacy == 2) {
   response->println(addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;}));
   }
   response->println(addSelectBox("map_mode", "Режим мапи", settings.map_mode, MAP_MODES, MAP_MODES_COUNT));
@@ -2108,7 +2120,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println(addSlider("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0));
   response->println(addSlider("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2));
   response->println(addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT));
-  if (!settings.legacy) {
+  if (settings.legacy == 0) {
     response->println(addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди"));
   }
   response->println(addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)"));
@@ -2192,9 +2204,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println(addInputText("devicename", "Назва пристрою", "text", settings.devicename, 30));
   response->println(addInputText("devicedescription", "Опис пристрою", "text", settings.devicedescription, 50));
   response->println(addInputText("broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30));
-  if (settings.legacy) {
+  if (settings.legacy == 1 || settings.legacy == 2) {
     response->println(addInputText("pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str()));
     response->println(addInputText("buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str()));
+
   }
   response->println(addInputText("alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str()));
   response->println(addCheckbox("enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str()));

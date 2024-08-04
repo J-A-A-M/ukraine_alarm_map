@@ -7,7 +7,7 @@
 class JaamLightSensor {
 public:
     JaamLightSensor();
-    bool begin();
+    bool begin(int legacy);
     void setPhotoresistorPin(int pin);
     void read();
     float getLightLevel(float lightFactor = 1.0);
