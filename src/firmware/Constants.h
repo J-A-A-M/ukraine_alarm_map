@@ -270,9 +270,10 @@ static char* DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   "128x64"
 };
 
-#define LEGACY_OPTIONS_COUNT 3
+#define LEGACY_OPTIONS_COUNT 4
 static char* LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
-  "Плата JAAM",
+  "Плата JAAM 1.3",
   "Початок на Закарпатті",
-  "Початок на Одещині"
+  "Початок на Одещині",
+  "Плата JAAM 2.x",
 };

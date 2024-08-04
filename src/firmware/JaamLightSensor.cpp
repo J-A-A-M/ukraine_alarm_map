@@ -11,9 +11,19 @@ float lightLevel = -1;
 JaamLightSensor::JaamLightSensor() {
 }
 
-bool JaamLightSensor::begin() {
+bool JaamLightSensor::begin(int legacy) {
 #if BH1750_ENABLED
   Wire.begin();
+
+  // init BH1750 in jaam 2
+  if (legacy == 2) {
+    pinMode(19, OUTPUT);
+    digitalWrite(19, HIGH); 
+    digitalWrite(19, LOW);
+    delay(50); 
+    digitalWrite(19, HIGH);
+  }
+
   bh1750 = new BH1750_WE();
   bh1750Initialized = bh1750->init();
   if (bh1750Initialized) {
