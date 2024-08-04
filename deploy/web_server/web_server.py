@@ -161,10 +161,10 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
                     <ul>
-                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
+                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">v1</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
                         <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
-                        <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
+                        
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
