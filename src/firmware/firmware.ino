@@ -30,6 +30,7 @@ struct Settings {
   const char*   apssid                 = "JAAM";
   const char*   softwareversion        = VERSION;
   int           pixelcount             = 26;
+  int           bg_pixelcount          = 0;
   int           buttontime             = 100;
   int           powerpin               = 12;
   int           wifipin                = 14;
@@ -49,6 +50,7 @@ struct Settings {
   char    identifier[51]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
+  int     bg_pixelpin            = 0;
   int     buttonpin              = 15;
   int     alertpin               = 34;
   int     buzzerpin              = 33;
@@ -194,6 +196,7 @@ struct ServiceMessage {
 ServiceMessage serviceMessage;
 
 NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
+NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* bg_strip;
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -338,6 +341,8 @@ void initSettings() {
   settings.day_start              = preferences.getInt("ds", settings.day_start);
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
+  settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
+  settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
@@ -404,6 +409,8 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
+    settings.bg_pixelpin = 0;
+    settings.bg_pixelcount = 0;
     settings.buttonpin = 35;
     settings.display_model = 1;
     settings.display_height = 64;
@@ -430,6 +437,8 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
+    settings.bg_pixelpin = 12;
+    settings.bg_pixelcount = 44;
     settings.buttonpin = 2;
     settings.display_model = 1;
     settings.display_height = 64;
@@ -457,12 +466,26 @@ void InitAlertPin() {
 }
 
 void initStrip() {
+  Serial.println("Init leds");
   Serial.print("pixelpin: ");
   Serial.println(settings.pixelpin);
+  Serial.print("pixelcount: ");
+  Serial.println(settings.pixelcount);
   strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.pixelcount, settings.pixelpin);
-  Serial.println("Init leds");
   strip->Begin();
+  if (isBgStripEnabled()) {
+    Serial.print("bg pixelpin: ");
+    Serial.println(settings.bg_pixelpin);
+    Serial.print("bg pixelcount: ");
+    Serial.println(settings.bg_pixelcount);
+    bg_strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.bg_pixelcount, settings.bg_pixelpin);
+    bg_strip->Begin();
+  }
   mapFlag();
+}
+
+bool isBgStripEnabled() {
+  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
 }
 
 void initDisplay() {
@@ -2206,6 +2229,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println(addInputText("broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30));
   if (settings.legacy == 1 || settings.legacy == 2) {
     response->println(addInputText("pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str()));
+    response->println(addInputText("bg_pixelpin", "Керуючий пін фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str()));
+    response->println(addInputText("bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str()));
     response->println(addInputText("buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str()));
 
   }
@@ -2493,6 +2518,8 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
   reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
+  reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
+  reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
@@ -2968,6 +2995,13 @@ void mapFlag() {
     strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.current_brightness / 200.0f));
   }
   strip->Show();
+  if (false) {
+    for (uint16_t i = 0; i < bg_strip->PixelCount(); i++) {
+      // 180 - blue color
+      bg_strip->SetPixelColor(i, HsbColor(180 / 360.0f, 1.0, settings.current_brightness / 200.0f));
+    }
+    bg_strip->Show();
+  }
 }
 
 void mapRandom() {
