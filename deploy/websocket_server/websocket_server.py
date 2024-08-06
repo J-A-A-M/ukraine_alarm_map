@@ -135,7 +135,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
             break
