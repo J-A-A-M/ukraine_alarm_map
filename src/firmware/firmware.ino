@@ -2811,7 +2811,7 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
   // explosions has highest priority
   if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     color_switch = settings.color_explosion;
-    hue =  fromHue(color_switch, explosionBrightness * settings.brightness_explosion);
+    hue = fromHue(color_switch, explosionBrightness * settings.brightness_explosion);
     return hue;
   }
 
@@ -2819,7 +2819,7 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
     case 0:
       if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
-        hue - fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
       } else {
         if (position == local_district) {
           color_switch = settings.color_home_district;
