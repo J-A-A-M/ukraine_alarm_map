@@ -479,6 +479,7 @@ void initStrip() {
     Serial.println(settings.bg_pixelcount);
     initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
   }
+  FastLED.setDither(DISABLE_DITHER);
   mapFlag();
 }
 
@@ -2954,19 +2955,19 @@ void mapOff() {
 }
 
 void mapLamp() {
-  for (uint16_t i = 0; i < 26; i++) {
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness);
   }
   FastLED.show();
 }
 
 void mapAlarms() {
-  uint8_t adapted_alarm_leds[26];
-  long adapted_alarm_timers[26];
-  long adapted_explosion_timers[26];
-  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, 26, offset);
-  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, 26, offset);
-  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, 26, offset);
+  uint8_t adapted_alarm_leds[settings.pixelcount];
+  long adapted_alarm_timers[settings.pixelcount];
+  long adapted_explosion_timers[settings.pixelcount];
+  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
@@ -2984,26 +2985,26 @@ void mapAlarms() {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
     explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
-  for (uint16_t i = 0; i < 26; i++) {
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
   }
   FastLED.show();
 }
 
 void mapWeather() {
-  float adapted_weather_leds[26];
-  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, 26, offset);
+  float adapted_weather_leds[settings.pixelcount];
+  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
-  for (uint16_t i = 0; i < 26; i++) {
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.current_brightness);
   }
   FastLED.show();
 }
 
 void mapFlag() {
-  uint8_t adapted_flag_leds[26];
+  uint8_t adapted_flag_leds[settings.pixelcount];
   adaptLeds(settings.kyiv_district_mode, flag_leds, adapted_flag_leds, settings.pixelcount, offset);
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = fromHue(adapted_flag_leds[i], settings.current_brightness);
