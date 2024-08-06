@@ -4,6 +4,7 @@ import logging
 import os
 import json
 import random
+import threading
 from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
@@ -142,6 +143,10 @@ async def alerts_data(websocket, client, shared_data, alert_version):
             logger.warning(f"{client_ip}:{client_id}: {e}")
 
 
+def send_google_stat(tracker, event):
+    tracker.send(events=[event], date=datetime.now())
+
+
 async def echo(websocket, path):
     client_ip, client_port = websocket.remote_address
     logger.debug(f"{client_ip}:{client_port} >>> new client")
@@ -217,8 +222,8 @@ async def echo(websocket, path):
                     case "firmware":
                         client["firmware"] = data
                         parts = data.split("_", 1)
-                        # tracker.store.set_user_property("firmware_v", parts[0])
-                        # tracker.store.set_user_property("identifier", parts[1])
+                        tracker.store.set_user_property("firmware_v", parts[0])
+                        tracker.store.set_user_property("identifier", parts[1])
                         logger.debug(f"{client_ip}:{client_id} >>> firmware saved")
                     case "user_info":
                         json_data = json.loads(data)
@@ -226,30 +231,34 @@ async def echo(websocket, path):
                             tracker.store.set_user_property(key, value)
                     case "chip_id":
                         client["chip_id"] = data
-                        # tracker.client_id = data
-                        # tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
-                        # tracker.store.set_user_property("user_id", data)
-                        # tracker.store.set_user_property("chip_id", data)
-                        # tracker.store.set_user_property("country", country)
-                        # tracker.store.set_user_property("region", region)
-                        # tracker.store.set_user_property("city", city)
-                        # tracker.store.set_user_property("ip", client_ip)
-                        # online_event = tracker.create_new_event("status")
-                        # online_event.set_event_param("online", "true")
+                        logger.debug(f"{client_ip}:{client_id} >>> sleep init")
+                        tracker.client_id = data
+                        tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
+                        tracker.store.set_user_property("user_id", data)
+                        tracker.store.set_user_property("chip_id", data)
+                        tracker.store.set_user_property("country", country)
+                        tracker.store.set_user_property("region", region)
+                        tracker.store.set_user_property("city", city)
+                        tracker.store.set_user_property("ip", client_ip)
+                        online_event = tracker.create_new_event("status")
+                        online_event.set_event_param("online", "true")
                         # tracker.send(events=[online_event], date=datetime.now())
+                        threading.Thread(target=send_google_stat, args=(tracker, online_event)).start()
                         logger.debug(f"{client_ip}:{client_id} >>> chip_id saved")
                     case "pong":
-                        # ping_event = tracker.create_new_event("ping")
-                        # ping_event.set_event_param("state", "alive")
+                        ping_event = tracker.create_new_event("ping")
+                        ping_event.set_event_param("state", "alive")
                         # tracker.send(events=[ping_event], date=datetime.now())
+                        threading.Thread(target=send_google_stat, args=(tracker, ping_event)).start()
                         logger.debug(f"{client_ip}:{client_id} >>> ping analytics sent")
                     case "settings":
                         json_data = json.loads(data)
-                        # settings_event = tracker.create_new_event("settings")
-                        # for key, value in json_data.items():
-                        #    settings_event.set_event_param(key, value)
+                        settings_event = tracker.create_new_event("settings")
+                        for key, value in json_data.items():
+                            settings_event.set_event_param(key, value)
                         # tracker.send(events=[settings_event], date=datetime.now())
-                        # logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
+                        threading.Thread(target=send_google_stat, args=(tracker, settings_event)).start()
+                        logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
                     case _:
                         logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
@@ -257,9 +266,10 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
-        # offline_event = tracker.create_new_event("status")
-        # offline_event.set_event_param("online", "false")
+        offline_event = tracker.create_new_event("status")
+        offline_event.set_event_param("online", "false")
         # tracker.send(events=[offline_event], date=datetime.now())
+        threading.Thread(target=send_google_stat, args=(tracker, offline_event)).start()
         data_task.cancel()
         del shared_data.trackers[f"{client_ip}_{client_port}"]
         del shared_data.clients[f"{client_ip}_{client_port}"]
