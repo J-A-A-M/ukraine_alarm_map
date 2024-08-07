@@ -486,6 +486,12 @@ void initStrip() {
 void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
   switch (pin)
   {
+  case 2:
+    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 4:
+    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
+    break;
   case 12:
     FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
     break;
@@ -494,6 +500,33 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
     break;
   case 14:
     FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 15:
+    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 16:
+    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 17:
+    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 18:
+    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 25:
+    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 26:
+    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 27:
+    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 32:
+    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 33:
+    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
     break;
   default:
     Serial.print("This PIN is not supported for LEDs: ");
@@ -2049,9 +2082,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>");
   response->print("Яскравість");
   response->println("</button>");
-  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
-  response->print("Кольори");
-  response->println("</button>");
+  // response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
+  // response->print("Кольори");
+  // response->println("</button>");
   response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clM' aria-expanded='false' aria-controls='clM'>");
   response->print("Режими");
   response->println("</button>");
@@ -2060,9 +2093,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("Звуки");
   response->println("</button>");
 #endif
-  response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
-  response->print("Телеметрія");
-  response->println("</button>");
+  // response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
+  // response->print("Телеметрія");
+  // response->println("</button>");
   response->print(" <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#cTc' aria-expanded='false' aria-controls='cTc'>");
   response->print("DEV");
   response->println("</button>");
@@ -2102,19 +2135,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
-  response->println("<form action='/saveColors' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
-  response->println("<div class='by col-md-9 mt-2'>");
-  addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
-  addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
-  addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
-  addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
-  addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
-  addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
-  response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</form>");
+  // response->println("<form action='/saveColors' method='POST'>");
+  // response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
+  // response->println("<div class='by col-md-9 mt-2'>");
+  // addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  // response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  // response->println("</div>");
+  // response->println("</div>");
+  // response->println("</form>");
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2184,37 +2217,37 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</form>");
 #endif
-  response->println("<form action='/refreshTelemetry' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
-  response->println("<div class='by col-md-9 mt-2'>");
-  response->println("<div class='row justify-content-center'>");
-  addCard(response, "Час роботи", uptimeChar, "", 4);
-  addCard(response, "Температура ESP32", cpuTemp, "°C");
-  addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
-  addCard(response, "Використана памʼять", usedHeapSize, "кБ");
-  addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
-  if (ha.isHaEnabled()) {
-    addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
-  }
-  addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
-  if (climate.isTemperatureAvailable()) {
-    addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
-  }
-  if (climate.isHumidityAvailable()) {
-    addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
-  }
-  if (climate.isPressureAvailable()) {
-    addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
-  }
-  if (lightSensor.isLightSensorAvailable()) {
-    addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
-  }
-  response->println("</div>");
-  response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</form>");
+  // response->println("<form action='/refreshTelemetry' method='POST'>");
+  // response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
+  // response->println("<div class='by col-md-9 mt-2'>");
+  // response->println("<div class='row justify-content-center'>");
+  // addCard(response, "Час роботи", uptimeChar, "", 4);
+  // addCard(response, "Температура ESP32", cpuTemp, "°C");
+  // addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
+  // addCard(response, "Використана памʼять", usedHeapSize, "кБ");
+  // addCard(response, "WiFi сигнал", wifiSignal, "dBm");
+  // addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
+  // if (ha.isHaEnabled()) {
+  //   addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
+  // }
+  // addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
+  // if (climate.isTemperatureAvailable()) {
+  //   addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
+  // }
+  // if (climate.isHumidityAvailable()) {
+  //   addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
+  // }
+  // if (climate.isPressureAvailable()) {
+  //   addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
+  // }
+  // if (lightSensor.isLightSensorAvailable()) {
+  //   addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
+  // }
+  // response->println("</div>");
+  // response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
+  // response->println("</div>");
+  // response->println("</div>");
+  // response->println("</form>");
   response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2299,10 +2332,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
   response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
   response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
-  response->print(JS_SCRIPT);
+  response->println(JS_SCRIPT);
   response->println("</body>");
   response->println("</html>");
 
+  response->setCode(200);
   request->send(response);
 }
 
