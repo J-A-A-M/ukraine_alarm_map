@@ -2955,9 +2955,13 @@ void mapOff() {
 }
 
 void mapLamp() {
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness);
+  fill_solid(strip, settings.pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
   }
+  // for (uint16_t i = 0; i < settings.pixelcount; i++) {
+  //   strip[i] = fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness);
+  // }
   FastLED.show();
 }
 
@@ -2988,6 +2992,11 @@ void mapAlarms() {
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
   }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness));
+  }
   FastLED.show();
 }
 
@@ -3000,6 +3009,11 @@ void mapWeather() {
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.current_brightness);
   }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness));
+  }
   FastLED.show();
 }
 
@@ -3010,10 +3024,8 @@ void mapFlag() {
     strip[i] = fromHue(adapted_flag_leds[i], settings.current_brightness);
   }
   if (isBgStripEnabled()) {
-    for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
       // 180 - blue color
-      bg_strip[i] = fromHue(180, settings.current_brightness);
-    }
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness));
   }
   FastLED.show();
 }
@@ -3022,6 +3034,11 @@ void mapRandom() {
   int randomLed = random(settings.pixelcount);
   int randomColor = random(360);
   strip[randomLed] = fromHue(randomColor, settings.current_brightness);
+  if (isBgStripEnabled()) {
+    int bgRandomLed = random(settings.bg_pixelcount);
+    int bgRandomColor = random(360);
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness);
+  }
   FastLED.show();
 }
 
