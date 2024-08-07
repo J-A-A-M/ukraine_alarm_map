@@ -2904,6 +2904,9 @@ void mapReconnect() {
   for (uint16_t i = 0; i < 26; i++) {
     strip[i] = hue;
   }
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, hue);
+  }
   FastLED.show();
 }
 
@@ -2959,9 +2962,6 @@ void mapLamp() {
   if (isBgStripEnabled()) {
     fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
   }
-  // for (uint16_t i = 0; i < settings.pixelcount; i++) {
-  //   strip[i] = fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness);
-  // }
   FastLED.show();
 }
 
