@@ -11,7 +11,7 @@
 #include <ArduinoOTA.h>
 #endif
 #include "JaamHomeAssistant.h"
-#include <NeoPixelBus.h>
+#include <FastLED.h>
 #include "JaamDisplay.h"
 #if FW_UPDATE_ENABLED
 #include <HTTPUpdate.h>
@@ -30,6 +30,7 @@ struct Settings {
   const char*   apssid                 = "JAAM";
   const char*   softwareversion        = VERSION;
   int           pixelcount             = 26;
+  int           bg_pixelcount          = 0;
   int           buttontime             = 100;
   int           powerpin               = 12;
   int           wifipin                = 14;
@@ -49,6 +50,7 @@ struct Settings {
   char    identifier[51]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
+  int     bg_pixelpin            = 0;
   int     buttonpin              = 15;
   int     alertpin               = 34;
   int     buzzerpin              = 33;
@@ -193,7 +195,8 @@ struct ServiceMessage {
 
 ServiceMessage serviceMessage;
 
-NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>* strip;
+CRGB strip[26];
+CRGB bg_strip[100];
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -338,6 +341,8 @@ void initSettings() {
   settings.day_start              = preferences.getInt("ds", settings.day_start);
   settings.night_start            = preferences.getInt("ns", settings.night_start);
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
+  settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
+  settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
@@ -404,6 +409,8 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
+    settings.bg_pixelpin = 0;
+    settings.bg_pixelcount = 0;
     settings.buttonpin = 35;
     settings.display_model = 1;
     settings.display_height = 64;
@@ -430,6 +437,8 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
+    settings.bg_pixelpin = 12;
+    settings.bg_pixelcount = 44;
     settings.buttonpin = 2;
     settings.display_model = 1;
     settings.display_height = 64;
@@ -457,12 +466,78 @@ void InitAlertPin() {
 }
 
 void initStrip() {
+  Serial.println("Init leds");
   Serial.print("pixelpin: ");
   Serial.println(settings.pixelpin);
-  strip = new NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod>(settings.pixelcount, settings.pixelpin);
-  Serial.println("Init leds");
-  strip->Begin();
+  Serial.print("pixelcount: ");
+  Serial.println(settings.pixelcount);
+  initFastledStrip(settings.pixelpin, strip, settings.pixelcount);
+  if (isBgStripEnabled()) {
+    Serial.print("bg pixelpin: ");
+    Serial.println(settings.bg_pixelpin);
+    Serial.print("bg pixelcount: ");
+    Serial.println(settings.bg_pixelcount);
+    initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
+  }
+  FastLED.setDither(DISABLE_DITHER);
   mapFlag();
+}
+
+void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
+  switch (pin)
+  {
+  case 2:
+    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 4:
+    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 12:
+    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 13:
+    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 14:
+    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 15:
+    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 16:
+    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 17:
+    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 18:
+    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 25:
+    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 26:
+    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 27:
+    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 32:
+    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 33:
+    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  default:
+    Serial.print("This PIN is not supported for LEDs: ");
+    Serial.println(pin);
+    break;
+  }
+  
+}
+
+bool isBgStripEnabled() {
+  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
 }
 
 void initDisplay() {
@@ -1619,101 +1694,96 @@ int sliderIndex = 1;
 int selectIndex = 1;
 int inputFieldIndex = 1;
 
-String addCheckbox(const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
-  String html;
-  html += "<div class='form-group form-check'>";
-  html += "<input name='";
-  html += name;
-  html += "' type='checkbox' class='form-check-input' id='chb";
-  html += checkboxIndex;
-  html += "'";
+void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
+  response->print("<div class='form-group form-check'>");
+  response->print("<input name='");
+  response->print(name);
+  response->print("' type='checkbox' class='form-check-input' id='chb");
+  response->print(checkboxIndex);
   if (onChanges) {
-    html += " onchange='";
-    html += onChanges;
-    html += "'";
+    response->print("'");
+    response->print(" onchange='");
+    response->print(onChanges);
   }
-  if (isChecked) html += " checked";
-  if (disabled) html += " disabled";
-  html += "/>";
-  html += label;
-  html += "</div>";
+  response->print("'");
+  if (isChecked) response->print(" checked");
+  if (disabled) response->print(" disabled");
+  response->print("/>");
+  response->print(label);
+  response->println("</div>");
   checkboxIndex++;
-  return html;
 }
 
 template <typename V>
 
-String addSlider(const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
-  String html;
-  html += label;
-  html += ": <span id='sv";
-  html += sliderIndex;
-  html += "'>";
+void addSlider(AsyncResponseStream* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
+  response->print(label);
+  response->print(": <span id='sv");
+  response->print(sliderIndex);
+  response->print("'>");
   if (std::is_same<V, float>::value) {
     char stringValue[10];
     sprintf(stringValue, "%.1f", value);
-    html += stringValue;
+    response->print(stringValue);
   } else {
-    html += value;
+    response->print(value);
   }
-  html += "</span>";
-  html += unitOfMeasurement;
+  response->print("</span>");
+  response->print(unitOfMeasurement);
   if (needColorBox) {
-    html += "</br><div class='color-box' id='cb";
-    html += sliderIndex;
+    response->print("</br><div class='color-box' id='cb");
+    response->print(sliderIndex);
     RGBColor valueColor = hue2rgb((int) value);
-    html += "' style='background-color: rgb(";
-    html += valueColor.r;
-    html += ", ";
-    html += valueColor.g;
-    html += ", ";
-    html += valueColor.b;
-    html += ");'></div>";
+    response->print("' style='background-color: rgb(");
+    response->print(valueColor.r);
+    response->print(", ");
+    response->print(valueColor.g);
+    response->print(", ");
+    response->print(valueColor.b);
+    response->print(");'></div>");
   }
-  html += "<input type='range' name='";
-  html += name;
-  html += "' class='form-control-range' id='s";
-  html += sliderIndex;
-  html += "' min='";
-  html += min;
-  html += "' max='";
-  html += max;
-  html += "' step='";
-  html += step;
-  html += "' value='";
-  html += value;
-  html += "'";
+  response->print("<input type='range' name='");
+  response->print(name);
+  response->print("' class='form-control-range' id='s");
+  response->print(sliderIndex);
+  response->print("' min='");
+  response->print(min);
+  response->print("' max='");
+  response->print(max);
+  response->print("' step='");
+  response->print(step);
+  response->print("' value='");
+  response->print(value);
+  response->print("'");
   if (needColorBox) {
-    html += " oninput='window.updateColAndVal(\"cb";
-    html += sliderIndex;
-    html += "\", \"sv";
+    response->print(" oninput='window.updateColAndVal(\"cb");
+    response->print(sliderIndex);
+    response->print("\", \"sv");
   } else {
-    html += " oninput='window.updateVal(\"sv";
+    response->print(" oninput='window.updateVal(\"sv");
   }
-  html += sliderIndex;
-  html += "\", this.value);'";
-  if (disabled) html += " disabled";
-  html += "/>";
-  html += "</br>";
+  response->print(sliderIndex);
+  response->print("\", this.value);'");
+  if (disabled) response->print(" disabled");
+  response->print("/>");
+  response->println("</br>");
   sliderIndex++;
-  return html;
 }
 
-String addSelectBox(const char* name, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
-  String html;
-  html += label;
-  html += "<select name='";
-  html += name;
-  html += "' class='form-control' id='sb";
-  html += selectIndex;
-  html += "'";
+void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
+  response->print(label);
+  response->print(": <select name='");
+  response->print(name);
+  response->print("' class='form-control' id='sb");
+  response->print(selectIndex);
   if (onChanges) {
-    html += " onchange='";
-    html += onChanges;
-    html += "'";
+    response->print("'");
+    response->print(" onchange='");
+    response->print(onChanges);
   }
-  if (disabled) html += " disabled";
-  html += ">";
+  response->print("'");
+  if (disabled) response->print(" disabled");
+  response->print(">");
   for (int i = 0; i < optionsCount; i++) {
     if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
     int transformedIndex;
@@ -1722,75 +1792,70 @@ String addSelectBox(const char* name, const char* label, int setting, char* opti
     } else {
       transformedIndex = i;
     }
-    html += "<option value='";
-    html += transformedIndex;
-    html += "'";
-    if (setting == transformedIndex) html += " selected";
-    html += ">";
-    html += options[i];
-    html += "</option>";
+    response->print("<option value='");
+    response->print(transformedIndex);
+    response->print("'");
+    if (setting == transformedIndex) response->print(" selected");
+    response->print(">");
+    response->print(options[i]);
+    response->print("</option>");
   }
-  html += "</select>";
-  html += "</br>";
+  response->print("</select>");
+  response->println("</br>");
   selectIndex++;
-  return html;
 }
 
-String addInputText(const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
-  String html;
-  html += label;
-  html += "<input type='";
-  html += type;
-  html += "' name='";
-  html += name;
-  html += "' class='form-control'";
+void addInputText(AsyncResponseStream* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
+  response->print(label);
+  response->print(": <input type='");
+  response->print(type);
+  response->print("' name='");
+  response->print(name);
+  response->print("' class='form-control'");
   if (maxLength >= 0) {
-    html += " maxlength='";
-    html += maxLength;
-    html += "'";
+    response->print(" maxlength='");
+    response->print(maxLength);
+    response->print("'");
   }
-  html += " id='if";
-  html += inputFieldIndex;
-  html += "' value='";
-  html += value;
-  html += "'>";
-  html += "</br>";
+  response->print(" id='if");
+  response->print(inputFieldIndex);
+  response->print("' value='");
+  response->print(value);
+  response->print("'>");
+  response->println("</br>");
   inputFieldIndex++;
-  return html;
 }
 
 template <typename V>
 
-String addCard(const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
-  String html;
-  html += "<div class='col-auto mb-2'>";
-  html += "<div class='card' style='width: 15rem; height: 9rem;'>";
-  html += "<div class='card-header d-flex'>";
-  html += title;
-  html += "</div>";
-  html += "<div class='card-body d-flex'>";
-  html += "<h";
-  html += size;
-  html += " class='card-title  m-auto'>";
+void addCard(AsyncResponseStream* response, const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
+  response->print("<div class='col-auto mb-2'>");
+  response->print("<div class='card' style='width: 15rem; height: 9rem;'>");
+  response->print("<div class='card-header d-flex'>");
+  response->print(title);
+  response->print("</div>");
+  response->print("<div class='card-body d-flex'>");
+  response->print("<h");
+  response->print(size);
+  response->print(" class='card-title m-auto'>");
   if (std::is_same<V, float>::value) {
     char valueStr[10];
     sprintf(valueStr, "%.*f", precision, value);
-    html += valueStr;
+    response->print(valueStr);
   } else if (std::is_same<V, int>::value) {
     char valueStr[10];
     sprintf(valueStr, "%d", value);
-    html += valueStr;
+    response->print(valueStr);
   } else {
-    html += value;
+    response->print(value);
   }
-  html += unitOfMeasurement;
-  html += "</h";
-  html += size;
-  html += ">";
-  html += "</div>";
-  html += "</div>";
-  html += "</div>";
-  return html;
+  response->print(unitOfMeasurement);
+  response->print("</h");
+  response->print(size);
+  response->print(">");
+  response->print("</div>");
+  response->print("</div>");
+  response->print("</div>");
 }
 
 const char JS_SCRIPT[] PROGMEM = R"=====(
@@ -2017,9 +2082,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>");
   response->print("Яскравість");
   response->println("</button>");
-  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
-  response->print("Кольори");
-  response->println("</button>");
+  // response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
+  // response->print("Кольори");
+  // response->println("</button>");
   response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clM' aria-expanded='false' aria-controls='clM'>");
   response->print("Режими");
   response->println("</button>");
@@ -2028,9 +2093,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("Звуки");
   response->println("</button>");
 #endif
-  response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
-  response->print("Телеметрія");
-  response->println("</button>");
+  // response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
+  // response->print("Телеметрія");
+  // response->println("</button>");
   response->print(" <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#cTc' aria-expanded='false' aria-controls='cTc'>");
   response->print("DEV");
   response->println("</button>");
@@ -2050,81 +2115,81 @@ void handleRoot(AsyncWebServerRequest* request) {
   int nightModeType = getNightModeType();
   response->print(nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення");
   response->println("</b></div>");
-  response->println(addSlider("brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2));
-  response->println(addSlider("brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0));
-  response->println(addSlider("brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%"));
-  response->println(addSlider("day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2));
-  response->println(addSlider("night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2));
+  addSlider(response, "brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
+  addSlider(response, "brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
+  addSlider(response, "brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
+  addSlider(response, "day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  addSlider(response, "night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
   if (display.isDisplayAvailable()) {
-    response->println(addCheckbox("dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час"));
+    addCheckbox(response, "dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
   }
-  response->println(addSelectBox("brightness_auto", "Автоматична яскравість", settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT));
-  response->println(addSlider("brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%"));
-  response->println(addSlider("brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%"));
-  response->println(addSlider("brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%"));
-  response->println(addSlider("brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%"));
-  response->println(addSlider("brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%"));
-  response->println(addSlider("light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f));
+  addSelectBox(response, "brightness_auto", "Автоматична яскравість", settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+  addSlider(response, "brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
+  addSlider(response, "brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
+  addSlider(response, "brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
+  addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
+  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
-  response->println("<form action='/saveColors' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
-  response->println("<div class='by col-md-9 mt-2'>");
-  response->println(addSlider("color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true));
-  response->println(addSlider("color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true));
-  response->println(addSlider("color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true));
-  response->println(addSlider("color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true));
-  response->println(addSlider("color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true));
-  response->println(addSlider("color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true));
-  response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</form>");
+  // response->println("<form action='/saveColors' method='POST'>");
+  // response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
+  // response->println("<div class='by col-md-9 mt-2'>");
+  // addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  // addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  // response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  // response->println("</div>");
+  // response->println("</div>");
+  // response->println("</form>");
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   if (settings.legacy == 1 || settings.legacy == 2) {
-  response->println(addSelectBox("kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;}));
+  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
-  response->println(addSelectBox("map_mode", "Режим мапи", settings.map_mode, MAP_MODES, MAP_MODES_COUNT));
-  response->println(addSlider("color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true));
-  response->println(addSlider("brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%"));
+  addSelectBox(response, "map_mode", "Режим мапи", settings.map_mode, MAP_MODES, MAP_MODES_COUNT);
+  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
+  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
-    response->println(addSelectBox("display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions));
-    response->println(addCheckbox("invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)"));
-    response->println(addSlider("display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд"));
+    addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
+    addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
+    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
   }
   if (climate.isTemperatureAvailable()) {
-    response->println(addSlider("temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C"));
+    addSlider(response, "temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
   }
   if (climate.isHumidityAvailable()) {
-    response->println(addSlider("hum_correction", "Корегування вологості", settings.hum_correction, -20.0f, 20.0f, 0.5f, "%"));
+    addSlider(response, "hum_correction", "Корегування вологості", settings.hum_correction, -20.0f, 20.0f, 0.5f, "%");
   }
   if (climate.isPressureAvailable()) {
-    response->println(addSlider("pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50.0f, 50.0f, 0.5f, " мм.рт.ст."));
+    addSlider(response, "pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50.0f, 50.0f, 0.5f, " мм.рт.ст.");
   }
-  response->println(addSlider("weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C"));
-  response->println(addSlider("weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C"));
-  response->println(addSelectBox("button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions));
-  response->println(addSelectBox("button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions));
-  response->println(addSelectBox("home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum));
+  addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
+  addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
+  addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+  addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+  addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
-    response->println(addCheckbox("home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні"));
+    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
-  response->println(addSelectBox("alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT));
-  response->println(addSlider("alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0));
-  response->println(addSlider("alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0));
-  response->println(addSlider("explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0));
-  response->println(addSlider("alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2));
-  response->println(addSelectBox("alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT));
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.legacy == 0) {
-    response->println(addCheckbox("service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди"));
+    addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }
-  response->println(addCheckbox("min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)"));
-  response->println(addSlider("time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год."));
+  addCheckbox(response, "min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  addSlider(response, "time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
@@ -2133,87 +2198,89 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='clS' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->println(addCheckbox("sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);"));
-  response->println(addSelectBox("melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);"));
-  response->println(addCheckbox("sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\""));
-  response->println(addCheckbox("sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);"));
-  response->println(addSelectBox("melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);"));
-  response->println(addCheckbox("sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);"));
-  response->println(addSelectBox("melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);"));
-  response->println(addCheckbox("sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);"));
-  response->println(addSelectBox("melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);"));
-  response->println(addCheckbox("sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини"));
-  response->println(addCheckbox("sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки"));
-  response->println(addCheckbox("mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);"));
-  response->println(addCheckbox("ignore_mute_on_alert", settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0));
+  addCheckbox(response, "sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
+  addSelectBox(response, "melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
+  addCheckbox(response, "sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
+  addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
+  addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
+  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
+  addCheckbox(response, "sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
+  addCheckbox(response, "mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  addCheckbox(response, "ignore_mute_on_alert", settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
 #endif
-  response->println("<form action='/refreshTelemetry' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
-  response->println("<div class='by col-md-9 mt-2'>");
-  response->println("<div class='row justify-content-center'>");
-  response->println(addCard("Час роботи", uptimeChar, "", 4));
-  response->println(addCard("Температура ESP32", cpuTemp, "°C"));
-  response->println(addCard("Вільна памʼять", freeHeapSize, "кБ"));
-  response->println(addCard("Використана памʼять", usedHeapSize, "кБ"));
-  response->println(addCard("WiFi сигнал", wifiSignal, "dBm"));
-  response->println(addCard(DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C"));
-  if (ha.isHaEnabled()) {
-    response->println(addCard("Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2));
-  }
-  response->println(addCard("Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2));
-  if (climate.isTemperatureAvailable()) {
-    response->println(addCard("Температура", climate.getTemperature(settings.temp_correction), "°C"));
-  }
-  if (climate.isHumidityAvailable()) {
-    response->println(addCard("Вологість", climate.getHumidity(settings.hum_correction), "%"));
-  }
-  if (climate.isPressureAvailable()) {
-    response->println(addCard("Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2));
-  }
-  if (lightSensor.isLightSensorAvailable()) {
-    response->println(addCard("Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx"));
-  }
-  response->println("</div>");
-  response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</form>");
+  // response->println("<form action='/refreshTelemetry' method='POST'>");
+  // response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
+  // response->println("<div class='by col-md-9 mt-2'>");
+  // response->println("<div class='row justify-content-center'>");
+  // addCard(response, "Час роботи", uptimeChar, "", 4);
+  // addCard(response, "Температура ESP32", cpuTemp, "°C");
+  // addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
+  // addCard(response, "Використана памʼять", usedHeapSize, "кБ");
+  // addCard(response, "WiFi сигнал", wifiSignal, "dBm");
+  // addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
+  // if (ha.isHaEnabled()) {
+  //   addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
+  // }
+  // addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
+  // if (climate.isTemperatureAvailable()) {
+  //   addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
+  // }
+  // if (climate.isHumidityAvailable()) {
+  //   addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
+  // }
+  // if (climate.isPressureAvailable()) {
+  //   addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
+  // }
+  // if (lightSensor.isLightSensorAvailable()) {
+  //   addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
+  // }
+  // response->println("</div>");
+  // response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
+  // response->println("</div>");
+  // response->println("</div>");
+  // response->println("</form>");
   response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->println(addSelectBox("legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT));
+  addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
-    response->println(addSelectBox("display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT));
-    response->println(addSelectBox("display_height", "Розмір дисплею", settings.display_height, DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;}));
+    addSelectBox(response, "display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
+    addSelectBox(response, "display_height", "Розмір дисплею", settings.display_height, DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
   if (ha.isHaEnabled()) {
-    response->println(addInputText("ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30));
-    response->println(addInputText("ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str()));
-    response->println(addInputText("ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30));
-    response->println(addInputText("ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50));
+    addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
+    addInputText(response, "ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
+    addInputText(response, "ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
+    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
   }
-  response->println(addInputText("ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30));
-  response->println(addInputText("serverhost", "Адреса сервера даних", "text", settings.serverhost, 30));
-  response->println(addInputText("websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str()));
-  response->println(addInputText("updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str()));
-  response->println(addInputText("devicename", "Назва пристрою", "text", settings.devicename, 30));
-  response->println(addInputText("devicedescription", "Опис пристрою", "text", settings.devicedescription, 50));
-  response->println(addInputText("broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30));
+  addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
+  addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
+  addInputText(response, "websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
+  addInputText(response, "updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
+  addInputText(response, "devicename", "Назва пристрою", "text", settings.devicename, 30);
+  addInputText(response, "devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
+  addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy == 1 || settings.legacy == 2) {
-    response->println(addInputText("pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str()));
-    response->println(addInputText("buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str()));
+    addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
+    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
+    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
+    addInputText(response, "buttonpin", "Керуючий пін кнопки", "number", String(settings.buttonpin).c_str());
 
   }
-  response->println(addInputText("alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str()));
-  response->println(addCheckbox("enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str()));
-  response->println(addInputText("lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str()));
+  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
+  addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-  response->println(addInputText("buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str()));
+  addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
@@ -2228,8 +2295,8 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("<div class='row collapse justify-content-center' id='clF' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveFirmware' method='POST'>");
-  if (display.isDisplayAvailable()) response->println(addCheckbox("new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані"));
-  response->println(addSelectBox("fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT));
+  if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  addSelectBox(response, "fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
   response->println("<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</form>");
@@ -2265,10 +2332,11 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
   response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
   response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
-  response->print(JS_SCRIPT);
+  response->println(JS_SCRIPT);
   response->println("</body>");
   response->println("</html>");
 
+  response->setCode(200);
   request->send(response);
 }
 
@@ -2493,6 +2561,8 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
   reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
+  reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
+  reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
@@ -2764,14 +2834,11 @@ void socketConnect() {
 
 //--Map processing start
 
-HsbColor processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
-  HsbColor hue;
+CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
+  CRGB hue;
   int local_color;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
-  float local_brightness_new_alert = settings.brightness_new_alert / 100.0f;
-  float local_brightness_alert_over = settings.brightness_alert_over / 100.0f;
-  float local_brightness_explosion = settings.brightness_explosion / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
   int color_switch;
@@ -2779,7 +2846,7 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
   // explosions has highest priority
   if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     color_switch = settings.color_explosion;
-    hue = HsbColor(color_switch / 360.0f, 1.0, explosionBrightness * local_brightness_explosion);
+    hue = fromHue(color_switch, explosionBrightness * settings.brightness_explosion);
     return hue;
   }
 
@@ -2787,23 +2854,23 @@ HsbColor processAlarms(int led, long time, int expTime, int position, float aler
     case 0:
       if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
-        hue = HsbColor(color_switch / 360.0f, 1.0, alertBrightness * local_brightness_alert_over);
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
       } else {
         if (position == local_district) {
           color_switch = settings.color_home_district;
         } else {
           color_switch = settings.color_clear;
         }
-        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_clear / 200.0f);
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness_clear);
       }
       break;
     case 1:
       if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_new_alert;
-        hue = HsbColor(color_switch / 360.0f, 1.0, alertBrightness * local_brightness_new_alert);
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
       } else {
         color_switch = settings.color_alert;
-        hue = HsbColor(color_switch / 360.0f, 1.0, settings.current_brightness * local_brightness_alert / 200.0f);
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
       }
       break;
   }
@@ -2867,11 +2934,14 @@ int processWeather(float temp) {
 
 void mapReconnect() {
   float localBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time * 1000);
-  HsbColor hue = HsbColor(64 / 360.0f, 1.0, localBrightness);
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, hue);
+  CRGB hue = fromHue(64, localBrightness * settings.current_brightness);
+  for (uint16_t i = 0; i < 26; i++) {
+    strip[i] = hue;
   }
-  strip->Show();
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, hue);
+  }
+  FastLED.show();
 }
 
 void mapCycle() {
@@ -2905,27 +2975,37 @@ void mapCycle() {
   }
 }
 
+CRGB fromHue(int hue, int brightness) {
+  RGBColor rgb = hue2rgb(hue);
+  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
+}
+
+CRGB fromRgb(int r, int g, int b, int brightness) {
+  // use 0.5f as a multiplier to get the half brightness
+  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
+  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
+}
+
 void mapOff() {
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, HslColor(0.0, 0.0, 0.0));
-  }
-  strip->Show();
+  FastLED.clearData();
+  FastLED.show();
 }
 
 void mapLamp() {
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, RgbColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b).Dim(round(settings.ha_light_brightness * 255 / 200.0f)));
+  fill_solid(strip, settings.pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
   }
-  strip->Show();
+  FastLED.show();
 }
 
 void mapAlarms() {
-  uint8_t adapted_alarm_leds[26];
-  long adapted_alarm_timers[26];
-  long adapted_explosion_timers[26];
-  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, strip->PixelCount(), offset);
-  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, strip->PixelCount(), offset);
-  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, strip->PixelCount(), offset);
+  uint8_t adapted_alarm_leds[settings.pixelcount];
+  long adapted_alarm_timers[settings.pixelcount];
+  long adapted_explosion_timers[settings.pixelcount];
+  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
       adapted_alarm_leds[7] = 0;
@@ -2937,44 +3017,63 @@ void mapAlarms() {
     }
     adapted_explosion_timers[7] = max(explosions_time[25], explosions_time[7]);
   }
-  float blinkBrightness = settings.current_brightness / 200.0f;
-  float explosionBrightness = settings.current_brightness / 200.0f;
+  float blinkBrightness = settings.current_brightness / 100.0f;
+  float explosionBrightness = settings.current_brightness / 100.0f;
   if (settings.alarms_notify_mode == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
     explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness));
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
   }
-  strip->Show();
+  if (isBgStripEnabled()) {
+    // same as for local district
+    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness));
+  }
+  FastLED.show();
 }
 
 void mapWeather() {
-  float adapted_weather_leds[26];
-  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, strip->PixelCount(), offset);
+  float adapted_weather_leds[settings.pixelcount];
+  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, HslColor(processWeather(adapted_weather_leds[i]) / 360.0f, 1.0, settings.current_brightness / 400.0f));
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.current_brightness);
   }
-  strip->Show();
+  if (isBgStripEnabled()) {
+    // same as for local district
+    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness));
+  }
+  FastLED.show();
 }
 
 void mapFlag() {
-  uint8_t adapted_flag_leds[26];
-  adaptLeds(settings.kyiv_district_mode, flag_leds, adapted_flag_leds, strip->PixelCount(), offset);
-  for (uint16_t i = 0; i < strip->PixelCount(); i++) {
-    strip->SetPixelColor(i, HsbColor(adapted_flag_leds[i] / 360.0f, 1.0, settings.current_brightness / 200.0f));
+  uint8_t adapted_flag_leds[settings.pixelcount];
+  adaptLeds(settings.kyiv_district_mode, flag_leds, adapted_flag_leds, settings.pixelcount, offset);
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    strip[i] = fromHue(adapted_flag_leds[i], settings.current_brightness);
   }
-  strip->Show();
+  if (isBgStripEnabled()) {
+      // 180 - blue color
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness));
+  }
+  FastLED.show();
 }
 
 void mapRandom() {
-  int randomLed = random(26);
+  int randomLed = random(settings.pixelcount);
   int randomColor = random(360);
-  strip->SetPixelColor(randomLed, HsbColor(randomColor / 360.0f, 1.0, settings.current_brightness / 200.0f));
-  strip->Show();
+  strip[randomLed] = fromHue(randomColor, settings.current_brightness);
+  if (isBgStripEnabled()) {
+    int bgRandomLed = random(settings.bg_pixelcount);
+    int bgRandomColor = random(360);
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness);
+  }
+  FastLED.show();
 }
 
 int getCurrentMapMode() {
