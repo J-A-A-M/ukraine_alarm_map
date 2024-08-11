@@ -16,7 +16,8 @@ bool JaamLightSensor::begin(int legacy) {
   Wire.begin();
 
   // init BH1750 in jaam 2
-  if (legacy == 2) {
+  if (legacy == 3) {
+    Serial.println("Init JAAM 2 BH1750.");
     pinMode(19, OUTPUT);
     digitalWrite(19, HIGH); 
     digitalWrite(19, LOW);
