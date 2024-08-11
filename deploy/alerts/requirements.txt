@@ -1,2 +1,2 @@
-aiohttp==3.9.3
+aiohttp==3.10.2
 aiomcache==0.8.1
