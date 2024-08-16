@@ -16,11 +16,10 @@
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
             with:
-              enable-warnings-report: true
-              sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+              project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware.bin
+              cp -f ${{ github.workspace }}/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware.bin
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
@@ -37,64 +36,61 @@
           - uses: actions/checkout@v4
           - name: Switch to LITE version
             run: |
-              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/Definitions.h
+              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/Definitions.h
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
+            with:
+              project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware-lite.bin
+              cp -f ${{ github.workspace }}/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
               name: firmware-lite.bin
               path: ${{ github.workspace }}/firmware-lite.bin
-    memory_usage_change:
-        runs-on: ubuntu-latest
-        permissions:
-          contents: read
-          pull-requests: write
-        steps:
-          - uses: actions/checkout@v4
-          - name: Memory usage change
-            uses: ./.github/workflows/firmware-compile
-            with:
-              enable-deltas-report: true
-          - name: Report Delta to PR
-            uses: arduino/report-size-deltas@v1
+    # memory_usage_change:
+    #     runs-on: ubuntu-latest
+    #     permissions:
+    #       contents: read
+    #       pull-requests: write
+    #     steps:
+    #       - uses: actions/checkout@v4
+    #       - name: Memory usage change
+    #         uses: ./.github/workflows/firmware-compile
+    #         with:
+    #           enable-deltas-report: true
+    #       - name: Report Delta to PR
+    #         uses: arduino/report-size-deltas@v1
     compile_updater:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
         - name: Compile updater
-          uses: arduino/compile-sketches@v1
+          uses: ./.github/workflows/firmware-compile
           with:
-            sketch-paths: |
-              - ${{ github.workspace }}/src/updater
-            fqbn: esp32:esp32:esp32
-            enable-warnings-report: true
-            cli-compile-flags: |
-              - --export-binaries
+            project-folder: updater
         - name: Upload updater
           uses: actions/upload-artifact@v4
           with:
             name: updater.bin
-            path: ${{ github.workspace }}/src/updater/build/esp32.esp32.esp32/updater.ino.bin    
-    lint_check:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Lint check
-            uses: arduino/arduino-lint-action@v1
-            with:
-              path: ${{ github.workspace }}/src/firmware
-              verbose: true
-              compliance: specification
-              report-file: ${{ github.workspace }}/lint-report.json
-          - name: Upload lint report
-            uses: actions/upload-artifact@v4
-            with:
-              name: lint-report
-              path: ${{ github.workspace }}/lint-report.json
+            path: ${{ github.workspace }}/.pio/build/esp32dev/updater.bin
+    # lint_check:
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #       - uses: actions/checkout@v4
+    #       - name: Lint check
+    #         uses: arduino/arduino-lint-action@v1
+    #         with:
+    #           path: ${{ github.workspace }}/firmware
+    #           verbose: true
+    #           compliance: specification
+    #           report-file: ${{ github.workspace }}/lint-report.json
+    #       - name: Upload lint report
+    #         uses: actions/upload-artifact@v4
+    #         with:
+    #           name: lint-report
+    #           path: ${{ github.workspace }}/lint-report.json
     check_flasher:
         runs-on: ubuntu-latest
         steps:
