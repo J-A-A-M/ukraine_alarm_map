@@ -262,6 +262,13 @@ int ignoreDisplayModeOptions[DISPLAY_MODE_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1
 int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1};
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
+bool isBgStripEnabled() {
+  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
+}
+
+// Forward declarations
+void displayCycle();
+
 void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
   if (!display.isDisplayAvailable()) return;
   serviceMessage.title = title;
@@ -282,340 +289,6 @@ void rebootDevice(int time = 2000, bool async = false) {
   display.clearDisplay();
   display.display();
   ESP.restart();
-}
-
-void initChipID() {
-  uint64_t chipid = ESP.getEfuseMac();
-  sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
-  Serial.printf("ChipID Inited: '%s'\n", chipID);
-}
-
-void initSettings() {
-  Serial.println("Init settings");
-  preferences.begin("storage", true);
-
-  preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
-  preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
-  preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
-  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
-  preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
-  preferences.getString("id", settings.identifier, sizeof(settings.identifier));
-  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
-  settings.updateport             = preferences.getInt("upport", settings.updateport);
-  settings.legacy                 = preferences.getInt("legacy", settings.legacy);
-  settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
-  settings.brightness             = preferences.getInt("brightness", settings.brightness);
-  settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
-  settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
-  settings.brightness_mode        = preferences.getInt("bra", settings.brightness_mode);
-  settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
-  settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
-  settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
-  settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
-  settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
-  settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
-  settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
-  settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
-  settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
-  settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
-  settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
-  settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
-  settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
-  settings.home_district          = preferences.getInt("hd", settings.home_district);
-  settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
-  settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
-  settings.display_mode           = preferences.getInt("dm", settings.display_mode);
-  settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
-  settings.button_mode            = preferences.getInt("bm", settings.button_mode);
-  settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
-  settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
-  settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
-  settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
-  preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
-  settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
-  preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
-  settings.display_model          = preferences.getInt("dsmd", settings.display_model);
-  settings.display_width          = preferences.getInt("dw", settings.display_width);
-  settings.display_height         = preferences.getInt("dh", settings.display_height);
-  settings.day_start              = preferences.getInt("ds", settings.day_start);
-  settings.night_start            = preferences.getInt("ns", settings.night_start);
-  settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
-  settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
-  settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
-  settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
-  settings.alertpin               = preferences.getInt("ap", settings.alertpin);
-  settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
-  settings.lightpin               = preferences.getInt("lp", settings.lightpin);
-  settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
-  settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
-  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
-  settings.ws_reboot_time         = preferences.getInt("wsrt", settings.ws_reboot_time);
-  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
-  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
-  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
-  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
-  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
-  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
-  settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
-  settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
-  settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
-  settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
-  settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
-  settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
-  settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
-  settings.sound_on_alert         = preferences.getInt("soa", settings.sound_on_alert);
-  settings.sound_on_alert_end     = preferences.getInt("soae", settings.sound_on_alert_end);
-  settings.sound_on_every_hour    = preferences.getInt("soeh", settings.sound_on_every_hour);
-  settings.sound_on_button_click  = preferences.getInt("sobc", settings.sound_on_button_click);
-  settings.sound_on_explosion     = preferences.getInt("soex", settings.sound_on_explosion);
-  settings.melody_on_startup      = preferences.getInt("most", settings.melody_on_startup);
-  settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
-  settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
-  settings.melody_on_explosion    = preferences.getInt("moex", settings.melody_on_explosion);
-  settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
-  settings.invert_display         = preferences.getInt("invd", settings.invert_display);
-  settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
-  settings.time_zone              = preferences.getInt("tz", settings.time_zone);
-  settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
-  settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
-  settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
-  settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
-  settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
-  
-  preferences.end();
-
-  currentFirmware = parseFirmwareVersion(VERSION);
-  fillFwVersion(currentFwVersion, currentFirmware);
-  Serial.printf("Current firmware version: %s\n", currentFwVersion);
-  distributeBrightnessLevels();
-}
-
-void initLegacy() {
-  switch (settings.legacy) {
-  case 0:
-    Serial.println("Mode: jaam 1");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
-
-    pinMode(settings.powerpin, OUTPUT);
-    pinMode(settings.wifipin, OUTPUT);
-    pinMode(settings.datapin, OUTPUT);
-    pinMode(settings.hapin, OUTPUT);
-    //pinMode(settings.reservedpin, OUTPUT);
-
-    servicePin(settings.powerpin, HIGH, false);
-
-    settings.kyiv_district_mode = 3;
-    settings.pixelpin = 13;
-    settings.bg_pixelpin = 0;
-    settings.bg_pixelcount = 0;
-    settings.buttonpin = 35;
-    settings.display_model = 1;
-    settings.display_height = 64;
-    break;
-  case 1:
-    Serial.println("Mode: transcarpathia");
-    offset = 0;
-    for (int i = 0; i < 26; i++) {
-      flag_leds[i] = LEGACY_FLAG_LEDS[i];
-    }
-    settings.service_diodes_mode = 0;
-    break;
-  case 2:
-    Serial.println("Mode: odesa");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
-    break;
-  case 3:
-    Serial.println("Mode: jaam 2");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
-
-    settings.kyiv_district_mode = 3;
-    settings.pixelpin = 13;
-    settings.bg_pixelpin = 12;
-    settings.bg_pixelcount = 44;
-    settings.buttonpin = 2;
-    settings.display_model = 1;
-    settings.display_height = 64;
-    break;
-  }
-  pinMode(settings.buttonpin, INPUT_PULLUP);
-  Serial.printf("Offset: %d\n", offset);
-}
-
-void initBuzzer() {
-#if BUZZER_ENABLED
-  player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
-  if (needToPlaySound(START_UP)) {
-    playMelody(START_UP);
-  }
-#endif
-}
-
-void InitAlertPin() {
-  if (settings.enable_pin_on_alert) {
-    Serial.printf("alertpin: %d\n");
-    Serial.println(settings.alertpin);
-    pinMode(settings.alertpin, OUTPUT);
-  }
-}
-
-void initStrip() {
-  Serial.println("Init leds");
-  Serial.print("pixelpin: ");
-  Serial.println(settings.pixelpin);
-  Serial.print("pixelcount: ");
-  Serial.println(settings.pixelcount);
-  initFastledStrip(settings.pixelpin, strip, settings.pixelcount);
-  if (isBgStripEnabled()) {
-    Serial.print("bg pixelpin: ");
-    Serial.println(settings.bg_pixelpin);
-    Serial.print("bg pixelcount: ");
-    Serial.println(settings.bg_pixelcount);
-    initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
-  }
-  FastLED.setDither(DISABLE_DITHER);
-  mapFlag();
-}
-
-void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
-  switch (pin)
-  {
-  case 2:
-    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 4:
-    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 12:
-    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 13:
-    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 14:
-    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 15:
-    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 16:
-    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 17:
-    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 18:
-    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 25:
-    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 26:
-    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 27:
-    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 32:
-    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 33:
-    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  default:
-    Serial.print("This PIN is not supported for LEDs: ");
-    Serial.println(pin);
-    break;
-  }
-  
-}
-
-bool isBgStripEnabled() {
-  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
-}
-
-void initDisplay() {
-  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
-
-  if (display.isDisplayAvailable()) {
-    display.clearDisplay();
-    display.setTextColor(2); // INVERSE
-    updateInvertDisplayMode();
-    updateDisplayBrightness();
-    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Just Another", "Alert Map", currentFwVersion);
-    delay(3000);
-  }
-  initDisplayOptions();
-}
-
-void initSensors() {
-  lightSensor.begin(settings.legacy);
-  if (lightSensor.isLightSensorAvailable()) {
-    lightSensorCycle();
-  }
-  lightSensor.setPhotoresistorPin(settings.lightpin);
-
-  // init climate sensor
-  climate.begin();
-  // try to get climate sensor data
-  climateSensorCycle();
-
-  initDisplayModes();
-}
-
-void initWifi() {
-  Serial.println("Init Wifi");
-  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
-  // reset settings - wipe credentials for testing
-  // wm.resetSettings();
-
-  wm.setHostname(settings.broadcastname);
-  wm.setTitle(settings.devicename);
-  wm.setConfigPortalBlocking(true);
-  wm.setConnectTimeout(3);
-  wm.setConnectRetries(10);
-  wm.setAPCallback(apCallback);
-  wm.setSaveConfigCallback(saveConfigCallback);
-  wm.setConfigPortalTimeout(180);
-  servicePin(settings.wifipin, LOW, false);
-  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
-  char apssid[20];
-  sprintf(apssid, "%s_%s", settings.apssid, chipID);
-  if (!wm.autoConnect(apssid)) {
-    Serial.println("Reboot");
-    rebootDevice(5000);
-    return;
-  }
-  // Connected to WiFi
-  Serial.println("connected...yeey :)");
-  servicePin(settings.wifipin, HIGH, false);
-  showServiceMessage("Підключено до WiFi!");
-  wm.setHttpPort(8080);
-  wm.startWebPortal();
-  delay(5000);
-  setupRouting();
-  initUpdates();
-  initBroadcast();
-  initHA();
-  socketConnect();
-  showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
-}
-
-void initTime() {
-  Serial.println("Init time");
-  Serial.printf("NTP host: %s\n", settings.ntphost);
-  timeClient.setHost(settings.ntphost);
-  timeClient.setTimeZone(settings.time_zone);
-  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
-  timeClient.setTimeout(5000); // 5 seconds waiting for reply
-  timeClient.begin();
-  syncTime(7);
 }
 
 void playMelody(const char* melodyRtttl) {
@@ -659,6 +332,50 @@ void playMelody(SoundType type) {
 #endif
 }
 
+bool isItNightNow() {
+  // if day and night start time is equels it means it's always day, return day
+  if (settings.night_start == settings.day_start) return false;
+
+  int currentHour = timeClient.hour();
+
+  // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
+  if (settings.night_start > settings.day_start) return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
+
+  // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
+  return currentHour < settings.day_start && currentHour >= settings.night_start ? true : false;
+}
+
+// Determine the current brightness level
+int getCurrentBrightnessLevel() {
+  int currentValue;
+  int maxValue;
+  if (lightSensor.isLightSensorAvailable()) {
+    // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
+    currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
+    maxValue = 500;
+  } else {
+    // reads the input on analog pin (value between 0 and 4095)
+    currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
+    // 2600 - very bright indoor environment.
+    maxValue = 2600;
+  }
+  int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
+  // Serial.print("Brightness level: ");
+  // Serial.println(level);
+  return level;
+}
+
+int getNightModeType() {
+  // Night Mode activated by button
+  if (nightMode) return 1;
+  // Night mode activated by time
+  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
+  // Night mode activated by sensor
+  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
+  // Night mode is off
+  return 0;
+}
+
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
   // ignore mute on alert
@@ -690,21 +407,19 @@ bool needToPlaySound(SoundType type) {
   return false;
 }
 
-int getNightModeType() {
-  // Night Mode activated by button
-  if (nightMode) return 1;
-  // Night mode activated by time
-  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
-  // Night mode activated by sensor
-  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
-  // Night mode is off
-  return 0;
-}
-
 void servicePin(int pin, uint8_t status, bool force) {
   if (force || (settings.legacy == 0 && settings.service_diodes_mode)) {
     digitalWrite(pin, status);
   }
+}
+
+void reportSettingsChange(const char* settingKey, const char* settingValue) {
+  char settingsInfo[100];
+  JsonDocument settings;
+  settings[settingKey] = settingValue;
+  sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
+  client_websocket.send(settingsInfo);
+  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
 }
 
 void reportSettingsChange(const char* settingKey, int newValue) {
@@ -719,13 +434,42 @@ void reportSettingsChange(const char* settingKey, float newValue) {
   reportSettingsChange(settingKey, settingsValue);
 }
 
-void reportSettingsChange(const char* settingKey, const char* settingValue) {
-  char settingsInfo[100];
-  JsonDocument settings;
-  settings[settingKey] = settingValue;
-  sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
-  client_websocket.send(settingsInfo);
-  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
+static void printNtpStatus(NTPtime* timeClient) {
+  Serial.print("NTP status: ");
+    switch (timeClient->NTPstatus()) {
+      case 0:
+        Serial.println("OK");
+        Serial.print("Current date and time: ");
+        Serial.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
+        break;
+      case 1:
+        Serial.println("NOT_STARTED");
+        break;
+      case 2:
+        Serial.println("NOT_CONNECTED_WIFI");
+        break;
+      case 3:
+        Serial.println("NOT_CONNECTED_TO_SERVER");
+        break;
+      case 4:
+        Serial.println("NOT_SENT_PACKET");
+        break;
+      case 5:
+        Serial.println("WAITING_REPLY");
+        break;
+      case 6:
+        Serial.println("TIMEOUT");
+        break;
+      case 7:
+        Serial.println("REPLY_ERROR");
+        break;
+      case 8:
+        Serial.println("NOT_CONNECTED_ETHERNET");
+        break;
+      default:
+        Serial.println("UNKNOWN_STATUS");
+        break;
+    }
 }
 
 void syncTime(int8_t attempts) {
@@ -756,18 +500,6 @@ char* getLocalIP() {
   return localIP;
 }
 
-void apCallback(WiFiManager* wifiManager) {
-  const char* message = wifiManager->getConfigPortalSSID().c_str();
-  displayMessage(message, "Підключіться до WiFi:");
-  WiFi.onEvent(wifiEvents);
-}
-
-void saveConfigCallback() {
-  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Збережено AP:");
-  delay(2000);
-  rebootDevice();
-}
-
 static void wifiEvents(WiFiEvent_t event) {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED: {
@@ -782,21 +514,16 @@ static void wifiEvents(WiFiEvent_t event) {
   }
 }
 
-void initUpdates() {
-#if ARDUINO_OTA_ENABLED
-  ArduinoOTA.onStart(showUpdateStart);
-  ArduinoOTA.onEnd(showUpdateEnd);
-  ArduinoOTA.onProgress(showUpdateProgress);
-  ArduinoOTA.onError(showOtaUpdateErrorMessage);
-  ArduinoOTA.begin();
-#endif
-#if FW_UPDATE_ENABLED
-  Update.onProgress(showUpdateProgress);
-  httpUpdate.onStart(showUpdateStart);
-  httpUpdate.onEnd(showUpdateEnd);
-  httpUpdate.onProgress(showUpdateProgress);
-  httpUpdate.onError(showHttpUpdateErrorMessage);
-#endif
+void apCallback(WiFiManager* wifiManager) {
+  const char* message = wifiManager->getConfigPortalSSID().c_str();
+  displayMessage(message, "Підключіться до WiFi:");
+  WiFi.onEvent(wifiEvents);
+}
+
+void saveConfigCallback() {
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Збережено AP:");
+  delay(2000);
+  rebootDevice();
 }
 
 #if ARDUINO_OTA_ENABLED
@@ -870,54 +597,26 @@ void initBroadcast() {
   Serial.println();
 }
 
-void initHA() {
-  if (shouldWifiReconnect) return;
-    Serial.println("Init Home assistant API");
-    
-  if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
-    Serial.println("Home Assistant is not available!");
-    return;
-  }
+int getCurrentMapMode() {
+  if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
 
-  ha.initUptimeSensor();
-  ha.initWifiSignalSensor();
-  ha.initFreeMemorySensor();
-  ha.initUsedMemorySensor();
-  ha.initCpuTempSensor(temperatureRead());
-  ha.initBrightnessSensor(settings.brightness, saveBrightness);
-  ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
-  if (display.isDisplayAvailable()) {
-    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions), DISPLAY_MODES,
-      DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayMode, getSettingsDisplayMode);
-    ha.initDisplayModeToggleSensor(nextDisplayMode);
-    ha.initShowHomeAlarmTimeSensor(settings.home_alert_time, saveShowHomeAlarmTime);
+  int currentMapMode = isMapOff ? 0 : settings.map_mode;
+  int position = settings.home_district;
+  switch (settings.alarms_auto_switch) {
+    case 1:
+      for (int j = 0; j < COUNTERS[position]; j++) {
+        int alarm_led_id = calculateOffset(NEIGHBORING_DISTRICS[position][j], offset);
+        if (alarm_leds[alarm_led_id] != 0) {
+          currentMapMode = 1;
+        }
+      }
+      break;
+    case 2:
+      if (alarm_leds[calculateOffset(position, offset)] != 0) {
+        currentMapMode = 1;
+      }
   }
-  ha.initAutoAlarmModeSensor(settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
-  ha.initAutoBrightnessModeSensor(settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
-  ha.initMapModeCurrentSensor();
-  ha.initHomeDistrictSensor();
-  ha.initMapApiConnectSensor(apiConnected);
-  ha.initRebootSensor([] { rebootDevice(); });
-  ha.initMapModeToggleSensor(nextMapMode);
-  ha.initLampSensor(settings.map_mode == 5, settings.ha_light_brightness, settings.ha_light_r, settings.ha_light_g, settings.ha_light_b,
-    onNewLampStateFromHa, saveLampBrightness, saveLampRgb);
-  ha.initAlarmAtHomeSensor(alarmNow);
-  if (climate.isTemperatureAvailable()) {
-    ha.initLocalTemperatureSensor(climate.getTemperature(settings.temp_correction));
-  }
-  if (climate.isHumidityAvailable()) {
-    ha.initLocalHumiditySensor(climate.getHumidity(settings.hum_correction));
-  }
-  if (climate.isPressureAvailable()) {
-    ha.initLocalPressureSensor(climate.getPressure(settings.pressure_correction));
-  }
-  if (lightSensor.isLightSensorAvailable()) {
-    ha.initLightLevelSensor(lightSensor.getLightLevel(settings.light_sensor_factor));
-  }
-  ha.initHomeTemperatureSensor();
-  ha.initNightModeSensor(nightMode, saveNightMode);
-
-  ha.connectToMqtt(settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword, onMqttStateChanged);
+  return currentMapMode;
 }
 
 void onMqttStateChanged(bool haStatus) {
@@ -932,6 +631,31 @@ void onMqttStateChanged(bool haStatus) {
   }
 }
 
+// Forward declarations
+void mapCycle();
+
+bool saveMapMode(int newMapMode) {
+  if (newMapMode == settings.map_mode) return false;
+
+  if (newMapMode == 5) {
+    prevMapMode = settings.map_mode;
+  }
+  settings.map_mode = newMapMode;
+  preferences.begin("storage", false);
+  preferences.putInt("mapmode", settings.map_mode);
+  preferences.end();
+  reportSettingsChange("map_mode", settings.map_mode);
+  Serial.print("map_mode commited to preferences: ");
+  Serial.println(settings.map_mode);
+  ha.setLampState(settings.map_mode == 5);
+  ha.setMapMode(settings.map_mode);
+  ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
+  showServiceMessage(MAP_MODES[settings.map_mode], "Режим мапи:");
+  // update to selected mapMode
+  mapCycle();
+  return true;
+}
+
 bool onNewLampStateFromHa(bool state) {
   if (settings.map_mode == 5 && state) return false;
   int newMapMode = state ? 5 : prevMapMode;
@@ -942,30 +666,38 @@ int getHaDisplayMode(int localDisplayMode) {
   return displayModeHAMap[localDisplayMode];
 }
 
-void initDisplayOptions() {
-  if (!display.isDisplayAvailable()) {
-    // remove display related options from singl click optins list
-    ignoreSingleClickOptions[0] = 2;
-    ignoreSingleClickOptions[1] = 4;
-    ignoreSingleClickOptions[2] = 5;
-    // change single click option to default if it's not available
-    if (isInArray(settings.button_mode, ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button_mode, "bm", 0, "button_mode");
-    }
-
-    // remove display related options from long click optins list
-    ignoreLongClickOptions[0] = 2;
-    ignoreLongClickOptions[1] = 4;
-    ignoreLongClickOptions[2] = 5;
-    // change long click option to default if it's not available
-    if (isInArray(settings.button_mode_long, ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button_mode_long, "bml", 0, "button_mode_long");
-    }
-  }
-}
-
 void updateInvertDisplayMode() {
   display.invertDisplay(settings.invert_display);
+}
+
+bool shouldDisplayBeOff() {
+  return serviceMessage.expired && (isDisplayOff || settings.display_mode == 0);
+}
+
+int getBrightnessFromSensor(int brightnessLevels[]) {
+  return brightnessLevels[getCurrentBrightnessLevel()];
+}
+
+int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrightness, int brightnessLevels[]) {
+  // highest priority for night mode, return night brightness
+  if (nightMode) return nightBrightness;
+
+  // // if nightMode deactivated return previous brightness
+  // if (prevBrightness >= 0) {
+  //   int tempBrightnes = prevBrightness;
+  //   prevBrightness = -1;
+  //   return tempBrightnes;
+  // }
+
+  // if auto brightness set to day/night mode, check current hour and choose brightness
+  if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
+
+  // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
+  if (settings.brightness_mode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
+
+  // if auto brightnes deactivated, return regular brightnes
+  // default
+  return defaultBrightness;
 }
 
 void updateDisplayBrightness() {
@@ -976,18 +708,6 @@ void updateDisplayBrightness() {
   Serial.printf("Set display dim: %s\n", currentDimDisplay ? "ON" : "OFF");
   display.dim(currentDimDisplay);
 }
-
-void initDisplayModes() {
-  if (!climate.isAnySensorAvailable()) {
-    // remove climate sensor options from display optins list
-    ignoreDisplayModeOptions[0] = 4;
-    // change display mode to "changing" if it's not available
-    if (isInArray(settings.display_mode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-      saveDisplayMode(9);
-    }
-  }
-}
-//--Init end
 
 //--Update
 #if FW_UPDATE_ENABLED
@@ -1008,32 +728,6 @@ void saveLatestFirmware() {
   Serial.printf("Latest firmware version: %s\n", newFwVersion);
   Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
-#endif
-
-void doUpdate() {
-  if (initUpdate) {
-    initUpdate = false;
-    downloadAndUpdateFw(settings.bin_name, settings.fw_update_channel == 1);
-  }
-}
-
-void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
-#if FW_UPDATE_ENABLED
-  char spiffUrlChar[100];
-  char firmwareUrlChar[100];
-  Serial.println("Building spiffs url...");
-  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
-  Serial.println("Building firmware url...");
-  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
-
-  Serial.printf("Spiffs url: %s\n", spiffUrlChar);
-  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
-  handleUpdateStatus(spiffsRet, true);
-
-  Serial.printf("Firmware url: %s\n", firmwareUrlChar);
-  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
-  handleUpdateStatus(fwRet, false);
-}
 
 void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
   Serial.printf("%s update status:\n", isSpiffsUpdate ? "Spiffs" : "Firmware");
@@ -1053,8 +747,32 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
       }
       break;
   }
-#endif
 }
+
+void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+  char spiffUrlChar[100];
+  char firmwareUrlChar[100];
+  Serial.println("Building spiffs url...");
+  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
+  Serial.println("Building firmware url...");
+  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
+
+  Serial.printf("Spiffs url: %s\n", spiffUrlChar);
+  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
+  handleUpdateStatus(spiffsRet, true);
+
+  Serial.printf("Firmware url: %s\n", firmwareUrlChar);
+  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
+  handleUpdateStatus(fwRet, false);
+}
+
+void doUpdate() {
+  if (initUpdate) {
+    initUpdate = false;
+    downloadAndUpdateFw(settings.bin_name, settings.fw_update_channel == 1);
+  }
+}
+#endif
 //--Update end
 
 //--Service
@@ -1090,52 +808,74 @@ void checkServicePins() {
 
 //--Service end
 
-// for display chars testing purposes
-// int startSymbol = 0;
-//--Button start
-void buttonUpdate() {
-  // read the state of the switch/button:
-  currentState = digitalRead(settings.buttonpin);
-
-  if (lastState == HIGH && currentState == LOW) { // button is pressed
-    pressedTime = millis();
-    isPressing = true;
-    isLongDetected = false;
-  } else if (lastState == LOW && currentState == HIGH) { // button is released
-    isPressing = false;
-    releasedTime = millis();
-
-    long pressDuration = releasedTime - pressedTime;
-
-    if (pressDuration < SHORT_PRESS_TIME) singleClick();
+void nextMapMode() {
+  int newMapMode = settings.map_mode + 1;
+  if (newMapMode > 5) {
+    newMapMode = 0;
   }
+  saveMapMode(newMapMode);
+}
 
-  if (isPressing == true && isLongDetected == false) {
-    long pressDuration = millis() - pressedTime;
+bool saveDisplayMode(int newDisplayMode) {
+  if (newDisplayMode == settings.display_mode) return false;
+  settings.display_mode = newDisplayMode;
+  preferences.begin("storage", false);
+  preferences.putInt("dm", settings.display_mode);
+  preferences.end();
+  reportSettingsChange("display_mode", settings.display_mode);
+  Serial.print("display_mode commited to preferences: ");
+  Serial.println(settings.display_mode);
+  int localDisplayMode = getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions);
+  if (display.isDisplayAvailable()) {
+    ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
+  }
+  showServiceMessage(DISPLAY_MODES[localDisplayMode], "Режим дисплея:", 1000);
+  // update to selected displayMode
+  displayCycle();
+  return true;
+}
 
-    if (pressDuration > LONG_PRESS_TIME) {
-      longClick();
-      isLongDetected = true;
+void nextDisplayMode() {
+  int newDisplayMode = settings.display_mode + 1;
+  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX) || newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
+    if (newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
+      newDisplayMode = 0;
+    } else {
+      newDisplayMode++;
     }
   }
-
-  // save the the last state
-  lastState = currentState;
-}
-
-void singleClick() {
-  handleClick(settings.button_mode, SINGLE_CLICK);
-}
-
-void longClick() {
-#if FW_UPDATE_ENABLED
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
-    handleClick(100, LONG_CLICK);
-    return;
+  if (newDisplayMode == DISPLAY_MODE_OPTIONS_MAX - 1) {
+    newDisplayMode = 9;
   }
-#endif
 
-  handleClick(settings.button_mode_long, LONG_CLICK);
+  saveDisplayMode(newDisplayMode);
+}
+
+void autoBrightnessUpdate() {
+  int tempBrightness = getCurrentBrightnes(settings.brightness, settings.brightness_day, settings.brightness_night, ledsBrightnessLevels);
+  if (tempBrightness != settings.current_brightness) {
+    settings.current_brightness = tempBrightness;
+    preferences.begin("storage", false);
+    preferences.putInt("cbr", settings.current_brightness);
+    preferences.end();
+    Serial.print("set current brightness: ");
+    Serial.println(settings.current_brightness);
+  }
+}
+
+bool saveNightMode(bool newState) {
+  nightMode = newState;
+  if (nightMode) {
+    prevBrightness = settings.brightness;
+  }
+  showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
+  autoBrightnessUpdate();
+  mapCycle();
+  reportSettingsChange("nightMode", nightMode ? "true" : "false");
+  Serial.print("nightMode: ");
+  Serial.println(nightMode ? "true" : "false");
+  ha.setNightMode(nightMode);
+  return true;
 }
 
 void handleClick(int event, SoundType soundType) {
@@ -1173,9 +913,11 @@ void handleClick(int event, SoundType soundType) {
     case 7:
       rebootDevice();
       break;
+  #if FW_UPDATE_ENABLED
     case 100:
       downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
       break;
+  #endif
     default:
       // do nothing
       break;
@@ -1186,34 +928,51 @@ bool isButtonActivated() {
   return settings.button_mode != 0 || settings.button_mode_long != 0;
 }
 
-void nextMapMode() {
-  int newMapMode = settings.map_mode + 1;
-  if (newMapMode > 5) {
-    newMapMode = 0;
-  }
-  saveMapMode(newMapMode);
+void singleClick() {
+  handleClick(settings.button_mode, SINGLE_CLICK);
 }
 
-bool saveMapMode(int newMapMode) {
-  if (newMapMode == settings.map_mode) return false;
-
-  if (newMapMode == 5) {
-    prevMapMode = settings.map_mode;
+void longClick() {
+#if FW_UPDATE_ENABLED
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+    handleClick(100, LONG_CLICK);
+    return;
   }
-  settings.map_mode = newMapMode;
-  preferences.begin("storage", false);
-  preferences.putInt("mapmode", settings.map_mode);
-  preferences.end();
-  reportSettingsChange("map_mode", settings.map_mode);
-  Serial.print("map_mode commited to preferences: ");
-  Serial.println(settings.map_mode);
-  ha.setLampState(settings.map_mode == 5);
-  ha.setMapMode(settings.map_mode);
-  ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
-  showServiceMessage(MAP_MODES[settings.map_mode], "Режим мапи:");
-  // update to selected mapMode
-  mapCycle();
-  return true;
+#endif
+  handleClick(settings.button_mode_long, LONG_CLICK);
+}
+
+// for display chars testing purposes
+// int startSymbol = 0;
+//--Button start
+void buttonUpdate() {
+  // read the state of the switch/button:
+  currentState = digitalRead(settings.buttonpin);
+
+  if (lastState == HIGH && currentState == LOW) { // button is pressed
+    pressedTime = millis();
+    isPressing = true;
+    isLongDetected = false;
+  } else if (lastState == LOW && currentState == HIGH) { // button is released
+    isPressing = false;
+    releasedTime = millis();
+
+    long pressDuration = releasedTime - pressedTime;
+
+    if (pressDuration < SHORT_PRESS_TIME) singleClick();
+  }
+
+  if (isPressing == true && isLongDetected == false) {
+    long pressDuration = millis() - pressedTime;
+
+    if (pressDuration > LONG_PRESS_TIME) {
+      longClick();
+      isLongDetected = true;
+    }
+  }
+
+  // save the the last state
+  lastState = currentState;
 }
 
 bool saveBrightness(int newBrightness) {
@@ -1255,21 +1014,6 @@ bool saveAutoAlarmMode(int newMode) {
   Serial.print("alarms_auto_switch commited to preferences: ");
   Serial.println(settings.alarms_auto_switch);
   ha.setAutoAlarmMode(newMode);
-  return true;
-}
-
-bool saveNightMode(bool newState) {
-  nightMode = newState;
-  if (nightMode) {
-    prevBrightness = settings.brightness;
-  }
-  showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
-  autoBrightnessUpdate();
-  mapCycle();
-  reportSettingsChange("nightMode", nightMode ? "true" : "false");
-  Serial.print("nightMode: ");
-  Serial.println(nightMode ? "true" : "false");
-  ha.setNightMode(nightMode);
   return true;
 }
 
@@ -1333,42 +1077,6 @@ bool saveLampRgb(int r, int g, int b) {
   return true;
 }
 
-void nextDisplayMode() {
-  int newDisplayMode = settings.display_mode + 1;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX) || newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
-    if (newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
-      newDisplayMode = 0;
-    } else {
-      newDisplayMode++;
-    }
-  }
-  if (newDisplayMode == DISPLAY_MODE_OPTIONS_MAX - 1) {
-    newDisplayMode = 9;
-  }
-
-  saveDisplayMode(newDisplayMode);
-}
-
-bool saveDisplayMode(int newDisplayMode) {
-  if (newDisplayMode == settings.display_mode) return false;
-  settings.display_mode = newDisplayMode;
-  preferences.begin("storage", false);
-  preferences.putInt("dm", settings.display_mode);
-  preferences.end();
-  reportSettingsChange("display_mode", settings.display_mode);
-  Serial.print("display_mode commited to preferences: ");
-  Serial.println(settings.display_mode);
-  int localDisplayMode = getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions);
-  if (display.isDisplayAvailable()) {
-    ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
-  }
-  showServiceMessage(DISPLAY_MODES[localDisplayMode], "Режим дисплея:", 1000);
-  // update to selected displayMode
-  displayCycle();
-  return true;
-}
-//--Button end
-
 bool saveHomeDistrict(int newHomeDistrict) {
   if (newHomeDistrict == settings.home_district) return false;
   settings.home_district = newHomeDistrict;
@@ -1385,103 +1093,8 @@ bool saveHomeDistrict(int newHomeDistrict) {
 }
 
 //--Display start
-void displayCycle() {
-  if (!display.isDisplayAvailable()) return;
-
-  updateDisplayBrightness();
-
-  // Show service message if not expired (Always show, it's short message)
-  if (!serviceMessage.expired) {
-    displayServiceMessage(serviceMessage);
-    return;
-  }
-
-  if (uaAnthemPlaying) {
-    showMinOfSilanceScreen(1);
-    return;
-  }
-
-  // Show Minute of silence mode if activated. (Priority - 0)
-  if (minuteOfSilence) {
-    displayMinuteOfSilence();
-    return;
-  }
-
-  // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
-  if (alarmNow && settings.home_alert_time == 1) {
-    showHomeAlertInfo();
-    return;
-  }
-
-  // Turn off display, if activated (Priority - 2)
-  if (isDisplayOff) {
-    clearDisplay();
-    return;
-  }
-
-#if FW_UPDATE_ENABLED
-  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
-    showNewFirmwareNotification();
-    return;
-  }
-#endif
-
-  // Show selected display mode in other cases (Priority - last)
-  displayByMode(settings.display_mode);
-}
-
-void serviceMessageUpdate() {
-  if (!serviceMessage.expired && millis() > serviceMessage.endTime) {
-    serviceMessage.expired = true;
-  }
-}
-
-void displayByMode(int mode) {
-  switch (mode) {
-    // Display Mode Off
-    case 0:
-      clearDisplay();
-      break;
-    // Display Mode Clock
-    case 1:
-      showClock();
-      break;
-    // Display Mode Temperature
-    case 2:
-      showTemp();
-      break;
-    case 3:
-      showTechInfo();
-      break;
-    // Display Climate info from sensor
-    case 4:
-      showClimate();
-      break;
-    // Display Mode Switching
-    case 9:
-      showSwitchingModes();
-      break;
-    // Unknown Display Mode, clearing display...
-    default:
-      clearDisplay();
-      break;
-  }
-}
-
-void clearDisplay() {
-  display.clearDisplay();
-  display.display();
-}
-
-bool shouldDisplayBeOff() {
-  return serviceMessage.expired && (isDisplayOff || settings.display_mode == 0);
-}
-
-void displayMinuteOfSilence() {
-  // every 3 sec.
-  int periodIndex = getCurrentPeriodIndex(3, 3, timeClient.second());
-  showMinOfSilanceScreen(periodIndex);
+void displayServiceMessage(ServiceMessage message) {
+  displayMessage(message.message, message.title, message.textSize);
 }
 
 void showMinOfSilanceScreen(int screen) {
@@ -1500,8 +1113,10 @@ void showMinOfSilanceScreen(int screen) {
   }
 }
 
-void displayServiceMessage(ServiceMessage message) {
-  displayMessage(message.message, message.title, message.textSize);
+void displayMinuteOfSilence() {
+  // every 3 sec.
+  int periodIndex = getCurrentPeriodIndex(3, 3, timeClient.second());
+  showMinOfSilanceScreen(periodIndex);
 }
 
 void showHomeAlertInfo() {
@@ -1519,25 +1134,10 @@ void showHomeAlertInfo() {
   displayMessage(message, title);
 }
 
-#if FW_UPDATE_ENABLED
-void showNewFirmwareNotification() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
-  char title[50];
-  char message[50];
-  if (periodIndex) {
-    strcpy(title, "Доступне оновлення:");
-    strcpy(message, newFwVersion);
-  } else if (!isButtonActivated()) {
-    strcpy(title, "Введіть у браузері:");
-    strcpy(message, getLocalIP());
-  } else {
-    strcpy(title, "Для оновл. натисніть");
-    sprintf(message, "та тримайте кнопку %c", (char)24);
-  }
-
-  displayMessage(message, title);
+void clearDisplay() {
+  display.clearDisplay();
+  display.display();
 }
-#endif
 
 void showClock() {
   char time[7];
@@ -1594,9 +1194,12 @@ void showTechInfo() {
   displayMessage(message, title);
 }
 
-void showClimate() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
-  showLocalClimateInfo(periodIndex);
+int getClimateInfoSize() {
+  int size = 0;
+  if (climate.isTemperatureAvailable()) size++;
+  if (climate.isHumidityAvailable()) size++;
+  if (climate.isPressureAvailable()) size++;
+  return size;
 }
 
 void showLocalTemp() {
@@ -1632,12 +1235,9 @@ void showLocalClimateInfo(int index) {
   }
 }
 
-int getClimateInfoSize() {
-  int size = 0;
-  if (climate.isTemperatureAvailable()) size++;
-  if (climate.isHumidityAvailable()) size++;
-  if (climate.isPressureAvailable()) size++;
-  return size;
+void showClimate() {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
+  showLocalClimateInfo(periodIndex);
 }
 
 void showSwitchingModes() {
@@ -1660,30 +1260,143 @@ void showSwitchingModes() {
     break;
   }
 }
+
+void displayByMode(int mode) {
+  switch (mode) {
+    // Display Mode Off
+    case 0:
+      clearDisplay();
+      break;
+    // Display Mode Clock
+    case 1:
+      showClock();
+      break;
+    // Display Mode Temperature
+    case 2:
+      showTemp();
+      break;
+    case 3:
+      showTechInfo();
+      break;
+    // Display Climate info from sensor
+    case 4:
+      showClimate();
+      break;
+    // Display Mode Switching
+    case 9:
+      showSwitchingModes();
+      break;
+    // Unknown Display Mode, clearing display...
+    default:
+      clearDisplay();
+      break;
+  }
+}
+
+#if FW_UPDATE_ENABLED
+void showNewFirmwareNotification() {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
+  char title[50];
+  char message[50];
+  if (periodIndex) {
+    strcpy(title, "Доступне оновлення:");
+    strcpy(message, newFwVersion);
+  } else if (!isButtonActivated()) {
+    strcpy(title, "Введіть у браузері:");
+    strcpy(message, getLocalIP());
+  } else {
+    strcpy(title, "Для оновл. натисніть");
+    sprintf(message, "та тримайте кнопку %c", (char)24);
+  }
+
+  displayMessage(message, title);
+}
+#endif
+
+void displayCycle() {
+  if (!display.isDisplayAvailable()) return;
+
+  updateDisplayBrightness();
+
+  // Show service message if not expired (Always show, it's short message)
+  if (!serviceMessage.expired) {
+    displayServiceMessage(serviceMessage);
+    return;
+  }
+
+  if (uaAnthemPlaying) {
+    showMinOfSilanceScreen(1);
+    return;
+  }
+
+  // Show Minute of silence mode if activated. (Priority - 0)
+  if (minuteOfSilence) {
+    displayMinuteOfSilence();
+    return;
+  }
+
+  // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
+  if (alarmNow && settings.home_alert_time == 1) {
+    showHomeAlertInfo();
+    return;
+  }
+
+  // Turn off display, if activated (Priority - 2)
+  if (isDisplayOff) {
+    clearDisplay();
+    return;
+  }
+
+#if FW_UPDATE_ENABLED
+  // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
+    showNewFirmwareNotification();
+    return;
+  }
+#endif
+
+  // Show selected display mode in other cases (Priority - last)
+  displayByMode(settings.display_mode);
+}
+
+void serviceMessageUpdate() {
+  if (!serviceMessage.expired && millis() > serviceMessage.endTime) {
+    serviceMessage.expired = true;
+  }
+}
 //--Display end
 
-//--Web server start
-void setupRouting() {
-  Serial.println("Init WebServer");
-  webserver.on("/", HTTP_GET, handleRoot);
-  webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
-  webserver.on("/saveColors", HTTP_POST, handleSaveColors);
-  webserver.on("/saveModes", HTTP_POST, handleSaveModes);
-#if BUZZER_ENABLED
-  webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
-#endif
-  webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
-  webserver.on("/saveDev", HTTP_POST, handleSaveDev);
-#if FW_UPDATE_ENABLED
-  webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
-  webserver.on("/update", HTTP_POST, handleUpdate);
-#endif
-#if BUZZER_ENABLED
-  webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
-#endif
-  webserver.begin();
-  Serial.println("Webportal running");
+void distributeBrightnessLevels() {
+  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
 }
+
+void updateHaTempSensors() {
+  if (climate.isTemperatureAvailable()) {
+    ha.setLocalTemperature(climate.getTemperature(settings.temp_correction));
+  }
+}
+
+void updateHaHumSensors() {
+  if (climate.isHumidityAvailable()) {
+    ha.setLocalHumidity(climate.getHumidity(settings.hum_correction));
+  }
+}
+
+void updateHaPressureSensors() {
+  if (climate.isPressureAvailable()) {
+    ha.setLocalPressure(climate.getPressure(settings.pressure_correction));
+  }
+}
+
+void climateSensorCycle() {
+  if (!climate.isAnySensorAvailable()) return;
+  climate.read();
+  updateHaTempSensors();
+  updateHaHumSensors();
+  updateHaPressureSensors();
+}
+
+//--Web server start
 
 int getSettingsDisplayMode(int localDisplayMode) {
   return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
@@ -2082,9 +1795,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>");
   response->print("Яскравість");
   response->println("</button>");
-  // response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
-  // response->print("Кольори");
-  // response->println("</button>");
+  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
+  response->print("Кольори");
+  response->println("</button>");
   response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clM' aria-expanded='false' aria-controls='clM'>");
   response->print("Режими");
   response->println("</button>");
@@ -2093,9 +1806,9 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->print("Звуки");
   response->println("</button>");
 #endif
-  // response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
-  // response->print("Телеметрія");
-  // response->println("</button>");
+  response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
+  response->print("Телеметрія");
+  response->println("</button>");
   response->print(" <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#cTc' aria-expanded='false' aria-controls='cTc'>");
   response->print("DEV");
   response->println("</button>");
@@ -2135,19 +1848,19 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
-  // response->println("<form action='/saveColors' method='POST'>");
-  // response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
-  // response->println("<div class='by col-md-9 mt-2'>");
-  // addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
-  // addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
-  // addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
-  // addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
-  // addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
-  // addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
-  // response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
-  // response->println("</div>");
-  // response->println("</div>");
-  // response->println("</form>");
+  response->println("<form action='/saveColors' method='POST'>");
+  response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
+  response->println("<div class='by col-md-9 mt-2'>");
+  addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
+  addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
+  addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
+  addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
+  addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("</form>");
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2217,37 +1930,37 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</form>");
 #endif
-  // response->println("<form action='/refreshTelemetry' method='POST'>");
-  // response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
-  // response->println("<div class='by col-md-9 mt-2'>");
-  // response->println("<div class='row justify-content-center'>");
-  // addCard(response, "Час роботи", uptimeChar, "", 4);
-  // addCard(response, "Температура ESP32", cpuTemp, "°C");
-  // addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
-  // addCard(response, "Використана памʼять", usedHeapSize, "кБ");
-  // addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  // addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
-  // if (ha.isHaEnabled()) {
-  //   addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
-  // }
-  // addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
-  // if (climate.isTemperatureAvailable()) {
-  //   addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
-  // }
-  // if (climate.isHumidityAvailable()) {
-  //   addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
-  // }
-  // if (climate.isPressureAvailable()) {
-  //   addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
-  // }
-  // if (lightSensor.isLightSensorAvailable()) {
-  //   addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
-  // }
-  // response->println("</div>");
-  // response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
-  // response->println("</div>");
-  // response->println("</div>");
-  // response->println("</form>");
+  response->println("<form action='/refreshTelemetry' method='POST'>");
+  response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
+  response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<div class='row justify-content-center'>");
+  addCard(response, "Час роботи", uptimeChar, "", 4);
+  addCard(response, "Температура ESP32", cpuTemp, "°C");
+  addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
+  addCard(response, "Використана памʼять", usedHeapSize, "кБ");
+  addCard(response, "WiFi сигнал", wifiSignal, "dBm");
+  addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
+  if (ha.isHaEnabled()) {
+    addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
+  }
+  addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
+  if (climate.isTemperatureAvailable()) {
+    addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
+  }
+  if (climate.isHumidityAvailable()) {
+    addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
+  }
+  if (climate.isPressureAvailable()) {
+    addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
+  }
+  if (lightSensor.isLightSensorAvailable()) {
+    addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
+  }
+  response->println("</div>");
+  response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("</form>");
   response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2340,6 +2053,15 @@ void handleRoot(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
+  preferences.begin("storage", false);
+  *setting = newValue;
+  preferences.putInt(settingsKey, *setting);
+  preferences.end();
+  reportSettingsChange(paramName, *setting);
+  Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
+}
+
 bool saveInt(const AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   int newValue = param->value().toInt();
@@ -2355,15 +2077,6 @@ bool saveInt(const AsyncWebParameter* param, int *setting, const char* settingsK
     return true;
   }
   return false;
-}
-
-void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
-  preferences.begin("storage", false);
-  *setting = newValue;
-  preferences.putInt(settingsKey, *setting);
-  preferences.end();
-  reportSettingsChange(paramName, *setting);
-  Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
 }
 
 bool saveFloat(const AsyncWebParameter* param, float *setting, const char* settingsKey, bool (*saveFun)(float) = NULL, void (*additionalFun)(void) = NULL) {
@@ -2596,6 +2309,28 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
   request->send(200, "text/plain", "Test sound played!");
 }
 #endif
+
+void setupRouting() {
+  Serial.println("Init WebServer");
+  webserver.on("/", HTTP_GET, handleRoot);
+  webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
+  webserver.on("/saveColors", HTTP_POST, handleSaveColors);
+  webserver.on("/saveModes", HTTP_POST, handleSaveModes);
+#if BUZZER_ENABLED
+  webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+#endif
+  webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
+  webserver.on("/saveDev", HTTP_POST, handleSaveDev);
+#if FW_UPDATE_ENABLED
+  webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
+  webserver.on("/update", HTTP_POST, handleUpdate);
+#endif
+#if BUZZER_ENABLED
+  webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
+#endif
+  webserver.begin();
+  Serial.println("Webportal running");
+}
 //--Web server end
 
 //--Service messages start
@@ -2634,95 +2369,33 @@ void connectStatuses() {
   }
 }
 
-void distributeBrightnessLevels() {
-  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
-}
-
-void autoBrightnessUpdate() {
-  int tempBrightness = getCurrentBrightnes(settings.brightness, settings.brightness_day, settings.brightness_night, ledsBrightnessLevels);
-  if (tempBrightness != settings.current_brightness) {
-    settings.current_brightness = tempBrightness;
-    preferences.begin("storage", false);
-    preferences.putInt("cbr", settings.current_brightness);
-    preferences.end();
-    Serial.print("set current brightness: ");
-    Serial.println(settings.current_brightness);
-  }
-}
-
-int getBrightnessFromSensor(int brightnessLevels[]) {
-  return brightnessLevels[getCurrentBrightnessLevel()];
-}
-
-// Determine the current brightness level
-int getCurrentBrightnessLevel() {
-  int currentValue;
-  int maxValue;
-  if (lightSensor.isLightSensorAvailable()) {
-    // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
-    currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
-    maxValue = 500;
-  } else {
-    // reads the input on analog pin (value between 0 and 4095)
-    currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
-    // 2600 - very bright indoor environment.
-    maxValue = 2600;
-  }
-  int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
-  // Serial.print("Brightness level: ");
-  // Serial.println(level);
-  return level;
-}
-
-int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrightness, int brightnessLevels[]) {
-  // highest priority for night mode, return night brightness
-  if (nightMode) return nightBrightness;
-
-  // // if nightMode deactivated return previous brightness
-  // if (prevBrightness >= 0) {
-  //   int tempBrightnes = prevBrightness;
-  //   prevBrightness = -1;
-  //   return tempBrightnes;
-  // }
-
-  // if auto brightness set to day/night mode, check current hour and choose brightness
-  if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
-
-  // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
-
-  // if auto brightnes deactivated, return regular brightnes
-  // default
-  return defaultBrightness;
-}
-
-bool isItNightNow() {
-  // if day and night start time is equels it means it's always day, return day
-  if (settings.night_start == settings.day_start) return false;
-
-  int currentHour = timeClient.hour();
-
-  // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
-  if (settings.night_start > settings.day_start) return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
-
-  // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
-  return currentHour < settings.day_start && currentHour >= settings.night_start ? true : false;
-}
 //--Service messages end
 
-//--Websocket process start
-void websocketProcess() {
-  if (millis() - websocketLastPingTime > settings.ws_alert_time) {
-    websocketReconnect = true;
-  }
-  if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
-    rebootDevice(3000, true);
-  }
-  if (!client_websocket.available() or websocketReconnect) {
-    Serial.println("Reconnecting...");
-    socketConnect();
+static JsonDocument parseJson(const char* payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    Serial.printf("Deserialization error: $s\n", error.f_str());
+    return doc;
+  } else {
+    return doc;
   }
 }
+
+#if FW_UPDATE_ENABLED
+static void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
+  JsonArray arr = data[payloadKey].as<JsonArray>();
+  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
+  for (int i = 0; i < *binsCount; i++) {
+    const char* filename = arr[i].as<const char*>();
+    binsList[i] = new char[strlen(filename)];
+    strcpy(binsList[i], filename);
+  }
+  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
+}
+#endif
+
+//--Websocket process start
 
 void onMessageCallback(WebsocketsMessage message) {
   Serial.print("Got Message: ");
@@ -2830,7 +2503,31 @@ void socketConnect() {
     showServiceMessage("недоступний", "Сервер даних", 3000);
   }
 }
+
+void websocketProcess() {
+  if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+    websocketReconnect = true;
+  }
+  if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
+    rebootDevice(3000, true);
+  }
+  if (!client_websocket.available() or websocketReconnect) {
+    Serial.println("Reconnecting...");
+    socketConnect();
+  }
+}
 //--Websocket process end
+
+CRGB fromRgb(int r, int g, int b, int brightness) {
+  // use 0.5f as a multiplier to get the half brightness
+  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
+  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
+}
+
+CRGB fromHue(int hue, int brightness) {
+  RGBColor rgb = hue2rgb(hue);
+  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
+}
 
 //--Map processing start
 
@@ -2890,6 +2587,10 @@ float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
   return blinkBrightness;
 }
 
+void playMinOfSilenceSound() {
+  playMelody(MIN_OF_SILINCE);
+}
+
 void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
@@ -2911,10 +2612,6 @@ void checkMinuteOfSilence() {
     }
 #endif
   }
-}
-
-void playMinOfSilenceSound() {
-  playMelody(MIN_OF_SILINCE);
 }
 
 int processWeather(float temp) {
@@ -2942,48 +2639,6 @@ void mapReconnect() {
     fill_solid(bg_strip, settings.bg_pixelcount, hue);
   }
   FastLED.show();
-}
-
-void mapCycle() {
-  int currentMapMode = getCurrentMapMode();
-  // show mapRecconect mode if websocket is not connected and map mode != 0
-  if (websocketReconnect && currentMapMode) {
-    currentMapMode = 1000;
-  }
-  switch (currentMapMode) {
-    case 0:
-      mapOff();
-      break;
-    case 1:
-      mapAlarms();
-      break;
-    case 2:
-      mapWeather();
-      break;
-    case 3:
-      mapFlag();
-      break;
-    case 4:
-      mapRandom();
-      break;
-    case 5:
-      mapLamp();
-      break;
-    case 1000:
-      mapReconnect();
-      break;
-  }
-}
-
-CRGB fromHue(int hue, int brightness) {
-  RGBColor rgb = hue2rgb(hue);
-  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
-}
-
-CRGB fromRgb(int r, int g, int b, int brightness) {
-  // use 0.5f as a multiplier to get the half brightness
-  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
-  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
 
 void mapOff() {
@@ -3076,36 +2731,38 @@ void mapRandom() {
   FastLED.show();
 }
 
-int getCurrentMapMode() {
-  if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
-
-  int currentMapMode = isMapOff ? 0 : settings.map_mode;
-  int position = settings.home_district;
-  switch (settings.alarms_auto_switch) {
+void mapCycle() {
+  int currentMapMode = getCurrentMapMode();
+  // show mapRecconect mode if websocket is not connected and map mode != 0
+  if (websocketReconnect && currentMapMode) {
+    currentMapMode = 1000;
+  }
+  switch (currentMapMode) {
+    case 0:
+      mapOff();
+      break;
     case 1:
-      for (int j = 0; j < COUNTERS[position]; j++) {
-        int alarm_led_id = calculateOffset(NEIGHBORING_DISTRICS[position][j], offset);
-        if (alarm_leds[alarm_led_id] != 0) {
-          currentMapMode = 1;
-        }
-      }
+      mapAlarms();
       break;
     case 2:
-      if (alarm_leds[calculateOffset(position, offset)] != 0) {
-        currentMapMode = 1;
-      }
+      mapWeather();
+      break;
+    case 3:
+      mapFlag();
+      break;
+    case 4:
+      mapRandom();
+      break;
+    case 5:
+      mapLamp();
+      break;
+    case 1000:
+      mapReconnect();
+      break;
   }
-  return currentMapMode;
 }
-//--Map processing end
 
-void wifiReconnect() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFI Reconnect");
-    shouldWifiReconnect = true;
-    initWifi();
-  }
-}
+//--Map processing end
 
 void alertPinCycle() {
   if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
@@ -3124,24 +2781,6 @@ void rebootCycle() {
     needRebootWithDelay = -1;
     rebootDevice(localDelay);
   }
-}
-
-void calculateStates() {
-  // check if we need activate "minute of silence mode"
-  checkMinuteOfSilence();
-
-  // check alert in home district
-  checkHomeDistrictAlerts();
-
-#if BUZZER_ENABLED
-  checkCurrentTimeAndPlaySound();
-
-  if (uaAnthemPlaying && !player->isPlaying()) {
-    uaAnthemPlaying = false;
-  }
-#endif
-  // update service message expiration
-  if (display.isDisplayAvailable()) serviceMessageUpdate();
 }
 
 void checkHomeDistrictAlerts() {
@@ -3178,27 +2817,22 @@ void checkCurrentTimeAndPlaySound() {
   }
 }
 
-void lightSensorCycle() {
-  lightSensor.read();
-  updateHaLightSensors();
-}
+void calculateStates() {
+  // check if we need activate "minute of silence mode"
+  checkMinuteOfSilence();
 
-void updateHaTempSensors() {
-  if (climate.isTemperatureAvailable()) {
-    ha.setLocalTemperature(climate.getTemperature(settings.temp_correction));
-  }
-}
+  // check alert in home district
+  checkHomeDistrictAlerts();
 
-void updateHaHumSensors() {
-  if (climate.isHumidityAvailable()) {
-    ha.setLocalHumidity(climate.getHumidity(settings.hum_correction));
-  }
-}
+#if BUZZER_ENABLED
+  checkCurrentTimeAndPlaySound();
 
-void updateHaPressureSensors() {
-  if (climate.isPressureAvailable()) {
-    ha.setLocalPressure(climate.getPressure(settings.pressure_correction));
+  if (uaAnthemPlaying && !player->isPlaying()) {
+    uaAnthemPlaying = false;
   }
+#endif
+  // update service message expiration
+  if (display.isDisplayAvailable()) serviceMessageUpdate();
 }
 
 void updateHaLightSensors() {
@@ -3207,74 +2841,446 @@ void updateHaLightSensors() {
   }
 }
 
-void climateSensorCycle() {
-  if (!climate.isAnySensorAvailable()) return;
-  climate.read();
-  updateHaTempSensors();
-  updateHaHumSensors();
-  updateHaPressureSensors();
+void lightSensorCycle() {
+  lightSensor.read();
+  updateHaLightSensors();
 }
 
-#if FW_UPDATE_ENABLED
-static void fillBinList(JsonDocument data, const char* payloadKey, char* binsList[], int *binsCount) {
-  JsonArray arr = data[payloadKey].as<JsonArray>();
-  *binsCount = min(static_cast<int>(arr.size()), MAX_BINS_LIST_SIZE);
-  for (int i = 0; i < *binsCount; i++) {
-    const char* filename = arr[i].as<const char*>();
-    binsList[i] = new char[strlen(filename)];
-    strcpy(binsList[i], filename);
-  }
-  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
-}
-#endif
-
-static JsonDocument parseJson(const char* payload) {
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    Serial.printf("Deserialization error: $s\n", error.f_str());
-    return doc;
-  } else {
-    return doc;
-  }
+void initChipID() {
+  uint64_t chipid = ESP.getEfuseMac();
+  sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
+  Serial.printf("ChipID Inited: '%s'\n", chipID);
 }
 
-static void printNtpStatus(NTPtime* timeClient) {
-  Serial.print("NTP status: ");
-    switch (timeClient->NTPstatus()) {
-      case 0:
-        Serial.println("OK");
-        Serial.print("Current date and time: ");
-        Serial.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
-        break;
-      case 1:
-        Serial.println("NOT_STARTED");
-        break;
-      case 2:
-        Serial.println("NOT_CONNECTED_WIFI");
-        break;
-      case 3:
-        Serial.println("NOT_CONNECTED_TO_SERVER");
-        break;
-      case 4:
-        Serial.println("NOT_SENT_PACKET");
-        break;
-      case 5:
-        Serial.println("WAITING_REPLY");
-        break;
-      case 6:
-        Serial.println("TIMEOUT");
-        break;
-      case 7:
-        Serial.println("REPLY_ERROR");
-        break;
-      case 8:
-        Serial.println("NOT_CONNECTED_ETHERNET");
-        break;
-      default:
-        Serial.println("UNKNOWN_STATUS");
-        break;
+void initSettings() {
+  Serial.println("Init settings");
+  preferences.begin("storage", true);
+
+  preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
+  preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
+  preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
+  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
+  preferences.getString("id", settings.identifier, sizeof(settings.identifier));
+  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
+  settings.updateport             = preferences.getInt("upport", settings.updateport);
+  settings.legacy                 = preferences.getInt("legacy", settings.legacy);
+  settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
+  settings.brightness             = preferences.getInt("brightness", settings.brightness);
+  settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
+  settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
+  settings.brightness_mode        = preferences.getInt("bra", settings.brightness_mode);
+  settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
+  settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
+  settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
+  settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
+  settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
+  settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
+  settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
+  settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
+  settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
+  settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
+  settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
+  settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
+  settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
+  settings.home_district          = preferences.getInt("hd", settings.home_district);
+  settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
+  settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
+  settings.display_mode           = preferences.getInt("dm", settings.display_mode);
+  settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
+  settings.button_mode            = preferences.getInt("bm", settings.button_mode);
+  settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
+  settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
+  settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
+  settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
+  preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
+  settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
+  preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
+  preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
+  settings.display_model          = preferences.getInt("dsmd", settings.display_model);
+  settings.display_width          = preferences.getInt("dw", settings.display_width);
+  settings.display_height         = preferences.getInt("dh", settings.display_height);
+  settings.day_start              = preferences.getInt("ds", settings.day_start);
+  settings.night_start            = preferences.getInt("ns", settings.night_start);
+  settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
+  settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
+  settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
+  settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
+  settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
+  settings.lightpin               = preferences.getInt("lp", settings.lightpin);
+  settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
+  settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
+  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
+  settings.ws_reboot_time         = preferences.getInt("wsrt", settings.ws_reboot_time);
+  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
+  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
+  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
+  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
+  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
+  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
+  settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
+  settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
+  settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
+  settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
+  settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
+  settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
+  settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
+  settings.sound_on_alert         = preferences.getInt("soa", settings.sound_on_alert);
+  settings.sound_on_alert_end     = preferences.getInt("soae", settings.sound_on_alert_end);
+  settings.sound_on_every_hour    = preferences.getInt("soeh", settings.sound_on_every_hour);
+  settings.sound_on_button_click  = preferences.getInt("sobc", settings.sound_on_button_click);
+  settings.sound_on_explosion     = preferences.getInt("soex", settings.sound_on_explosion);
+  settings.melody_on_startup      = preferences.getInt("most", settings.melody_on_startup);
+  settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
+  settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
+  settings.melody_on_explosion    = preferences.getInt("moex", settings.melody_on_explosion);
+  settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
+  settings.invert_display         = preferences.getInt("invd", settings.invert_display);
+  settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
+  settings.time_zone              = preferences.getInt("tz", settings.time_zone);
+  settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
+  settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
+  settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
+  settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
+  settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
+  
+  preferences.end();
+
+  currentFirmware = parseFirmwareVersion(VERSION);
+  fillFwVersion(currentFwVersion, currentFirmware);
+  Serial.printf("Current firmware version: %s\n", currentFwVersion);
+  distributeBrightnessLevels();
+}
+
+void initLegacy() {
+  switch (settings.legacy) {
+  case 0:
+    Serial.println("Mode: jaam 1");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
+
+    pinMode(settings.powerpin, OUTPUT);
+    pinMode(settings.wifipin, OUTPUT);
+    pinMode(settings.datapin, OUTPUT);
+    pinMode(settings.hapin, OUTPUT);
+    //pinMode(settings.reservedpin, OUTPUT);
+
+    servicePin(settings.powerpin, HIGH, false);
+
+    settings.kyiv_district_mode = 3;
+    settings.pixelpin = 13;
+    settings.bg_pixelpin = 0;
+    settings.bg_pixelcount = 0;
+    settings.buttonpin = 35;
+    settings.display_model = 1;
+    settings.display_height = 64;
+    break;
+  case 1:
+    Serial.println("Mode: transcarpathia");
+    offset = 0;
+    for (int i = 0; i < 26; i++) {
+      flag_leds[i] = LEGACY_FLAG_LEDS[i];
+    }
+    settings.service_diodes_mode = 0;
+    break;
+  case 2:
+    Serial.println("Mode: odesa");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
+    }
+    break;
+  case 3:
+    Serial.println("Mode: jaam 2");
+    for (int i = 0; i < 26; i++) {
+      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
+    }
+
+    settings.kyiv_district_mode = 3;
+    settings.pixelpin = 13;
+    settings.bg_pixelpin = 12;
+    settings.bg_pixelcount = 44;
+    settings.buttonpin = 2;
+    settings.display_model = 1;
+    settings.display_height = 64;
+    break;
+  }
+  pinMode(settings.buttonpin, INPUT_PULLUP);
+  Serial.printf("Offset: %d\n", offset);
+}
+
+void initBuzzer() {
+#if BUZZER_ENABLED
+  player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
+  if (needToPlaySound(START_UP)) {
+    playMelody(START_UP);
+  }
+#endif
+}
+
+void initAlertPin() {
+  if (settings.enable_pin_on_alert) {
+    Serial.printf("alertpin: %d\n");
+    Serial.println(settings.alertpin);
+    pinMode(settings.alertpin, OUTPUT);
+  }
+}
+
+void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
+  switch (pin)
+  {
+  case 2:
+    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 4:
+    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 12:
+    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 13:
+    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 14:
+    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 15:
+    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 16:
+    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 17:
+    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 18:
+    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 25:
+    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 26:
+    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 27:
+    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 32:
+    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 33:
+    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  default:
+    Serial.print("This PIN is not supported for LEDs: ");
+    Serial.println(pin);
+    break;
+  }
+}
+
+void initStrip() {
+  Serial.println("Init leds");
+  Serial.print("pixelpin: ");
+  Serial.println(settings.pixelpin);
+  Serial.print("pixelcount: ");
+  Serial.println(settings.pixelcount);
+  initFastledStrip(settings.pixelpin, strip, settings.pixelcount);
+  if (isBgStripEnabled()) {
+    Serial.print("bg pixelpin: ");
+    Serial.println(settings.bg_pixelpin);
+    Serial.print("bg pixelcount: ");
+    Serial.println(settings.bg_pixelcount);
+    initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
+  }
+  FastLED.setDither(DISABLE_DITHER);
+  mapFlag();
+}
+
+void initDisplayOptions() {
+  if (!display.isDisplayAvailable()) {
+    // remove display related options from singl click optins list
+    ignoreSingleClickOptions[0] = 2;
+    ignoreSingleClickOptions[1] = 4;
+    ignoreSingleClickOptions[2] = 5;
+    // change single click option to default if it's not available
+    if (isInArray(settings.button_mode, ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+      saveInt(&settings.button_mode, "bm", 0, "button_mode");
+    }
+
+    // remove display related options from long click optins list
+    ignoreLongClickOptions[0] = 2;
+    ignoreLongClickOptions[1] = 4;
+    ignoreLongClickOptions[2] = 5;
+    // change long click option to default if it's not available
+    if (isInArray(settings.button_mode_long, ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+      saveInt(&settings.button_mode_long, "bml", 0, "button_mode_long");
+    }
+  }
+}
+
+void initDisplayModes() {
+  if (!climate.isAnySensorAvailable()) {
+    // remove climate sensor options from display optins list
+    ignoreDisplayModeOptions[0] = 4;
+    // change display mode to "changing" if it's not available
+    if (isInArray(settings.display_mode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+      saveDisplayMode(9);
+    }
+  }
+}
+
+void initDisplay() {
+  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
+
+  if (display.isDisplayAvailable()) {
+    display.clearDisplay();
+    display.setTextColor(2); // INVERSE
+    updateInvertDisplayMode();
+    updateDisplayBrightness();
+    display.displayTextWithIcon(JaamDisplay::TRINDENT, "Just Another", "Alert Map", currentFwVersion);
+    delay(3000);
+  }
+  initDisplayOptions();
+}
+
+void initSensors() {
+  lightSensor.begin(settings.legacy);
+  if (lightSensor.isLightSensorAvailable()) {
+    lightSensorCycle();
+  }
+  lightSensor.setPhotoresistorPin(settings.lightpin);
+
+  // init climate sensor
+  climate.begin();
+  // try to get climate sensor data
+  climateSensorCycle();
+
+  initDisplayModes();
+}
+
+void initUpdates() {
+#if ARDUINO_OTA_ENABLED
+  ArduinoOTA.onStart(showUpdateStart);
+  ArduinoOTA.onEnd(showUpdateEnd);
+  ArduinoOTA.onProgress(showUpdateProgress);
+  ArduinoOTA.onError(showOtaUpdateErrorMessage);
+  ArduinoOTA.begin();
+#endif
+#if FW_UPDATE_ENABLED
+  Update.onProgress(showUpdateProgress);
+  httpUpdate.onStart(showUpdateStart);
+  httpUpdate.onEnd(showUpdateEnd);
+  httpUpdate.onProgress(showUpdateProgress);
+  httpUpdate.onError(showHttpUpdateErrorMessage);
+#endif
+}
+
+void initHA() {
+  if (shouldWifiReconnect) return;
+    Serial.println("Init Home assistant API");
+    
+  if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
+    Serial.println("Home Assistant is not available!");
+    return;
+  }
+
+  ha.initUptimeSensor();
+  ha.initWifiSignalSensor();
+  ha.initFreeMemorySensor();
+  ha.initUsedMemorySensor();
+  ha.initCpuTempSensor(temperatureRead());
+  ha.initBrightnessSensor(settings.brightness, saveBrightness);
+  ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
+  if (display.isDisplayAvailable()) {
+    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions), DISPLAY_MODES,
+      DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayMode, getSettingsDisplayMode);
+    ha.initDisplayModeToggleSensor(nextDisplayMode);
+    ha.initShowHomeAlarmTimeSensor(settings.home_alert_time, saveShowHomeAlarmTime);
+  }
+  ha.initAutoAlarmModeSensor(settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
+  ha.initAutoBrightnessModeSensor(settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
+  ha.initMapModeCurrentSensor();
+  ha.initHomeDistrictSensor();
+  ha.initMapApiConnectSensor(apiConnected);
+  ha.initRebootSensor([] { rebootDevice(); });
+  ha.initMapModeToggleSensor(nextMapMode);
+  ha.initLampSensor(settings.map_mode == 5, settings.ha_light_brightness, settings.ha_light_r, settings.ha_light_g, settings.ha_light_b,
+    onNewLampStateFromHa, saveLampBrightness, saveLampRgb);
+  ha.initAlarmAtHomeSensor(alarmNow);
+  if (climate.isTemperatureAvailable()) {
+    ha.initLocalTemperatureSensor(climate.getTemperature(settings.temp_correction));
+  }
+  if (climate.isHumidityAvailable()) {
+    ha.initLocalHumiditySensor(climate.getHumidity(settings.hum_correction));
+  }
+  if (climate.isPressureAvailable()) {
+    ha.initLocalPressureSensor(climate.getPressure(settings.pressure_correction));
+  }
+  if (lightSensor.isLightSensorAvailable()) {
+    ha.initLightLevelSensor(lightSensor.getLightLevel(settings.light_sensor_factor));
+  }
+  ha.initHomeTemperatureSensor();
+  ha.initNightModeSensor(nightMode, saveNightMode);
+
+  ha.connectToMqtt(settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword, onMqttStateChanged);
+}
+
+void initWifi() {
+  Serial.println("Init Wifi");
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+  // reset settings - wipe credentials for testing
+  // wm.resetSettings();
+
+  wm.setHostname(settings.broadcastname);
+  wm.setTitle(settings.devicename);
+  wm.setConfigPortalBlocking(true);
+  wm.setConnectTimeout(3);
+  wm.setConnectRetries(10);
+  wm.setAPCallback(apCallback);
+  wm.setSaveConfigCallback(saveConfigCallback);
+  wm.setConfigPortalTimeout(180);
+  servicePin(settings.wifipin, LOW, false);
+  showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
+  char apssid[20];
+  sprintf(apssid, "%s_%s", settings.apssid, chipID);
+  if (!wm.autoConnect(apssid)) {
+    Serial.println("Reboot");
+    rebootDevice(5000);
+    return;
+  }
+  // Connected to WiFi
+  Serial.println("connected...yeey :)");
+  servicePin(settings.wifipin, HIGH, false);
+  showServiceMessage("Підключено до WiFi!");
+  wm.setHttpPort(8080);
+  wm.startWebPortal();
+  delay(5000);
+  setupRouting();
+  initUpdates();
+  initBroadcast();
+  initHA();
+  socketConnect();
+  showServiceMessage(getLocalIP(), "IP-адреса мапи:", 5000);
+}
+
+void wifiReconnect() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFI Reconnect");
+    shouldWifiReconnect = true;
+    initWifi();
+  }
+}
+
+void initTime() {
+  Serial.println("Init time");
+  Serial.printf("NTP host: %s\n", settings.ntphost);
+  timeClient.setHost(settings.ntphost);
+  timeClient.setTimeZone(settings.time_zone);
+  timeClient.setDSTauto(&dst); // auto update on summer/winter time.
+  timeClient.setTimeout(5000); // 5 seconds waiting for reply
+  timeClient.begin();
+  syncTime(7);
 }
 
 void setup() {
@@ -3284,7 +3290,7 @@ void setup() {
   initSettings();
   initLegacy();
   initBuzzer();
-  InitAlertPin();
+  initAlertPin();
   initStrip();
   initDisplay();
   initSensors();
@@ -3297,7 +3303,9 @@ void setup() {
   asyncEngine.setInterval(displayCycle, 100);
   asyncEngine.setInterval(wifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
+  #if FW_UPDATE_ENABLED
   asyncEngine.setInterval(doUpdate, 1000);
+  #endif
   asyncEngine.setInterval(websocketProcess, 3000);
   asyncEngine.setInterval(alertPinCycle, 1000);
   asyncEngine.setInterval(rebootCycle, 500);

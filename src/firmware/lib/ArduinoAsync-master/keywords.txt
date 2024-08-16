@@ -1,0 +1,4 @@
+Async			KEYWORD1
+setInterval		KEYWORD2
+setTimeout		KEYWORD2
+clearInterval		KEYWORD2
