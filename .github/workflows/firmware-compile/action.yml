@@ -12,13 +12,13 @@ runs:
         path: |
           ~/.cache/pip
           ~/.platformio/.cache
-        key: ${{ runner.os }}-pio-${{ hashFiles('${{ input.project-folder }}/platformio.ini') }}
+        key: ${{ runner.os }}-pio-${{ hashFiles('${{ inputs.project-folder }}/platformio.ini') }}
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
     - name: Install PlatformIO Core
       shell: bash
       run: pip install --upgrade platformio
-    - name: Build ${{ input.project-folder }}
+    - name: Build ${{ inputs.project-folder }}
       shell: bash
-      run: pio run -d ${{ input.project-folder }} -v
+      run: pio run -d ${{ inputs.project-folder }} -v
