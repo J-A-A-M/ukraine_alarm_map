@@ -4,6 +4,9 @@ inputs:
   project-folder:
     description: 'Project folder'
     default: 'firmware'
+permissions:
+  contents: read
+  pull-requests: write
 runs:
   using: 'composite'
   steps:
