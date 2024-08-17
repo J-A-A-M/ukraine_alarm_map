@@ -42,8 +42,8 @@ runs:
           - source-url: https://github.com/adafruit/Adafruit_SH110x.git
             version: 2.1.10
 
-          - name: ArduinoJson
-            version: 7.1.0
+          - source-url: https://github.com/bblanchon/ArduinoJson.git
+            version: v7.1.0
 
           - source-url: https://github.com/gilmaimon/ArduinoWebsockets.git
             version: 0.5.4
