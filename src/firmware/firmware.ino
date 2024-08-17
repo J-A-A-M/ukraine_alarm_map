@@ -99,6 +99,7 @@ struct Settings {
   int     sound_on_every_hour    = 0;
   int     sound_on_button_click  = 0;
   int     mute_sound_on_night    = 0;
+  int     melody_volume          = 100;
   int     invert_display         = 0;
   int     dim_display_on_night   = 1;
   int     ignore_mute_on_alert   = 0;
@@ -382,6 +383,7 @@ void initSettings() {
   settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
+  settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
   
   preferences.end();
 
@@ -451,6 +453,7 @@ void initLegacy() {
 void initBuzzer() {
 #if BUZZER_ENABLED
   player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
+  player->setVolume(settings.melody_volume * 255 / 100);
   if (needToPlaySound(START_UP)) {
     playMelody(START_UP);
   }
@@ -2211,6 +2214,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   addCheckbox(response, "sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
   addCheckbox(response, "ignore_mute_on_alert", settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
+  addSlider(response, "melody_volume", "Гучність мелодії", settings.melody_volume, 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
@@ -2534,6 +2538,11 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", &settings.sound_on_button_click, "sobc") || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", &settings.mute_sound_on_night, "mson") || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
+  saved = saveInt(request->getParam("melody_volume", true), &settings.melody_volume, "mv", NULL, []() {
+#if BUZZER_ENABLED 
+    player->setVolume(settings.melody_volume * 255 / 100);
+#endif
+  }) || saved;
 
   char url[15];
   sprintf(url, "/?p=snd&svd=%d", saved);
