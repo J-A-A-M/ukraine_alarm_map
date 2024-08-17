@@ -16,49 +16,71 @@ runs:
     - name: Unzip libraries
       shell: bash
       run: |
-        unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-3.1.2.zip -d ${{ github.workspace }}/libs/
         unzip -q ${{ github.workspace }}/libs/Adafruit-GFX-Library-1.11.10.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/melody-player-2.4.0.zip -d ${{ github.workspace }}/libs/
     - name: Compile firmware
       uses: arduino/compile-sketches@v1
       with:
         sketch-paths: |
           - ${{ github.workspace }}/src/firmware
+        cli-version: 1.0.4
         fqbn: esp32:esp32:esp32
         platforms: |
           - name: esp32:esp32
-            source-url: https://github.com/espressif/arduino-esp32/releases/download/2.0.14/package_esp32_index.json
+            source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
             version: 2.0.14
         libraries: |
-          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-3.1.2
           - source-path: ${{ github.workspace }}/libs/Adafruit-GFX-Library-1.11.10
-          - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-          - source-path: ${{ github.workspace }}/libs/melody-player-2.4.0
-          - name: Adafruit SSD1306
+
+          - source-url: https://github.com/MatheusAlvesA/ArduinoAsync.git
+
+          - source-url: https://github.com/adafruit/Adafruit_BusIO.git
+            version: 1.16.1
+
+          - source-url: https://github.com/adafruit/Adafruit_SSD1306.git
             version: 2.5.11
-          - name: Adafruit SH110X
+
+          - source-url: https://github.com/adafruit/Adafruit_SH110x.git
             version: 2.1.10
-          - name: ArduinoJson
-            version: 7.1.0
-          - name: ArduinoWebsockets
-            version: 0.5.3
-          - name: AsyncTCP
-            version: 1.1.4
-          - name: BH1750_WE
+
+          - source-url: https://github.com/bblanchon/ArduinoJson.git
+            version: v7.1.0
+
+          - source-url: https://github.com/gilmaimon/ArduinoWebsockets.git
+            version: 0.5.4
+
+          - source-url: https://github.com/mathieucarbou/ESPAsyncWebServer.git
+            version: v3.1.5
+
+          - source-url: https://github.com/mathieucarbou/AsyncTCP.git
+            version: v3.2.4
+
+          - source-url: https://github.com/wollewald/BH1750_WE.git
             version: 1.1.10
-          - name: NTPTime
-            version: 1.2.1
-          - name: FastLED
-            version: 3.7.0
-          - name: WiFiManager
-            version: 2.0.17
-          - name: arduino-sht
-            version: 1.2.5
-          - name: forcedBMX280
+
+          - source-url: https://github.com/J-A-A-M/melody-player.git
+            version: 2.4.0
+
+          - source-url: https://github.com/DenysChuhlib/NTPtime.git
+            version: v1.2.1
+
+          - source-url: https://github.com/FastLED/FastLED.git
+            version: 3.7.3
+
+          - source-url: https://github.com/tzapu/WiFiManager.git
+            version: v2.0.17
+
+          - source-url: https://github.com/Sensirion/arduino-sht.git
+            version: v1.2.5
+
+          - source-url: https://github.com/soylentOrange/Forced-BMX280.git
             version: 1.1.2
-          - name: home-assistant-integration
+
+          - source-url: https://github.com/dawidchyrzynski/arduino-home-assistant.git
             version: 2.1.0
+
+          - source-url: https://github.com/knolleary/pubsubclient.git
+            version: v2.8
+
         enable-warnings-report: ${{ inputs.enable-warnings-report }}
         enable-deltas-report: ${{ inputs.enable-deltas-report }}
         sketches-report-path: ${{ inputs.sketches-report-path }}
