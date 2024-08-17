@@ -16,10 +16,7 @@ runs:
     - name: Unzip libraries
       shell: bash
       run: |
-        unzip -q ${{ github.workspace }}/libs/ESPAsyncWebServer-3.1.2.zip -d ${{ github.workspace }}/libs/
         unzip -q ${{ github.workspace }}/libs/Adafruit-GFX-Library-1.11.10.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/melody-player-2.4.0.zip -d ${{ github.workspace }}/libs/
     - name: Compile firmware
       uses: arduino/compile-sketches@v1
       with:
@@ -31,10 +28,9 @@ runs:
             source-url: https://github.com/espressif/arduino-esp32/releases/download/2.0.14/package_esp32_index.json
             version: 2.0.14
         libraries: |
-          - source-path: ${{ github.workspace }}/libs/ESPAsyncWebServer-3.1.2
           - source-path: ${{ github.workspace }}/libs/Adafruit-GFX-Library-1.11.10
-          - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-          - source-path: ${{ github.workspace }}/libs/melody-player-2.4.0
+          - source-url: https://github.com/MatheusAlvesA/ArduinoAsync.git
+            version: latest
           - name: Adafruit SSD1306
             version: 2.5.11
           - name: Adafruit SH110X
@@ -43,10 +39,14 @@ runs:
             version: 7.1.0
           - name: ArduinoWebsockets
             version: 0.5.3
-          - name: AsyncTCP
-            version: 1.1.4
+          - source-url: https://github.com/mathieucarbou/ESPAsyncWebServer.git
+            version: 3.1.5
+          - source-url: https://github.com/mathieucarbou/AsyncTCP.git
+            version: 3.2.4
           - name: BH1750_WE
             version: 1.1.10
+          - source-url: https://github.com/fabianoriccardi/melody-player.git
+            version: 2.4.0
           - name: NTPTime
             version: 1.2.1
           - name: FastLED
