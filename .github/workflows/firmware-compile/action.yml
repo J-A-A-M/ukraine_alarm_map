@@ -39,16 +39,16 @@ runs:
             version: 2.1.10
 
           - source-url: https://github.com/bblanchon/ArduinoJson.git
-            version: 7.1.0
+            version: v7.1.0
 
           - source-url: https://github.com/gilmaimon/ArduinoWebsockets.git
             version: 0.5.4
 
           - source-url: https://github.com/mathieucarbou/ESPAsyncWebServer.git
-            version: 3.1.5
+            version: v3.1.5
 
           - source-url: https://github.com/mathieucarbou/AsyncTCP.git
-            version: 3.2.4
+            version: v3.2.4
 
           - source-url: https://github.com/wollewald/BH1750_WE.git
             version: 1.1.10
@@ -57,16 +57,16 @@ runs:
             version: 2.4.0
 
           - source-url: https://github.com/DenysChuhlib/NTPtime.git
-            version: 1.2.1
+            version: v1.2.1
 
           - source-url: https://github.com/FastLED/FastLED.git
             version: 3.7.3
 
           - source-url: https://github.com/tzapu/WiFiManager.git
-            version: 2.0.17
+            version: v2.0.17
 
           - source-url: https://github.com/Sensirion/arduino-sht.git
-            version: 1.2.5
+            version: v1.2.5
 
           - source-url: https://github.com/soylentOrange/Forced-BMX280.git
             version: 1.1.2
