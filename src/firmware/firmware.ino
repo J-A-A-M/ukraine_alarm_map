@@ -450,10 +450,19 @@ void initLegacy() {
   Serial.printf("Offset: %d\n", offset);
 }
 
+int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
+  // Apply exponential transformation to the original input value x
+  float normalized = (float)(x - in_min) / (in_max - in_min);
+  float scaled = pow(normalized, 2);
+
+  // Map the scaled value to the output range
+  return (int)(scaled * (out_max - out_min) + out_min);
+}
+
 void initBuzzer() {
 #if BUZZER_ENABLED
   player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
-  player->setVolume(settings.melody_volume * 255 / 100);
+  player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
   if (needToPlaySound(START_UP)) {
     playMelody(START_UP);
   }
@@ -2539,8 +2548,8 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", &settings.mute_sound_on_night, "mson") || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
   saved = saveInt(request->getParam("melody_volume", true), &settings.melody_volume, "mv", NULL, []() {
-#if BUZZER_ENABLED 
-    player->setVolume(settings.melody_volume * 255 / 100);
+#if BUZZER_ENABLED
+    player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
 #endif
   }) || saved;
 
