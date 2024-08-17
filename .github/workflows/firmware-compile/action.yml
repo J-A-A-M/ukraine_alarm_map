@@ -57,7 +57,7 @@ runs:
           - source-url: https://github.com/wollewald/BH1750_WE.git
             version: 1.1.10
 
-          - source-url: https://github.com/fabianoriccardi/melody-player.git
+          - source-url: https://github.com/J-A-A-M/melody-player.git
             version: 2.4.0
 
           - source-url: https://github.com/DenysChuhlib/NTPtime.git
