@@ -32,6 +32,9 @@ runs:
 
           - source-url: https://github.com/MatheusAlvesA/ArduinoAsync.git
 
+          - source-url: https://github.com/adafruit/Adafruit_BusIO.git
+            version: 1.16.1
+
           - source-url: https://github.com/adafruit/Adafruit_SSD1306.git
             version: 2.5.11
 
