@@ -19,17 +19,17 @@
               project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware.bin
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/firmware.bin
-          - name: Upload reports
-            uses: actions/upload-artifact@v4
-            with:
-              name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-              path: ${{ env.SKETCHES_REPORTS_PATH }}
+          # - name: Upload reports
+          #   uses: actions/upload-artifact@v4
+          #   with:
+          #     name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
+          #     path: ${{ env.SKETCHES_REPORTS_PATH }}
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
@@ -43,7 +43,7 @@
               project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware-lite.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
@@ -74,7 +74,7 @@
           uses: actions/upload-artifact@v4
           with:
             name: updater.bin
-            path: ${{ github.workspace }}/.pio/build/esp32dev/updater.bin
+            path: ${{ github.workspace }}/firmware/.pio/build/esp32dev/updater.bin
     # lint_check:
     #     runs-on: ubuntu-latest
     #     steps:
