@@ -5,9 +5,6 @@
       branches:
         - develop
     workflow_dispatch:
-  env:
-    SKETCHES_REPORTS_PATH: sketches-reports
-    SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
   jobs:
     compile_firmware:
         runs-on: ubuntu-latest
@@ -19,17 +16,12 @@
               project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/firmware/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware.bin
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/firmware.bin
-          # - name: Upload reports
-          #   uses: actions/upload-artifact@v4
-          #   with:
-          #     name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-          #     path: ${{ env.SKETCHES_REPORTS_PATH }}
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
@@ -43,25 +35,20 @@
               project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/firmware/.pio/build/esp32dev/firmware.bin ${{ github.workspace }}/firmware-lite.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
               name: firmware-lite.bin
               path: ${{ github.workspace }}/firmware-lite.bin
-    # memory_usage_change:
-    #     runs-on: ubuntu-latest
-    #     permissions:
-    #       contents: read
-    #       pull-requests: write
-    #     steps:
-    #       - uses: actions/checkout@v4
-    #       - name: Memory usage change
-    #         uses: ./.github/workflows/firmware-compile
-    #         with:
-    #           enable-deltas-report: true
-    #       - name: Report Delta to PR
-    #         uses: arduino/report-size-deltas@v1
+    check_firmware:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Check firmware
+            uses: ./.github/workflows/firmware-check
+            with:
+              project-folder: firmware
     compile_updater:
       runs-on: ubuntu-latest
       steps:
@@ -74,23 +61,7 @@
           uses: actions/upload-artifact@v4
           with:
             name: updater.bin
-            path: ${{ github.workspace }}/firmware/.pio/build/esp32dev/updater.bin
-    # lint_check:
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #       - uses: actions/checkout@v4
-    #       - name: Lint check
-    #         uses: arduino/arduino-lint-action@v1
-    #         with:
-    #           path: ${{ github.workspace }}/firmware
-    #           verbose: true
-    #           compliance: specification
-    #           report-file: ${{ github.workspace }}/lint-report.json
-    #       - name: Upload lint report
-    #         uses: actions/upload-artifact@v4
-    #         with:
-    #           name: lint-report
-    #           path: ${{ github.workspace }}/lint-report.json
+            path: ${{ github.workspace }}/updater/.pio/build/updater/updater.bin
     check_flasher:
         runs-on: ubuntu-latest
         steps:

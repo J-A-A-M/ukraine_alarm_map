@@ -1,5 +1,5 @@
-name: 'Firmware Compile Action'
-description: 'Compile firmware'
+name: 'Firmware Chack Action'
+description: 'Check firmware'
 inputs:
   project-folder:
     description: 'Project folder'
@@ -22,6 +22,6 @@ runs:
     - name: Install PlatformIO Core
       shell: bash
       run: pip install --upgrade platformio
-    - name: Build ${{ inputs.project-folder }}
+    - name: Check ${{ inputs.project-folder }}
       shell: bash
-      run: pio run -d ${{ inputs.project-folder }}
+      run: pio check -d ${{ inputs.project-folder }}
