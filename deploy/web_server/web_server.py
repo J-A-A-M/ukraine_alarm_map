@@ -467,7 +467,6 @@ async def get_static(request):
     return FileResponse(f'/jaam_v{request.path_params["version"]}.{request.path_params["extention"]}')
 
 
-
 async def dataparcer(clients, connection_type):
     google = []
     for client, data in clients.items():
