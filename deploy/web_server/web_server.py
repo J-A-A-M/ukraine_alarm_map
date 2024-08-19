@@ -463,6 +463,10 @@ async def map(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
 
+async def get_static(request):
+    return FileResponse(f'/jaam_v{request.path_params["version"]}.{request.path_params["extention"]}')
+
+
 async def dataparcer(clients, connection_type):
     google = []
     for client, data in clients.items():
@@ -553,6 +557,7 @@ app = Starlette(
         Route("/map/region/v1/{region}", region_data_v1),
         Route("/{filename}.png", map),
         Route("/t{token}", stats),
+        Route("/static/jaam_v{version}.{extention}", get_static),
     ],
 )
 
