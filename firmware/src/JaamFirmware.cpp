@@ -11,6 +11,8 @@
 #include <ArduinoOTA.h>
 #endif
 #include "JaamHomeAssistant.h"
+// to igmore the warning about the unused variable
+#define FASTLED_INTERNAL
 #include <FastLED.h>
 #include "JaamDisplay.h"
 #if FW_UPDATE_ENABLED
