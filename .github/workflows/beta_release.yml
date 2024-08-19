@@ -25,15 +25,15 @@ jobs:
         uses: actions/checkout@v4
       - name: Replace version in firmware source
         run: |
-          sed -i 's/VERSION = ".*";/VERSION = "${{ env.BETA_VERSION }}";/' ${{ github.workspace }}/src/firmware/firmware.ino
+          sed -i 's/VERSION = ".*";/VERSION = "${{ env.BETA_VERSION }}";/' ${{ github.workspace }}/firmware/src/JaamFirmware.cpp
       - name: Compile firmware
         uses: ./.github/workflows/firmware-compile
       - name: Copy release files to bin folder
         run: |
           mkdir -p ${{ github.workspace }}/bin_beta/
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
-          cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
       - name: Leave only 3 recent BETA builds
         run: |
           cd ${{ github.workspace }}/bin_beta/
