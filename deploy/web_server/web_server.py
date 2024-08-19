@@ -558,7 +558,7 @@ app = Starlette(
         Route("/map/region/v1/{region}", region_data_v1),
         Route("/{filename}.png", map),
         Route("/t{token}", stats),
-        Route("/jaam_v{version}.{extention}", get_static),
+        Route("/static/jaam_v{version}.{extention}", get_static),
     ],
 )
 
