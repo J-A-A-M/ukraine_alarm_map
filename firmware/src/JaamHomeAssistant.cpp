@@ -84,7 +84,7 @@ byte macAddress[6];
 
 char deviceUniqueID[15];
 
-static int sizeOfCharsArray(char* array[], int arraySize) {
+static int sizeOfCharsArray(const char* array[], int arraySize) {
   int result = 0;
   for (int i = 0; i < arraySize; i++) {
     result += strlen(array[i]);
@@ -92,13 +92,13 @@ static int sizeOfCharsArray(char* array[], int arraySize) {
   return result;
 }
 
-static std::map<int, int> getHaOptions(char* result, char* options[], int optionsSize, int ignoreOptions[]= NULL) {
+static std::map<int, int> getHaOptions(char* result, const char* options[], int optionsSize, int ignoreOptions[]= NULL) {
   strcpy(result, "");
   int haIndex = 0;
   std::map<int, int> haMap = {};
   for (int i = 0; i < optionsSize; i++) {
     if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
-    char* option = options[i];
+    const char* option = options[i];
     if (i > 0) {
       strcat(result, ";");
     }
@@ -240,7 +240,7 @@ void JaamHomeAssistant::initBrightnessSensor(int currentBrightness, bool (*onCha
 #endif
 }
 
-void JaamHomeAssistant::initMapModeSensor(int currentMapMode, char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode)) {
+void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haMapModeID, "%s_map_mode", deviceUniqueID);
@@ -256,7 +256,7 @@ void JaamHomeAssistant::initMapModeSensor(int currentMapMode, char* mapModes[], 
 #endif
 }
 
-std::map<int, int> JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, char* displayModes[], int displayModesSize, int ignoreOptions[],
+std::map<int, int> JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
     bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode)) {
 #if HA_ENABLED
   if (!haEnabled) return {};
@@ -314,7 +314,7 @@ void JaamHomeAssistant::initShowHomeAlarmTimeSensor(bool currentState, bool (*on
 #endif
 }
 
-void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode)) {
+void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haAutoAlarmModeID, "%s_alarms_auto", deviceUniqueID);
@@ -352,7 +352,7 @@ void JaamHomeAssistant::initMapApiConnectSensor(bool currentApiState) {
 #endif
 }
 
-void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMode, char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode)) {
+void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haBrightnessAutoID, "%s_brightness_auto", deviceUniqueID);

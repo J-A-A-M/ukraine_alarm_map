@@ -50,7 +50,7 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   SIREN2
 };
 
-static char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
+static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   "Гімн України",
   "Ой у лузі",
   "Козацький марш",
@@ -112,7 +112,7 @@ static const uint8_t COUNTERS[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 
 
 #define DISTRICTS_COUNT 26
 
-static char* DISTRICTS[DISTRICTS_COUNT] = {
+static const char* DISTRICTS[DISTRICTS_COUNT] = {
   "Закарпатська обл.",
   "Ів.-Франківська обл.",
   "Тернопільська обл.",
@@ -141,7 +141,7 @@ static char* DISTRICTS[DISTRICTS_COUNT] = {
   "Київ"
 };
 
-static char* DISTRICTS_ALPHABETICAL[DISTRICTS_COUNT] = {
+static const char* DISTRICTS_ALPHABETICAL[DISTRICTS_COUNT] = {
   "АР Крим",
   "Вінницька область",
   "Волинська область",
@@ -177,7 +177,7 @@ static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
 };
 
 #define MAP_MODES_COUNT 6
-static char* MAP_MODES[MAP_MODES_COUNT] = {
+static const char* MAP_MODES[MAP_MODES_COUNT] = {
   "Вимкнено",
   "Тривога",
   "Погода",
@@ -187,7 +187,7 @@ static char* MAP_MODES[MAP_MODES_COUNT] = {
 };
 
 #define DISPLAY_MODE_OPTIONS_MAX 6
-static char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
+static const char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
   "Вимкнено",
   "Годинник",
   "Погода",
@@ -197,14 +197,14 @@ static char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
 };
 
 #define AUTO_ALARM_MODES_COUNT 3
-static char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
+static const char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
   "Вимкнено",
   "Домашній та суміжні",
   "Лише домашній"
 };
 
 #define SINGLE_CLICK_OPTIONS_MAX 7
-static char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
+static const char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -215,7 +215,7 @@ static char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
 };
 
 #define LONG_CLICK_OPTIONS_MAX 8
-static char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
+static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
   "Перемикання режимів дисплея",
@@ -228,21 +228,21 @@ static char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
 
 #if FW_UPDATE_ENABLED
 #define FW_UPDATE_CHANNELS_COUNT 2
-static char* FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
+static const char* FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
   "Production",
   "Beta"
 };
 #endif
 
 #define AUTO_BRIGHTNESS_OPTIONS_COUNT 3
-static char* AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
+static const char* AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
   "Вимкнено",
   "День/Ніч",
   "Сенсор освітлення"
 };
 
 #define KYIV_LED_MODE_COUNT 4
-static char* KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
+static const char* KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
   "Київська область",
   "Київ",
   "Київська область + Київ (2 діода)",
@@ -250,14 +250,14 @@ static char* KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
 };
 
 #define ALERT_NOTIFY_OPTIONS_COUNT 3
-static char* ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
+static const char* ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
   "Вимкнено",
   "Колір",
   "Колір + зміна яскравості"
 };
 
 #define DISPLAY_MODEL_OPTIONS_COUNT 4
-static char* DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
+static const char* DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
   "Без дисплея",
   "SSD1306",
   "SH1106G",
@@ -265,13 +265,13 @@ static char* DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
 };
 
 #define DISPLAY_HEIGHT_OPTIONS_COUNT 2
-static char* DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
+static const char* DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   "128x32",
   "128x64"
 };
 
 #define LEGACY_OPTIONS_COUNT 4
-static char* LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+static const char* LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
   "Плата JAAM 1.3",
   "Початок на Закарпатті",
   "Початок на Одещині",

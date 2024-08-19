@@ -23,16 +23,16 @@ public:
     void initFreeMemorySensor();
     void initUsedMemorySensor();
     void initBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
-    void initMapModeSensor(int currentMapMode, char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode));
-    std::map<int, int> initDisplayModeSensor(int currentDisplayMode, char* displayModes[], int displayModesSize, int ignoreOptions[],
+    void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode));
+    std::map<int, int> initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
         bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
     void initMapModeToggleSensor(void (*onClick)(void));
     void initDisplayModeToggleSensor(void (*onClick)(void));
     void initShowHomeAlarmTimeSensor(bool currentState, bool (*onChange)(bool newState));
-    void initAutoAlarmModeSensor(int currentAutoAlarmMode, char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode));
+    void initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode));
     void initMapModeCurrentSensor();
     void initMapApiConnectSensor(bool currentApiState);
-    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode));
+    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode));
     void initRebootSensor(void (*onClick)(void));
     void initCpuTempSensor(float currentCpuTemp);
     void initHomeDistrictSensor();
