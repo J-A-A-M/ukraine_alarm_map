@@ -1883,7 +1883,10 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
   response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
   response->println("</b>");
-  response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
+  response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
+  response->print("<a href='http://");
+  response->print(getLocalIP());
+  response->println(":8080/0wifi' target='_blank' class='btn btn-primary float-right' aria-expanded='false'>Змінити налаштування WiFi</a>");
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
