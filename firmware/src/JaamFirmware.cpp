@@ -439,29 +439,29 @@ void servicePin(ServiceLed type, uint8_t status, bool force) {
     switch (type) {
       case POWER:
         pin = settings.powerpin;
-        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(32) : CRGB::Black;
+        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(64) : CRGB::Black;
         break;
       case WIFI:
         pin = settings.wifipin;
-        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(32) : CRGB::Black;
+        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(64) : CRGB::Black;
         break;
       case DATA:
         pin = settings.datapin;
-        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(32) : CRGB::Black;
+        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(64) : CRGB::Black;
         break;
       case HA:
         pin = settings.hapin;
-        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(32) : CRGB::Black;
+        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(64) : CRGB::Black;
         break;
       case RESERVED:
         pin = settings.reservedpin;
-        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(32) : CRGB::Black;
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(64) : CRGB::Black;
         break;
     }
-    if (pin > 0) {
+    if (pin > 0 && settings.legacy == 0) {
       digitalWrite(pin, status);
     }
-    if (isServiceStripEnabled()) {
+    if (isServiceStripEnabled() && settings.legacy == 3) {
       FastLED.show();
     }
   }
@@ -3036,6 +3036,7 @@ void initStrip() {
     Serial.print("service ledpin: ");
     Serial.println(settings.service_ledpin);
     initFastledStrip(settings.service_ledpin, service_strip, 5);
+    checkServicePins();
   }
   FastLED.setDither(DISABLE_DITHER);
   mapFlag();
