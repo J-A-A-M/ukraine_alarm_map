@@ -2575,7 +2575,10 @@ void mapReconnect() {
 }
 
 void mapOff() {
-  FastLED.clearData();
+  fill_solid(strip, settings.pixelcount, CRGB::Black);
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, CRGB::Black);
+  }
   FastLED.show();
 }
 
