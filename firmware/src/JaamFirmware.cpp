@@ -11,7 +11,7 @@
 #include <ArduinoOTA.h>
 #endif
 #include "JaamHomeAssistant.h"
-// to igmore the warning about the unused variable
+// to ignore the warning about the unused variable
 #define FASTLED_INTERNAL
 #include <FastLED.h>
 #include "JaamDisplay.h"
@@ -53,6 +53,7 @@ struct Settings {
   int     legacy                 = 1;
   int     pixelpin               = 13;
   int     bg_pixelpin            = 0;
+  int     service_ledpin         = 0;
   int     buttonpin              = 15;
   int     alertpin               = 34;
   int     buzzerpin              = 33;
@@ -176,6 +177,14 @@ std::map<int, int> displayModeHAMap;
 MelodyPlayer* player;
 #endif
 
+enum ServiceLed {
+  POWER,
+  WIFI,
+  DATA,
+  HA,
+  RESERVED
+};
+
 enum SoundType {
   START_UP,
   MIN_OF_SILINCE,
@@ -200,6 +209,7 @@ ServiceMessage serviceMessage;
 
 CRGB strip[26];
 CRGB bg_strip[100];
+CRGB service_strip[5];
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -267,6 +277,10 @@ int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1
 
 bool isBgStripEnabled() {
   return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
+}
+
+bool isServiceStripEnabled() {
+  return settings.service_ledpin > 0;
 }
 
 // Forward declarations
@@ -419,9 +433,37 @@ bool needToPlaySound(SoundType type) {
   return false;
 }
 
-void servicePin(int pin, uint8_t status, bool force) {
-  if (force || (settings.legacy == 0 && settings.service_diodes_mode)) {
-    digitalWrite(pin, status);
+void servicePin(ServiceLed type, uint8_t status, bool force) {
+  if (force || ((settings.legacy == 0 || settings.legacy == 3) && settings.service_diodes_mode)) {
+    int pin = 0;
+    switch (type) {
+      case POWER:
+        pin = settings.powerpin;
+        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(32) : CRGB::Black;
+        break;
+      case WIFI:
+        pin = settings.wifipin;
+        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(32) : CRGB::Black;
+        break;
+      case DATA:
+        pin = settings.datapin;
+        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(32) : CRGB::Black;
+        break;
+      case HA:
+        pin = settings.hapin;
+        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(32) : CRGB::Black;
+        break;
+      case RESERVED:
+        pin = settings.reservedpin;
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(32) : CRGB::Black;
+        break;
+    }
+    if (pin > 0) {
+      digitalWrite(pin, status);
+    }
+    if (isServiceStripEnabled()) {
+      FastLED.show();
+    }
   }
 }
 
@@ -635,7 +677,7 @@ void onMqttStateChanged(bool haStatus) {
   Serial.print("Home Assistant MQTT state changed! State: ");
   Serial.println(haStatus ? "Connected" : "Disconnected");
   haConnected = haStatus;
-  servicePin(settings.hapin, haConnected ? HIGH : LOW, false);
+  servicePin(HA, haConnected ? HIGH : LOW, false);
   if (haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
     ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
@@ -789,31 +831,31 @@ void doUpdate() {
 
 //--Service
 void checkServicePins() {
-  if (settings.legacy == 0) {
+  if (settings.legacy == 0 || settings.legacy == 3) {
     if (settings.service_diodes_mode) {
       // Serial.println("Dioded enabled");
-      servicePin(settings.powerpin, HIGH, true);
+      servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
-        servicePin(settings.wifipin, LOW, true);
+        servicePin(WIFI, LOW, true);
       } else {
-        servicePin(settings.wifipin, HIGH, true);
+        servicePin(WIFI, HIGH, true);
       }
       if (!haConnected) {
-        servicePin(settings.hapin, LOW, true);
+        servicePin(HA, LOW, true);
       } else {
-        servicePin(settings.hapin, HIGH, true);
+        servicePin(HA, HIGH, true);
       }
       if (!client_websocket.available()) {
-        servicePin(settings.datapin, LOW, true);
+        servicePin(DATA, LOW, true);
       } else {
-        servicePin(settings.datapin, HIGH, true);
+        servicePin(DATA, HIGH, true);
       }
     } else {
       // Serial.println("Dioded disables");
-      servicePin(settings.powerpin, LOW, true);
-      servicePin(settings.wifipin, LOW, true);
-      servicePin(settings.hapin, LOW, true);
-      servicePin(settings.datapin, LOW, true);
+      servicePin(POWER, LOW, true);
+      servicePin(WIFI, LOW, true);
+      servicePin(HA, LOW, true);
+      servicePin(DATA, LOW, true);
     }
   }
 }
@@ -1780,7 +1822,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
-  if (settings.legacy == 0) {
+  if (settings.legacy == 0 || settings.legacy == 3) {
     addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
   }
   addCheckbox(response, "min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
@@ -2252,9 +2294,9 @@ void connectStatuses() {
     Serial.print("Home Assistant MQTT status: ");
     Serial.println(haConnected ? "Connected" : "Disconnected");
     if (haConnected) {
-      servicePin(settings.hapin, HIGH, false);
+      servicePin(HA, HIGH, false);
     } else {
-      servicePin(settings.hapin, LOW, false);
+      servicePin(HA, LOW, false);
     }
     ha.setMapApiConnect(apiConnected);
   }
@@ -2330,13 +2372,13 @@ void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
     apiConnected = true;
     Serial.println("connnection opened");
-    servicePin(settings.datapin, HIGH, false);
+    servicePin(DATA, HIGH, false);
     websocketLastPingTime = millis();
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::ConnectionClosed) {
     apiConnected = false;
     Serial.println("connnection closed");
-    servicePin(settings.datapin, LOW, false);
+    servicePin(DATA, LOW, false);
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::GotPing) {
     Serial.println("websocket ping");
@@ -2796,6 +2838,7 @@ void initSettings() {
   settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
   settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
   settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
+  settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
@@ -2859,12 +2902,13 @@ void initLegacy() {
     pinMode(settings.hapin, OUTPUT);
     //pinMode(settings.reservedpin, OUTPUT);
 
-    servicePin(settings.powerpin, HIGH, false);
+    servicePin(POWER, HIGH, false);
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
     settings.bg_pixelpin = 0;
     settings.bg_pixelcount = 0;
+    settings.service_ledpin = 0;
     settings.buttonpin = 35;
     settings.display_model = 1;
     settings.display_height = 64;
@@ -2882,6 +2926,7 @@ void initLegacy() {
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
+    settings.service_diodes_mode = 0;
     break;
   case 3:
     Serial.println("Mode: jaam 2");
@@ -2893,8 +2938,9 @@ void initLegacy() {
     settings.pixelpin = 13;
     settings.bg_pixelpin = 12;
     settings.bg_pixelcount = 44;
+    settings.service_ledpin = 25;
     settings.buttonpin = 2;
-    settings.display_model = 1;
+    settings.display_model = 2;
     settings.display_height = 64;
     break;
   }
@@ -2985,6 +3031,11 @@ void initStrip() {
     Serial.print("bg pixelcount: ");
     Serial.println(settings.bg_pixelcount);
     initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
+  }
+  if (isServiceStripEnabled()) {
+    Serial.print("service ledpin: ");
+    Serial.println(settings.service_ledpin);
+    initFastledStrip(settings.service_ledpin, service_strip, 5);
   }
   FastLED.setDither(DISABLE_DITHER);
   mapFlag();
@@ -3133,7 +3184,7 @@ void initWifi() {
   wm.setAPCallback(apCallback);
   wm.setSaveConfigCallback(saveConfigCallback);
   wm.setConfigPortalTimeout(180);
-  servicePin(settings.wifipin, LOW, false);
+  servicePin(WIFI, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
   char apssid[20];
   sprintf(apssid, "%s_%s", settings.apssid, chipID);
@@ -3144,7 +3195,7 @@ void initWifi() {
   }
   // Connected to WiFi
   Serial.println("connected...yeey :)");
-  servicePin(settings.wifipin, HIGH, false);
+  servicePin(WIFI, HIGH, false);
   showServiceMessage("Підключено до WiFi!");
   wm.setHttpPort(8080);
   wm.startWebPortal();
