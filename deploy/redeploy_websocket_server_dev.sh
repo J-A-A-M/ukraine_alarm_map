@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             RANDOM_MODE="$2"
             shift 2
             ;;
-        -r|--test-mode)
+        -t|--test-mode)
             TEST_MODE="$2"
             shift 2
             ;;
