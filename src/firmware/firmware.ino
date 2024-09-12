@@ -4457,10 +4457,11 @@ void mapAlarms() {
     adapted_explosion_timers[i] = explosions_time[i];
   }
   if (settings.kyiv_district_mode == 2) {
-    adapted_alarm_leds[7] = alarm_leds[25];
-    adapted_alarm_timers[7] = alarm_time[25];
-    adapted_explosion_timers[7] = explosions_time[25];
+    adapted_alarm_leds[7 + offset] = alarm_leds[25];
+    adapted_alarm_timers[7 + offset] = alarm_time[25];
+    adapted_explosion_timers[7 + offset] = explosions_time[25];
   }
+
   if (settings.kyiv_district_mode == 3) {
     for (int i = 24; i >= 8 + offset; i--) {
       adapted_alarm_leds[i + 1] = alarm_leds[i];
@@ -4472,16 +4473,17 @@ void mapAlarms() {
     adapted_explosion_timers[8 + offset] = lastValueExplosionTimer;
   }
   if (settings.kyiv_district_mode == 4) {
-    if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
-      adapted_alarm_leds[7] = 0;
-      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
+    /*fix - добавлен offset ко всем 7-кам*/
+    if (alarm_leds[25] == 0 and alarm_leds[7 + offset] == 0) {
+      adapted_alarm_leds[7 + offset] = 0;
+      adapted_alarm_timers[7 + offset] = max(alarm_time[25], alarm_time[7 + offset]);
     }
-    if (alarm_leds[25] == 1 or alarm_leds[7] == 1) {
-      adapted_alarm_leds[7] = 1;
-      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
-    }
-    adapted_explosion_timers[7] = max(explosions_time[25], explosions_time[7]);
+    if (alarm_leds[25] == 1 or alarm_leds[7 + offset] == 1) {
+      adapted_alarm_leds[7 + offset] = 1;
+      adapted_alarm_timers[7 + offset] = max(alarm_time[25], alarm_time[7 + offset]);
 
+    }
+    adapted_explosion_timers[7 + offset] = max(explosions_time[25], explosions_time[7 + offset]);
   }
   float blinkBrightness = settings.current_brightness / 200.0f;
   float explosionBrightness = settings.current_brightness / 200.0f;
