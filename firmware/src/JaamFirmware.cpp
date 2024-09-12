@@ -2598,15 +2598,15 @@ void mapAlarms() {
   adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
   adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
-    if (alarm_leds[25] == 0 and alarm_leds[7] == 0) {
-      adapted_alarm_leds[7] = 0;
-      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
+    if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
+      adapted_alarm_leds[7 + offset] = 0;
+      adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
     }
-    if (alarm_leds[25] == 1 or alarm_leds[7] == 1) {
-      adapted_alarm_leds[7] = 1;
-      adapted_alarm_timers[7] = max(alarm_time[25], alarm_time[7]);
+    if (adapted_alarm_leds[25] == 1 or adapted_alarm_leds[7 + offset] == 1) {
+      adapted_alarm_leds[7 + offset] = 1;
+      adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
     }
-    adapted_explosion_timers[7] = max(explosions_time[25], explosions_time[7]);
+    adapted_explosion_timers[7 + offset] = max(adapted_explosion_timers[25], adapted_explosion_timers[7 + offset]);
   }
   float blinkBrightness = settings.current_brightness / 100.0f;
   float explosionBrightness = settings.current_brightness / 100.0f;
@@ -2615,8 +2615,14 @@ void mapAlarms() {
     explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    Serial.print(alarm_leds[i]);
+  }
+  Serial.println('.');
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    Serial.print(adapted_alarm_leds[i]);
     strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
   }
+  Serial.println('.');
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
@@ -2629,7 +2635,7 @@ void mapWeather() {
   float adapted_weather_leds[settings.pixelcount];
   adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
-    adapted_weather_leds[7] = (weather_leds[25] + weather_leds[7]) / 2.0f;
+    adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.current_brightness);
