@@ -305,7 +305,7 @@ async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
         alerts_v1, alerts_v2, weather_v1, explosions_v1, bins, test_bins, alerts_full, weather_full, explosions_full = (
-            await get_data_from_memcached(mc) if not test_mode  else await get_data_from_memcached_test(shared_data)
+            await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
 
         try:
@@ -393,7 +393,7 @@ async def get_data_from_memcached_test(shared_data):
 
     alerts = []
     weather = []
-    explosion = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    explosion = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
     for region_name, data in regions.items():
         region_id = data["id"]
@@ -403,32 +403,29 @@ async def get_data_from_memcached_test(shared_data):
             if region_id == 0:
                 explosion[25] = int(datetime.now().timestamp())
             else:
-                explosion[region_id-1] = int(datetime.now().timestamp())
-            logger.debug(f"District: %s, %s" % (region_id,region_name))
+                explosion[region_id - 1] = int(datetime.now().timestamp())
+            logger.debug(f"District: %s, %s" % (region_id, region_name))
         else:
             alert = 0
             temp = 0
         region_alert = [str(alert), "2024-09-05T09:47:52Z"]
         alerts.append(region_alert)
         weather.append(str(temp))
-        
-            
-    
+
     shared_data.test_id += 1
     if shared_data.test_id > 25:
         shared_data.test_id = 0
 
-
     return (
-        '{}',
+        "{}",
         json.dumps(alerts),
         json.dumps(weather),
         json.dumps(explosion),
         '["latest.bin"]',
         '["latest_beta.bin"]',
-        '{}',
-        '{}',
-        '{}',
+        "{}",
+        "{}",
+        "{}",
     )
 
 
@@ -442,7 +439,6 @@ async def get_data_from_memcached(mc):
     alerts_full_cached = await mc.get(b"alerts")
     weather_full_cached = await mc.get(b"weather")
     explosions_full_cashed = await mc.get(b"explosions")
-
 
     if random_mode:
         values_v1 = []
