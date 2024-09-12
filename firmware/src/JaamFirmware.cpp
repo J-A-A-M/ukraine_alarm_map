@@ -2615,14 +2615,8 @@ void mapAlarms() {
     explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    Serial.print(alarm_leds[i]);
-  }
-  Serial.println('.');
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    Serial.print(adapted_alarm_leds[i]);
     strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
   }
-  Serial.println('.');
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
