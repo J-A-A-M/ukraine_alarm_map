@@ -11,11 +11,12 @@ from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
 
-debug_level = os.environ.get("LOGGING")
+debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 60))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
+test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
 api_secret = os.environ.get("API_SECRET") or ""
 measurement_id = os.environ.get("MEASUREMENT_ID") or ""
 environment = os.environ.get("ENVIRONMENT") or "PROD"
@@ -43,6 +44,7 @@ class SharedData:
         self.clients = {}
         self.trackers = {}
         self.blocked_ips = []
+        self.test_id = None
 
 
 shared_data = SharedData()
@@ -303,7 +305,7 @@ async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
         alerts_v1, alerts_v2, weather_v1, explosions_v1, bins, test_bins, alerts_full, weather_full, explosions_full = (
-            await get_data_from_memcached(mc)
+            await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
 
         try:
@@ -383,6 +385,48 @@ async def print_clients(shared_data, mc):
             await mc.set(websoket_key, json.dumps(shared_data.clients).encode("utf-8"))
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
+
+
+async def get_data_from_memcached_test(shared_data):
+    if not shared_data.test_id:
+        shared_data.test_id = 0
+
+    alerts = []
+    weather = []
+    explosion = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    for region_name, data in regions.items():
+        region_id = data["id"]
+        if region_id == shared_data.test_id:
+            alert = 1
+            temp = 30
+            if region_id == 0:
+                explosion[25] = int(datetime.now().timestamp())
+            else:
+                explosion[region_id - 1] = int(datetime.now().timestamp())
+            logger.debug(f"District: %s, %s" % (region_id, region_name))
+        else:
+            alert = 0
+            temp = 0
+        region_alert = [str(alert), "2024-09-05T09:47:52Z"]
+        alerts.append(region_alert)
+        weather.append(str(temp))
+
+    shared_data.test_id += 1
+    if shared_data.test_id > 25:
+        shared_data.test_id = 0
+
+    return (
+        "{}",
+        json.dumps(alerts),
+        json.dumps(weather),
+        json.dumps(explosion),
+        '["latest.bin"]',
+        '["latest_beta.bin"]',
+        "{}",
+        "{}",
+        "{}",
+    )
 
 
 async def get_data_from_memcached(mc):
