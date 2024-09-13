@@ -274,7 +274,7 @@ static void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, i
     adaptedLeds[i] = leds[i];
   }
   if (kyivDistrictMode == 2) {
-    adaptedLeds[7] = leds[25];
+    adaptedLeds[7 + offset] = leds[25];
   }
   if (kyivDistrictMode == 3) {
     for (int i = 24; i >= 8 + offset; i--) {
