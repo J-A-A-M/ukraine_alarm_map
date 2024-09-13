@@ -79,6 +79,7 @@ struct Settings {
   int     brightness_new_alert   = 100;
   int     brightness_alert_over  = 100;
   int     brightness_explosion   = 100;
+  int     brightness_home_district = 100;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -1766,6 +1767,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
+  addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
   addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
@@ -2096,6 +2098,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
   saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
   saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
+  saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -2466,12 +2469,13 @@ CRGB fromHue(int hue, int brightness) {
 
 CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
   CRGB hue;
-  int local_color;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
+  float local_brightness_home_district = settings.brightness_home_district / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
   int color_switch;
+  float local_brightness;
 
   // explosions has highest priority
   if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
@@ -2488,10 +2492,12 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
       } else {
         if (position == local_district) {
           color_switch = settings.color_home_district;
+          local_brightness = local_brightness_home_district;
         } else {
           color_switch = settings.color_clear;
+          local_brightness = local_brightness_clear;
         }
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_clear);
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness);
       }
       break;
     case 1:
@@ -2818,6 +2824,7 @@ void initSettings() {
   settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
   settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
   settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
+  settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
