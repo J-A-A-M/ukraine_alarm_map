@@ -1637,14 +1637,7 @@ void addCard(AsyncResponseStream* response, const char* title, V value, const ch
   response->print("</div>");
 }
 
-void handleRoot(AsyncWebServerRequest* request) {
-  // reset indexes
-  checkboxIndex = 1;
-  sliderIndex = 1;
-  selectIndex = 1;
-  inputFieldIndex = 1;
-
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+void addHeader(AsyncResponseStream* response) {
   response->println("<!DOCTYPE html>");
   response->println("<html lang='en'>");
   response->println("<head>");
@@ -1726,37 +1719,57 @@ void handleRoot(AsyncWebServerRequest* request) {
   }
   response->println("</div>");
   response->println("</div>");
+}
+
+void addLinks(AsyncResponseStream* response) {
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clB' aria-expanded='false' aria-controls='clB'>");
-  response->print("Яскравість");
-  response->println("</button>");
-  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clC' aria-expanded='false' aria-controls='clC'>");
-  response->print("Кольори");
-  response->println("</button>");
-  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clM' aria-expanded='false' aria-controls='clM'>");
-  response->print("Режими");
-  response->println("</button>");
+  response->println("<a href='/brightness' class='btn btn-success'>Яскравість</a>");
+  response->println("<a href='/colors' class='btn btn-success'>Кольори</a>");
+  response->println("<a href='/modes' class='btn btn-success'>Режими</a>");
 #if BUZZER_ENABLED
-  response->print(" <button class='btn btn-success' type='button' data-toggle='collapse' data-target='#clS' aria-expanded='false' aria-controls='clS'>");
-  response->print("Звуки");
-  response->println("</button>");
+  response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
 #endif
-  response->print(" <button class='btn btn-primary' type='button' data-toggle='collapse' data-target='#clT' aria-expanded='false' aria-controls='clT'>");
-  response->print("Телеметрія");
-  response->println("</button>");
-  response->print(" <button class='btn btn-warning' type='button' data-toggle='collapse' data-target='#cTc' aria-expanded='false' aria-controls='cTc'>");
-  response->print("DEV");
-  response->println("</button>");
+  response->println("<a href='/telemetry' class='btn btn-primary'>Телеметрія</a>");
+  response->println("<a href='/dev' class='btn btn-warning'>DEV</a>");
 #if FW_UPDATE_ENABLED
-  response->print(" <button class='btn btn-danger' type='button' data-toggle='collapse' data-target='#clF' aria-expanded='false' aria-controls='clF'>");
-  response->print("Прошивка");
-  response->println("</button>");
+  response->println("<a href='/firmware' class='btn btn-danger'>Прошивка</a>");
 #endif
   response->println("</div>");
   response->println("</div>");
+}
+
+void addFooter(AsyncResponseStream* response) {
+  response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
+  response->println("<div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("💾 Налаштування збережено!");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("</div>");
+  response->print("<script src='http://alerts.net.ua/static/jaam_v1.js'></script>");
+  response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
+  response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
+  response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
+  response->println("</body>");
+  response->println("</html>");
+}
+
+void handleBrightness(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
   response->println("<form action='/saveBrightness' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clB' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->print("<div class='alert alert-success' role='alert'>Поточний рівень яскравості: <b>");
   response->print(settings.map_mode == 5 ? settings.ha_light_brightness : settings.current_brightness);
@@ -1785,8 +1798,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleColors(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
   response->println("<form action='/saveColors' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clC' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
   addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
@@ -1798,8 +1830,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleModes(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
   response->println("<form action='/saveModes' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clM' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   if (settings.legacy == 1 || settings.legacy == 2) {
   addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
@@ -1848,9 +1899,28 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleSounds(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
 #if BUZZER_ENABLED
   response->println("<form action='/saveSounds' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clS' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   addCheckbox(response, "sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
   addSelectBox(response, "melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
@@ -1872,8 +1942,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</form>");
 #endif
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleTelemetry(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
   response->println("<form action='/refreshTelemetry' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='clT' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<div class='row justify-content-center'>");
   addCard(response, "Час роботи", uptimeChar, "", 4);
@@ -1903,8 +1992,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleDev(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
   response->println("<form action='/saveDev' method='POST'>");
-  response->println("<div class='row collapse justify-content-center' id='cTc' data-parent='#accordion'>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
@@ -1951,8 +2059,27 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
-#if FW_UPDATE_ENABLED
-  response->println("<div class='row collapse justify-content-center' id='clF' data-parent='#accordion'>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleFirmware(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
+  #if FW_UPDATE_ENABLED
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveFirmware' method='POST'>");
   if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
@@ -1981,20 +2108,26 @@ void handleRoot(AsyncWebServerRequest* request) {
   response->println("</div>");
   response->println("</div>");
 #endif
-  response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
-  response->println("<div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
-  response->println("<div class='toast-body'>");
-  response->println("💾 Налаштування збережено!");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</div>");
-  response->println("</div>");
-  response->print("<script src='http://alerts.net.ua/static/jaam_v1.js'></script>");
-  response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
-  response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
-  response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
-  response->println("</body>");
-  response->println("</html>");
+
+  addFooter(response);
+
+  response->setCode(200);
+  request->send(response);
+}
+
+void handleRoot(AsyncWebServerRequest* request) {
+  // reset indexes
+  checkboxIndex = 1;
+  sliderIndex = 1;
+  selectIndex = 1;
+  inputFieldIndex = 1;
+
+  AsyncResponseStream* response = request->beginResponseStream("text/html");
+
+  addHeader(response);
+  addLinks(response);
+
+  addFooter(response);
 
   response->setCode(200);
   request->send(response);
@@ -2121,8 +2254,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   
   if (saved) autoBrightnessUpdate();
   
-  char url[15];
-  sprintf(url, "/?p=brgh&svd=%d", saved);
+  char url[18];
+  sprintf(url, "/brightness?svd=%d", saved);
   request->redirect(url);
 }
 
@@ -2135,8 +2268,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
-  char url[15];
-  sprintf(url, "/?p=clrs&svd=%d", saved);
+  char url[14];
+  sprintf(url, "/colors?svd=%d", saved);
   request->redirect(url);
 }
 
@@ -2177,8 +2310,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  char url[15];
-  sprintf(url, "/?p=mds&svd=%d", saved);
+  char url[13];
+  sprintf(url, "/modes?svd=%d", saved);
   request->redirect(url);
 }
 
@@ -2203,13 +2336,13 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
 #endif
   }) || saved;
 
-  char url[15];
-  sprintf(url, "/?p=snd&svd=%d", saved);
+  char url[14];
+  sprintf(url, "/sounds?svd=%d", saved);
   request->redirect(url);
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->redirect("/?p=tlmtr");
+  request->redirect("/telemetry");
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2251,8 +2384,8 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
-  char url[15];
-  sprintf(url, "/?p=fw&svd=%d", saved);
+  char url[16];
+  sprintf(url, "/firmware?svd=%d", saved);
   request->redirect(url);
 }
 #endif
@@ -2269,15 +2402,22 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 void setupRouting() {
   Serial.println("Init WebServer");
   webserver.on("/", HTTP_GET, handleRoot);
+  webserver.on("/brightness", HTTP_GET, handleBrightness);
   webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
+  webserver.on("/colors", HTTP_GET, handleColors);
   webserver.on("/saveColors", HTTP_POST, handleSaveColors);
+  webserver.on("/modes", HTTP_GET, handleModes);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
 #if BUZZER_ENABLED
+  webserver.on("/sounds", HTTP_GET, handleSounds);
   webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
 #endif
+  webserver.on("/telemetry", HTTP_GET, handleTelemetry);
   webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
+  webserver.on("/dev", HTTP_GET, handleDev);
   webserver.on("/saveDev", HTTP_POST, handleSaveDev);
 #if FW_UPDATE_ENABLED
+  webserver.on("/firmware", HTTP_GET, handleFirmware);
   webserver.on("/saveFirmware", HTTP_POST, handleSaveFirmware);
   webserver.on("/update", HTTP_POST, handleUpdate);
 #endif
