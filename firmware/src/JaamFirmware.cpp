@@ -56,7 +56,6 @@ struct Settings {
   int     service_ledpin         = 0;
   int     buttonpin              = 15;
   int     button2pin             = -1;
-  int     button3pin             = -1;
   int     alertpin               = 34;
   int     buzzerpin              = 33;
   int     lightpin               = 32;
@@ -131,10 +130,8 @@ struct Settings {
   int     display_mode_time      = 5;
   int     button_mode            = 0;
   int     button2_mode           = 0;
-  int     button3_mode           = 0;
   int     button_mode_long       = 0;
   int     button2_mode_long      = 0;
-  int     button3_mode_long      = 0;
   int     alarms_notify_mode     = 2;
   int     display_model          = 1;
   int     display_width          = 128;
@@ -271,7 +268,6 @@ struct ButtonState {
 };
 ButtonState button1;
 ButtonState button2;
-ButtonState button3;
 #define NIGHT_BRIGHTNESS_LEVEL 2
 
 int binsCount = 0;
@@ -991,16 +987,11 @@ void handleClick(int event, SoundType soundType) {
 }
 
 bool isButtonActivated() {
-  return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0
-  || settings.button3_mode != 0 || settings.button3_mode_long != 0;
+  return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0;
 }
 
 bool isButton2Available() {
   return settings.button2pin > -1;
-}
-
-bool isButton3Available() {
-  return settings.button3pin > -1;
 }
 
 void singleClick(int mode) {
@@ -1838,10 +1829,6 @@ void handleRoot(AsyncWebServerRequest* request) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.button2_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.button2_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
-  if (isButton3Available()) {
-    addSelectBox(response, "button3_mode", "Режим кнопки 3 (Single Click)", settings.button3_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-    addSelectBox(response, "button3_mode_long", "Режим кнопки 3 (Long Click)", settings.button3_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
-  }
   addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
     addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
@@ -1943,7 +1930,7 @@ void handleRoot(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
-    addInputText(response, "button3pin", "Керуючий пін кнопки 3", "number", String(settings.button3pin).c_str());
+    // addInputText(response, "button3pin", "Керуючий пін кнопки 3", "number", String(settings.button3pin).c_str());
 
   }
   addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
@@ -2167,10 +2154,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
   saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
   saved = saveInt(request->getParam("button2_mode", true), &settings.button2_mode, "b2m") || saved;
-  saved = saveInt(request->getParam("button3_mode", true), &settings.button3_mode, "b3m") || saved;
   saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
   saved = saveInt(request->getParam("button2_mode_long", true), &settings.button2_mode_long, "b2ml") || saved;
-  saved = saveInt(request->getParam("button3_mode_long", true), &settings.button3_mode_long, "b3ml") || saved;
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", &settings.home_alert_time, "hat", saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
@@ -2248,7 +2233,6 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
-  reboot = saveInt(request->getParam("button3pin", true), &settings.button3pin, "b3p") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
@@ -2869,10 +2853,8 @@ void initSettings() {
   settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
   settings.button_mode            = preferences.getInt("bm", settings.button_mode);
   settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
-  settings.button3_mode           = preferences.getInt("b3m", settings.button3_mode);
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
-  settings.button3_mode_long      = preferences.getInt("b3ml", settings.button3_mode_long);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
@@ -2891,7 +2873,6 @@ void initSettings() {
   settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
-  settings.button3pin             = preferences.getInt("b3p", settings.button3pin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
@@ -2993,7 +2974,7 @@ void initLegacy() {
     settings.service_ledpin = 25;
     settings.buttonpin = 4;
     settings.button2pin = 2;
-    settings.button3pin = 5;
+    settings.buzzerpin = 33;
     settings.display_model = 2;
     settings.display_height = 64;
     break;
@@ -3001,9 +2982,6 @@ void initLegacy() {
   pinMode(settings.buttonpin, INPUT_PULLUP);
   if (isButton2Available()) {
     pinMode(settings.button2pin, INPUT_PULLUP);
-  }
-  if (isButton3Available()) {
-    pinMode(settings.button3pin, INPUT_PULLUP);
   }
   Serial.printf("Offset: %d\n", offset);
 }
@@ -3334,9 +3312,6 @@ void loop() {
   buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
   if (isButton2Available()) {
     buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
-  }
-  if (isButton3Available()) {
-    buttonUpdate(button3, settings.button3pin, settings.button3_mode, settings.button3_mode_long);
   }
   ha.loop();
   client_websocket.poll();
