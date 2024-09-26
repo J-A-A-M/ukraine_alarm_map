@@ -81,6 +81,7 @@ struct Settings {
   int     brightness_alert_over  = 100;
   int     brightness_explosion   = 100;
   int     brightness_home_district = 100;
+  int     brightness_bg          = 100;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -1792,6 +1793,9 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
+  if (isBgStripEnabled()){
+    addSlider(response, "brightness_bg", "Фонова лед-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  }
   addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
@@ -2249,6 +2253,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
   saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
   saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
+  saved = saveInt(request->getParam("brightness_bg", true), &settings.brightness_bg, "bbg") || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -2627,11 +2632,12 @@ CRGB fromHue(int hue, int brightness) {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness) {
+CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness, bool is_bgstrip) {
   CRGB hue;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
   float local_brightness_home_district = settings.brightness_home_district / 100.0f;
+  float local_brightness_bg = settings.brightness_bg / 100.0f;
 
   int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
   int color_switch;
@@ -2656,6 +2662,9 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
         } else {
           color_switch = settings.color_clear;
           local_brightness = local_brightness_clear;
+        }
+        if (is_bgstrip){
+          local_brightness = local_brightness_bg;
         }
         hue = fromHue(color_switch, settings.current_brightness * local_brightness);
       }
@@ -2781,12 +2790,12 @@ void mapAlarms() {
     explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness);
+    strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness, false);
   }
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness));
+    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness, true));
   }
   FastLED.show();
 }
@@ -2803,7 +2812,7 @@ void mapWeather() {
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness));
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.brightness_bg));
   }
   FastLED.show();
 }
@@ -2816,7 +2825,7 @@ void mapFlag() {
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness));
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.brightness_bg));
   }
   FastLED.show();
 }
@@ -2828,7 +2837,7 @@ void mapRandom() {
   if (isBgStripEnabled()) {
     int bgRandomLed = random(settings.bg_pixelcount);
     int bgRandomColor = random(360);
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness);
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.brightness_bg);
   }
   FastLED.show();
 }
@@ -2985,6 +2994,7 @@ void initSettings() {
   settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
   settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
   settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
+  settings.brightness_bg          = preferences.getInt("bbg", settings.brightness_bg);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
