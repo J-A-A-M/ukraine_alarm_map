@@ -1794,7 +1794,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
   if (isBgStripEnabled()){
-    addSlider(response, "brightness_bg", "Бекграунд", settings.brightness_bg, 0, 100, 1, "%");
+    addSlider(response, "brightness_bg", "Фонова лед-стрічка", settings.brightness_bg, 0, 100, 1, "%");
   }
   addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
