@@ -59,7 +59,7 @@ HASensorNumber*  haLightLevel;
 HASensorNumber*  haHomeTemp;
 HASwitch*        haNightMode;
 
-IPAddress mqttServer;
+const char* mqttServer;
 
 bool (*brightnessChanged)(int newBrightness);
 bool (*mapModeChanged)(int newMapMode);
@@ -117,7 +117,10 @@ JaamHomeAssistant::JaamHomeAssistant() {
 
 bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID) {
 #if HA_ENABLED
-  haEnabled = mqttServer.fromString(mqttServerIp);
+  if (strlen(mqttServerIp) > 0) {
+    haEnabled = true;
+  }
+  mqttServer = mqttServerIp;
   if (!haEnabled) return false;
   strcpy(deviceUniqueID, chipID);
   WiFi.macAddress(macAddress);
@@ -126,7 +129,7 @@ bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceN
   mqtt = new HAMqtt(netClient, *device, SENSORS_COUNT);
   device->setName(deviceName);
   device->setSoftwareVersion(currentFwVersion);
-  device->setManufacturer("v00g100skr");
+  device->setManufacturer("JAAM");
   device->setModel(deviceDescription);
   Serial.printf("HA Device configurationUrl: '%s'\n", configUrl);
   device->setConfigurationUrl(configUrl);
