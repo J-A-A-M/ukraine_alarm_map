@@ -186,11 +186,13 @@ async def districts_data(mc):
 
 def make_districts_struct(data):
     struct = {}
-    for district in data:
-        district_slug = district["slug"]
-        struct[district_slug] = district_slug
-        for city in district["cities"]:
-            struct[city["slug"]] = district_slug
+    for area in data:
+        area_slug = area["slug"]
+        struct[area_slug] = area_slug
+        for district in area["districts"]:
+            struct[district["slug"]] = area_slug
+            for city in district["cities"]:
+                struct[city["slug"]] = area_slug
 
     return struct
 
