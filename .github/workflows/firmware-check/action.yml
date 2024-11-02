@@ -1,0 +1,27 @@
+name: 'Firmware Chack Action'
+description: 'Check firmware'
+inputs:
+  project-folder:
+    description: 'Project folder'
+    default: 'firmware'
+permissions:
+  contents: read
+  pull-requests: write
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.platformio/.cache
+        key: ${{ runner.os }}-pio-${{ hashFiles(format('{0}/{1}', inputs.project-folder, 'platformio.ini')) }}
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install PlatformIO Core
+      shell: bash
+      run: pip install --upgrade platformio
+    - name: Check ${{ inputs.project-folder }}
+      shell: bash
+      run: pio check -d ${{ inputs.project-folder }}

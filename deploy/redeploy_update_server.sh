@@ -5,6 +5,7 @@ SHARED_PATH=""
 SHARED_BETA_PATH=""
 MEMCACHED_HOST=""
 PORT=8090
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -25,6 +26,10 @@ while [[ $# -gt 0 ]]; do
             SHARED_BETA_PATH="$2"
             shift 2
             ;;
+        -l|--logging)
+            LOGGING="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -38,6 +43,7 @@ echo "SHARED_PATH: $SHARED_PATH"
 echo "SHARED_BETA_PATH: $SHARED_BETA_PATH"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "PORT: $PORT"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -64,7 +70,7 @@ docker rm map_update_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_update_server --restart unless-stopped -d -p "$PORT":8080  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_update_server
+docker run --name map_update_server --restart unless-stopped -d -p "$PORT":8080  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_update_server
 
 echo "Container deployed successfully!"
 

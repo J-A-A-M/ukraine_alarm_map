@@ -2,12 +2,17 @@
 
 # Default values
 MEMCACHED_HOST=""
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -m|--memcached-host)
             MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -l|--logging)
+            LOGGING="$2"
             shift 2
             ;;
         *)
@@ -20,6 +25,7 @@ done
 echo "SVG_GENERATOR"
 
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -46,7 +52,7 @@ docker rm map_svg_generator || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_svg_generator --restart unless-stopped -d -v /shared_data:/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" map_svg_generator
+docker run --name map_svg_generator --restart unless-stopped -d -v /shared_data:/shared_data --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_svg_generator
 
 echo "Container deployed successfully!"
 

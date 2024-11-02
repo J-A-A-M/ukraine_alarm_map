@@ -1,65 +1,27 @@
 name: 'Firmware Compile Action'
-description: 'Unzip libraries and compile firmware'
+description: 'Compile firmware'
 inputs:
-  enable-warnings-report:
-    description: 'Enable warnings report'
-    default: 'false'
-  enable-deltas-report:
-    description: 'Enable deltas report'
-    default: 'false'
-  sketches-report-path:
-    description: 'Sketches report path'
-    default: 'sketches-reports'
+  project-folder:
+    description: 'Project folder'
+    default: 'firmware'
+permissions:
+  contents: read
+  pull-requests: write
 runs:
   using: 'composite'
   steps:
-    - name: Unzip libraries
-      shell: bash
-      run: |
-        unzip -q ${{ github.workspace }}/libs/Adafruit_GFX_Library.zip -d ${{ github.workspace }}/libs/
-        unzip -q ${{ github.workspace }}/libs/ArduinoAsync-master.zip -d ${{ github.workspace }}/libs/
-    - name: Compile firmware
-      uses: arduino/compile-sketches@v1
+    - uses: actions/cache@v4
       with:
-        sketch-paths: |
-          - ${{ github.workspace }}/src/firmware
-        fqbn: esp32:esp32:esp32
-        platforms: |
-          - name: esp32:esp32
-            source-url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
-            version: 2.0.14
-        libraries: |
-          - source-path: ${{ github.workspace }}/libs/Adafruit_GFX_Library
-          - source-path: ${{ github.workspace }}/libs/ArduinoAsync-master
-          - name: Adafruit SSD1306
-            version: 2.5.9
-          - name: ArduinoJson
-            version: 7.0.4
-          - name: ArduinoWebsockets
-            version: 0.5.3
-          - name: AsyncTCP
-            version: 1.1.4
-          - name: BH1750_WE
-            version: 1.1.10
-          - name: ESP Async WebServer
-            version: 2.8.1
-          - name: Melody Player
-            version: 2.4.0
-          - name: NTPTime
-            version: 1.2.1
-          - name: NeoPixelBus by Makuna
-            version: 2.7.9
-          - name: WiFiManager
-            version: 2.0.17
-          - name: arduino-sht
-            version: 1.2.5
-          - name: forcedBMX280
-            version: 1.1.2
-          - name: home-assistant-integration
-            version: 2.1.0
-        enable-warnings-report: ${{ inputs.enable-warnings-report }}
-        enable-deltas-report: ${{ inputs.enable-deltas-report }}
-        sketches-report-path: ${{ inputs.sketches-report-path }}
-        cli-compile-flags: |
-          - --export-binaries
-          - --warnings=default
+        path: |
+          ~/.cache/pip
+          ~/.platformio/.cache
+        key: ${{ runner.os }}-pio-${{ hashFiles(format('{0}/{1}', inputs.project-folder, 'platformio.ini')) }}
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install PlatformIO Core
+      shell: bash
+      run: pip install --upgrade platformio
+    - name: Build ${{ inputs.project-folder }}
+      shell: bash
+      run: pio run -d ${{ inputs.project-folder }}

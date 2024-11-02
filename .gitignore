@@ -4,3 +4,6 @@
 .DS_Store
 .idea/
 .vscode/
+.build/
+.pio/
+.venv/

@@ -5,9 +5,6 @@
       branches:
         - develop
     workflow_dispatch:
-  env:
-    SKETCHES_REPORTS_PATH: sketches-reports
-    SKETCHES_REPORTS_ARTIFACT_NAME: sketches-reports
   jobs:
     compile_firmware:
         runs-on: ubuntu-latest
@@ -16,82 +13,58 @@
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
             with:
-              enable-warnings-report: true
-              sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
+              project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware.bin
           - name: Upload firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/firmware.bin
-          - name: Upload reports
-            uses: actions/upload-artifact@v4
-            with:
-              name: ${{ env.SKETCHES_REPORTS_ARTIFACT_NAME }}
-              path: ${{ env.SKETCHES_REPORTS_PATH }}
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
           - name: Switch to LITE version
             run: |
-              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/src/firmware/firmware.ino
+              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
+            with:
+              project-folder: firmware
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/src/firmware/build/esp32.esp32.esp32/firmware.ino.bin ${{ github.workspace }}/firmware-lite.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
               name: firmware-lite.bin
               path: ${{ github.workspace }}/firmware-lite.bin
+    # check_firmware:
+    #   runs-on: ubuntu-latest
+    #   steps:
+    #     - uses: actions/checkout@v4
+    #     - name: Check firmware
+    #       uses: ./.github/workflows/firmware-check
+    #       with:
+    #         project-folder: firmware
     compile_updater:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
         - name: Compile updater
-          uses: arduino/compile-sketches@v1
+          uses: ./.github/workflows/firmware-compile
           with:
-            sketch-paths: |
-              - ${{ github.workspace }}/src/updater
-            fqbn: esp32:esp32:esp32
-            enable-warnings-report: true
-            cli-compile-flags: |
-              - --export-binaries
+            project-folder: updater
+        - name: Copy bin file
+          run: |
+            cp -f ${{ github.workspace }}/updater/.pio/build/updater/firmware.bin ${{ github.workspace }}/updater.bin
         - name: Upload updater
           uses: actions/upload-artifact@v4
           with:
             name: updater.bin
-            path: ${{ github.workspace }}/src/updater/build/esp32.esp32.esp32/updater.ino.bin    
-    lint_check:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Lint check
-            uses: arduino/arduino-lint-action@v1
-            with:
-              path: ${{ github.workspace }}/src/firmware
-              verbose: true
-              compliance: specification
-              report-file: ${{ github.workspace }}/lint-report.json
-          - name: Upload lint report
-            uses: actions/upload-artifact@v4
-            with:
-              name: lint-report
-              path: ${{ github.workspace }}/lint-report.json
-          - name: Setup Python      
-            uses: actions/setup-python@v5
-            with:
-              python-version: "3.12"
-          - name: Setup uncompromising Python code formatter
-            run: |
-              python -m pip install black==24.3.0
-          - name: Run Black in the check mode (and ignore output)
-            run: |
-              black --check --verbose --line-length 120 --target-version py312 deploy
+            path: ${{ github.workspace }}/updater.bin
     check_flasher:
         runs-on: ubuntu-latest
         steps:
@@ -100,3 +73,14 @@
             uses: anishathalye/proof-html@v2
             with:
               directory: ${{ github.workspace }}/flasher
+    run_black:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Run Black in the check mode
+            uses: psf/black@stable
+            with:
+              options: "--check --verbose --line-length 120 --target-version py312 deploy"
+              src: ${{ github.workspace }}/deploy
+              version: "~= 24.0"
+              

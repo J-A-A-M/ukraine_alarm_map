@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 
 version = 2
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-
 loop_time = int(os.environ.get("UPDATER_PERIOD", 1))
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 regions = [
     "Закарпатська область",
@@ -165,46 +165,46 @@ async def update_data(mc):
         svg_data = "%s:%s:%s" % (",".join(alerts_v1), ",".join(weather_v1), ",".join(explosions_svg))
 
         if tcp_cached_data != tcp_data:
-            logging.debug("store tcp data: %s" % current_datetime)
+            logger.debug("store tcp data: %s" % current_datetime)
             await mc.set(b"tcp", json.dumps(tcp_data).encode("utf-8"))
-            logging.debug("tcp data stored")
+            logger.debug("tcp data stored")
         else:
-            logging.debug("tcp data not changed")
+            logger.debug("tcp data not changed")
 
         if svg_cached_data != svg_data:
-            logging.debug("store svg data: %s" % current_datetime)
+            logger.debug("store svg data: %s" % current_datetime)
             await mc.set(b"svg", json.dumps(svg_data).encode("utf-8"))
-            logging.debug("svg data stored")
+            logger.debug("svg data stored")
         else:
-            logging.debug("svg data not changed")
+            logger.debug("svg data not changed")
 
         if alerts_cached_data_v1 != alerts_v1:
-            logging.debug("store alerts_v1: %s" % current_datetime)
+            logger.debug("store alerts_v1: %s" % current_datetime)
             await mc.set(b"alerts_websocket_v1", json.dumps(alerts_v1).encode("utf-8"))
-            logging.debug("alerts_v1 stored")
+            logger.debug("alerts_v1 stored")
         else:
-            logging.debug("alerts_v1 not changed")
+            logger.debug("alerts_v1 not changed")
 
         if alerts_cached_data_v2 != alerts_v2:
-            logging.debug("store alerts_v2: %s" % current_datetime)
+            logger.debug("store alerts_v2: %s" % current_datetime)
             await mc.set(b"alerts_websocket_v2", json.dumps(alerts_v2).encode("utf-8"))
-            logging.debug("alerts_v2 stored")
+            logger.debug("alerts_v2 stored")
         else:
-            logging.debug("alerts_v2 not changed")
+            logger.debug("alerts_v2 not changed")
 
         if weather_cached_data_v1 != weather_v1:
-            logging.debug("store weather_v1: %s" % current_datetime)
+            logger.debug("store weather_v1: %s" % current_datetime)
             await mc.set(b"weather_websocket_v1", json.dumps(weather_v1).encode("utf-8"))
-            logging.debug("weather_v1 stored")
+            logger.debug("weather_v1 stored")
         else:
-            logging.debug("weather_v1 not changed")
+            logger.debug("weather_v1 not changed")
 
         if explosions_cached_data_v1 != explosions_v1:
-            logging.debug("store explosions_v1: %s" % current_datetime)
+            logger.debug("store explosions_v1: %s" % current_datetime)
             await mc.set(b"explosions_websocket_v1", json.dumps(explosions_v1).encode("utf-8"))
-            logging.debug("explosions_v1 stored")
+            logger.debug("explosions_v1 stored")
         else:
-            logging.debug("explosions_v1 not changed")
+            logger.debug("explosions_v1 not changed")
     except Exception as e:
         logging.error(f"Error fetching data: {str(e)}")
         raise
@@ -214,26 +214,26 @@ async def main():
     mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     while True:
         try:
-            logging.debug("Task started")
+            logger.debug("Task started")
             await update_data(mc)
 
         except asyncio.CancelledError:
-            logging.info("Task canceled. Shutting down...")
+            logger.error("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logging.error(f"Caught an exception: {e}")
+            logger.error(f"Caught an exception: {e}")
 
         finally:
-            logging.debug("Task completed")
+            logger.debug("Task completed")
             pass
 
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logging.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt")
+        logging.error("KeyboardInterrupt")
         pass

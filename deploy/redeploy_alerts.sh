@@ -4,6 +4,7 @@
 ALERT_TOKEN=""
 MEMCACHED_HOST=""
 ALERT_PERIOD=10
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
             ALERT_PERIOD="$2"
             shift 2
             ;;
+        -l|--logging)
+            LOGGING="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -32,6 +37,7 @@ echo "ALERTS"
 echo "ALERT_TOKEN: $ALERT_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "ALERT_PERIOD: $ALERT_PERIOD"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -54,7 +60,7 @@ docker rm map_alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_alerts
+docker run --name map_alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_alerts
 
 echo "Container deployed successfully!"
 

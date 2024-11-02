@@ -8,20 +8,19 @@ import random
 import pytz
 import math
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 version = 2
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-
+debug_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 loop_time = int(os.environ.get("SVG_PERIOD", 2))
-
 min_temp = float(os.environ.get("MIN_TEMP", -10))
 max_temp = float(os.environ.get("MAX_TEMP", 30))
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 
 regions = [
@@ -138,7 +137,7 @@ async def svg_generator(mc, shared_data):
             )
             position = 0
             for weather in weathers:
-                logging.debug(f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}")
+                logger.debug(f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}")
                 weather_svg_data[regions[position]] = calculate_html_color_from_temp(weather)
                 position += 1
             file_path = os.path.join(shared_path, "weather_map.png")
@@ -149,8 +148,9 @@ async def svg_generator(mc, shared_data):
                 **weather_svg_data,
             )
             shared_data.data = cached_data
+            logger.info(f"map generated")
     except Exception as e:
-        logging.error(f"Request failed with status code: {e}")
+        logger.error(f"Request failed with status code: {e}")
         raise ""
 
 
@@ -250,7 +250,7 @@ def calculate_html_color_from_temp(temp):
 
 
 async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
-    print("generate map")
+    logger.debug("generate map")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
          enable-background="new 0 0 1546.93 1040.822" xml:space="preserve" inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
@@ -951,7 +951,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
                <text x="75" y="787" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
                <circle cx="50" cy="830" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- вибухи за даним зі ЗМІ (до 3 хв. тому)</text>
+               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи</text>
             </g>
 
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">
@@ -980,26 +980,26 @@ async def main():
     mc = Client(memcached_host, 11211)  # Connect to your Memcache server
     while True:
         try:
-            logging.debug("Task started")
+            logger.debug("Task started")
             await svg_generator(mc, shared_data)
 
         except asyncio.CancelledError:
-            logging.info("Task canceled. Shutting down...")
+            logger.error("Task canceled. Shutting down...")
             await mc.close()
             break
 
         except Exception as e:
-            logging.error(f"Caught an exception: {e}")
+            logger.error(f"Caught an exception: {e}")
 
         finally:
-            logging.debug("Task completed")
+            logger.debug("Task completed")
             pass
 
 
 if __name__ == "__main__":
     try:
-        logging.debug("Start")
+        logger.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt")
+        logger.error("KeyboardInterrupt")
         pass

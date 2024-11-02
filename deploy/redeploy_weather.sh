@@ -3,7 +3,8 @@
 # Default values
 WEATHER_TOKEN=""
 MEMCACHED_HOST=""
-WEATHER_PERIOD=600
+WEATHER_PERIOD=3600
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
             WEATHER_PERIOD="$2"
             shift 2
             ;;
+        -l|--logging)
+            LOGGING="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -32,6 +37,7 @@ echo "WEATHER"
 echo "WEATHER_TOKEN: $WEATHER_TOKEN"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "WEATHER_PERIOD: $WEATHER_PERIOD"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -54,7 +60,7 @@ docker rm map_weather || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" map_weather
+docker run --name map_weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_weather
 
 echo "Container deployed successfully!"
 

@@ -3,9 +3,9 @@
 # Default values
 MEMCACHED_HOST=""
 WEBSOCKET_PORT=38440
-DEBUG_LEVEL="INFO"
 PING_INTERVAL=60
 ENVIRONMENT="PROD"
+LOGGING="WARNING"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -26,12 +26,12 @@ while [[ $# -gt 0 ]]; do
             MEASUREMENT_ID="$2"
             shift 2
             ;;
-        -d|--debug-level)
-            DEBUG_LEVEL="$2"
-            shift 2
-            ;;
         -p|--ping-interval)
             PING_INTERVAL="$2"
+            shift 2
+            ;;
+        -l|--logging)
+            LOGGING="$2"
             shift 2
             ;;
         *)
@@ -45,8 +45,9 @@ echo "WEBSOCKET SERVER"
 
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
-echo "DEBUG_LEVEL: $DEBUG_LEVEL"
 echo "PING_INTERVAL: $PING_INTERVAL"
+echo "ENVIRONMENT: $ENVIRONMENT"
+echo "LOGGING: $LOGGING"
 
 
 # Updating the Git repo
@@ -69,7 +70,7 @@ docker rm map_websocket_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env DEBUG_LEVEL="$DEBUG_LEVEL" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" map_websocket_server
+docker run --name map_websocket_server --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" map_websocket_server
 
 echo "Container deployed successfully!"
 

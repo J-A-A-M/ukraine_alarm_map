@@ -16,17 +16,15 @@ from aiomcache import Client
 
 from datetime import datetime, timezone
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
+debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
-
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
-
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
-
 data_token = os.environ.get("DATA_TOKEN") or None
+
+logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logger = logging.getLogger(__name__)
 
 mc = Client(memcached_host, memcached_port)
 
@@ -163,10 +161,10 @@ async def main(request):
                 <div class='col-md-6 offset-md-3'>
                     <p>Доступні API:</p>
                     <ul>
-                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">класична схема</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
+                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">v1</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
                         <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
-                        <li>Дані TCP: [<a href="/tcp_statuses_v1.json">v1</a>]</li>
+                        
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
@@ -465,6 +463,10 @@ async def map(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
 
+async def get_static(request):
+    return FileResponse(f'/jaam_v{request.path_params["version"]}.{request.path_params["extention"]}')
+
+
 async def dataparcer(clients, connection_type):
     google = []
     for client, data in clients.items():
@@ -555,6 +557,7 @@ app = Starlette(
         Route("/map/region/v1/{region}", region_data_v1),
         Route("/{filename}.png", map),
         Route("/t{token}", stats),
+        Route("/static/jaam_v{version}.{extention}", get_static),
     ],
 )
 
