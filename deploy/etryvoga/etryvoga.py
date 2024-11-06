@@ -131,7 +131,7 @@ async def explosions_data(mc):
                             explosions_cached_data["states"][region_name] = region_data
                         case "ROCKET" | "ROCKET_FIRE":
                             rockets_cached_data["states"][region_name] = region_data
-                        case "DRONE":
+                        case "DRONE" | "RECON_DRONE":
                             drones_cached_data["states"][region_name] = region_data
                         case _:
                             pass
