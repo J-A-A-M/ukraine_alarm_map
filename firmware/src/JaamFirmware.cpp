@@ -61,7 +61,7 @@ struct Settings {
   int     lightpin               = 32;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
-  char    ha_mqttpassword[51]    = "";
+  char    ha_mqttpassword[66]    = "";
   char    ha_brokeraddress[31]   = "";
   int     current_brightness     = 50;
   int     brightness             = 50;
@@ -2027,7 +2027,7 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
     addInputText(response, "ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
     addInputText(response, "ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
-    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
+    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 65);
   }
   addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
   addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
