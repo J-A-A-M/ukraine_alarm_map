@@ -3444,6 +3444,7 @@ void showLocalLightLevel() {
   displayMessage(message, "Освітлення");
 }
 
+#if TEST_MODE
 void runSelfTests() {
   mapFlag();
   playMelody(UA_ANTHEM);
@@ -3462,6 +3463,7 @@ void runSelfTests() {
   sleep(2);
   displayMessage("Please test buttons");
 }
+#endif
 
 void setup() {
   Serial.begin(115200);
