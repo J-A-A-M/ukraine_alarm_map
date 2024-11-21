@@ -50,7 +50,7 @@ struct Settings {
   int     updateport             = 8090;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
-  int     legacy                 = 1;
+  int     legacy                 = 3;
   int     pixelpin               = 13;
   int     bg_pixelpin            = 0;
   int     service_ledpin         = 0;
@@ -260,6 +260,7 @@ int     currentDimDisplay = 0;
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
 #define LONG_PRESS_TIME  500 // 500 milliseconds
 struct ButtonState {
+  char* name;
   int lastState = LOW; // the previous state from the input pin
   int currentState; // the current reading from the input pin
   unsigned long pressedTime = 0;
@@ -1026,14 +1027,24 @@ void buttonUpdate(ButtonState &button, uint8_t pin, int mode, int modeLong) {
 
     long pressDuration = button.releasedTime - button.pressedTime;
 
-    if (pressDuration < SHORT_PRESS_TIME) singleClick(mode);
+    if (pressDuration < SHORT_PRESS_TIME) {
+#if TEST_MODE
+        displayMessage("Single click!", button.name);
+#else
+        singleClick(mode);
+#endif
+      }
   }
 
   if (button.isPressing == true && button.isLongDetected == false) {
     long pressDuration = millis() - button.pressedTime;
 
     if (pressDuration > LONG_PRESS_TIME) {
+#if TEST_MODE
+        displayMessage("Long click!", button.name);
+#else
       longClick(modeLong);
+#endif
       button.isLongDetected = true;
     }
   }
@@ -1281,7 +1292,7 @@ void showLocalHum() {
   displayMessage(message, "Вологість");
 }
 
-void showLocalPresure() {
+void showLocalPressure() {
   char message[12];
   sprintf(message, "%.1fmmHg", climate.getPressure(settings.pressure_correction));
   displayMessage(message, "Тиск");
@@ -1297,7 +1308,7 @@ void showLocalClimateInfo(int index) {
     return;
   }
   if (index <= 2 && climate.isPressureAvailable()) {
-    showLocalPresure();
+    showLocalPressure();
     return;
   }
 }
@@ -3072,6 +3083,9 @@ void initSettings() {
 }
 
 void initLegacy() {
+#if TEST_MODE
+  settings.legacy = 3;
+#endif
   switch (settings.legacy) {
   case 0:
     Serial.println("Mode: jaam 1");
@@ -3130,8 +3144,10 @@ void initLegacy() {
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
+  button1.name = "Button 1";
   if (isButton2Available()) {
     pinMode(settings.button2pin, INPUT_PULLUP);
+    button2.name = "Button 2";
   }
   Serial.printf("Offset: %d\n", offset);
 }
@@ -3422,6 +3438,31 @@ void initTime() {
   syncTime(7);
 }
 
+void showLocalLightLevel() {
+  char message[10];
+  sprintf(message, "%.1f lx", lightSensor.getLightLevel(settings.light_sensor_factor));
+  displayMessage(message, "Освітлення");
+}
+
+void runSelfTests() {
+  mapFlag();
+  playMelody(UA_ANTHEM);
+  servicePin(POWER, HIGH, true);
+  servicePin(WIFI, HIGH, true);
+  servicePin(DATA, HIGH, true);
+  servicePin(HA, HIGH, true);
+  servicePin(RESERVED, HIGH, true);
+  showLocalTemp();
+  sleep(2);
+  showLocalHum();
+  sleep(2);
+  showLocalPressure();
+  sleep(2);
+  showLocalLightLevel();
+  sleep(2);
+  displayMessage("Please test buttons");
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3433,6 +3474,9 @@ void setup() {
   initStrip();
   initDisplay();
   initSensors();
+#if TEST_MODE
+  runSelfTests();
+#else
   initWifi();
   initTime();
 
@@ -3451,22 +3495,26 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+#endif
 }
 
 void loop() {
+#if TEST_MODE==0
   wm.process();
   asyncEngine.run();
 #if ARDUINO_OTA_ENABLED
   ArduinoOTA.handle();
 #endif
-  buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
-  if (isButton2Available()) {
-    buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
-  }
   ha.loop();
   client_websocket.poll();
   syncTime(2);
   if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
     mapCycle();
+  }
+#endif
+
+  buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
+  if (isButton2Available()) {
+    buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
   }
 }
