@@ -222,6 +222,10 @@ float     weather_leds[26];
 long      explosions_time[26];
 uint8_t   flag_leds[26];
 
+float     brightnessFactor = 0.5f;
+int       minBrightness = 1;
+float     minBlinkBrightness = 0.15f;
+
 bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
 bool    isDaylightSaving = false;
@@ -2619,13 +2623,13 @@ void websocketProcess() {
 }
 //--Websocket process end
 
-CRGB fromRgb(int r, int g, int b, int brightness) {
-  // use 0.5f as a multiplier to get the half brightness
-  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightness_factor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
   return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
 
-CRGB fromHue(int hue, int brightness) {
+CRGB fromHue(int hue, float brightness) {
   RGBColor rgb = hue2rgb(hue);
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
@@ -2683,14 +2687,15 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
 }
 
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float minBrightness = maxBrightness * 0.01f;
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  float minBrightness = fixedMaxBrightness * 0.01f;
   int progress = micros() % (fadeTime * 1000);
   int halfBlinkTime = fadeTime * 500;
   float blinkBrightness;
   if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, maxBrightness);
+    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
   } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, maxBrightness, minBrightness);
+    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
   }
   return blinkBrightness;
 }
@@ -3127,6 +3132,9 @@ void initLegacy() {
     settings.buzzerpin = 33;
     settings.display_model = 2;
     settings.display_height = 64;
+    brightnessFactor = 0.3f;
+    minBrightness = 2;
+    minBlinkBrightness = 0.3f;
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
