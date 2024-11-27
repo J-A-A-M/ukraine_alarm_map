@@ -50,7 +50,7 @@ struct Settings {
   int     updateport             = 8090;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
-  int     legacy                 = 3;
+  int     legacy                 = 1;
   int     pixelpin               = 13;
   int     bg_pixelpin            = 0;
   int     service_ledpin         = 0;
