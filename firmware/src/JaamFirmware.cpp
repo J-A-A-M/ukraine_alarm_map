@@ -2046,15 +2046,15 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
-    // addInputText(response, "button3pin", "Керуючий пін кнопки 3", "number", String(settings.button3pin).c_str());
-
   }
   addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
   addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
-  addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+  if (settings.legacy != 3) {
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-  addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
+  }
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
