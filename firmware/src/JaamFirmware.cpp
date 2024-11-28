@@ -224,7 +224,7 @@ uint8_t   flag_leds[26];
 
 float     brightnessFactor = 0.5f;
 int       minBrightness = 1;
-float     minBlinkBrightness = 0.15f;
+float     minBlinkBrightness = 0.05f;
 
 bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
@@ -3148,7 +3148,7 @@ void initLegacy() {
     settings.display_height = 64;
     brightnessFactor = 0.3f;
     minBrightness = 2;
-    minBlinkBrightness = 0.3f;
+    minBlinkBrightness = 0.07f;
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
