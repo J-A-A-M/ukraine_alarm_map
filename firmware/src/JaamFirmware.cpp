@@ -82,6 +82,7 @@ struct Settings {
   int     brightness_explosion   = 100;
   int     brightness_home_district = 100;
   int     brightness_bg          = 100;
+  int     brightness_service     = 50;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -450,26 +451,27 @@ bool needToPlaySound(SoundType type) {
 void servicePin(ServiceLed type, uint8_t status, bool force) {
   if (force || ((settings.legacy == 0 || settings.legacy == 3) && settings.service_diodes_mode)) {
     int pin = 0;
+    int scaledBrightness = (settings.brightness_service == 0) ? 0 : round(max(settings.brightness_service, minBrightness) * 255.0f / 100.0f * brightnessFactor);
     switch (type) {
       case POWER:
         pin = settings.powerpin;
-        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(64) : CRGB::Black;
+        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case WIFI:
         pin = settings.wifipin;
-        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(64) : CRGB::Black;
+        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case DATA:
         pin = settings.datapin;
-        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(64) : CRGB::Black;
+        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case HA:
         pin = settings.hapin;
-        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(64) : CRGB::Black;
+        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case RESERVED:
         pin = settings.reservedpin;
-        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(64) : CRGB::Black;
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
     }
     if (pin > 0 && settings.legacy == 0) {
@@ -1808,8 +1810,11 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
-  if (isBgStripEnabled()){
-    addSlider(response, "brightness_bg", "Фонова лед-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  if (isBgStripEnabled()) {
+    addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  }
+  if (isServiceStripEnabled()) {
+    addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
   }
   addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
@@ -2269,6 +2274,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
   saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
   saved = saveInt(request->getParam("brightness_bg", true), &settings.brightness_bg, "bbg") || saved;
+  saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -3011,6 +3017,7 @@ void initSettings() {
   settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
   settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
   settings.brightness_bg          = preferences.getInt("bbg", settings.brightness_bg);
+  settings.brightness_service     = preferences.getInt("bs", settings.alert_on_time);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
