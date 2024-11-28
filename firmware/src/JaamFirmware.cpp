@@ -41,9 +41,9 @@ struct Settings {
   int           reservedpin            = 27;
 
   // ------- web config start
-  char    devicename[31]         = "Alarm Map";
-  char    devicedescription[51]  = "Alarm Map Informer";
-  char    broadcastname[31]      = "alarmmap";
+  char    devicename[31]         = "JAAM";
+  char    devicedescription[51]  = "JAAM Informer";
+  char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
   char    serverhost[31]         = "alerts.net.ua";
   int     websocket_port         = 38440;
@@ -82,6 +82,7 @@ struct Settings {
   int     brightness_explosion   = 100;
   int     brightness_home_district = 100;
   int     brightness_bg          = 100;
+  int     brightness_service     = 50;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -221,6 +222,10 @@ long      alarm_time[26];
 float     weather_leds[26];
 long      explosions_time[26];
 uint8_t   flag_leds[26];
+
+float     brightnessFactor = 0.5f;
+int       minBrightness = 1;
+float     minBlinkBrightness = 0.05f;
 
 bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
@@ -446,26 +451,27 @@ bool needToPlaySound(SoundType type) {
 void servicePin(ServiceLed type, uint8_t status, bool force) {
   if (force || ((settings.legacy == 0 || settings.legacy == 3) && settings.service_diodes_mode)) {
     int pin = 0;
+    int scaledBrightness = (settings.brightness_service == 0) ? 0 : round(max(settings.brightness_service, minBrightness) * 255.0f / 100.0f * brightnessFactor);
     switch (type) {
       case POWER:
         pin = settings.powerpin;
-        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(64) : CRGB::Black;
+        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case WIFI:
         pin = settings.wifipin;
-        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(64) : CRGB::Black;
+        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case DATA:
         pin = settings.datapin;
-        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(64) : CRGB::Black;
+        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case HA:
         pin = settings.hapin;
-        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(64) : CRGB::Black;
+        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case RESERVED:
         pin = settings.reservedpin;
-        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(64) : CRGB::Black;
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
     }
     if (pin > 0 && settings.legacy == 0) {
@@ -1804,8 +1810,11 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
-  if (isBgStripEnabled()){
-    addSlider(response, "brightness_bg", "Фонова лед-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  if (isBgStripEnabled()) {
+    addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  }
+  if (isServiceStripEnabled()) {
+    addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
   }
   addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
@@ -2053,15 +2062,15 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
-    // addInputText(response, "button3pin", "Керуючий пін кнопки 3", "number", String(settings.button3pin).c_str());
-
   }
   addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
   addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
-  addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+  if (settings.legacy != 3) {
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-  addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
+  }
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
@@ -2265,6 +2274,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
   saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
   saved = saveInt(request->getParam("brightness_bg", true), &settings.brightness_bg, "bbg") || saved;
+  saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -2630,13 +2640,13 @@ void websocketProcess() {
 }
 //--Websocket process end
 
-CRGB fromRgb(int r, int g, int b, int brightness) {
-  // use 0.5f as a multiplier to get the half brightness
-  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightness_factor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
   return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
 
-CRGB fromHue(int hue, int brightness) {
+CRGB fromHue(int hue, float brightness) {
   RGBColor rgb = hue2rgb(hue);
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
@@ -2694,14 +2704,15 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
 }
 
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float minBrightness = maxBrightness * 0.01f;
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  float minBrightness = fixedMaxBrightness * 0.01f;
   int progress = micros() % (fadeTime * 1000);
   int halfBlinkTime = fadeTime * 500;
   float blinkBrightness;
   if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, maxBrightness);
+    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
   } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, maxBrightness, minBrightness);
+    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
   }
   return blinkBrightness;
 }
@@ -3006,6 +3017,7 @@ void initSettings() {
   settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
   settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
   settings.brightness_bg          = preferences.getInt("bbg", settings.brightness_bg);
+  settings.brightness_service     = preferences.getInt("bs", settings.alert_on_time);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
@@ -3141,6 +3153,9 @@ void initLegacy() {
     settings.buzzerpin = 33;
     settings.display_model = 2;
     settings.display_height = 64;
+    brightnessFactor = 0.3f;
+    minBrightness = 2;
+    minBlinkBrightness = 0.07f;
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
