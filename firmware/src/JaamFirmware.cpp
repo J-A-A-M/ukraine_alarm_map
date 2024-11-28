@@ -41,9 +41,9 @@ struct Settings {
   int           reservedpin            = 27;
 
   // ------- web config start
-  char    devicename[31]         = "Alarm Map";
-  char    devicedescription[51]  = "Alarm Map Informer";
-  char    broadcastname[31]      = "alarmmap";
+  char    devicename[31]         = "JAAM";
+  char    devicedescription[51]  = "JAAM Informer";
+  char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
   char    serverhost[31]         = "alerts.net.ua";
   int     websocket_port         = 38440;
