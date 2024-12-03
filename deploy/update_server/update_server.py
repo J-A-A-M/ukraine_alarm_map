@@ -61,10 +61,20 @@ async def list_beta(request):
 
 
 async def update(request):
+    if request.path_params["filename"] == "latest":
+         filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
+         filenames = filter(lambda filename: not filename.startswith("4."), filenames)
+         return FileResponse(f'{shared_path}/{filenames[0]}.bin')
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
 async def update_beta(request):
+    if request.path_params["filename"] == "latest_beta":
+         filenames = sorted(
+            [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))]
+        )
+         filenames = filter(lambda filename: not filename.startswith("4."), filenames)
+         return FileResponse(f'{shared_path}/{filenames[0]}.bin')
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 
