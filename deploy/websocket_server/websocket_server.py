@@ -89,6 +89,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip, client_port = websocket.remote_address
     while True:
         if client["firmware"] == "unknown":
+            await asyncio.sleep(0.1)
             continue
         client_id = client["firmware"]
         try:
