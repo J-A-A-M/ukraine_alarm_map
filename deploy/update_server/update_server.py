@@ -38,6 +38,32 @@ async def server_error(request: Request, exc: HTTPException):
 
 exception_handlers = {404: not_found, 500: server_error}
 
+def bin_sort(bin):
+    if (bin.startswith("latest")):
+        return (100, 0, 0, 0)
+    version = bin.removesuffix(".bin")
+    fw_beta = version.split("-")
+    fw = fw_beta[0]
+    if (len(fw_beta) == 1):
+        beta = 1000
+    else:
+        beta = int(fw_beta[1].removeprefix("b"))
+    
+    major_minor_patch = fw.split(".")
+    major = int(major_minor_patch[0])
+    if (len(major_minor_patch) == 1):
+        minor = 0
+        patch = 0
+    elif (len(major_minor_patch) == 2):
+        minor = int(major_minor_patch[1])
+        patch = 0
+    else:
+        minor = int(major_minor_patch[1])
+        patch = int(major_minor_patch[2])
+
+    print(f'{bin} -> {major}.{minor}.{patch}.{beta}')
+    return (major, minor, patch, beta)
+
 
 async def main(request):
     response = """
@@ -62,8 +88,12 @@ async def list_beta(request):
 
 async def update(request):
     if request.path_params["filename"] == "latest":
-         filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
-         filenames = filter(lambda filename: not filename.startswith("4."), filenames)
+         filenames = sorted(
+            [file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))],
+            key=bin_sort, 
+            reverse=True
+            )
+         filenames = list(filter(lambda filename: not filename.startswith("4."), filenames))
          return FileResponse(f'{shared_path}/{filenames[0]}.bin')
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
@@ -71,9 +101,11 @@ async def update(request):
 async def update_beta(request):
     if request.path_params["filename"] == "latest_beta":
          filenames = sorted(
-            [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))]
-        )
-         filenames = filter(lambda filename: not filename.startswith("4."), filenames)
+            [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))],
+            key=bin_sort, 
+            reverse=True
+            )
+         filenames = list(filter(lambda filename: not filename.startswith("4."), filenames))
          return FileResponse(f'{shared_path}/{filenames[0]}.bin')
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
