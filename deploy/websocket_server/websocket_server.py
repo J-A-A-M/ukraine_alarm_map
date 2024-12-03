@@ -88,11 +88,9 @@ regions = {
 async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip, client_port = websocket.remote_address
     while True:
-        match client["firmware"]:
-            case "unknown":
-                client_id = client_port
-            case _:
-                client_id = client["firmware"]
+        if client["firmware"] == "unknown":
+            continue
+        client_id = client["firmware"]
         try:
             logger.debug(f"{client_ip}:{client_id}: check")
             match alert_version:
@@ -231,6 +229,7 @@ async def echo(websocket, path):
                         logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
                     case "firmware":
                         client["firmware"] = data
+                        client_id = client["firmware"]
                         parts = data.split("_", 1)
                         tracker.store.set_user_property("firmware_v", parts[0])
                         tracker.store.set_user_property("identifier", parts[1])
