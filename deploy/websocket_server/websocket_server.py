@@ -127,19 +127,21 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 logger.debug(f"{client_ip}:{client_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
-                temp_bins = json.loads(shared_data.bins)
+                temp_bins = list(json.loads(shared_data.bins))
                 if client["firmware"].startswith("3.") or client["firmware"].startswith("2.") or client["firmware"].startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest.bin")
+                temp_bins.sort(reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
-                temp_bins = json.loads(shared_data.test_bins)
+                temp_bins = list(json.loads(shared_data.test_bins))
                 if client["firmware"].startswith("3.") or client["firmware"].startswith("2.") or client["firmware"].startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest_beta.bin")
+                temp_bins.sort(reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
