@@ -85,14 +85,39 @@ regions = {
 }
 
 
+def bin_sort(bin):
+    if bin.startswith("latest"):
+        return (100, 0, 0, 0)
+    version = bin.removesuffix(".bin")
+    fw_beta = version.split("-")
+    fw = fw_beta[0]
+    if len(fw_beta) == 1:
+        beta = 0
+    else:
+        beta = int(fw_beta[1].removeprefix("b"))
+
+    major_minor_patch = fw.split(".")
+    major = int(major_minor_patch[0])
+    if len(major_minor_patch) == 1:
+        minor = 0
+        patch = 0
+    elif len(major_minor_patch) == 2:
+        minor = int(major_minor_patch[1])
+        patch = 0
+    else:
+        minor = int(major_minor_patch[1])
+        patch = int(major_minor_patch[2])
+
+    return (major, minor, patch, beta)
+
+
 async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip, client_port = websocket.remote_address
     while True:
-        match client["firmware"]:
-            case "unknown":
-                client_id = client_port
-            case _:
-                client_id = client["firmware"]
+        if client["firmware"] == "unknown":
+            await asyncio.sleep(0.1)
+            continue
+        client_id = client["firmware"]
         try:
             logger.debug(f"{client_ip}:{client_id}: check")
             match alert_version:
@@ -128,12 +153,30 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 logger.debug(f"{client_ip}:{client_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
-                payload = '{"payload": "bins", "bins": %s}' % shared_data.bins
+                temp_bins = list(json.loads(shared_data.bins))
+                if (
+                    client["firmware"].startswith("3.")
+                    or client["firmware"].startswith("2.")
+                    or client["firmware"].startswith("1.")
+                ):
+                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
+                    temp_bins.append("latest.bin")
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
-                payload = '{"payload": "test_bins", "test_bins": %s}' % shared_data.test_bins
+                temp_bins = list(json.loads(shared_data.test_bins))
+                if (
+                    client["firmware"].startswith("3.")
+                    or client["firmware"].startswith("2.")
+                    or client["firmware"].startswith("1.")
+                ):
+                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
+                    temp_bins.append("latest_beta.bin")
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
@@ -223,6 +266,7 @@ async def echo(websocket, path):
                         logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
                     case "firmware":
                         client["firmware"] = data
+                        client_id = client["firmware"]
                         parts = data.split("_", 1)
                         tracker.store.set_user_property("firmware_v", parts[0])
                         tracker.store.set_user_property("identifier", parts[1])
