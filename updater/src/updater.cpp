@@ -1,59 +1,89 @@
+#define JAAM_VERSION 2
+
 #include <WiFi.h>
-#include <HTTPClient.h>
-#include <Update.h>
+#include <HTTPUpdate.h>
 #include <Preferences.h>
+
+WiFiClient client;
 
 Preferences preferences;
 
 const char* ssid = ""; // Ваша WIFI-мережа
 const char* password = ""; // Пароль до WIFI мережі
-const char* firmwareUrl = "http://alerts.net.ua:8090/latest.bin";
+const char* userSsid = ""; // WIFI-мережа замовника
+const char* userPassword = ""; // Пароль до WIFI мережі замовника
+
+
+const char* firmwareUrl = "";
 
 String identifier = "github";
+
+void updateUserWifiCreds() {
+  Serial.println("Disconnecting from WiFi...");
+  bool disconnect = WiFi.disconnect(false, true);
+  Serial.println(disconnect ? "Disconnected from WiFi" : "Disconnect from WiFi failed");
+  if (userSsid != "" && userPassword != "") {
+    WiFi.begin(userSsid, userPassword);
+    WiFi.waitForConnectResult(10000);
+    Serial.printf("Saved User WiFi creds. SSID: %s\n", userSsid);
+  } else {
+    Serial.println("No User WiFi creds, erased..."); }
+}
 
 void updateFirmware() {
   preferences.begin("storage", false);
   preferences.putString("id", identifier);
+
+#if JAAM_VERSION == 1
+  // Default value for JAAM 1
+  preferences.putString("id", "JAAM");
+  preferences.putInt("legacy", 0); // JAAM 1
+
+  Serial.println("Default JAAM 1 settings applied...");
+
+#elif JAAM_VERSION == 2
+
+  // Default value for JAAM 2
+  preferences.putString("id", "JAAM2");
+  preferences.putInt("legacy", 3); // JAAM 2
+  preferences.putInt("brightness", 50); // global brightness in %
+  preferences.putInt("brd", 50); // day brightness in %
+  preferences.putInt("brn", 7); // night brightness in %
+  preferences.putInt("ddon", 1); // day/night mode for display (0 - off, 1 - on)
+  preferences.putInt("bra", 1); // brightness mode (0 - off, 1 - day/night, 2 - light sensor)
+  preferences.putInt("bs", 15); // service led brightness in %
+  preferences.putInt("mapmode", 1); // map mode (0 - off, 1 - alarms, 2 - weather, 3 - flag, 4 - random colors, 5 - lamp)
+  preferences.putInt("dm", 1); // display mode (0 - off, 1 - clock, 2 - weather, 3 - tech info, 4 - climate, 5 - combine)
+  preferences.putInt("dmt", 3); // display mode switch time in seconds
+  preferences.putInt("bm", 1); // button 1 click action (map mode switching)
+  preferences.putInt("b2m", 2); // button 2 click action (display mode switching)
+  preferences.putInt("hd", 25); // Kyiv
+  preferences.putInt("anm", 2); // alarm notify mode (0 - off, 1 - color, 2 - color + animation)
+  preferences.putInt("abt", 1); // alarm blink time in seconds
+  preferences.putInt("aas", 1); // auto alarm mode (0 - off, 1 - home + neighbors, 2 - home only)
+  preferences.putInt("sdm", 1); // service leds display mode (0 - off, 1 - on)
+  preferences.putInt("mos", 1); // minute of silence (0 - off, 1 - on)
+  preferences.putInt("somos", 1); // sounds on minute of silence (0 - off, 1 - on)
+  preferences.putInt("soa", 1); // sounds on alert (0 - off, 1 - on)
+  preferences.putInt("mson", 1); // mute sounds on night mode (0 - off, 1 - on)
+  preferences.putInt("mv", 60); // melody volume %
+  preferences.putInt("nfwn", 1); // notify on new firmware (0 - off, 1 - on)
+  preferences.putInt("fwuc", 0); // firmware update channel (0 - stable, 1 - beta)
+
+  Serial.println("Default JAAM 2 settings applied...");
+
+#endif
+
   preferences.end();
-  HTTPClient http;
-  http.begin(firmwareUrl);
-  Serial.println(firmwareUrl);
-  int httpCode = http.GET();
-  if (httpCode == 200) {
-    int contentLength = http.getSize();
-    bool canBegin = Update.begin(contentLength);
-    if (canBegin) {
-      size_t written = Update.writeStream(http.getStream());
-      if (written == contentLength) {
-        Serial.println("Written : " + String(written) + " successfully");
-      } else {
-        Serial.println("Written only : " + String(written) + "/" + String(contentLength) + " - Restarting");
-        ESP.restart();
-      }
-      if (Update.end()) {
-        Serial.println("OTA done!");
-        if (Update.isFinished()) {
-          Serial.println("Update successfully completed. Rebooting.");
-          ESP.restart();
-        } else {
-          Serial.println("Update not finished? Something went wrong! - Restarting");
-          ESP.restart();
-        }
-      } else {
-        Serial.println("Error Occurred. Error #: " + String(Update.getError()) + " - Restarting");
-        ESP.restart();
-      }
-    } else {
-      Serial.println("Not enough space to begin OTA - Restarting");
-      ESP.restart();
-    }
-  } else {
-    Serial.print("Error on HTTP request: ");
-    Serial.println(httpCode);
-    Serial.println("Restarting...");
-    ESP.restart();
+
+  if (firmwareUrl == "") {
+    Serial.println("No firmware URL provided, skipping firmware update...");
+    updateUserWifiCreds();
+    Serial.println("Now you can flash the firmware manually!");
+    return;
   }
-  http.end();
+
+  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrl);
 }
 
 void setup() {
@@ -61,7 +91,25 @@ void setup() {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.println("Connecting to WiFi...");
+    Serial.printf("Connecting to %s...\n", ssid);
+    httpUpdate.rebootOnUpdate(false);
+    httpUpdate.onStart([]() {
+      Serial.println("Firmware update started!");
+    });
+    httpUpdate.onProgress([](int progress, int total) {
+      if (total == 0) return;
+      char progressText[5];
+      Serial.printf("Progress: %d%%\n", progress / (total / 100));
+    });
+    httpUpdate.onEnd([]() {
+      Serial.println("Firmware update successfully completed!");
+      updateUserWifiCreds();
+      delay(1000);
+      ESP.restart();
+    });
+    httpUpdate.onError([](int error) {
+      Serial.printf("Firmware update error occurred. Error (%d): %s\n", error, httpUpdate.getLastErrorString().c_str());
+    });
   }
   Serial.println("Connected to WiFi");
 
