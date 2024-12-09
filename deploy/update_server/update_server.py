@@ -78,13 +78,22 @@ async def main(request):
 
 async def list(request):
     filenames = sorted(
-        [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))])
+        [
+            file
+            for file in os.listdir(shared_path)
+            if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
+        ]
+    )
     return JSONResponse(filenames)
 
 
 async def list_beta(request):
     filenames = sorted(
-        [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))]
+        [
+            file
+            for file in os.listdir(shared_beta_path)
+            if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
+        ]
     )
     return JSONResponse(filenames)
 
@@ -92,7 +101,11 @@ async def list_beta(request):
 async def update(request):
     if request.path_params["filename"] == "latest":
         filenames = sorted(
-            [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))],
+            [
+                file
+                for file in os.listdir(shared_path)
+                if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
+            ],
             key=bin_sort,
             reverse=True,
         )
@@ -104,7 +117,11 @@ async def update(request):
 async def update_beta(request):
     if request.path_params["filename"] == "latest_beta":
         filenames = sorted(
-            [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))],
+            [
+                file
+                for file in os.listdir(shared_beta_path)
+                if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
+            ],
             key=bin_sort,
             reverse=True,
         )
@@ -124,10 +141,18 @@ async def spiffs_update_beta(request):
 async def update_cache():
     mc = Client(memcached_host, 11211)
     filenames = sorted(
-        [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))]
-        )
+        [
+            file
+            for file in os.listdir(shared_path)
+            if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
+        ]
+    )
     beta_filenames = sorted(
-        [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))]
+        [
+            file
+            for file in os.listdir(shared_beta_path)
+            if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
+        ]
     )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
