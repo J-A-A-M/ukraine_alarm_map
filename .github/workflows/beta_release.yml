@@ -32,13 +32,13 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-      - name: Leave only 3 recent BETA builds
-        run: |
-          cd ${{ github.workspace }}/bin_beta/
-          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-          cd ${{ github.workspace }}
+      # Disabled for now
+      # - name: Leave only 3 recent BETA builds
+      #   run: |
+      #     cd ${{ github.workspace }}/bin_beta/
+      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
+      #     cd ${{ github.workspace }}
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
