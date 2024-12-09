@@ -366,7 +366,9 @@ async def drones_v3(request):
 async def etryvoga_full(request):
     if request.path_params["token"] == data_token:
         etryvoga_full = await mc.get(b"etryvoga_full")
-        return JSONResponse(json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"})
+        return JSONResponse(
+            json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"}
+        )
     else:
         return JSONResponse({})
 
