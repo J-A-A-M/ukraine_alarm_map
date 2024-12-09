@@ -20,6 +20,7 @@ test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
 api_secret = os.environ.get("API_SECRET") or ""
 measurement_id = os.environ.get("MEASUREMENT_ID") or ""
 environment = os.environ.get("ENVIRONMENT") or "PROD"
+geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
-geo = database.Reader("GeoLite2-City.mmdb")
+geo = database.Reader(geo_lite_db_path)
 
 
 class SharedData:

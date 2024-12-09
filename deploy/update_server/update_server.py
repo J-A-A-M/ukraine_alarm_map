@@ -14,6 +14,7 @@ from starlette.requests import Request
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
+port = os.environ.get("PORT") or 8090
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
@@ -76,13 +77,14 @@ async def main(request):
 
 
 async def list(request):
-    filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
+    filenames = sorted(
+        [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))])
     return JSONResponse(filenames)
 
 
 async def list_beta(request):
     filenames = sorted(
-        [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))]
+        [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))]
     )
     return JSONResponse(filenames)
 
@@ -90,7 +92,7 @@ async def list_beta(request):
 async def update(request):
     if request.path_params["filename"] == "latest":
         filenames = sorted(
-            [file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))],
+            [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))],
             key=bin_sort,
             reverse=True,
         )
@@ -102,7 +104,7 @@ async def update(request):
 async def update_beta(request):
     if request.path_params["filename"] == "latest_beta":
         filenames = sorted(
-            [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))],
+            [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))],
             key=bin_sort,
             reverse=True,
         )
@@ -121,9 +123,11 @@ async def spiffs_update_beta(request):
 
 async def update_cache():
     mc = Client(memcached_host, 11211)
-    filenames = sorted([file for file in os.listdir(shared_path) if os.path.isfile(os.path.join(shared_path, file))])
+    filenames = sorted(
+        [file for file in os.listdir(shared_path) if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))]
+        )
     beta_filenames = sorted(
-        [file for file in os.listdir(shared_beta_path) if os.path.isfile(os.path.join(shared_beta_path, file))]
+        [file for file in os.listdir(shared_beta_path) if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))]
     )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
@@ -146,4 +150,4 @@ app = Starlette(
 
 if __name__ == "__main__":
     asyncio.run(update_cache())
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=port)
