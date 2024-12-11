@@ -154,10 +154,7 @@ async def update_cache():
         ]
     )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
-    logger.debug(f"Updated cache with {len(filenames)} bins")
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
-    logger.debug(f"Updated cache with {len(beta_filenames)} test bins")
-    await asyncio.sleep(1000)
 
 
 app = Starlette(
