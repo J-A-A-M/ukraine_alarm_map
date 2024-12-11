@@ -109,8 +109,8 @@ async def update(request):
             key=bin_sort,
             reverse=True,
         )
-        filenames = list(filter(lambda filename: not filename.startswith("4."), filenames))
-        return FileResponse(f"{shared_path}/{filenames[0]}.bin")
+        filenames = [filename for filename in filenames if not filename.startswith("4.")]
+        return FileResponse(f"{shared_path}/{filenames[0]}")
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
@@ -125,8 +125,8 @@ async def update_beta(request):
             key=bin_sort,
             reverse=True,
         )
-        filenames = list(filter(lambda filename: not filename.startswith("4."), filenames))
-        return FileResponse(f"{shared_path}/{filenames[0]}.bin")
+        filenames = [filename for filename in filenames if not filename.startswith("4.")]
+        return FileResponse(f"{shared_path}/{filenames[0]}")
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 
