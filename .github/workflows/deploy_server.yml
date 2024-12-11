@@ -53,6 +53,7 @@ jobs:
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
               key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
                 cd ukraine_alarm_map/deploy/
@@ -65,6 +66,7 @@ jobs:
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
               key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
                 cd ukraine_alarm_map/deploy/
@@ -77,6 +79,7 @@ jobs:
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
               key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
                 cd ukraine_alarm_map/deploy/
@@ -89,6 +92,7 @@ jobs:
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
               key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
                 cd ukraine_alarm_map/deploy/
