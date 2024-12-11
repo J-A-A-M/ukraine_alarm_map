@@ -6,10 +6,10 @@ on:
         type: boolean
         default: false
         description: Redeploy all (be careful!)
-      redeploy_tcp_sockets:
-        type: boolean
-        default: false
-        description: TCP Sockets
+      # redeploy_tcp_sockets:
+      #   type: boolean
+      #   default: false
+      #   description: TCP Sockets
       redeploy_web_sockets:
         type: boolean
         default: false
@@ -48,19 +48,19 @@ jobs:
     deploy_microservices:
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy TCP Sockets
-            if: ${{ inputs.redeploy_tcp_sockets || inputs.redeploy_all }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.GOOGLE_CLOUD_IP }}
-              username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
-              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
-              script: |
-                cd ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_tcp_server.sh -m ${{ secrets.MEMCACHED_HOST }}
+          # - name: Redeploy TCP Sockets
+          #   if: ${{ inputs.redeploy_tcp_sockets || inputs.redeploy_all }}
+          #   uses: appleboy/ssh-action@v1.2.0
+          #   with:
+          #     host: ${{ secrets.GOOGLE_CLOUD_IP }}
+          #     username: ${{ secrets.GOOGLE_CLOUD_SSH_USER }}
+          #     key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
+          #     script: |
+          #       cd ukraine_alarm_map/deploy/
+          #       git fetch --all
+          #       git switch ${{ github.ref_name }}
+          #       git pull
+          #       bash redeploy_tcp_server.sh -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy WebSockets
             if: ${{ inputs.redeploy_web_sockets || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.2.0
@@ -86,7 +86,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_update_server.sh -s 'ukraine_alarm_map/bin' -sb 'ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
+                bash redeploy_update_server.sh -s '/home/jaam/ukraine_alarm_map' -sb '/home/jaam/ukraine_alarm_map' -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.2.0
