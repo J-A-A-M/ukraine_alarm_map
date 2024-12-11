@@ -19,7 +19,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Copy bin to flesher
+    - name: Copy bin to flasher
       if: ${{ inputs.binary_path != '' }}
       shell: bash
       run: |

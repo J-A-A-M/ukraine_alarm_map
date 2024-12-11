@@ -215,7 +215,7 @@ async def alerts_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v2(request):
@@ -228,7 +228,7 @@ async def alerts_v2(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v3(request):
@@ -246,7 +246,7 @@ async def alerts_v3(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def weather_v1(request):
@@ -259,7 +259,7 @@ async def weather_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def etryvoga_v1(cached):
@@ -320,53 +320,55 @@ def etryvoga_v3(cached):
 
 async def explosives_v1(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v2(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v3(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v1(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v2(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v3(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v1(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v2(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v3(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def etryvoga_full(request):
     if request.path_params["token"] == data_token:
         etryvoga_full = await mc.get(b"etryvoga_full")
-        return JSONResponse(json.loads(etryvoga_full.decode("utf-8")))
+        return JSONResponse(
+            json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"}
+        )
     else:
         return JSONResponse({})
 
@@ -381,7 +383,7 @@ async def tcp_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse({"tcp_stored_data": cached_data})
+    return JSONResponse({"tcp_stored_data": cached_data}, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def get_local_time_formatted():

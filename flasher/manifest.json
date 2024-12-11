@@ -9,8 +9,8 @@
         "chipFamily": "ESP32",
         "improv": false,
         "parts": [
-          { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
-          { "path": "bins/jaam.partitions.bin", "offset": 32768 },
+          { "path": "bins/jaam.bootloader.old.bin", "offset": 4096 },
+          { "path": "bins/jaam.partitions.old.bin", "offset": 32768 },
           { "path": "bins/jaam.boot.bin", "offset": 57344 },
           { "path": "bins/jaam.bin", "offset": 65536 }
         ]

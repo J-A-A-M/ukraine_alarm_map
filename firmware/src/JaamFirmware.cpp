@@ -983,11 +983,13 @@ void handleClick(int event, SoundType soundType) {
     case 7:
       rebootDevice();
       break;
-  #if FW_UPDATE_ENABLED
+#if FW_UPDATE_ENABLED
     case 100:
-      downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
+      char updateFileName[30];
+      sprintf(updateFileName, "%s.bin", newFwVersion);
+      downloadAndUpdateFw(updateFileName, settings.fw_update_channel == 1);
       break;
-  #endif
+#endif
     default:
       // do nothing
       break;
@@ -2120,7 +2122,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
     response->print("<option value='");
     response->print(filename);
     response->print("'");
-    if (filename == "latest.bin" || filename == "latest_beta.bin") response->print(" selected");
+    if (i == 0) response->print(" selected");
     response->print(">");
     response->print(filename);
     response->println("</option>");

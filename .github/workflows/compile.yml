@@ -56,7 +56,7 @@
           - name: Copy bin file
             run: |
               cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-jaam2-test.bin
-          - name: Upload firmware lite
+          - name: Upload JAAM 2 test firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware-jaam2-test.bin
