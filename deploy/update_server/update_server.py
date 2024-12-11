@@ -126,7 +126,7 @@ async def update_beta(request):
             reverse=True,
         )
         filenames = [filename for filename in filenames if not filename.startswith("4.")]
-        return FileResponse(f"{shared_path}/{filenames[0]}")
+        return FileResponse(f"{shared_beta_path}/{filenames[0]}")
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 
