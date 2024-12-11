@@ -86,7 +86,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
+                bash redeploy_update_server.sh -s 'ukraine_alarm_map/bin' -sb 'ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.2.0
