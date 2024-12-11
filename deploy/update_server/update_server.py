@@ -14,7 +14,7 @@ from starlette.requests import Request
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
-port = os.environ.get("PORT") or 8090
+port = int(os.environ.get("PORT", 8090))
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
@@ -63,7 +63,6 @@ def bin_sort(bin):
         minor = int(major_minor_patch[1])
         patch = int(major_minor_patch[2])
 
-    print(f"{bin} -> {major}.{minor}.{patch}.{beta}")
     return (major, minor, patch, beta)
 
 
@@ -139,7 +138,7 @@ async def spiffs_update_beta(request):
 
 
 async def update_cache():
-    mc = Client(memcached_host, 11211)
+    mc = Client(memcached_host, memcached_port)
     filenames = sorted(
         [
             file
@@ -155,7 +154,10 @@ async def update_cache():
         ]
     )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
+    logger.debug(f"Updated cache with {len(filenames)} bins")
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
+    logger.debug(f"Updated cache with {len(beta_filenames)} test bins")
+    await asyncio.sleep(1000)
 
 
 app = Starlette(
