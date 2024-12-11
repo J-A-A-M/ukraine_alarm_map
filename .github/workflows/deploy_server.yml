@@ -52,11 +52,10 @@ jobs:
             if: ${{ inputs.redeploy_tcp_sockets || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -65,11 +64,10 @@ jobs:
             if: ${{ inputs.redeploy_web_sockets || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -78,11 +76,10 @@ jobs:
             if: ${{ inputs.redeploy_update_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -91,11 +88,10 @@ jobs:
             if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -104,11 +100,10 @@ jobs:
             if: ${{ inputs.redeploy_weather || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -117,11 +112,10 @@ jobs:
             if: ${{ inputs.redeploy_updater || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -130,11 +124,10 @@ jobs:
             if: ${{ inputs.redeploy_svg_generator || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -143,11 +136,10 @@ jobs:
             if: ${{ inputs.redeploy_etryvoga || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
@@ -156,11 +148,10 @@ jobs:
             if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
             uses: appleboy/ssh-action@v1.0.3
             with:
-              host: ${{ secrets.SERVER_IP }}
-              username: ${{ secrets.SERVER_SSH_USER }}
-              password: ${{ secrets.SERVER_SSH_PASSWORD }}
+              host: ${{ secrets.GOOGLE_CLOUD_IP }}
+              key: ${{ secrets.GOOGLE_PRIVATE_SSH }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
+                cd ukraine_alarm_map/deploy/
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
