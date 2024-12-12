@@ -148,12 +148,12 @@ async def main(request):
             </div>
             <div class='row'>
                 <div class='p-3 col-md-6 offset-md-3 center'>
-                    <h4 class='text-center'>--> <a href='https://flasher.alerts.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
+                    <h4 class='text-center'>--> <a href='https://flasher.jaam.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
                 </div>
                 <div class='col-md-6 offset-md-3'>
                     <p>Корисні посилання:</p>
                     <ul>
-                        <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
+                        <li><a href="https://github.com/J-A-A-M/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
                         <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li> 
                         <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>                             
                     </ul>
