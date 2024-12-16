@@ -83,7 +83,7 @@ regions = {
 class LogUserIPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         start_time = time.time()
-        client_ip = request.client.host
+        client_ip = request.headers["CF-Connecting-IP"]
         client_path = request.url.path
 
         match client_path:
@@ -494,8 +494,10 @@ async def dataparcer(clients, connection_type):
                 "version": version,
                 "id": plate_id,
                 "chip_id": data.get("chip_id"),
+                "country": data.get("country"),
                 "district": data.get("region"),
                 "city": data.get("city"),
+                "timezone": data.get("timezone"),
                 "connection": connection_type,
             }
         )

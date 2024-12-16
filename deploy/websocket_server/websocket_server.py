@@ -6,7 +6,7 @@ import json
 import random
 import threading
 from aiomcache import Client
-from geoip2 import database, errors
+# from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
-geo = database.Reader(geo_lite_db_path)
+# geo = database.Reader(geo_lite_db_path)
 
 
 class SharedData:
@@ -203,15 +203,19 @@ async def echo(websocket, path):
         logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
         return
 
-    try:
-        response = geo.city(client_ip)
-        city = response.city.name or "not-in-db"
-        region = response.subdivisions.most_specific.name or "not-in-db"
-        country = response.country.iso_code or "not-in-db"
-    except errors.AddressNotFoundError:
-        city = "not-found"
-        region = "not-found"
-        country = "not-found"
+    # try:
+        # response = geo.city(client_ip)
+        # city = response.city.name or "not-in-db"
+        # region = response.subdivisions.most_specific.name or "not-in-db"
+        # country = response.country.iso_code or "not-in-db"
+    country = websocket.request_headers["cf-ipcountry"]
+    region = websocket.request_headers["cf-region"]
+    city = websocket.request_headers["cf-ipcity"]
+    timezone = websocket.request_headers["cf-timezone"]
+    # except errors.AddressNotFoundError:
+        # city = "not-found"
+        # region = "not-found"
+        # country = "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
@@ -229,6 +233,7 @@ async def echo(websocket, path):
         "city": city,
         "region": region,
         "country": country,
+        "timezone": timezone,
     }
 
     tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
