@@ -83,7 +83,7 @@ regions = {
 class LogUserIPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         start_time = time.time()
-        client_ip = request.headers["CF-Connecting-IP"]
+        client_ip = request.headers.get("CF-Connecting-IP", request.client.host)
         client_path = request.url.path
 
         match client_path:
