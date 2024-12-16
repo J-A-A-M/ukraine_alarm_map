@@ -113,7 +113,7 @@ def bin_sort(bin):
 
 
 async def alerts_data(websocket, client, shared_data, alert_version):
-    client_ip = websocket.headers.get("X-Real-IP")
+    client_ip = websocket.request.headers["X-Real-IP"]
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.1)
@@ -196,7 +196,7 @@ def send_google_stat(tracker, event):
 async def echo(websocket, path):
     nginx_ip, client_port = websocket.remote_address
     # get real header from websocket
-    client_ip = websocket.headers.get("X-Real-IP")
+    client_ip = websocket.request.headers["X-Real-IP"]
     logger.debug(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
