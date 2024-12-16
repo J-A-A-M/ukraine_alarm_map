@@ -45,9 +45,9 @@ struct Settings {
   char    devicedescription[51]  = "JAAM Informer";
   char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "alerts.net.ua";
-  int     websocket_port         = 38440;
-  int     updateport             = 8090;
+  char    serverhost[31]         = "jaam.net.ua";
+  int     websocket_port         = 2053;
+  int     updateport             = 2096;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
@@ -168,7 +168,7 @@ using namespace websockets;
 
 Preferences       preferences;
 WiFiManager       wm;
-WiFiClient        client;
+WiFiClientSecure  client;
 WebsocketsClient  client_websocket;
 AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
@@ -820,12 +820,13 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+  client.setCACert(jaam_cert);
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
   Serial.println("Building spiffs url...");
-  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
+  sprintf(spiffUrlChar, "https://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
   Serial.println("Building firmware url...");
-  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
+  sprintf(firmwareUrlChar, "https://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
 
   Serial.printf("Spiffs url: %s\n", spiffUrlChar);
   t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
@@ -2589,8 +2590,9 @@ void socketConnect() {
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
   char webSocketUrl[100];
-  sprintf(webSocketUrl, "ws://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
+  sprintf(webSocketUrl, "wss://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
   Serial.println(webSocketUrl);
+  client_websocket.setCACert(jaam_cert);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
     Serial.print("connection time - ");
