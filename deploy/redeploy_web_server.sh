@@ -64,7 +64,7 @@ docker rm map_web_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_web_server --restart unless-stopped -d -p "$PORT":8080 -v /shared_data:/shared_data --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_web_server
+docker run --name map_web_server --restart unless-stopped --network=jaam -d -v /shared_data:/shared_data --env PORT="$PORT" --env DATA_TOKEN="$DATA_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_web_server
 
 echo "Container deployed successfully!"
 

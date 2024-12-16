@@ -60,7 +60,7 @@ docker rm map_weather || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_weather --restart unless-stopped -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_weather
+docker run --name map_weather --restart unless-stopped --network=jaam -d --env WEATHER_PERIOD="$WEATHER_PERIOD" --env WEATHER_TOKEN="$WEATHER_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_weather
 
 echo "Container deployed successfully!"
 

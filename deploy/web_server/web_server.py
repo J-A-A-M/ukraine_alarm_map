@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
+port = int(os.environ.get("PORT", 8080))
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
@@ -564,4 +565,4 @@ app = Starlette(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -70,7 +70,7 @@ docker rm map_update_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_update_server --restart unless-stopped -d -p "$PORT":"$PORT"  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env PORT="$PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_update_server
+docker run --name map_update_server --restart unless-stopped --network=jaam -d  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env PORT="$PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_update_server
 
 echo "Container deployed successfully!"
 

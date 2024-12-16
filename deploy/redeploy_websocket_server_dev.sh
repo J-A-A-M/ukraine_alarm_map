@@ -88,7 +88,7 @@ docker rm map_websocket_server_dev || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server_dev --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env TEST_MODE="$TEST_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" --env LOGGING="$LOGGING" map_websocket_server_dev
+docker run --name map_websocket_server_dev --restart unless-stopped --network=jaam  -d --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env TEST_MODE="$TEST_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" --env LOGGING="$LOGGING" map_websocket_server_dev
 
 echo "Container deployed successfully!"
 
