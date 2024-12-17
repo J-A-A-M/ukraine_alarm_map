@@ -218,9 +218,9 @@ async def echo(websocket, path):
             timezone = timezone or response.location.time_zone or "not-in-db"
         except errors.AddressNotFoundError:
             city = city or "not-found"
-            region = region or  "not-found"
-            country = country or  "not-found"
-            timezone = timezone or  "not-found"
+            region = region or "not-found"
+            country = country or "not-found"
+            timezone = timezone or "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
