@@ -7,7 +7,7 @@ import random
 import threading
 from aiomcache import Client
 
-# from geoip2 import database, errors
+from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
-# geo = database.Reader(geo_lite_db_path)
+geo = database.Reader(geo_lite_db_path)
 
 
 class SharedData:
@@ -114,7 +114,7 @@ def bin_sort(bin):
 
 
 async def alerts_data(websocket, client, shared_data, alert_version):
-    client_ip = websocket.request_headers["CF-Connecting-IP"]
+    client_ip = websocket.request_headers["CF-Connecting-IP"] or websocket.remote_address[0]
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.1)
@@ -197,26 +197,30 @@ def send_google_stat(tracker, event):
 async def echo(websocket, path):
     client_port = websocket.remote_address[1]
     # get real header from websocket
-    client_ip = websocket.request_headers["CF-Connecting-IP"]
+    client_ip = websocket.request_headers["CF-Connecting-IP"] or websocket.remote_address[0]
     logger.info(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
         logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
         return
 
-    # try:
-    # response = geo.city(client_ip)
-    # city = response.city.name or "not-in-db"
-    # region = response.subdivisions.most_specific.name or "not-in-db"
-    # country = response.country.iso_code or "not-in-db"
     country = websocket.request_headers["cf-ipcountry"]
     region = websocket.request_headers["cf-region"]
     city = websocket.request_headers["cf-ipcity"]
     timezone = websocket.request_headers["cf-timezone"]
-    # except errors.AddressNotFoundError:
-    # city = "not-found"
-    # region = "not-found"
-    # country = "not-found"
+
+    if not country or not region or not city or not timezone:
+        try:
+            response = geo.city(client_ip)
+            city = response.city.name or "not-in-db"
+            region = response.subdivisions.most_specific.name or "not-in-db"
+            country = response.country.iso_code or "not-in-db"
+            timezone = response.location.time_zone or "not-in-db"
+        except errors.AddressNotFoundError:
+            city = "not-found"
+            region = "not-found"
+            country = "not-found"
+            timezone = "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
