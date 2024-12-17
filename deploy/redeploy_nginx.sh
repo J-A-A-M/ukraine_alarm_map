@@ -65,7 +65,7 @@ git pull
 
 # Copying nginx config to the target
 echo "Copying nginx config to the target..."
-yes | cp -rf nginx/nginx.conf /root/nginx/nginx.conf
+yes | cp -rf nginx/nginx.conf $CONFIG_PATH/nginx.conf
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
