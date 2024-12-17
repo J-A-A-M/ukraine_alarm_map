@@ -6,6 +6,7 @@ import json
 import random
 import threading
 from aiomcache import Client
+
 # from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
@@ -204,18 +205,18 @@ async def echo(websocket, path):
         return
 
     # try:
-        # response = geo.city(client_ip)
-        # city = response.city.name or "not-in-db"
-        # region = response.subdivisions.most_specific.name or "not-in-db"
-        # country = response.country.iso_code or "not-in-db"
+    # response = geo.city(client_ip)
+    # city = response.city.name or "not-in-db"
+    # region = response.subdivisions.most_specific.name or "not-in-db"
+    # country = response.country.iso_code or "not-in-db"
     country = websocket.request_headers["cf-ipcountry"]
     region = websocket.request_headers["cf-region"]
     city = websocket.request_headers["cf-ipcity"]
     timezone = websocket.request_headers["cf-timezone"]
     # except errors.AddressNotFoundError:
-        # city = "not-found"
-        # region = "not-found"
-        # country = "not-found"
+    # city = "not-found"
+    # region = "not-found"
+    # country = "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
