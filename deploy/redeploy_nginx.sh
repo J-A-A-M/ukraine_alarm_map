@@ -3,11 +3,11 @@
 # Default values
 CONFIG_PATH=""
 LOGGING_PATH=""
-WEB_SERVER_PORT="80"
-WEB_SERVER_SECURE_PORT="443"
-UPDATER_SERVER_PORT="2096"
-WEBSOCKET_SERVER_PORT="2053"
-WEBSOCKET_DEV_SERVER_PORT="2083"
+WEB_SERVER_PORT=80
+WEB_SERVER_SECURE_PORT=443
+UPDATER_SERVER_PORT=2096
+WEBSOCKET_SERVER_PORT=2053
+WEBSOCKET_DEV_SERVER_PORT=2083
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -74,7 +74,7 @@ docker rm nginx || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name nginx --restart unless-stopped --network=jaam -d --env TZ="Europe/Kyiv"  -p $WEB_SERVER_PORT:$WEB_SERVER_PORT -p $WEB_SERVER_SECURE_PORT:$WEB_SERVER_SECURE_PORT -p $UPDATER_SERVER_PORT:$UPDATER_SERVER_PORT -p $WEBSOCKET_SERVER_PORT:$WEBSOCKET_SERVER_PORT -p $WEBSOCKET_DEV_SERVER_PORT:$WEBSOCKET_DEV_SERVER_PORT -v $CONFIG_PATH:/etc/nginx nginx -v $LOGGING_PATH:/var/log/nginx nginx:latest
+docker run --name nginx --restart unless-stopped --network=jaam -d --env TZ="Europe/Kyiv"  -p "$WEB_SERVER_PORT":"$WEB_SERVER_PORT" -p "$WEB_SERVER_SECURE_PORT":"$WEB_SERVER_SECURE_PORT" -p "$UPDATER_SERVER_PORT":"$UPDATER_SERVER_PORT" -p "$WEBSOCKET_SERVER_PORT":"$WEBSOCKET_SERVER_PORT" -p "$WEBSOCKET_DEV_SERVER_PORT":"$WEBSOCKET_DEV_SERVER_PORT" -v "$CONFIG_PATH":/etc/nginx nginx -v "$LOGGING_PATH":/var/log/nginx nginx:latest
 
 echo "Container deployed successfully!"
 
