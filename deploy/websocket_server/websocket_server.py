@@ -198,7 +198,7 @@ async def echo(websocket, path):
     client_port = websocket.remote_address[1]
     # get real header from websocket
     client_ip = websocket.request_headers["CF-Connecting-IP"]
-    logger.debug(f"{client_ip}:{client_port} >>> new client")
+    logger.info(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
         logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
