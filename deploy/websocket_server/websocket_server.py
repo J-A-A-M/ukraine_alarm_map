@@ -206,10 +206,12 @@ async def echo(websocket, path):
         city = response.city.name or "not-in-db"
         region = response.subdivisions.most_specific.name or "not-in-db"
         country = response.country.iso_code or "not-in-db"
+        timezone = response.location.time_zone or "not-in-db"
     except errors.AddressNotFoundError:
         city = "not-found"
         region = "not-found"
         country = "not-found"
+        timezone = "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
@@ -227,6 +229,7 @@ async def echo(websocket, path):
         "city": city,
         "region": region,
         "country": country,
+        "timezone": timezone,
     }
 
     tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
