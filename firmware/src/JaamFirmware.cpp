@@ -49,8 +49,8 @@ struct Settings {
   int     use_secure_connection  = 1;
   int     websocket_port_secure  = 2053;
   int     updateport_secure      = 2096;
-  int     websocket_port         = 38440;
-  int     updateport             = 8090;
+  int     websocket_port         = 2052;
+  int     updateport             = 2095;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
