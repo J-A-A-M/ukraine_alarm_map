@@ -45,9 +45,12 @@ struct Settings {
   char    devicedescription[51]  = "JAAM Informer";
   char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "alerts.net.ua";
-  int     websocket_port         = 38440;
-  int     updateport             = 8090;
+  char    serverhost[31]         = "jaam.net.ua";
+  int     use_secure_connection  = 1;
+  int     websocket_port_secure  = 2053;
+  int     updateport_secure      = 2096;
+  int     websocket_port         = 2052;
+  int     updateport             = 2095;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
@@ -169,6 +172,7 @@ using namespace websockets;
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
+WiFiClientSecure  clientSecure;
 WebsocketsClient  client_websocket;
 AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
@@ -820,19 +824,48 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+  Serial.println("Starting firmware update...");
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
+
   Serial.println("Building spiffs url...");
-  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
+  sprintf(
+    spiffUrlChar, 
+    settings.use_secure_connection ? "https://%s:%d%s%s" : "http://%s:%d%s%s", 
+    settings.serverhost, 
+    settings.use_secure_connection ? settings.updateport_secure : settings.updateport,
+    isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_",
+    binFileName
+  );
+
   Serial.println("Building firmware url...");
-  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
+  sprintf(
+    firmwareUrlChar,
+    settings.use_secure_connection ? "https://%s:%d%s%s" : "http://%s:%d%s%s", 
+    settings.serverhost,
+    settings.use_secure_connection ? settings.updateport_secure : settings.updateport,
+    isBeta ? "/beta/" : "/",
+    binFileName
+  );
+
+  if (settings.use_secure_connection) {
+    clientSecure.setCACert(jaam_cert);
+  }
 
   Serial.printf("Spiffs url: %s\n", spiffUrlChar);
-  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
+  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(
+    settings.use_secure_connection ? clientSecure : client,
+    spiffUrlChar,
+    VERSION
+    );
   handleUpdateStatus(spiffsRet, true);
 
   Serial.printf("Firmware url: %s\n", firmwareUrlChar);
-  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
+  t_httpUpdate_return fwRet = httpUpdate.update(
+    settings.use_secure_connection ? clientSecure : client,
+    firmwareUrlChar,
+    VERSION
+    );
   handleUpdateStatus(fwRet, false);
 }
 
@@ -2052,8 +2085,11 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 65);
   }
   addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
+  addCheckbox(response, "use_secure_connection", settings.use_secure_connection, "Використовувати зашифроване зʼєднання з сервером даних");
   addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
+  addInputText(response, "websocket_port_secure", "Порт Websockets (зашифроване зʼєднання)", "number", String(settings.websocket_port_secure).c_str());
   addInputText(response, "websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
+  addInputText(response, "updateport_secure", "Порт сервера прошивок (зашифроване зʼєднання)", "number", String(settings.updateport_secure).c_str());
   addInputText(response, "updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
   addInputText(response, "devicename", "Назва пристрою", "text", settings.devicename, 30);
   addInputText(response, "devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
@@ -2387,8 +2423,11 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
   reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "host") || reboot;
   reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
-  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
-  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
+  reboot = saveBool(request->getParam("use_secure_connection", true), "use_secure_connection", &settings.use_secure_connection, "usc") || reboot;
+  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsnp") || reboot;
+  reboot = saveInt(request->getParam("websocket_port_secure", true), &settings.websocket_port_secure, "wsnps") || reboot;
+  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upp") || reboot;
+  reboot = saveInt(request->getParam("updateport_secure", true), &settings.updateport_secure, "upps") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
@@ -2589,7 +2628,16 @@ void socketConnect() {
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
   char webSocketUrl[100];
-  sprintf(webSocketUrl, "ws://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
+  sprintf(
+    webSocketUrl,
+    settings.use_secure_connection ? "wss://%s:%d/data_v2" : "ws://%s:%d/data_v2",
+    settings.serverhost,
+    settings.use_secure_connection ? settings.websocket_port_secure : settings.websocket_port
+  );
+  if (settings.use_secure_connection) {
+    Serial.println("Using secure connection");
+    client_websocket.setCACert(jaam_cert);
+  }
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
@@ -2997,8 +3045,11 @@ void initSettings() {
   preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
   preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
   preferences.getString("id", settings.identifier, sizeof(settings.identifier));
-  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
-  settings.updateport             = preferences.getInt("upport", settings.updateport);
+  settings.use_secure_connection  = preferences.getInt("usc", settings.use_secure_connection);
+  settings.websocket_port         = preferences.getInt("wsnp", settings.websocket_port);
+  settings.updateport             = preferences.getInt("upp", settings.updateport);
+  settings.websocket_port_secure  = preferences.getInt("wsnps", settings.websocket_port_secure);
+  settings.updateport_secure      = preferences.getInt("upps", settings.updateport_secure);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);

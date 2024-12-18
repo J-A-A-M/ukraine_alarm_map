@@ -1,0 +1,29 @@
+name: 🌐 Deploy Nginx
+on:
+  workflow_dispatch:
+
+run-name: Deploy Nginx from '${{ github.ref_name }}' branch
+jobs:
+    deploy_nginx:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy Nginx
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_nginx.sh -c ${{ secrets.CLOUD_NGINX_CONFIG }} -l ${{ secrets.CLOUD_NGINX_LOGS }}
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f

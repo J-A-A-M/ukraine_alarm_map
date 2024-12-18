@@ -6,6 +6,7 @@ import json
 import random
 import threading
 from aiomcache import Client
+
 from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
@@ -113,7 +114,7 @@ def bin_sort(bin):
 
 
 async def alerts_data(websocket, client, shared_data, alert_version):
-    client_ip, client_port = websocket.remote_address
+    client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.1)
@@ -194,24 +195,33 @@ def send_google_stat(tracker, event):
 
 
 async def echo(websocket, path):
-    client_ip, client_port = websocket.remote_address
-    logger.debug(f"{client_ip}:{client_port} >>> new client")
+    client_port = websocket.remote_address[1]
+    # get real header from websocket
+    client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
+    secure_connection = websocket.request_headers.get("X-Connection-Secure", "false")
+    logger.info(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
         logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
         return
 
-    try:
-        response = geo.city(client_ip)
-        city = response.city.name or "not-in-db"
-        region = response.subdivisions.most_specific.name or "not-in-db"
-        country = response.country.iso_code or "not-in-db"
-        timezone = response.location.time_zone or "not-in-db"
-    except errors.AddressNotFoundError:
-        city = "not-found"
-        region = "not-found"
-        country = "not-found"
-        timezone = "not-found"
+    country = websocket.request_headers.get("cf-ipcountry", None)
+    region = websocket.request_headers.get("cf-region", None)
+    city = websocket.request_headers.get("cf-ipcity", None)
+    timezone = websocket.request_headers.get("cf-timezone", None)
+
+    if not country or not region or not city or not timezone:
+        try:
+            response = geo.city(client_ip)
+            city = city or response.city.name or "not-in-db"
+            region = region or response.subdivisions.most_specific.name or "not-in-db"
+            country = country or response.country.iso_code or "not-in-db"
+            timezone = timezone or response.location.time_zone or "not-in-db"
+        except errors.AddressNotFoundError:
+            city = city or "not-found"
+            region = region or "not-found"
+            country = country or "not-found"
+            timezone = timezone or "not-found"
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
@@ -230,6 +240,7 @@ async def echo(websocket, path):
         "region": region,
         "country": country,
         "timezone": timezone,
+        "secure_connection": secure_connection,
     }
 
     tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(

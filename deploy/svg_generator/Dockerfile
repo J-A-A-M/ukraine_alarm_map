@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+ENV TZ="Europe/Kyiv"
 COPY svg_generator.py .
 RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
     apt-get update && apt-get install --no-install-recommends -y libcairo2 && \

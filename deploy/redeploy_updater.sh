@@ -54,7 +54,7 @@ docker rm map_updater || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_updater --restart unless-stopped -d --env UPDATER_PERIOD="$UPDATER_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_updater
+docker run --name map_updater --restart unless-stopped --network=jaam -d --env UPDATER_PERIOD="$UPDATER_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_updater
 
 echo "Container deployed successfully!"
 

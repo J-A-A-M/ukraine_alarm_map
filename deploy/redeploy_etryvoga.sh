@@ -72,7 +72,7 @@ docker rm map_etryvoga || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_etryvoga --restart unless-stopped -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
+docker run --name map_etryvoga --restart unless-stopped --network=jaam -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
 
 echo "Container deployed successfully!"
 
