@@ -198,6 +198,7 @@ async def echo(websocket, path):
     client_port = websocket.remote_address[1]
     # get real header from websocket
     client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
+    secure_connection = websocket.request_headers.get("X-Connection-Type", "false")
     logger.info(f"{client_ip}:{client_port} >>> new client")
 
     if client_ip in shared_data.blocked_ips:
@@ -239,6 +240,7 @@ async def echo(websocket, path):
         "region": region,
         "country": country,
         "timezone": timezone,
+        "secure_connection": secure_connection,
     }
 
     tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(

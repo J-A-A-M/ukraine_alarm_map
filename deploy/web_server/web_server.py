@@ -498,6 +498,7 @@ async def dataparcer(clients, connection_type):
                 "district": data.get("region"),
                 "city": data.get("city"),
                 "timezone": data.get("timezone"),
+                "secure_connection": data.get("secure_connection"),
                 "connection": connection_type,
             }
         )
