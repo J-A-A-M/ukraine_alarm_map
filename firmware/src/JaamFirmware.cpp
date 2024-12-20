@@ -77,6 +77,8 @@ struct Settings {
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
   int     color_explosion        = 180;
+  int     color_missiles         = 90;
+  int     color_drones           = 60;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
@@ -1884,6 +1886,8 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
   addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  addSlider(response, "color_missiles", "Ракетна небезпека", settings.color_missiles, 0, 360, 1, "", false, true);
+  addSlider(response, "color_drones", "Загроза дронів", settings.color_drones, 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -2330,6 +2334,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
   saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
   saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
+  saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
+  saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
   char url[14];
@@ -2630,7 +2636,7 @@ void socketConnect() {
   char webSocketUrl[100];
   sprintf(
     webSocketUrl,
-    settings.use_secure_connection ? "wss://%s:%d/data_v2" : "ws://%s:%d/data_v2",
+    settings.use_secure_connection ? "wss://%s:%d/data_v3" : "ws://%s:%d/data_v3",
     settings.serverhost,
     settings.use_secure_connection ? settings.websocket_port_secure : settings.websocket_port
   );
@@ -2722,7 +2728,24 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
   }
 
   switch (led) {
-    case 0:
+    case MISSILES:
+      color_switch = settings.color_missiles;
+      hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+      break;
+    case DRONES:
+      color_switch = settings.color_drones;
+      hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+      break;
+    case ALERT:
+      if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_new_alert;
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
+      } else {
+        color_switch = settings.color_alert;
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+      }
+      break;
+    case CLEAR:
       if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
         hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
@@ -2738,15 +2761,6 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
           local_brightness = local_brightness_bg;
         }
         hue = fromHue(color_switch, settings.current_brightness * local_brightness);
-      }
-      break;
-    case 1:
-      if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_new_alert;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
-      } else {
-        color_switch = settings.color_alert;
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
       }
       break;
   }
@@ -3062,6 +3076,8 @@ void initSettings() {
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
   settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
   settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
+  settings.color_missiles         = preferences.getInt("colormi", settings.color_missiles);
+  settings.color_drones           = preferences.getInt("colordr", settings.color_drones);
   settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
   settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
   settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
