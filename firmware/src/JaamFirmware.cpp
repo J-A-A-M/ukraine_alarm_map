@@ -2421,7 +2421,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveString(request->getParam("devicename", true), settings.devicename, "dn") || reboot;
   reboot = saveString(request->getParam("devicedescription", true), settings.devicedescription, "dd") || reboot;
   reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
-  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "host") || reboot;
+  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "wshost") || reboot;
   reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
   reboot = saveBool(request->getParam("use_secure_connection", true), "use_secure_connection", &settings.use_secure_connection, "usc") || reboot;
   reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsnp") || reboot;
@@ -3042,7 +3042,7 @@ void initSettings() {
   preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
   preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
   preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
-  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("wshost", settings.serverhost, sizeof(settings.serverhost));
   preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
   preferences.getString("id", settings.identifier, sizeof(settings.identifier));
   settings.use_secure_connection  = preferences.getInt("usc", settings.use_secure_connection);
