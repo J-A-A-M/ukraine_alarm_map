@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+ENV TZ="Europe/Kyiv"
 COPY web_server.py .
 COPY jaam_v1.css .
 COPY jaam_v1.js .

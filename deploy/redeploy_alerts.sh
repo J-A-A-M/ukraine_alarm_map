@@ -60,7 +60,7 @@ docker rm map_alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_alerts --restart unless-stopped -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_alerts
+docker run --name map_alerts --restart unless-stopped --network=jaam -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_alerts
 
 echo "Container deployed successfully!"
 
