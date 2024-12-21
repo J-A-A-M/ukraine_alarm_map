@@ -79,9 +79,9 @@ struct Settings {
   int     enable_explosions      = 1;
   int     color_explosion        = 180;
   int     enable_missiles        = 1;
-  int     color_missiles         = 90;
+  int     color_missiles         = 275;
   int     enable_drones          = 1;
-  int     color_drones           = 60;
+  int     color_drones           = 330;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
