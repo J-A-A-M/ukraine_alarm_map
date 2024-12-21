@@ -72,6 +72,10 @@ static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   "Сирена 2"
 };
 #endif
+
+static const int CLEAR = 0;
+static const int ALERT = 1;
+
 #define BR_LEVELS_COUNT 20
 #define MAX_BINS_LIST_SIZE 10
 

@@ -76,7 +76,12 @@ struct Settings {
   int     color_clear            = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
+  int     enable_explosions      = 1;
   int     color_explosion        = 180;
+  int     enable_missiles        = 1;
+  int     color_missiles         = 275;
+  int     enable_drones          = 1;
+  int     color_drones           = 330;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
@@ -225,6 +230,8 @@ uint8_t   alarm_leds[26];
 long      alarm_time[26];
 float     weather_leds[26];
 long      explosions_time[26];
+long      missiles_time[26];
+long      drones_time[26];
 uint8_t   flag_leds[26];
 
 float     brightnessFactor = 0.5f;
@@ -1699,8 +1706,16 @@ void addHeader(AsyncResponseStream* response) {
   response->print("<title>");
   response->print(settings.devicename);
   response->println("</title>");
-  response->println("<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>");
-  response->println("<link rel='stylesheet' href='http://alerts.net.ua/static/jaam_v1.css'>");
+  // To prevent favicon request
+  response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
+  response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
+  response->print("<link rel='stylesheet' href='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.css'>");
   response->println("</head>");
   response->println("<body>");
   response->println("<div class='container mt-3'  id='accordion'>");
@@ -1711,7 +1726,13 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://alerts.net.ua/");
+  response->print("<img class='full-screen-img' src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->print("/");
   switch (getCurrentMapMode()) {
     case 0:
       response->print("off_map.png");
@@ -1801,10 +1822,15 @@ void addFooter(AsyncResponseStream* response) {
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
-  response->print("<script src='http://alerts.net.ua/static/jaam_v1.js'></script>");
-  response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
-  response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
-  response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
+  response->print("<script src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -1884,6 +1910,8 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
   addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  addSlider(response, "color_missiles", "Ракетна небезпека", settings.color_missiles, 0, 360, 1, "", false, true);
+  addSlider(response, "color_drones", "Загроза БПЛА", settings.color_drones, 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -1943,7 +1971,10 @@ void handleModes(AsyncWebServerRequest* request) {
   if (display.isDisplayAvailable()) {
     addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
-  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
+  addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
@@ -2330,6 +2361,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
   saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
   saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
+  saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
+  saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
   char url[14];
@@ -2356,6 +2389,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", &settings.home_alert_time, "hat", saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
+  saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", &settings.enable_explosions, "eex") || saved;
+  saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", &settings.enable_missiles, "emi") || saved;
+  saved = saveBool(request->getParam("enable_drones", true), "enable_drones", &settings.enable_drones, "edr") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
   saved = saveInt(request->getParam("explosion_time", true), &settings.explosion_time, "ext") || saved;
@@ -2586,6 +2622,16 @@ void onMessageCallback(WebsocketsMessage message) {
         explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
       }
       Serial.println("Successfully parsed explosions data");
+    } else if (payload == "missiles") {
+      for (int i = 0; i < 26; ++i) {
+        missiles_time[calculateOffset(i, offset)] = data["missiles"][i];
+      }
+      Serial.println("Successfully parsed missiles data");
+    } else if (payload == "drones") {
+      for (int i = 0; i < 26; ++i) {
+        drones_time[calculateOffset(i, offset)] = data["drones"][i];
+      }
+      Serial.println("Successfully parsed drones data");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -2630,7 +2676,7 @@ void socketConnect() {
   char webSocketUrl[100];
   sprintf(
     webSocketUrl,
-    settings.use_secure_connection ? "wss://%s:%d/data_v2" : "ws://%s:%d/data_v2",
+    settings.use_secure_connection ? "wss://%s:%d/data_v3" : "ws://%s:%d/data_v3",
     settings.serverhost,
     settings.use_secure_connection ? settings.websocket_port_secure : settings.websocket_port
   );
@@ -2703,7 +2749,7 @@ CRGB fromHue(int hue, float brightness) {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness, bool is_bgstrip) {
+CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drones_time, int position, float alertBrightness, float notificationBrightness, bool is_bgstrip) {
   CRGB hue;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
@@ -2714,16 +2760,41 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
   int color_switch;
   float local_brightness;
 
+  unix_t currentTime = timeClient.unixGMT();
+
   // explosions has highest priority
-  if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+  if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     color_switch = settings.color_explosion;
-    hue = fromHue(color_switch, explosionBrightness * settings.brightness_explosion);
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    return hue;
+  }
+
+  // missiles has second priority
+  if (settings.enable_missiles && missiles_time > 0 && currentTime - missiles_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    color_switch = settings.color_missiles;
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    return hue;
+  }
+
+  // drones has third priority
+  if (settings.enable_drones && drones_time > 0 && currentTime - drones_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    color_switch = settings.color_drones;
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   switch (led) {
-    case 0:
-      if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
+    case ALERT:
+      if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_new_alert;
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
+      } else {
+        color_switch = settings.color_alert;
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+      }
+      break;
+    case CLEAR:
+      if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
         hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
       } else {
@@ -2738,15 +2809,6 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
           local_brightness = local_brightness_bg;
         }
         hue = fromHue(color_switch, settings.current_brightness * local_brightness);
-      }
-      break;
-    case 1:
-      if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_new_alert;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
-      } else {
-        color_switch = settings.color_alert;
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
       }
       break;
   }
@@ -2841,9 +2903,13 @@ void mapAlarms() {
   uint8_t adapted_alarm_leds[settings.pixelcount];
   long adapted_alarm_timers[settings.pixelcount];
   long adapted_explosion_timers[settings.pixelcount];
+  long adapted_missiles_timers[settings.pixelcount];
+  long adapted_drones_timers[settings.pixelcount];
   adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, settings.pixelcount, offset);
   adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
   adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, missiles_time, adapted_missiles_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, drones_time, adapted_drones_timers, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
       adapted_alarm_leds[7 + offset] = 0;
@@ -2854,20 +2920,46 @@ void mapAlarms() {
       adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
     }
     adapted_explosion_timers[7 + offset] = max(adapted_explosion_timers[25], adapted_explosion_timers[7 + offset]);
+    adapted_missiles_timers[7 + offset] = max(adapted_missiles_timers[25], adapted_missiles_timers[7 + offset]);
+    adapted_drones_timers[7 + offset] = max(adapted_drones_timers[25], adapted_drones_timers[7 + offset]);
   }
   float blinkBrightness = settings.current_brightness / 100.0f;
-  float explosionBrightness = settings.current_brightness / 100.0f;
+  float notificationBrightness = settings.current_brightness / 100.0f;
   if (settings.alarms_notify_mode == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
-    explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
+    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness, false);
+    strip[i] = processAlarms(
+      adapted_alarm_leds[i], 
+      adapted_alarm_timers[i], 
+      adapted_explosion_timers[i], 
+      adapted_missiles_timers[i], 
+      adapted_drones_timers[i], 
+      i, 
+      blinkBrightness, 
+      notificationBrightness, 
+      false
+    );
   }
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness, true));
+    fill_solid(
+      bg_strip, 
+      settings.bg_pixelcount,
+      processAlarms(
+        adapted_alarm_leds[localDistrict],
+        adapted_alarm_timers[localDistrict],
+        adapted_explosion_timers[localDistrict],
+        adapted_missiles_timers[localDistrict],
+        adapted_drones_timers[localDistrict],
+        localDistrict,
+        blinkBrightness,
+        notificationBrightness,
+        true
+      )
+    );
   }
   FastLED.show();
 }
@@ -3062,6 +3154,8 @@ void initSettings() {
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
   settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
   settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
+  settings.color_missiles         = preferences.getInt("colormi", settings.color_missiles);
+  settings.color_drones           = preferences.getInt("colordr", settings.color_drones);
   settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
   settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
   settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
@@ -3082,6 +3176,9 @@ void initSettings() {
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
+  settings.enable_explosions      = preferences.getInt("eex", settings.enable_explosions);
+  settings.enable_missiles        = preferences.getInt("emi", settings.enable_missiles);
+  settings.enable_drones          = preferences.getInt("edr", settings.enable_drones);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
   preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
