@@ -1706,7 +1706,9 @@ void addHeader(AsyncResponseStream* response) {
   response->print("<title>");
   response->print(settings.devicename);
   response->println("</title>");
-  response->println("<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>");
+  // To prevent favicon request
+  response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
+  response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
   response->print("<link rel='stylesheet' href='http");
   if (settings.use_secure_connection){
     response->print("s");
@@ -1820,6 +1822,8 @@ void addFooter(AsyncResponseStream* response) {
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
   response->print("<script src='http");
   if (settings.use_secure_connection){
     response->print("s");
@@ -1827,9 +1831,6 @@ void addFooter(AsyncResponseStream* response) {
   response->print("://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.js'></script>");
-  response->println("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
-  response->println("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
-  response->println("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -1910,7 +1911,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.color_missiles, 0, 360, 1, "", false, true);
-  addSlider(response, "color_drones", "Загроза дронів", settings.color_drones, 0, 360, 1, "", false, true);
+  addSlider(response, "color_drones", "Загроза БПЛА", settings.color_drones, 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -1973,7 +1974,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
   addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу дронів");
+  addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
