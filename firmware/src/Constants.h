@@ -29,8 +29,6 @@ static const char LONG_CLICK_SOUND[]     PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
 static const int CLEAR = 0;
 static const int ALERT = 1;
-static const int DRONES = 2;
-static const int MISSILES = 3;
 
 #define MELODIES_COUNT 19
 static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
