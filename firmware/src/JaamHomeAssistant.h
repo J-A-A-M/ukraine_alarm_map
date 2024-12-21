@@ -23,6 +23,8 @@ public:
     void initFreeMemorySensor();
     void initUsedMemorySensor();
     void initBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
+    void initDayBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
+    void initNightBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
     void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode));
     std::map<int, int> initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
         bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
@@ -51,6 +53,8 @@ public:
     void setFreeMemory(int freeMemory);
     void setUsedMemory(int usedMemory);
     void setBrightness(int brightness);
+    void setDayBrightness(int brightness);
+    void setNightBrightness(int brightness);
     void setMapMode(int mapMode);
     void setDisplayMode(int displayMode);
     void setMapModeCurrent(const char* mapMode);
