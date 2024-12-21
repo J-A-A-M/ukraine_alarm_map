@@ -27,9 +27,6 @@ static const char MOS_BEEP[]             PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 static const char SINGLE_CLICK_SOUND[]   PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 static const char LONG_CLICK_SOUND[]     PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-static const int CLEAR = 0;
-static const int ALERT = 1;
-
 #define MELODIES_COUNT 19
 static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   UA_ANTHEM,
@@ -75,6 +72,10 @@ static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   "Сирена 2"
 };
 #endif
+
+static const int CLEAR = 0;
+static const int ALERT = 1;
+
 #define BR_LEVELS_COUNT 20
 #define MAX_BINS_LIST_SIZE 10
 
