@@ -108,26 +108,35 @@ async def svg_generator(mc, shared_data):
         weather_svg_data = {}
 
         if cached_data != shared_data.data:
-            alerts_data, weather_data, explosions_data = cached_data.split(":")
+            alerts_data, weather_data, explosions_data, rockets_data, drones_data = cached_data.split(":")
             alerts = [int(alert) for alert in alerts_data.split(",")]
             weathers = [float(weather) for weather in weather_data.split(",")]
             explosions = [int(explosion) for explosion in explosions_data.split(",")]
+            rockets = [int(rocket) for rocket in rockets_data.split(",")]
+            drones = [int(drone) for drone in drones_data.split(",")]
 
             position = 0
             for alert in alerts:
-                match alert:
-                    case 0:
-                        alerts_svg_data[regions[position]] = "#32CD32"
-                    case 1:
-                        alerts_svg_data[regions[position]] = "#FF5733"
-                    case 2:
-                        alerts_svg_data[regions[position]] = "#BBFF33"
-                    case 3:
-                        alerts_svg_data[regions[position]] = "#FFA533"
+               match alert:
+                  case 0:
+                     alerts_svg_data[regions[position]] = "#32CD32"
+                  case 1:
+                     alerts_svg_data[regions[position]] = "#FF5733"
+                  case 2:
+                     alerts_svg_data[regions[position]] = "#BBFF33"
+                  case 3:
+                     alerts_svg_data[regions[position]] = "#FFA533"
 
-                if explosions[position] == 1:
-                    alerts_svg_data[regions[position]] = "#00FFFF"
-                position += 1
+               if drones[position] == 1:
+                  alerts_svg_data[regions[position]] = "#FF00FF"
+               
+               if rockets[position] == 1:
+                  alerts_svg_data[regions[position]] = "#9D00FF"
+                
+               if explosions[position] == 1:
+                  alerts_svg_data[regions[position]] = "#00FFFF"
+
+               position += 1
             file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(
                 time=local_time,
@@ -945,13 +954,17 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <circle cx="50" cy="630" r="20" fill="#ff5733" id="circle224" />
                <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- тривога</text>
                <circle cx="50" cy="680" r="20" fill="#32cd32" id="circle228" />
-               <text x="75" y="686" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
+               <text x="75" y="685" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
                <circle cx="50" cy="730" r="20" fill="#ffa533" id="circle232" />
-               <text x="75" y="736" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
+               <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
                <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
-               <text x="75" y="787" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
+               <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
                <circle cx="50" cy="830" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="837" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи</text>
+               <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи</text>
+               <circle cx="50" cy="880" r="20" fill="#9d00ff" id="circle244" />
+               <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека</text>
+               <circle cx="50" cy="930" r="20" fill="#ff00ff" id="circle248" />
+               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА</text>
             </g>
 
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">
