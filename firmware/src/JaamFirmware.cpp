@@ -1707,7 +1707,13 @@ void addHeader(AsyncResponseStream* response) {
   response->print(settings.devicename);
   response->println("</title>");
   response->println("<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>");
-  response->println("<link rel='stylesheet' href='http://alerts.net.ua/static/jaam_v1.css'>");
+  response->print("<link rel='stylesheet' href='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.css'>");
   response->println("</head>");
   response->println("<body>");
   response->println("<div class='container mt-3'  id='accordion'>");
@@ -1718,7 +1724,13 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://alerts.net.ua/");
+  response->print("<img class='full-screen-img' src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->print("/");
   switch (getCurrentMapMode()) {
     case 0:
       response->print("off_map.png");
@@ -1808,10 +1820,16 @@ void addFooter(AsyncResponseStream* response) {
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
-  response->print("<script src='http://alerts.net.ua/static/jaam_v1.js'></script>");
-  response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
-  response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
-  response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
+  response->print("<script src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.js'></script>");
+  response->println("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
+  response->println("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
