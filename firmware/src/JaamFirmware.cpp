@@ -1101,6 +1101,10 @@ void buttonUpdate(ButtonState &button, uint8_t pin, int mode, int modeLong) {
   button.lastState = button.currentState;
 }
 
+void distributeBrightnessLevels() {
+  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
+}
+
 bool saveBrightness(int newBrightness) {
   if (settings.brightness == newBrightness) return false;
   settings.brightness = newBrightness;
@@ -1109,9 +1113,39 @@ bool saveBrightness(int newBrightness) {
   preferences.end();
   reportSettingsChange("brightness", settings.brightness);
   Serial.print("brightness commited to preferences");
-  Serial.println(settings.ha_light_brightness);
+  Serial.println(settings.brightness);
   ha.setBrightness(newBrightness);
   autoBrightnessUpdate();
+  return true;
+}
+
+bool saveDayBrightness(int newBrightness) {
+  if (settings.brightness_day == newBrightness) return false;
+  settings.brightness_day = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("brightness_day", settings.brightness_day);
+  preferences.end();
+  reportSettingsChange("brightness_day", settings.brightness_day);
+  Serial.print("brightness_day commited to preferences");
+  Serial.println(settings.brightness_day);
+  ha.setDayBrightness(newBrightness);
+  autoBrightnessUpdate();
+  distributeBrightnessLevels();
+  return true;
+}
+
+bool saveNightBrightness(int newBrightness) {
+  if (settings.brightness_night == newBrightness) return false;
+  settings.brightness_night = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("brightness_night", settings.brightness_night);
+  preferences.end();
+  reportSettingsChange("brightness_night", settings.brightness_night);
+  Serial.print("brightness_night commited to preferences");
+  Serial.println(settings.brightness_night);
+  ha.setNightBrightness(newBrightness);
+  autoBrightnessUpdate();
+  distributeBrightnessLevels();
   return true;
 }
 
@@ -1491,10 +1525,6 @@ void serviceMessageUpdate() {
   }
 }
 //--Display end
-
-void distributeBrightnessLevels() {
-  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
-}
 
 void updateHaTempSensors() {
   if (climate.isTemperatureAvailable()) {
@@ -2331,8 +2361,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
   saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
-  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", NULL, distributeBrightnessLevels) || saved;
-  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", NULL, distributeBrightnessLevels) || saved;
+  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", saveDayBrightness) || saved;
+  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", saveNightBrightness) || saved;
   saved = saveInt(request->getParam("day_start", true), &settings.day_start, "ds") || saved;
   saved = saveInt(request->getParam("night_start", true), &settings.night_start, "ns") || saved;
   saved = saveInt(request->getParam("brightness_auto", true), &settings.brightness_mode, "bra", saveAutoBrightnessMode) || saved;
@@ -3498,7 +3528,8 @@ void initUpdates() {
 
 void initHA() {
   if (shouldWifiReconnect) return;
-    Serial.println("Init Home assistant API");
+  
+  Serial.println("Init Home assistant API");
     
   if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
     Serial.println("Home Assistant is not available!");
@@ -3511,6 +3542,8 @@ void initHA() {
   ha.initUsedMemorySensor();
   ha.initCpuTempSensor(temperatureRead());
   ha.initBrightnessSensor(settings.brightness, saveBrightness);
+  ha.initDayBrightnessSensor(settings.brightness_day, saveDayBrightness);
+  ha.initNightBrightnessSensor(settings.brightness_night, saveNightBrightness);
   ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
   if (display.isDisplayAvailable()) {
     displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions), DISPLAY_MODES,
