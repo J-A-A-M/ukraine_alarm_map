@@ -13,6 +13,8 @@ char haFreeMemoryID[25];
 char haUsedMemoryID[25];
 char haCpuTempID[22];
 char haBrightnessID[24];
+char haBrightnessDayID[28];
+char haBrightnessNightID[30];
 char haMapModeID[22];
 char haDisplayModeID[26];
 char haAutoAlarmModeID[25];
@@ -39,6 +41,8 @@ HASensorNumber*  haFreeMemory;
 HASensorNumber*  haUsedMemory;
 HASensorNumber*  haCpuTemp;
 HANumber*        haBrightness;
+HANumber*        haBrightnessDay;
+HANumber*        haBrightnessNight;
 HASelect*        haMapMode;
 HASelect*        haDisplayMode;
 HASwitch*        haShowHomeAlarmTime;
@@ -62,6 +66,8 @@ HASwitch*        haNightMode;
 const char* mqttServer;
 
 bool (*brightnessChanged)(int newBrightness);
+bool (*brightnessDayChanged)(int newBrightness);
+bool (*brightnessNightChanged)(int newBrightness);
 bool (*mapModeChanged)(int newMapMode);
 bool (*displayModeChanged)(int newDisplayMode);
 int (*displayModeTransform)(int haDisplayMode);
@@ -80,7 +86,7 @@ void (*onMqqtConnectionStatusChanged)(bool connected);
 char configUrl[30];
 byte macAddress[6];
 
-#define SENSORS_COUNT 26
+#define SENSORS_COUNT 28
 
 char deviceUniqueID[15];
 
@@ -240,6 +246,32 @@ void JaamHomeAssistant::initBrightnessSensor(int currentBrightness, bool (*onCha
   haBrightness->setIcon("mdi:brightness-percent");
   haBrightness->setName("Brightness");
   haBrightness->setCurrentState(currentBrightness);
+#endif
+}
+
+void JaamHomeAssistant::initDayBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness)) {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haBrightnessDayID, "%s_brightness_day", deviceUniqueID);
+  haBrightnessDay = new HANumber(haBrightnessDayID);
+  brightnessDayChanged = onChange;
+  haBrightnessDay->onCommand([](HANumeric number, HANumber* sender) { brightnessDayChanged(number.toUInt8()); });
+  haBrightnessDay->setIcon("mdi:brightness-5");
+  haBrightnessDay->setName("Brightness Day");
+  haBrightnessDay->setCurrentState(currentBrightness);
+#endif
+}
+
+void JaamHomeAssistant::initNightBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness)) {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haBrightnessNightID, "%s_brightness_night", deviceUniqueID);
+  haBrightnessNight = new HANumber(haBrightnessNightID);
+  brightnessNightChanged = onChange;
+  haBrightnessNight->onCommand([](HANumeric number, HANumber* sender) { brightnessNightChanged(number.toUInt8()); });
+  haBrightnessNight->setIcon("mdi:brightness-4");
+  haBrightnessNight->setName("Brightness Night");
+  haBrightnessNight->setCurrentState(currentBrightness);
 #endif
 }
 
@@ -557,6 +589,20 @@ void JaamHomeAssistant::setBrightness(int brightness) {
 #if HA_ENABLED
   if (!haEnabled) return;
   haBrightness->setState(brightness);
+#endif
+}
+
+void JaamHomeAssistant::setDayBrightness(int brightness) {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  haBrightnessDay->setState(brightness);
+#endif
+}
+
+void JaamHomeAssistant::setNightBrightness(int brightness) {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  haBrightnessNight->setState(brightness);
 #endif
 }
 
