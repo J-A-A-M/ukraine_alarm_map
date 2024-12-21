@@ -109,7 +109,9 @@ async def update_data(mc):
 
         alerts_data = json.loads(alerts_data.decode("utf-8")) if alerts_data else "No alerts data from Memcached"
         weather_data = json.loads(weather_data.decode("utf-8")) if weather_data else "No weather data from Memcached"
-        explosions_data = json.loads(explosions_data.decode("utf-8")) if explosions_data else "No explosions data from Memcached"
+        explosions_data = (
+            json.loads(explosions_data.decode("utf-8")) if explosions_data else "No explosions data from Memcached"
+        )
         rockets_data = json.loads(rockets_data.decode("utf-8")) if rockets_data else "No missiles data from Memcached"
         drones_data = json.loads(drones_data.decode("utf-8")) if drones_data else "No drones data from Memcached"
 
@@ -219,10 +221,14 @@ async def update_data(mc):
         except Exception as e:
             logger.error(f"Drones error: {e}")
 
-            
-
         tcp_data = "%s:%s" % (",".join(alerts_v1), ",".join(weather_v1))
-        svg_data = "%s:%s:%s:%s:%s" % (",".join(alerts_v1), ",".join(weather_v1), ",".join(explosions_svg), ",".join(rockets_svg), ",".join(drones_svg))
+        svg_data = "%s:%s:%s:%s:%s" % (
+            ",".join(alerts_v1),
+            ",".join(weather_v1),
+            ",".join(explosions_svg),
+            ",".join(rockets_svg),
+            ",".join(drones_svg),
+        )
 
         if tcp_cached_data != tcp_data:
             logger.debug("store tcp data: %s" % current_datetime)

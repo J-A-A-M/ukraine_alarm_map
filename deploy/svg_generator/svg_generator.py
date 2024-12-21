@@ -117,26 +117,26 @@ async def svg_generator(mc, shared_data):
 
             position = 0
             for alert in alerts:
-               match alert:
-                  case 0:
-                     alerts_svg_data[regions[position]] = "#32CD32"
-                  case 1:
-                     alerts_svg_data[regions[position]] = "#FF5733"
-                  case 2:
-                     alerts_svg_data[regions[position]] = "#BBFF33"
-                  case 3:
-                     alerts_svg_data[regions[position]] = "#FFA533"
+                match alert:
+                    case 0:
+                        alerts_svg_data[regions[position]] = "#32CD32"
+                    case 1:
+                        alerts_svg_data[regions[position]] = "#FF5733"
+                    case 2:
+                        alerts_svg_data[regions[position]] = "#BBFF33"
+                    case 3:
+                        alerts_svg_data[regions[position]] = "#FFA533"
 
-               if drones[position] == 1:
-                  alerts_svg_data[regions[position]] = "#FF00FF"
-               
-               if rockets[position] == 1:
-                  alerts_svg_data[regions[position]] = "#9D00FF"
-                
-               if explosions[position] == 1:
-                  alerts_svg_data[regions[position]] = "#00FFFF"
+                if drones[position] == 1:
+                    alerts_svg_data[regions[position]] = "#FF00FF"
 
-               position += 1
+                if rockets[position] == 1:
+                    alerts_svg_data[regions[position]] = "#9D00FF"
+
+                if explosions[position] == 1:
+                    alerts_svg_data[regions[position]] = "#00FFFF"
+
+                position += 1
             file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(
                 time=local_time,

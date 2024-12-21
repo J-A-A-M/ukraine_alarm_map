@@ -176,7 +176,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new explosions")
-                client["explosions"] = shared_data.explosions_v1        
+                client["explosions"] = shared_data.explosions_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
@@ -397,7 +397,21 @@ async def district_data_v1(district_id):
 async def update_shared_data(shared_data, mc):
     while True:
         logger.debug("memcache check")
-        alerts_v1, alerts_v2, weather_v1, explosions_v1, rockets_v1, drones_v1, bins, test_bins, alerts_full, weather_full, explosions_full, rockets_full, drones_full = (
+        (
+            alerts_v1,
+            alerts_v2,
+            weather_v1,
+            explosions_v1,
+            rockets_v1,
+            drones_v1,
+            bins,
+            test_bins,
+            alerts_full,
+            weather_full,
+            explosions_full,
+            rockets_full,
+            drones_full,
+        ) = (
             await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
 
