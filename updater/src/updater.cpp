@@ -14,7 +14,7 @@ const char* userSsid = ""; // WIFI-мережа замовника
 const char* userPassword = ""; // Пароль до WIFI мережі замовника
 
 
-const char* firmwareUrl = "";
+const char* firmwareUrl = "http://jaam.net.ua:2095/jaam.bin";
 
 String identifier = "github";
 
