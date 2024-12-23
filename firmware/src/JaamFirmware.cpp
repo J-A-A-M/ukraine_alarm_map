@@ -276,7 +276,7 @@ int     currentDimDisplay = 0;
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
 #define LONG_PRESS_TIME  500 // 500 milliseconds
 struct ButtonState {
-  char* name;
+  const char* name;
   int lastState = LOW; // the previous state from the input pin
   int currentState; // the current reading from the input pin
   unsigned long pressedTime = 0;
@@ -3663,6 +3663,10 @@ void runSelfTests() {
 }
 #endif
 
+void syncTimePeriodically() {
+  syncTime(2);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3695,6 +3699,7 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+  asyncEngine.setInterval(syncTimePeriodically, 60000);
 #endif
 }
 
@@ -3707,7 +3712,6 @@ void loop() {
 #endif
   ha.loop();
   client_websocket.poll();
-  syncTime(2);
   if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
     mapCycle();
   }
