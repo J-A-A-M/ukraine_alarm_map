@@ -41,6 +41,26 @@
             with:
               name: firmware-lite.bin
               path: ${{ github.workspace }}/firmware-lite.bin
+    compile_jaam2_test:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Switch to TEST_MODE build
+            run: |
+              sed -i 's/#define LITE ./#define LITE 0/' ${{ github.workspace }}/firmware/src/Definitions.h
+              sed -i 's/#define TEST_MODE ./#define TEST_MODE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
+          - name: Compile test firmware
+            uses: ./.github/workflows/firmware-compile
+            with:
+              project-folder: firmware
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-jaam2-test.bin
+          - name: Upload JAAM 2 test firmware
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware-jaam2-test.bin
+              path: ${{ github.workspace }}/firmware-jaam2-test.bin
     # check_firmware:
     #   runs-on: ubuntu-latest
     #   steps:

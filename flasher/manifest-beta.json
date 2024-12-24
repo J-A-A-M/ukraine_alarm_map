@@ -1,6 +1,6 @@
 {
     "name": "JAAM Beta",
-    "version": "3.10-b70",
+    "version": "4.0-b80",
     "funding_url": "https://send.monobank.ua/jar/7GzS1PhPa2",
     "new_install_improv_wait_time": 0,
     "new_install_prompt_erase": true,
@@ -11,7 +11,7 @@
         "parts": [
           { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
           { "path": "bins/jaam.partitions.bin", "offset": 32768 },
-          { "path": "bins/jaam.boot.bin", "offset": 57344 },
+          { "path": "bins/jaam.boot.app0.bin", "offset": 57344 },
           { "path": "bins/jaam_beta.bin", "offset": 65536 }
         ]
       }

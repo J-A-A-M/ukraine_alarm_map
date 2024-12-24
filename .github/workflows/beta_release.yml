@@ -32,13 +32,13 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-      - name: Leave only 3 recent BETA builds
-        run: |
-          cd ${{ github.workspace }}/bin_beta/
-          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-          cd ${{ github.workspace }}
+      # Disabled for now
+      # - name: Leave only 3 recent BETA builds
+      #   run: |
+      #     cd ${{ github.workspace }}/bin_beta/
+      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
+      #     cd ${{ github.workspace }}
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
@@ -63,15 +63,15 @@ jobs:
           prerelease: true
           makeLatest: false    
       - name: Update server test bin list
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_SSH_USER }}
-          password: ${{ secrets.SERVER_SSH_PASSWORD }}
+          host: ${{ secrets.CLOUD_SERVER_IP }}
+          username: ${{ secrets.CLOUD_SERVER_USER }}
+          key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
           script: |
             cd /root/ukraine_alarm_map/deploy/
             git fetch --all
-            git checkout ${{ github.ref_name }}
+            git switch ${{ github.ref_name }}
             git pull
-            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.MEMCACHED_HOST }}
+            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
 

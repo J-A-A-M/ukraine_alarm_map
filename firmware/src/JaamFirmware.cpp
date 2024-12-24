@@ -41,13 +41,16 @@ struct Settings {
   int           reservedpin            = 27;
 
   // ------- web config start
-  char    devicename[31]         = "Alarm Map";
-  char    devicedescription[51]  = "Alarm Map Informer";
-  char    broadcastname[31]      = "alarmmap";
+  char    devicename[31]         = "JAAM";
+  char    devicedescription[51]  = "JAAM Informer";
+  char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "alerts.net.ua";
-  int     websocket_port         = 38440;
-  int     updateport             = 8090;
+  char    serverhost[31]         = "jaam.net.ua";
+  int     use_secure_connection  = 1;
+  int     websocket_port_secure  = 2053;
+  int     updateport_secure      = 2096;
+  int     websocket_port         = 2052;
+  int     updateport             = 2095;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
@@ -61,7 +64,7 @@ struct Settings {
   int     lightpin               = 32;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
-  char    ha_mqttpassword[51]    = "";
+  char    ha_mqttpassword[66]    = "";
   char    ha_brokeraddress[31]   = "";
   int     current_brightness     = 50;
   int     brightness             = 50;
@@ -73,7 +76,12 @@ struct Settings {
   int     color_clear            = 120;
   int     color_new_alert        = 30;
   int     color_alert_over       = 100;
+  int     enable_explosions      = 1;
   int     color_explosion        = 180;
+  int     enable_missiles        = 1;
+  int     color_missiles         = 275;
+  int     enable_drones          = 1;
+  int     color_drones           = 330;
   int     color_home_district    = 120;
   int     brightness_alert       = 100;
   int     brightness_clear       = 100;
@@ -82,6 +90,7 @@ struct Settings {
   int     brightness_explosion   = 100;
   int     brightness_home_district = 100;
   int     brightness_bg          = 100;
+  int     brightness_service     = 50;
   int     weather_min_temp       = -10;
   int     weather_max_temp       = 30;
   int     alarms_auto_switch     = 1;
@@ -168,6 +177,7 @@ using namespace websockets;
 Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
+WiFiClientSecure  clientSecure;
 WebsocketsClient  client_websocket;
 AsyncWebServer    webserver(80);
 NTPtime           timeClient(2);
@@ -220,7 +230,13 @@ uint8_t   alarm_leds[26];
 long      alarm_time[26];
 float     weather_leds[26];
 long      explosions_time[26];
+long      missiles_time[26];
+long      drones_time[26];
 uint8_t   flag_leds[26];
+
+float     brightnessFactor = 0.5f;
+int       minBrightness = 1;
+float     minBlinkBrightness = 0.05f;
 
 bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
@@ -260,6 +276,7 @@ int     currentDimDisplay = 0;
 #define SHORT_PRESS_TIME 500 // 500 milliseconds
 #define LONG_PRESS_TIME  500 // 500 milliseconds
 struct ButtonState {
+  const char* name;
   int lastState = LOW; // the previous state from the input pin
   int currentState; // the current reading from the input pin
   unsigned long pressedTime = 0;
@@ -445,26 +462,27 @@ bool needToPlaySound(SoundType type) {
 void servicePin(ServiceLed type, uint8_t status, bool force) {
   if (force || ((settings.legacy == 0 || settings.legacy == 3) && settings.service_diodes_mode)) {
     int pin = 0;
+    int scaledBrightness = (settings.brightness_service == 0) ? 0 : round(max(settings.brightness_service, minBrightness) * 255.0f / 100.0f * brightnessFactor);
     switch (type) {
       case POWER:
         pin = settings.powerpin;
-        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(64) : CRGB::Black;
+        service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case WIFI:
         pin = settings.wifipin;
-        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(64) : CRGB::Black;
+        service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case DATA:
         pin = settings.datapin;
-        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(64) : CRGB::Black;
+        service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case HA:
         pin = settings.hapin;
-        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(64) : CRGB::Black;
+        service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case RESERVED:
         pin = settings.reservedpin;
-        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(64) : CRGB::Black;
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
     }
     if (pin > 0 && settings.legacy == 0) {
@@ -813,19 +831,48 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+  Serial.println("Starting firmware update...");
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
+
   Serial.println("Building spiffs url...");
-  sprintf(spiffUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_", binFileName);
+  sprintf(
+    spiffUrlChar, 
+    settings.use_secure_connection ? "https://%s:%d%s%s" : "http://%s:%d%s%s", 
+    settings.serverhost, 
+    settings.use_secure_connection ? settings.updateport_secure : settings.updateport,
+    isBeta ? "/beta/spiffs/spiffs_" : "/spiffs/spiffs_",
+    binFileName
+  );
+
   Serial.println("Building firmware url...");
-  sprintf(firmwareUrlChar, "http://%s:%d%s%s", settings.serverhost, settings.updateport, isBeta ? "/beta/" : "/", binFileName);
+  sprintf(
+    firmwareUrlChar,
+    settings.use_secure_connection ? "https://%s:%d%s%s" : "http://%s:%d%s%s", 
+    settings.serverhost,
+    settings.use_secure_connection ? settings.updateport_secure : settings.updateport,
+    isBeta ? "/beta/" : "/",
+    binFileName
+  );
+
+  if (settings.use_secure_connection) {
+    clientSecure.setCACert(jaam_cert);
+  }
 
   Serial.printf("Spiffs url: %s\n", spiffUrlChar);
-  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(client, spiffUrlChar, VERSION);
+  t_httpUpdate_return spiffsRet = httpUpdate.updateSpiffs(
+    settings.use_secure_connection ? clientSecure : client,
+    spiffUrlChar,
+    VERSION
+    );
   handleUpdateStatus(spiffsRet, true);
 
   Serial.printf("Firmware url: %s\n", firmwareUrlChar);
-  t_httpUpdate_return fwRet = httpUpdate.update(client, firmwareUrlChar, VERSION);
+  t_httpUpdate_return fwRet = httpUpdate.update(
+    settings.use_secure_connection ? clientSecure : client,
+    firmwareUrlChar,
+    VERSION
+    );
   handleUpdateStatus(fwRet, false);
 }
 
@@ -976,11 +1023,13 @@ void handleClick(int event, SoundType soundType) {
     case 7:
       rebootDevice();
       break;
-  #if FW_UPDATE_ENABLED
+#if FW_UPDATE_ENABLED
     case 100:
-      downloadAndUpdateFw(settings.fw_update_channel == 1 ? "latest_beta.bin" : "latest.bin", settings.fw_update_channel == 1);
+      char updateFileName[30];
+      sprintf(updateFileName, "%s.bin", newFwVersion);
+      downloadAndUpdateFw(updateFileName, settings.fw_update_channel == 1);
       break;
-  #endif
+#endif
     default:
       // do nothing
       break;
@@ -1026,20 +1075,34 @@ void buttonUpdate(ButtonState &button, uint8_t pin, int mode, int modeLong) {
 
     long pressDuration = button.releasedTime - button.pressedTime;
 
-    if (pressDuration < SHORT_PRESS_TIME) singleClick(mode);
+    if (pressDuration < SHORT_PRESS_TIME) {
+#if TEST_MODE
+        displayMessage("Single click!", button.name);
+#else
+        singleClick(mode);
+#endif
+      }
   }
 
   if (button.isPressing == true && button.isLongDetected == false) {
     long pressDuration = millis() - button.pressedTime;
 
     if (pressDuration > LONG_PRESS_TIME) {
+#if TEST_MODE
+        displayMessage("Long click!", button.name);
+#else
       longClick(modeLong);
+#endif
       button.isLongDetected = true;
     }
   }
 
   // save the the last state
   button.lastState = button.currentState;
+}
+
+void distributeBrightnessLevels() {
+  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
 }
 
 bool saveBrightness(int newBrightness) {
@@ -1050,9 +1113,39 @@ bool saveBrightness(int newBrightness) {
   preferences.end();
   reportSettingsChange("brightness", settings.brightness);
   Serial.print("brightness commited to preferences");
-  Serial.println(settings.ha_light_brightness);
+  Serial.println(settings.brightness);
   ha.setBrightness(newBrightness);
   autoBrightnessUpdate();
+  return true;
+}
+
+bool saveDayBrightness(int newBrightness) {
+  if (settings.brightness_day == newBrightness) return false;
+  settings.brightness_day = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("brightness_day", settings.brightness_day);
+  preferences.end();
+  reportSettingsChange("brightness_day", settings.brightness_day);
+  Serial.print("brightness_day commited to preferences");
+  Serial.println(settings.brightness_day);
+  ha.setDayBrightness(newBrightness);
+  autoBrightnessUpdate();
+  distributeBrightnessLevels();
+  return true;
+}
+
+bool saveNightBrightness(int newBrightness) {
+  if (settings.brightness_night == newBrightness) return false;
+  settings.brightness_night = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("brightness_night", settings.brightness_night);
+  preferences.end();
+  reportSettingsChange("brightness_night", settings.brightness_night);
+  Serial.print("brightness_night commited to preferences");
+  Serial.println(settings.brightness_night);
+  ha.setNightBrightness(newBrightness);
+  autoBrightnessUpdate();
+  distributeBrightnessLevels();
   return true;
 }
 
@@ -1281,7 +1374,7 @@ void showLocalHum() {
   displayMessage(message, "Вологість");
 }
 
-void showLocalPresure() {
+void showLocalPressure() {
   char message[12];
   sprintf(message, "%.1fmmHg", climate.getPressure(settings.pressure_correction));
   displayMessage(message, "Тиск");
@@ -1297,7 +1390,7 @@ void showLocalClimateInfo(int index) {
     return;
   }
   if (index <= 2 && climate.isPressureAvailable()) {
-    showLocalPresure();
+    showLocalPressure();
     return;
   }
 }
@@ -1432,10 +1525,6 @@ void serviceMessageUpdate() {
   }
 }
 //--Display end
-
-void distributeBrightnessLevels() {
-  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
-}
 
 void updateHaTempSensors() {
   if (climate.isTemperatureAvailable()) {
@@ -1647,8 +1736,16 @@ void addHeader(AsyncResponseStream* response) {
   response->print("<title>");
   response->print(settings.devicename);
   response->println("</title>");
-  response->println("<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>");
-  response->println("<link rel='stylesheet' href='http://alerts.net.ua/static/jaam_v1.css'>");
+  // To prevent favicon request
+  response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
+  response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
+  response->print("<link rel='stylesheet' href='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.css'>");
   response->println("</head>");
   response->println("<body>");
   response->println("<div class='container mt-3'  id='accordion'>");
@@ -1659,7 +1756,13 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://alerts.net.ua/");
+  response->print("<img class='full-screen-img' src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->print("/");
   switch (getCurrentMapMode()) {
     case 0:
       response->print("off_map.png");
@@ -1689,7 +1792,7 @@ void addHeader(AsyncResponseStream* response) {
     response->println("<div class='alert alert-success text-center'>");
     response->print("Доступна нова версія прошивки - <b>");
     response->print(newFwVersion);
-    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>");
+    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b></h8>");
     response->println("</div>");
   }
 #endif
@@ -1749,10 +1852,15 @@ void addFooter(AsyncResponseStream* response) {
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
-  response->print("<script src='http://alerts.net.ua/static/jaam_v1.js'></script>");
-  response->print("<script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>");
-  response->print("<script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>");
-  response->print("<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
+  response->print("<script src='http");
+  if (settings.use_secure_connection){
+    response->print("s");
+  }
+  response->print("://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v1.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -1793,10 +1901,13 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
   addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
-  if (isBgStripEnabled()){
-    addSlider(response, "brightness_bg", "Фонова лед-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+  if (isBgStripEnabled()) {
+    addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.brightness_bg, 0, 100, 1, "%");
   }
-  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
+  if (isServiceStripEnabled()) {
+    addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
+  }
+  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -1829,6 +1940,8 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
   addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
+  addSlider(response, "color_missiles", "Ракетна небезпека", settings.color_missiles, 0, 360, 1, "", false, true);
+  addSlider(response, "color_drones", "Загроза БПЛА", settings.color_drones, 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -1888,7 +2001,10 @@ void handleModes(AsyncWebServerRequest* request) {
   if (display.isDisplayAvailable()) {
     addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
   }
-  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та вибухів", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
+  addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
@@ -2027,11 +2143,14 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
     addInputText(response, "ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
     addInputText(response, "ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
-    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 50);
+    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 65);
   }
   addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
+  addCheckbox(response, "use_secure_connection", settings.use_secure_connection, "Використовувати зашифроване зʼєднання з сервером даних");
   addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
+  addInputText(response, "websocket_port_secure", "Порт Websockets (зашифроване зʼєднання)", "number", String(settings.websocket_port_secure).c_str());
   addInputText(response, "websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
+  addInputText(response, "updateport_secure", "Порт сервера прошивок (зашифроване зʼєднання)", "number", String(settings.updateport_secure).c_str());
   addInputText(response, "updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
   addInputText(response, "devicename", "Назва пристрою", "text", settings.devicename, 30);
   addInputText(response, "devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
@@ -2042,15 +2161,15 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
-    // addInputText(response, "button3pin", "Керуючий пін кнопки 3", "number", String(settings.button3pin).c_str());
-
   }
   addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
   addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
-  addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+  if (settings.legacy != 3) {
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-  addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
 #endif
+  }
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
@@ -2100,7 +2219,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
     response->print("<option value='");
     response->print(filename);
     response->print("'");
-    if (filename == "latest.bin" || filename == "latest_beta.bin") response->print(" selected");
+    if (i == 0) response->print(" selected");
     response->print(">");
     response->print(filename);
     response->println("</option>");
@@ -2242,8 +2361,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
   saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
-  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", NULL, distributeBrightnessLevels) || saved;
-  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", NULL, distributeBrightnessLevels) || saved;
+  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", saveDayBrightness) || saved;
+  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", saveNightBrightness) || saved;
   saved = saveInt(request->getParam("day_start", true), &settings.day_start, "ds") || saved;
   saved = saveInt(request->getParam("night_start", true), &settings.night_start, "ns") || saved;
   saved = saveInt(request->getParam("brightness_auto", true), &settings.brightness_mode, "bra", saveAutoBrightnessMode) || saved;
@@ -2254,6 +2373,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
   saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
   saved = saveInt(request->getParam("brightness_bg", true), &settings.brightness_bg, "bbg") || saved;
+  saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
   
@@ -2271,6 +2391,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
   saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
   saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
+  saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
+  saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
   
   char url[14];
@@ -2297,6 +2419,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", &settings.home_alert_time, "hat", saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
+  saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", &settings.enable_explosions, "eex") || saved;
+  saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", &settings.enable_missiles, "emi") || saved;
+  saved = saveBool(request->getParam("enable_drones", true), "enable_drones", &settings.enable_drones, "edr") || saved;
   saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
   saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
   saved = saveInt(request->getParam("explosion_time", true), &settings.explosion_time, "ext") || saved;
@@ -2362,10 +2487,13 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveString(request->getParam("devicename", true), settings.devicename, "dn") || reboot;
   reboot = saveString(request->getParam("devicedescription", true), settings.devicedescription, "dd") || reboot;
   reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
-  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "host") || reboot;
+  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "wshost") || reboot;
   reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
-  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
-  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
+  reboot = saveBool(request->getParam("use_secure_connection", true), "use_secure_connection", &settings.use_secure_connection, "usc") || reboot;
+  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsnp") || reboot;
+  reboot = saveInt(request->getParam("websocket_port_secure", true), &settings.websocket_port_secure, "wsnps") || reboot;
+  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upp") || reboot;
+  reboot = saveInt(request->getParam("updateport_secure", true), &settings.updateport_secure, "upps") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
@@ -2524,6 +2652,16 @@ void onMessageCallback(WebsocketsMessage message) {
         explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
       }
       Serial.println("Successfully parsed explosions data");
+    } else if (payload == "missiles") {
+      for (int i = 0; i < 26; ++i) {
+        missiles_time[calculateOffset(i, offset)] = data["missiles"][i];
+      }
+      Serial.println("Successfully parsed missiles data");
+    } else if (payload == "drones") {
+      for (int i = 0; i < 26; ++i) {
+        drones_time[calculateOffset(i, offset)] = data["drones"][i];
+      }
+      Serial.println("Successfully parsed drones data");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -2566,7 +2704,16 @@ void socketConnect() {
   client_websocket.onEvent(onEventsCallback);
   long startTime = millis();
   char webSocketUrl[100];
-  sprintf(webSocketUrl, "ws://%s:%d/data_v2", settings.serverhost, settings.websocket_port);
+  sprintf(
+    webSocketUrl,
+    settings.use_secure_connection ? "wss://%s:%d/data_v3" : "ws://%s:%d/data_v3",
+    settings.serverhost,
+    settings.use_secure_connection ? settings.websocket_port_secure : settings.websocket_port
+  );
+  if (settings.use_secure_connection) {
+    Serial.println("Using secure connection");
+    client_websocket.setCACert(jaam_cert);
+  }
   Serial.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
@@ -2619,20 +2766,20 @@ void websocketProcess() {
 }
 //--Websocket process end
 
-CRGB fromRgb(int r, int g, int b, int brightness) {
-  // use 0.5f as a multiplier to get the half brightness
-  int scaledBrightness = round(brightness * 255.0f / 100.0f * 0.5f);
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightness_factor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
   return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
 
-CRGB fromHue(int hue, int brightness) {
+CRGB fromHue(int hue, float brightness) {
   RGBColor rgb = hue2rgb(hue);
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int position, float alertBrightness, float explosionBrightness, bool is_bgstrip) {
+CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drones_time, int position, float alertBrightness, float notificationBrightness, bool is_bgstrip) {
   CRGB hue;
   float local_brightness_alert = settings.brightness_alert / 100.0f;
   float local_brightness_clear = settings.brightness_clear / 100.0f;
@@ -2643,16 +2790,41 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
   int color_switch;
   float local_brightness;
 
+  unix_t currentTime = timeClient.unixGMT();
+
   // explosions has highest priority
-  if (expTime > 0 && timeClient.unixGMT() - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+  if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     color_switch = settings.color_explosion;
-    hue = fromHue(color_switch, explosionBrightness * settings.brightness_explosion);
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    return hue;
+  }
+
+  // missiles has second priority
+  if (settings.enable_missiles && missiles_time > 0 && currentTime - missiles_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    color_switch = settings.color_missiles;
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    return hue;
+  }
+
+  // drones has third priority
+  if (settings.enable_drones && drones_time > 0 && currentTime - drones_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    color_switch = settings.color_drones;
+    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   switch (led) {
-    case 0:
-      if (timeClient.unixGMT() - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
+    case ALERT:
+      if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
+        color_switch = settings.color_new_alert;
+        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
+      } else {
+        color_switch = settings.color_alert;
+        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+      }
+      break;
+    case CLEAR:
+      if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         color_switch = settings.color_alert_over;
         hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
       } else {
@@ -2669,28 +2841,20 @@ CRGB processAlarms(int led, long time, int expTime, int position, float alertBri
         hue = fromHue(color_switch, settings.current_brightness * local_brightness);
       }
       break;
-    case 1:
-      if (timeClient.unixGMT() - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_new_alert;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
-      } else {
-        color_switch = settings.color_alert;
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
-      }
-      break;
   }
   return hue;
 }
 
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float minBrightness = maxBrightness * 0.01f;
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  float minBrightness = fixedMaxBrightness * 0.01f;
   int progress = micros() % (fadeTime * 1000);
   int halfBlinkTime = fadeTime * 500;
   float blinkBrightness;
   if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, maxBrightness);
+    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
   } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, maxBrightness, minBrightness);
+    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
   }
   return blinkBrightness;
 }
@@ -2769,9 +2933,13 @@ void mapAlarms() {
   uint8_t adapted_alarm_leds[settings.pixelcount];
   long adapted_alarm_timers[settings.pixelcount];
   long adapted_explosion_timers[settings.pixelcount];
+  long adapted_missiles_timers[settings.pixelcount];
+  long adapted_drones_timers[settings.pixelcount];
   adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, settings.pixelcount, offset);
   adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
   adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, missiles_time, adapted_missiles_timers, settings.pixelcount, offset);
+  adaptLeds(settings.kyiv_district_mode, drones_time, adapted_drones_timers, settings.pixelcount, offset);
   if (settings.kyiv_district_mode == 4) {
     if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
       adapted_alarm_leds[7 + offset] = 0;
@@ -2782,20 +2950,46 @@ void mapAlarms() {
       adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
     }
     adapted_explosion_timers[7 + offset] = max(adapted_explosion_timers[25], adapted_explosion_timers[7 + offset]);
+    adapted_missiles_timers[7 + offset] = max(adapted_missiles_timers[25], adapted_missiles_timers[7 + offset]);
+    adapted_drones_timers[7 + offset] = max(adapted_drones_timers[25], adapted_drones_timers[7 + offset]);
   }
   float blinkBrightness = settings.current_brightness / 100.0f;
-  float explosionBrightness = settings.current_brightness / 100.0f;
+  float notificationBrightness = settings.current_brightness / 100.0f;
   if (settings.alarms_notify_mode == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
-    explosionBrightness = getFadeInFadeOutBrightness(explosionBrightness, settings.alert_blink_time * 500);
+    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.alert_blink_time * 500);
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = processAlarms(adapted_alarm_leds[i], adapted_alarm_timers[i], adapted_explosion_timers[i], i, blinkBrightness, explosionBrightness, false);
+    strip[i] = processAlarms(
+      adapted_alarm_leds[i], 
+      adapted_alarm_timers[i], 
+      adapted_explosion_timers[i], 
+      adapted_missiles_timers[i], 
+      adapted_drones_timers[i], 
+      i, 
+      blinkBrightness, 
+      notificationBrightness, 
+      false
+    );
   }
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, processAlarms(adapted_alarm_leds[localDistrict], adapted_alarm_timers[localDistrict], adapted_explosion_timers[localDistrict], localDistrict, blinkBrightness, explosionBrightness, true));
+    fill_solid(
+      bg_strip, 
+      settings.bg_pixelcount,
+      processAlarms(
+        adapted_alarm_leds[localDistrict],
+        adapted_alarm_timers[localDistrict],
+        adapted_explosion_timers[localDistrict],
+        adapted_missiles_timers[localDistrict],
+        adapted_drones_timers[localDistrict],
+        localDistrict,
+        blinkBrightness,
+        notificationBrightness,
+        true
+      )
+    );
   }
   FastLED.show();
 }
@@ -2970,11 +3164,14 @@ void initSettings() {
   preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
   preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
   preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
-  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("wshost", settings.serverhost, sizeof(settings.serverhost));
   preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
   preferences.getString("id", settings.identifier, sizeof(settings.identifier));
-  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
-  settings.updateport             = preferences.getInt("upport", settings.updateport);
+  settings.use_secure_connection  = preferences.getInt("usc", settings.use_secure_connection);
+  settings.websocket_port         = preferences.getInt("wsnp", settings.websocket_port);
+  settings.updateport             = preferences.getInt("upp", settings.updateport);
+  settings.websocket_port_secure  = preferences.getInt("wsnps", settings.websocket_port_secure);
+  settings.updateport_secure      = preferences.getInt("upps", settings.updateport_secure);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
@@ -2987,6 +3184,8 @@ void initSettings() {
   settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
   settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
   settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
+  settings.color_missiles         = preferences.getInt("colormi", settings.color_missiles);
+  settings.color_drones           = preferences.getInt("colordr", settings.color_drones);
   settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
   settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
   settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
@@ -2995,6 +3194,7 @@ void initSettings() {
   settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
   settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
   settings.brightness_bg          = preferences.getInt("bbg", settings.brightness_bg);
+  settings.brightness_service     = preferences.getInt("bs", settings.alert_on_time);
   settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
   settings.home_district          = preferences.getInt("hd", settings.home_district);
   settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
@@ -3006,6 +3206,9 @@ void initSettings() {
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
+  settings.enable_explosions      = preferences.getInt("eex", settings.enable_explosions);
+  settings.enable_missiles        = preferences.getInt("emi", settings.enable_missiles);
+  settings.enable_drones          = preferences.getInt("edr", settings.enable_drones);
   settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
   settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
   preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
@@ -3072,6 +3275,9 @@ void initSettings() {
 }
 
 void initLegacy() {
+#if TEST_MODE
+  settings.legacy = 3;
+#endif
   switch (settings.legacy) {
   case 0:
     Serial.println("Mode: jaam 1");
@@ -3127,11 +3333,16 @@ void initLegacy() {
     settings.buzzerpin = 33;
     settings.display_model = 2;
     settings.display_height = 64;
+    brightnessFactor = 0.3f;
+    minBrightness = 2;
+    minBlinkBrightness = 0.07f;
     break;
   }
   pinMode(settings.buttonpin, INPUT_PULLUP);
+  button1.name = "Button 1";
   if (isButton2Available()) {
     pinMode(settings.button2pin, INPUT_PULLUP);
+    button2.name = "Button 2";
   }
   Serial.printf("Offset: %d\n", offset);
 }
@@ -3317,7 +3528,8 @@ void initUpdates() {
 
 void initHA() {
   if (shouldWifiReconnect) return;
-    Serial.println("Init Home assistant API");
+  
+  Serial.println("Init Home assistant API");
     
   if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
     Serial.println("Home Assistant is not available!");
@@ -3330,6 +3542,8 @@ void initHA() {
   ha.initUsedMemorySensor();
   ha.initCpuTempSensor(temperatureRead());
   ha.initBrightnessSensor(settings.brightness, saveBrightness);
+  ha.initDayBrightnessSensor(settings.brightness_day, saveDayBrightness);
+  ha.initNightBrightnessSensor(settings.brightness_night, saveNightBrightness);
   ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
   if (display.isDisplayAvailable()) {
     displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions), DISPLAY_MODES,
@@ -3422,6 +3636,37 @@ void initTime() {
   syncTime(7);
 }
 
+void showLocalLightLevel() {
+  char message[10];
+  sprintf(message, "%.1f lx", lightSensor.getLightLevel(settings.light_sensor_factor));
+  displayMessage(message, "Освітлення");
+}
+
+#if TEST_MODE
+void runSelfTests() {
+  mapFlag();
+  playMelody(UA_ANTHEM);
+  servicePin(POWER, HIGH, true);
+  servicePin(WIFI, HIGH, true);
+  servicePin(DATA, HIGH, true);
+  servicePin(HA, HIGH, true);
+  servicePin(RESERVED, HIGH, true);
+  showLocalTemp();
+  sleep(2);
+  showLocalHum();
+  sleep(2);
+  showLocalPressure();
+  sleep(2);
+  showLocalLightLevel();
+  sleep(2);
+  displayMessage("Please test buttons");
+}
+#endif
+
+void syncTimePeriodically() {
+  syncTime(2);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3433,6 +3678,9 @@ void setup() {
   initStrip();
   initDisplay();
   initSensors();
+#if TEST_MODE
+  runSelfTests();
+#else
   initWifi();
   initTime();
 
@@ -3451,22 +3699,26 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+  asyncEngine.setInterval(syncTimePeriodically, 60000);
+#endif
 }
 
 void loop() {
+#if TEST_MODE==0
   wm.process();
   asyncEngine.run();
 #if ARDUINO_OTA_ENABLED
   ArduinoOTA.handle();
 #endif
+  ha.loop();
+  client_websocket.poll();
+  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
+    mapCycle();
+  }
+#endif
+
   buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
   if (isButton2Available()) {
     buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
-  }
-  ha.loop();
-  client_websocket.poll();
-  syncTime(2);
-  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
-    mapCycle();
   }
 }

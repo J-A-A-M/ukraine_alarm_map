@@ -3,7 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 WEBSOCKET_PORT=38440
-PING_INTERVAL=60
+PING_INTERVAL=20
 ENVIRONMENT="PROD"
 LOGGING="WARNING"
 
@@ -70,7 +70,7 @@ docker rm map_websocket_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server --restart unless-stopped -d  -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" map_websocket_server
+docker run --name map_websocket_server --restart unless-stopped --network=jaam -d -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" map_websocket_server
 
 echo "Container deployed successfully!"
 

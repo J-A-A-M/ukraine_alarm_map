@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
+port = int(os.environ.get("PORT", 8080))
 memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
 memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
@@ -82,7 +83,7 @@ regions = {
 class LogUserIPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         start_time = time.time()
-        client_ip = request.client.host
+        client_ip = request.headers.get("CF-Connecting-IP", request.client.host)
         client_path = request.url.path
 
         match client_path:
@@ -148,12 +149,12 @@ async def main(request):
             </div>
             <div class='row'>
                 <div class='p-3 col-md-6 offset-md-3 center'>
-                    <h4 class='text-center'>--> <a href='https://flasher.alerts.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
+                    <h4 class='text-center'>--> <a href='https://flasher.jaam.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
                 </div>
                 <div class='col-md-6 offset-md-3'>
                     <p>Корисні посилання:</p>
                     <ul>
-                        <li><a href="https://github.com/v00g100skr/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
+                        <li><a href="https://github.com/J-A-A-M/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
                         <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li> 
                         <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>                             
                     </ul>
@@ -215,7 +216,7 @@ async def alerts_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v2(request):
@@ -228,7 +229,7 @@ async def alerts_v2(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v3(request):
@@ -246,7 +247,7 @@ async def alerts_v3(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def weather_v1(request):
@@ -259,7 +260,7 @@ async def weather_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data)
+    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def etryvoga_v1(cached):
@@ -320,53 +321,55 @@ def etryvoga_v3(cached):
 
 async def explosives_v1(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v2(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v3(request):
     cached = await mc.get(b"explosions")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v1(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v2(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v3(request):
     cached = await mc.get(b"rockets")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v1(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v1(cached))
+    return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v2(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v2(cached))
+    return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v3(request):
     cached = await mc.get(b"drones")
-    return JSONResponse(etryvoga_v3(cached))
+    return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def etryvoga_full(request):
     if request.path_params["token"] == data_token:
         etryvoga_full = await mc.get(b"etryvoga_full")
-        return JSONResponse(json.loads(etryvoga_full.decode("utf-8")))
+        return JSONResponse(
+            json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"}
+        )
     else:
         return JSONResponse({})
 
@@ -381,7 +384,7 @@ async def tcp_v1(request):
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse({"tcp_stored_data": cached_data})
+    return JSONResponse({"tcp_stored_data": cached_data}, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def get_local_time_formatted():
@@ -491,8 +494,11 @@ async def dataparcer(clients, connection_type):
                 "version": version,
                 "id": plate_id,
                 "chip_id": data.get("chip_id"),
+                "country": data.get("country"),
                 "district": data.get("region"),
                 "city": data.get("city"),
+                "timezone": data.get("timezone"),
+                "secure_connection": data.get("secure_connection"),
                 "connection": connection_type,
             }
         )
@@ -562,4 +568,4 @@ app = Starlette(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=port)
