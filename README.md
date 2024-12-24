@@ -8,9 +8,9 @@
 - [WIKI по прошивці](https://github.com/J-A-A-M/ukraine_alarm_map/wiki)
 - [Багтрекер](https://github.com/J-A-A-M/ukraine_alarm_map/issues)
 - [Питання та пропозиції](https://github.com/J-A-A-M/ukraine_alarm_map/discussions)
-- [FLASHER](https://flasher.alerts.net.ua/) - тут можна залити свіжу прошивку прямо з браузера!
+- [FLASHER](https://flasher.jaam.net.ua/) - тут можна залити свіжу прошивку прямо з браузера!
 - [ТЕЛЕГРАМ КАНАЛ ПРОЕКТУ](https://t.me/jaam_project)
-- [ПОРТАЛ ДАНИХ](http://alerts.net.ua)
+- [ПОРТАЛ ДАНИХ](http://jaam.net.ua)
 
 ## Плата JAAM 2.1
 Текстолітова плата у формі мапи України
