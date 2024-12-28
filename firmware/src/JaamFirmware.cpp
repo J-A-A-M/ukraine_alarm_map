@@ -1123,7 +1123,7 @@ bool saveDayBrightness(int newBrightness) {
   if (settings.brightness_day == newBrightness) return false;
   settings.brightness_day = newBrightness;
   preferences.begin("storage", false);
-  preferences.putInt("brightness_day", settings.brightness_day);
+  preferences.putInt("brd", settings.brightness_day);
   preferences.end();
   reportSettingsChange("brightness_day", settings.brightness_day);
   Serial.print("brightness_day commited to preferences");
@@ -1138,7 +1138,7 @@ bool saveNightBrightness(int newBrightness) {
   if (settings.brightness_night == newBrightness) return false;
   settings.brightness_night = newBrightness;
   preferences.begin("storage", false);
-  preferences.putInt("brightness_night", settings.brightness_night);
+  preferences.putInt("brn", settings.brightness_night);
   preferences.end();
   reportSettingsChange("brightness_night", settings.brightness_night);
   Serial.print("brightness_night commited to preferences");
