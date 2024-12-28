@@ -110,6 +110,17 @@ async def update(request):
         )
         filenames = [filename for filename in filenames if not filename.startswith("4.")]
         return FileResponse(f"{shared_path}/{filenames[0]}")
+    if request.path_params["filename"] == "jaam":
+        filenames = sorted(
+            [
+                file
+                for file in os.listdir(shared_path)
+                if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
+            ],
+            key=bin_sort,
+            reverse=True,
+        )
+        return FileResponse(f"{shared_path}/{filenames[0]}")
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
@@ -126,6 +137,17 @@ async def update_beta(request):
         )
         filenames = [filename for filename in filenames if not filename.startswith("4.")]
         return FileResponse(f"{shared_beta_path}/{filenames[0]}")
+    if request.path_params["filename"] == "jaam_beta":
+        filenames = sorted(
+            [
+                file
+                for file in os.listdir(shared_path)
+                if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
+            ],
+            key=bin_sort,
+            reverse=True,
+        )
+        return FileResponse(f"{shared_path}/{filenames[0]}")
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 

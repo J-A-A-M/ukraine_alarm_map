@@ -1,6 +1,6 @@
 {
     "name": "JAAM Lite",
-    "version": "3.10",
+    "version": "4.0",
     "funding_url": "https://send.monobank.ua/jar/7GzS1PhPa2",
     "new_install_improv_wait_time": 0,
     "new_install_prompt_erase": true,
@@ -9,9 +9,9 @@
         "chipFamily": "ESP32",
         "improv": false,
         "parts": [
-          { "path": "bins/jaam.bootloader.old.bin", "offset": 4096 },
-          { "path": "bins/jaam.partitions.old.bin", "offset": 32768 },
-          { "path": "bins/jaam.boot.bin", "offset": 57344 },
+          { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
+          { "path": "bins/jaam.partitions.bin", "offset": 32768 },
+          { "path": "bins/jaam.boot.app0.bin", "offset": 57344 },
           { "path": "bins/jaam_lite.bin", "offset": 65536 }
         ]
       }

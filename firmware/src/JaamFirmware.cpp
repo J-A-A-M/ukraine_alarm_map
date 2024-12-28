@@ -26,7 +26,7 @@
 #include <melody_factory.h>
 #endif
 
-const PROGMEM char* VERSION = "3.10";
+const PROGMEM char* VERSION = "4.0";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
@@ -1931,7 +1931,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   if (isServiceStripEnabled()) {
     addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
   }
-  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 10.0f, 0.1f);
+  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -3705,6 +3705,10 @@ void runSelfTests() {
 }
 #endif
 
+void syncTimePeriodically() {
+  syncTime(2);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -3737,6 +3741,7 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+  asyncEngine.setInterval(syncTimePeriodically, 60000);
 #endif
 }
 
@@ -3749,7 +3754,6 @@ void loop() {
 #endif
   ha.loop();
   client_websocket.poll();
-  syncTime(2);
   if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
     mapCycle();
   }
