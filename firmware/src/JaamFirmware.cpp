@@ -55,13 +55,14 @@ struct Settings {
   char    identifier[51]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
-  int     bg_pixelpin            = 0;
-  int     service_ledpin         = 0;
-  int     buttonpin              = 0;
-  int     button2pin             = 0;
-  int     alertpin               = 0;
-  int     buzzerpin              = 0;
-  int     lightpin               = 0;
+  int     bg_pixelpin            = -1;
+  int     service_ledpin         = -1;
+  int     buttonpin              = -1;
+  int     button2pin             = -1;
+  int     alertpin               = -1;
+  int     clearpin               = -1;
+  int     buzzerpin              = -1;
+  int     lightpin               = -1;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
   char    ha_mqttpassword[66]    = "";
@@ -151,7 +152,6 @@ struct Settings {
   int     ws_alert_time          = 150000;
   int     ws_reboot_time         = 300000;
   int     min_of_silence         = 1;
-  int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
   float   temp_correction        = 0;
   float   hum_correction         = 0;
@@ -302,31 +302,35 @@ int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
 bool isBgStripEnabled() {
-  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
+  return settings.bg_pixelpin > -1 && settings.bg_pixelcount > 0;
 }
 
 bool isServiceStripEnabled() {
-  return settings.service_ledpin > 0;
+  return settings.service_ledpin > -1;
 }
 
 bool isButton1Enabled() {
-  return settings.buttonpin > 0;
+  return settings.buttonpin > -1;
 }
 
 bool isButton2Enabled() {
-  return settings.button2pin > 0;
+  return settings.button2pin > -1;
 }
 
 bool isAlertPinEnabled() {
-  return settings.alertpin > 0;
+  return settings.alertpin > -1;
+}
+
+bool isClearPinEnabled() {
+  return settings.clearpin > -1;
 }
 
 bool isBuzzerEnabled() {
-  return settings.buzzerpin > 0;
+  return settings.buzzerpin > -1;
 }
 
 bool isAnalogLightSensorEnabled() {
-  return settings.lightpin > 0;
+  return settings.lightpin > -1;
 }
 
 // Forward declarations
@@ -2183,17 +2187,17 @@ void handleDev(AsyncWebServerRequest* request) {
   addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy == 1 || settings.legacy == 2) {
     addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
-    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
-    addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
-    addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
+    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
+    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
+    addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
+    addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
-  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-  addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін, який замкнеться при відбої у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
   if (settings.legacy != 3) {
-    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
 #endif
   }
   response->println("<b>");
@@ -2528,9 +2532,9 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
+  reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
-  reboot = saveBool(request->getParam("enable_pin_on_alert", true), "enable_pin_on_alert", &settings.enable_pin_on_alert, "epoa") || reboot;
 
   if (reboot) {
     request->redirect("/");
@@ -3104,11 +3108,11 @@ void mapCycle() {
 //--Map processing end
 
 void alertPinCycle() {
-  if (isAlertPinEnabled() && alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+  if (isAlertPinEnabled() && alarmNow && digitalRead(settings.alertpin) == LOW) {
     Serial.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
   }
-  if (isAlertPinEnabled() && !alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
+  if (isAlertPinEnabled() && !alarmNow && digitalRead(settings.alertpin) == HIGH) {
     Serial.println("alert pin disabled");
     digitalWrite(settings.alertpin, LOW);
   }
@@ -3263,6 +3267,7 @@ void initSettings() {
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.clearpin               = preferences.getInt("cp", settings.clearpin);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
@@ -3273,7 +3278,6 @@ void initSettings() {
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
-  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
@@ -3398,10 +3402,18 @@ void initBuzzer() {
 }
 
 void initAlertPin() {
-  if (isAlertPinEnabled && settings.enable_pin_on_alert) {
+  if (isAlertPinEnabled) {
     Serial.printf("alertpin: %d\n");
     Serial.println(settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
+  }
+}
+
+void initClearPin() {
+  if (isClearPinEnabled) {
+    Serial.printf("clearpin: %d\n");
+    Serial.println(settings.clearpin);
+    pinMode(settings.clearpin, OUTPUT);
   }
 }
 
@@ -3717,6 +3729,7 @@ void setup() {
   initLegacy();
   initBuzzer();
   initAlertPin();
+  initClearPin();
   initStrip();
   initDisplay();
   initSensors();
