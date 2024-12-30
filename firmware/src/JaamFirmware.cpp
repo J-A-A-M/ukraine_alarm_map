@@ -64,7 +64,7 @@ struct Settings {
   int     buzzerpin              = -1;
   int     lightpin               = -1;
   int     alert_clear_pin_mode   = 0;
-  int     alert_clear_pin_time   = 1;
+  float   alert_clear_pin_time   = 1;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
   char    ha_mqttpassword[66]    = "";
@@ -2009,7 +2009,7 @@ void handleModes(AsyncWebServerRequest* request) {
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " с.");
   }
   if (climate.isTemperatureAvailable()) {
     addSlider(response, "temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
@@ -2032,16 +2032,16 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
   addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " с.", settings.alarms_notify_mode != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.legacy == 0 || settings.legacy == 3) {
     addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
@@ -2196,9 +2196,9 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
   addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
-  addInputText(response, "alertpin", "Пін тривоги у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
-  addInputText(response, "clearpin", "Пін відбою у дом. регіоні (має бути digital, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
-  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 1, 10, 1, " секунд");
+  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути digital, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
 
   if (settings.legacy != 3) {
     addInputText(response, "lightpin", "Пін фоторезистора (має бути analog, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
@@ -2540,7 +2540,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
-  reboot = saveInt(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt") || reboot;
+  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
 
@@ -3451,16 +3451,14 @@ void initBuzzer() {
 
 void initAlertPin() {
   if (isAlertPinEnabled) {
-    Serial.printf("alertpin: %d\n");
-    Serial.println(settings.alertpin);
+    Serial.printf("alertpin: %d\n", settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
   }
 }
 
 void initClearPin() {
-  if (isClearPinEnabled) {
-    Serial.printf("clearpin: %d\n");
-    Serial.println(settings.clearpin);
+  if (isClearPinEnabled && settings.alert_clear_pin_mode == 1) {
+    Serial.printf("clearpin: %d\n", settings.clearpin);
     pinMode(settings.clearpin, OUTPUT);
   }
 }
