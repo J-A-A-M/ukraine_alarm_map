@@ -230,6 +230,12 @@ static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
   "Перезавантаження пристрою"
 };
 
+#define ALERT_PIN_MODES_COUNT 2
+static const char* ALERT_PIN_MODES_OPTIONS[ALERT_PIN_MODES_COUNT] = {
+  "Бістабільний",
+  "Імпульсний"
+};
+
 #if FW_UPDATE_ENABLED
 #define FW_UPDATE_CHANNELS_COUNT 2
 static const char* FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {

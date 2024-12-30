@@ -63,6 +63,8 @@ struct Settings {
   int     clearpin               = -1;
   int     buzzerpin              = -1;
   int     lightpin               = -1;
+  int     alert_clear_pin_mode   = 0;
+  int     alert_clear_pin_time   = 1;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
   char    ha_mqttpassword[66]    = "";
@@ -253,6 +255,7 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
@@ -2037,7 +2040,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
   addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.legacy == 0 || settings.legacy == 3) {
@@ -2192,8 +2195,11 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
-  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
-  addInputText(response, "clearpin", "Пін, який замкнеться при відбої у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
+  addInputText(response, "alertpin", "Пін тривоги у дом. регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін відбою у дом. регіоні (має бути digital, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 1, 10, 1, " секунд");
+
   if (settings.legacy != 3) {
     addInputText(response, "lightpin", "Пін фоторезистора (має бути analog, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
@@ -2531,8 +2537,10 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm") || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt") || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
 
@@ -3107,14 +3115,52 @@ void mapCycle() {
 
 //--Map processing end
 
-void alertPinCycle() {
-  if (isAlertPinEnabled() && alarmNow && digitalRead(settings.alertpin) == LOW) {
+void setAlertPin() {
+  if (isAlertPinEnabled()) {
     Serial.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
   }
-  if (isAlertPinEnabled() && !alarmNow && digitalRead(settings.alertpin) == HIGH) {
+}
+
+void setClearPin() {
+  if (isClearPinEnabled()) {
+    Serial.println("clear pin enabled");
+    digitalWrite(settings.clearpin, HIGH);
+  }
+}
+
+void disableAlertPin() {
+  if (isAlertPinEnabled()) {
     Serial.println("alert pin disabled");
     digitalWrite(settings.alertpin, LOW);
+  }
+}
+
+void disableClearPin() {
+  if (isClearPinEnabled()) {
+    Serial.println("clear pin disabled");
+    digitalWrite(settings.clearpin, LOW);
+  }
+}
+
+void alertPinCycle() {
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 0) {
+    if (alarmNow && digitalRead(settings.alertpin) == LOW) {
+      setAlertPin();
+    }
+    if (!alarmNow && digitalRead(settings.alertpin) == HIGH) {
+      disableAlertPin();
+    }
+  }
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
+    setAlertPin();
+    pinAlarmNow = true;
+    asyncEngine.setTimeout(disableAlertPin, settings.alert_clear_pin_time * 1000);
+  }
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
+    setClearPin();
+    pinAlarmNow = false;
+    asyncEngine.setTimeout(disableClearPin, settings.alert_clear_pin_time * 1000);
   }
 }
 
@@ -3266,8 +3312,10 @@ void initSettings() {
   settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
+  settings.alert_clear_pin_mode   = preferences.getInt("acpm", settings.alert_clear_pin_mode);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.clearpin               = preferences.getInt("cp", settings.clearpin);
+  settings.alert_clear_pin_time   = preferences.getInt("acpt", settings.alert_clear_pin_time);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
