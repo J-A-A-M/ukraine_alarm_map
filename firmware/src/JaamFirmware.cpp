@@ -135,6 +135,9 @@ struct Settings {
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
+  int     toggle_mode_temp       = 1;
+  int     toggle_mode_hum        = 1;
+  int     toggle_mode_press      = 1;
   int     button_mode            = 0;
   int     button2_mode           = 0;
   int     button_mode_long       = 0;
@@ -1336,6 +1339,14 @@ int getClimateInfoSize() {
   return size;
 }
 
+int getClimateInfoSizeForToggle() {
+  int size = 0;
+  if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) size++;
+  if (settings.toggle_mode_hum && climate.isHumidityAvailable()) size++;
+  if (settings.toggle_mode_press && climate.isPressureAvailable()) size++;
+  return size;
+}
+
 void showLocalTemp() {
   char message[10];
   sprintf(message, "%.1f%cC", climate.getTemperature(settings.temp_correction), (char)128);
@@ -1369,13 +1380,32 @@ void showLocalClimateInfo(int index) {
   }
 }
 
+void showLocalClimateInfoForToggle(int index) {
+  if (index == 0 && climate.isTemperatureAvailable() && settings.toggle_mode_temp) {
+    showLocalTemp();
+    return;
+  }
+  if (!settings.toggle_mode_temp) index++;
+
+  if (index <= 1 && climate.isHumidityAvailable() && settings.toggle_mode_hum) {
+    showLocalHum();
+    return;
+  }
+  if (!settings.toggle_mode_hum) index++;
+
+  if (index <= 2 && climate.isPressureAvailable() && settings.toggle_mode_press) {
+    showLocalPressure();
+    return;
+  }
+}
+
 void showClimate() {
   int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
   showLocalClimateInfo(periodIndex);
 }
 
-void showSwitchingModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSize(), timeClient.second());
+void showToggleModes() {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSizeForToggle(), timeClient.second());
   switch (periodIndex) {
   case 0:
     // Display Mode Clock
@@ -1388,7 +1418,7 @@ void showSwitchingModes() {
   case 2:
   case 3:
   case 4:
-    showLocalClimateInfo(periodIndex - 2);
+    showLocalClimateInfoForToggle(periodIndex - 2);
     break;
   default:
     break;
@@ -1418,7 +1448,7 @@ void displayByMode(int mode) {
       break;
     // Display Mode Switching
     case 9:
-      showSwitchingModes();
+      showToggleModes();
       break;
     // Unknown Display Mode, clearing display...
     default:
@@ -1941,7 +1971,14 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    if (climate.isAnySensorAvailable()) {
+      response->println("Відображати в режимі \"Перемикання\":<br><br>");
+      if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
+      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.toggle_mode_hum, "Вологість");
+      if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.toggle_mode_press, "Тиск");
+    }
   }
+
   if (climate.isTemperatureAvailable()) {
     addSlider(response, "temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
   }
@@ -2366,6 +2403,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
   saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
+  saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", &settings.toggle_mode_temp, "tmt") || saved;
+  saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", &settings.toggle_mode_hum, "tmh") || saved;
+  saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", &settings.toggle_mode_press, "tmp") || saved;
   saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, climateSensorCycle) || saved;
   saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, climateSensorCycle) || saved;
   saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, climateSensorCycle) || saved;
@@ -3150,6 +3190,9 @@ void initSettings() {
   settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
   settings.display_mode           = preferences.getInt("dm", settings.display_mode);
   settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
+  settings.toggle_mode_temp       = preferences.getInt("tmt", settings.toggle_mode_temp);
+  settings.toggle_mode_hum        = preferences.getInt("tmh", settings.toggle_mode_hum);
+  settings.toggle_mode_press      = preferences.getInt("tmp", settings.toggle_mode_press);
   settings.button_mode            = preferences.getInt("bm", settings.button_mode);
   settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
