@@ -7,6 +7,7 @@
 #include <async.h>
 #include <ArduinoJson.h>
 #include <NTPtime.h>
+#include <TelnetSpy.h>
 #if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
 #endif
@@ -164,6 +165,8 @@ struct Settings {
   int     alert_blink_time       = 2;
   // ------- web config end
 };
+
+TelnetSpy LOG;
 
 Settings settings;
 
@@ -411,8 +414,8 @@ int getCurrentBrightnessLevel() {
     maxValue = 2600;
   }
   int level = map(min(currentValue, maxValue), 0, maxValue, 0, BR_LEVELS_COUNT - 1);
-  // Serial.print("Brightness level: ");
-  // Serial.println(level);
+  // LOG.print("Brightness level: ");
+  // LOG.println(level);
   return level;
 }
 
@@ -499,7 +502,7 @@ void reportSettingsChange(const char* settingKey, const char* settingValue) {
   settings[settingKey] = settingValue;
   sprintf(settingsInfo, "settings:%s", settings.as<String>().c_str());
   client_websocket.send(settingsInfo);
-  Serial.printf("Sent settings analytics: %s\n", settingsInfo);
+  LOG.printf("Sent settings analytics: %s\n", settingsInfo);
 }
 
 void reportSettingsChange(const char* settingKey, int newValue) {
@@ -515,39 +518,39 @@ void reportSettingsChange(const char* settingKey, float newValue) {
 }
 
 static void printNtpStatus(NTPtime* timeClient) {
-  Serial.print("NTP status: ");
+  LOG.print("NTP status: ");
     switch (timeClient->NTPstatus()) {
       case 0:
-        Serial.println("OK");
-        Serial.print("Current date and time: ");
-        Serial.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
+        LOG.println("OK");
+        LOG.print("Current date and time: ");
+        LOG.println(timeClient->unixToString("DD.MM.YYYY hh:mm:ss"));
         break;
       case 1:
-        Serial.println("NOT_STARTED");
+        LOG.println("NOT_STARTED");
         break;
       case 2:
-        Serial.println("NOT_CONNECTED_WIFI");
+        LOG.println("NOT_CONNECTED_WIFI");
         break;
       case 3:
-        Serial.println("NOT_CONNECTED_TO_SERVER");
+        LOG.println("NOT_CONNECTED_TO_SERVER");
         break;
       case 4:
-        Serial.println("NOT_SENT_PACKET");
+        LOG.println("NOT_SENT_PACKET");
         break;
       case 5:
-        Serial.println("WAITING_REPLY");
+        LOG.println("WAITING_REPLY");
         break;
       case 6:
-        Serial.println("TIMEOUT");
+        LOG.println("TIMEOUT");
         break;
       case 7:
-        Serial.println("REPLY_ERROR");
+        LOG.println("REPLY_ERROR");
         break;
       case 8:
-        Serial.println("NOT_CONNECTED_ETHERNET");
+        LOG.println("NOT_CONNECTED_ETHERNET");
         break;
       default:
-        Serial.println("UNKNOWN_STATUS");
+        LOG.println("UNKNOWN_STATUS");
         break;
     }
 }
@@ -555,13 +558,13 @@ static void printNtpStatus(NTPtime* timeClient) {
 void syncTime(int8_t attempts) {
   timeClient.tick();
   if (timeClient.status() == UNIX_OK) return;
-  Serial.println("Time not synced yet!");
+  LOG.println("Time not synced yet!");
   printNtpStatus(&timeClient);
   int8_t count = 1;
   while (timeClient.NTPstatus() != NTP_OK && count <= attempts) {
-    Serial.printf("Attempt #%d of %d\n", count, attempts);
+    LOG.printf("Attempt #%d of %d\n", count, attempts);
     if (timeClient.NTPstatus() != NTP_WAITING_REPLY) {
-      Serial.println("Force update!");
+      LOG.println("Force update!");
       timeClient.updateNow();
     }
     timeClient.tick();
@@ -664,17 +667,17 @@ void showHttpUpdateErrorMessage(int error) {
 #endif
 
 void initBroadcast() {
-  Serial.println("Init network device broadcast");
+  LOG.println("Init network device broadcast");
 
   if (!MDNS.begin(settings.broadcastname)) {
-    Serial.println("Error setting up mDNS responder");
+    LOG.println("Error setting up mDNS responder");
     showServiceMessage("Помилка mDNS");
     while (1) {
       delay(1000);
     }
   }
-  Serial.printf("Device broadcasted to network: %s.local", settings.broadcastname);
-  Serial.println();
+  LOG.printf("Device broadcasted to network: %s.local", settings.broadcastname);
+  LOG.println();
 }
 
 int getCurrentMapMode() {
@@ -700,8 +703,8 @@ int getCurrentMapMode() {
 }
 
 void onMqttStateChanged(bool haStatus) {
-  Serial.print("Home Assistant MQTT state changed! State: ");
-  Serial.println(haStatus ? "Connected" : "Disconnected");
+  LOG.print("Home Assistant MQTT state changed! State: ");
+  LOG.println(haStatus ? "Connected" : "Disconnected");
   haConnected = haStatus;
   servicePin(HA, haConnected ? HIGH : LOW, false);
   if (haConnected) {
@@ -725,8 +728,8 @@ bool saveMapMode(int newMapMode) {
   preferences.putInt("mapmode", settings.map_mode);
   preferences.end();
   reportSettingsChange("map_mode", settings.map_mode);
-  Serial.print("map_mode commited to preferences: ");
-  Serial.println(settings.map_mode);
+  LOG.print("map_mode commited to preferences: ");
+  LOG.println(settings.map_mode);
   ha.setLampState(settings.map_mode == 5);
   ha.setMapMode(settings.map_mode);
   ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
@@ -785,7 +788,7 @@ void updateDisplayBrightness() {
   int localDimDisplay = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(0, 0, settings.dim_display_on_night ? 1 : 0, NULL);
   if (localDimDisplay == currentDimDisplay) return;
   currentDimDisplay = localDimDisplay;
-  Serial.printf("Set display dim: %s\n", currentDimDisplay ? "ON" : "OFF");
+  LOG.printf("Set display dim: %s\n", currentDimDisplay ? "ON" : "OFF");
   display.dim(currentDimDisplay);
 }
 
@@ -805,24 +808,24 @@ void saveLatestFirmware() {
   latestFirmware = firmware;
   fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
   fillFwVersion(newFwVersion, latestFirmware);
-  Serial.printf("Latest firmware version: %s\n", newFwVersion);
-  Serial.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
+  LOG.printf("Latest firmware version: %s\n", newFwVersion);
+  LOG.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
 }
 
 void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
-  Serial.printf("%s update status:\n", isSpiffsUpdate ? "Spiffs" : "Firmware");
+  LOG.printf("%s update status:\n", isSpiffsUpdate ? "Spiffs" : "Firmware");
   switch (ret) {
     case HTTP_UPDATE_FAILED:
-      Serial.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+      LOG.printf("Error Occurred. Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
       break;
     case HTTP_UPDATE_NO_UPDATES:
-      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      LOG.println("HTTP_UPDATE_NO_UPDATES");
       break;
     case HTTP_UPDATE_OK:
       if (isSpiffsUpdate) {
-        Serial.println("Spiffs update successfully completed. Starting firmware update...");
+        LOG.println("Spiffs update successfully completed. Starting firmware update...");
       } else {
-        Serial.println("Firmware update successfully completed. Rebooting...");
+        LOG.println("Firmware update successfully completed. Rebooting...");
         rebootDevice();
       }
       break;
@@ -830,11 +833,11 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
-  Serial.println("Starting firmware update...");
+  LOG.println("Starting firmware update...");
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
 
-  Serial.println("Building firmware url...");
+  LOG.println("Building firmware url...");
   sprintf(
     firmwareUrlChar,
     "http://%s:%d%s%s",
@@ -844,7 +847,7 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
     binFileName
   );
 
-  Serial.printf("Firmware url: %s\n", firmwareUrlChar);
+  LOG.printf("Firmware url: %s\n", firmwareUrlChar);
   t_httpUpdate_return fwRet = httpUpdate.update(
     client,
     firmwareUrlChar,
@@ -866,7 +869,7 @@ void doUpdate() {
 void checkServicePins() {
   if (settings.legacy == 0 || settings.legacy == 3) {
     if (settings.service_diodes_mode) {
-      // Serial.println("Dioded enabled");
+      // LOG.println("Dioded enabled");
       servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(WIFI, LOW, true);
@@ -884,7 +887,7 @@ void checkServicePins() {
         servicePin(DATA, HIGH, true);
       }
     } else {
-      // Serial.println("Dioded disables");
+      // LOG.println("Dioded disables");
       servicePin(POWER, LOW, true);
       servicePin(WIFI, LOW, true);
       servicePin(HA, LOW, true);
@@ -910,8 +913,8 @@ bool saveDisplayMode(int newDisplayMode) {
   preferences.putInt("dm", settings.display_mode);
   preferences.end();
   reportSettingsChange("display_mode", settings.display_mode);
-  Serial.print("display_mode commited to preferences: ");
-  Serial.println(settings.display_mode);
+  LOG.print("display_mode commited to preferences: ");
+  LOG.println(settings.display_mode);
   int localDisplayMode = getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions);
   if (display.isDisplayAvailable()) {
     ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
@@ -945,8 +948,8 @@ void autoBrightnessUpdate() {
     preferences.begin("storage", false);
     preferences.putInt("cbr", settings.current_brightness);
     preferences.end();
-    Serial.print("set current brightness: ");
-    Serial.println(settings.current_brightness);
+    LOG.print("set current brightness: ");
+    LOG.println(settings.current_brightness);
   }
 }
 
@@ -959,8 +962,8 @@ bool saveNightMode(bool newState) {
   autoBrightnessUpdate();
   mapCycle();
   reportSettingsChange("nightMode", nightMode ? "true" : "false");
-  Serial.print("nightMode: ");
-  Serial.println(nightMode ? "true" : "false");
+  LOG.print("nightMode: ");
+  LOG.println(nightMode ? "true" : "false");
   ha.setNightMode(nightMode);
   return true;
 }
@@ -1089,8 +1092,8 @@ bool saveBrightness(int newBrightness) {
   preferences.putInt("brightness", settings.brightness);
   preferences.end();
   reportSettingsChange("brightness", settings.brightness);
-  Serial.print("brightness commited to preferences");
-  Serial.println(settings.brightness);
+  LOG.print("brightness commited to preferences");
+  LOG.println(settings.brightness);
   ha.setBrightness(newBrightness);
   autoBrightnessUpdate();
   return true;
@@ -1103,8 +1106,8 @@ bool saveDayBrightness(int newBrightness) {
   preferences.putInt("brd", settings.brightness_day);
   preferences.end();
   reportSettingsChange("brightness_day", settings.brightness_day);
-  Serial.print("brightness_day commited to preferences");
-  Serial.println(settings.brightness_day);
+  LOG.print("brightness_day commited to preferences");
+  LOG.println(settings.brightness_day);
   ha.setDayBrightness(newBrightness);
   autoBrightnessUpdate();
   distributeBrightnessLevels();
@@ -1118,8 +1121,8 @@ bool saveNightBrightness(int newBrightness) {
   preferences.putInt("brn", settings.brightness_night);
   preferences.end();
   reportSettingsChange("brightness_night", settings.brightness_night);
-  Serial.print("brightness_night commited to preferences");
-  Serial.println(settings.brightness_night);
+  LOG.print("brightness_night commited to preferences");
+  LOG.println(settings.brightness_night);
   ha.setNightBrightness(newBrightness);
   autoBrightnessUpdate();
   distributeBrightnessLevels();
@@ -1133,8 +1136,8 @@ bool saveAutoBrightnessMode(int autoBrightnessMode) {
   preferences.putInt("bra", settings.brightness_mode);
   preferences.end();
   reportSettingsChange("brightness_mode", settings.brightness_mode);
-  Serial.print("brightness_mode commited to preferences: ");
-  Serial.println(settings.brightness_mode);
+  LOG.print("brightness_mode commited to preferences: ");
+  LOG.println(settings.brightness_mode);
   ha.setAutoBrightnessMode(autoBrightnessMode);
   autoBrightnessUpdate();
   showServiceMessage(AUTO_BRIGHTNESS_MODES[settings.brightness_mode], "Авто. яскравість:");
@@ -1148,8 +1151,8 @@ bool saveAutoAlarmMode(int newMode) {
   preferences.putInt("aas", settings.alarms_auto_switch);
   preferences.end();
   reportSettingsChange("alarms_auto_switch", settings.alarms_auto_switch);
-  Serial.print("alarms_auto_switch commited to preferences: ");
-  Serial.println(settings.alarms_auto_switch);
+  LOG.print("alarms_auto_switch commited to preferences: ");
+  LOG.println(settings.alarms_auto_switch);
   ha.setAutoAlarmMode(newMode);
   return true;
 }
@@ -1161,8 +1164,8 @@ bool saveShowHomeAlarmTime(bool newState) {
   preferences.putInt("hat", settings.home_alert_time);
   preferences.end();
   reportSettingsChange("home_alert_time", settings.home_alert_time ? "true" : "false");
-  Serial.print("home_alert_time commited to preferences: ");
-  Serial.println(settings.home_alert_time ? "true" : "false");
+  LOG.print("home_alert_time commited to preferences: ");
+  LOG.println(settings.home_alert_time ? "true" : "false");
   if (display.isDisplayAvailable()) {
     ha.setShowHomeAlarmTime(newState);
   }
@@ -1176,8 +1179,8 @@ bool saveLampBrightness(int newBrightness) {
   preferences.putInt("ha_lbri", settings.ha_light_brightness);
   preferences.end();
   reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
-  Serial.print("ha_light_brightness commited to preferences: ");
-  Serial.println(settings.ha_light_brightness);
+  LOG.print("ha_light_brightness commited to preferences: ");
+  LOG.println(settings.ha_light_brightness);
   ha.setLampBrightness(newBrightness);
   mapCycle();
   return true;
@@ -1190,20 +1193,20 @@ bool saveLampRgb(int r, int g, int b) {
   if (settings.ha_light_r != r) {
     settings.ha_light_r = r;
     preferences.putInt("ha_lr", settings.ha_light_r);
-    Serial.print("ha_light_red commited to preferences: ");
-    Serial.println(settings.ha_light_r);
+    LOG.print("ha_light_red commited to preferences: ");
+    LOG.println(settings.ha_light_r);
   }
   if (settings.ha_light_g != g) {
     settings.ha_light_g = g;
     preferences.putInt("ha_lg", settings.ha_light_g);
-    Serial.print("ha_light_green commited to preferences: ");
-    Serial.println(settings.ha_light_g);
+    LOG.print("ha_light_green commited to preferences: ");
+    LOG.println(settings.ha_light_g);
   }
   if (settings.ha_light_b != b) {
     settings.ha_light_b = b;
     preferences.putInt("ha_lb", settings.ha_light_b);
-    Serial.print("ha_light_blue commited to preferences: ");
-    Serial.println(settings.ha_light_b);
+    LOG.print("ha_light_blue commited to preferences: ");
+    LOG.println(settings.ha_light_b);
   }
   preferences.end();
   char rgbHex[8];
@@ -1221,8 +1224,8 @@ bool saveHomeDistrict(int newHomeDistrict) {
   preferences.putInt("hd", settings.home_district);
   preferences.end();
   reportSettingsChange("home_district", DISTRICTS[settings.home_district]);
-  Serial.print("home_district commited to preferences: ");
-  Serial.println(DISTRICTS[settings.home_district]);
+  LOG.print("home_district commited to preferences: ");
+  LOG.println(DISTRICTS[settings.home_district]);
   ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.home_district)]);
   ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
   showServiceMessage(DISTRICTS[settings.home_district], "Домашній регіон:", 2000);
@@ -2258,7 +2261,7 @@ void saveInt(int *setting, const char* settingsKey, int newValue, const char* pa
   preferences.putInt(settingsKey, *setting);
   preferences.end();
   reportSettingsChange(paramName, *setting);
-  Serial.printf("%s commited to preferences: %d\n", paramName, *setting);
+  LOG.printf("%s commited to preferences: %d\n", paramName, *setting);
 }
 
 bool saveInt(const AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
@@ -2291,7 +2294,7 @@ bool saveFloat(const AsyncWebParameter* param, float *setting, const char* setti
     preferences.putFloat(settingsKey, *setting);
     preferences.end();
     reportSettingsChange(paramName, *setting);
-    Serial.printf("%s commited to preferences: %.1f\n", paramName, *setting);
+    LOG.printf("%s commited to preferences: %.1f\n", paramName, *setting);
     if (additionalFun) {
       additionalFun();
     }
@@ -2311,7 +2314,7 @@ bool saveBool(const AsyncWebParameter* param, const char* paramName, int *settin
     preferences.putInt(settingsKey, *setting);
     preferences.end();
     reportSettingsChange(paramName, *setting ? "true" : "false");
-    Serial.printf("%s commited to preferences: %s\n", paramName, *setting ? "true" : "false");
+    LOG.printf("%s commited to preferences: %s\n", paramName, *setting ? "true" : "false");
     if (additionalFun) {
       additionalFun();
     }
@@ -2333,7 +2336,7 @@ bool saveString(const AsyncWebParameter* param, char* setting, const char* setti
     preferences.putString(settingsKey, setting);
     preferences.end();
     reportSettingsChange(paramName, setting);
-    Serial.printf("%s commited to preferences: %s\n", paramName, setting);
+    LOG.printf("%s commited to preferences: %s\n", paramName, setting);
     if (additionalFun) {
       additionalFun();
     }
@@ -2344,7 +2347,7 @@ bool saveString(const AsyncWebParameter* param, char* setting, const char* setti
 
 #if FW_UPDATE_ENABLED
 void handleUpdate(AsyncWebServerRequest* request) {
-  Serial.println("do_update triggered");
+  LOG.println("do_update triggered");
   initUpdate = true;
   if (request->hasParam("bin_name", true)) {
     const char* bin_name = request->getParam("bin_name", true)->value().c_str();
@@ -2529,7 +2532,7 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 #endif
 
 void setupRouting() {
-  Serial.println("Init WebServer");
+  LOG.println("Init WebServer");
   webserver.on("/", HTTP_GET, handleRoot);
   webserver.on("/brightness", HTTP_GET, handleBrightness);
   webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
@@ -2554,7 +2557,7 @@ void setupRouting() {
   webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
 #endif
   webserver.begin();
-  Serial.println("Webportal running");
+  LOG.println("Webportal running");
 }
 //--Web server end
 
@@ -2577,14 +2580,14 @@ void uptime() {
 }
 
 void connectStatuses() {
-  Serial.print("Map API status: ");
+  LOG.print("Map API status: ");
   apiConnected = client_websocket.available();
-  Serial.println(apiConnected ? "Connected" : "Disconnected");
+  LOG.println(apiConnected ? "Connected" : "Disconnected");
   haConnected = false;
   if (ha.isHaAvailable()) {
     haConnected = ha.isMqttConnected();
-    Serial.print("Home Assistant MQTT status: ");
-    Serial.println(haConnected ? "Connected" : "Disconnected");
+    LOG.print("Home Assistant MQTT status: ");
+    LOG.println(haConnected ? "Connected" : "Disconnected");
     if (haConnected) {
       servicePin(HA, HIGH, false);
     } else {
@@ -2600,7 +2603,7 @@ static JsonDocument parseJson(const char* payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
-    Serial.printf("Deserialization error: $s\n", error.f_str());
+    LOG.printf("Deserialization error: $s\n", error.f_str());
     return doc;
   } else {
     return doc;
@@ -2616,48 +2619,48 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
     binsList[i] = new char[strlen(filename)];
     strcpy(binsList[i], filename);
   }
-  Serial.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
+  LOG.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
 }
 #endif
 
 //--Websocket process start
 
 void onMessageCallback(WebsocketsMessage message) {
-  Serial.print("Got Message: ");
-  Serial.println(message.data());
+  LOG.print("Got Message: ");
+  LOG.println(message.data());
   JsonDocument data = parseJson(message.data().c_str());
   String payload = data["payload"];
   if (!payload.isEmpty()) {
     if (payload == "ping") {
-      Serial.println("Heartbeat from server");
+      LOG.println("Heartbeat from server");
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
       for (int i = 0; i < 26; ++i) {
         alarm_leds[calculateOffset(i, offset)] = data["alerts"][i][0];
         alarm_time[calculateOffset(i, offset)] = data["alerts"][i][1];
       }
-      Serial.println("Successfully parsed alerts data");
+      LOG.println("Successfully parsed alerts data");
     } else if (payload == "weather") {
       for (int i = 0; i < 26; ++i) {
         weather_leds[calculateOffset(i, offset)] = data["weather"][i];
       }
-      Serial.println("Successfully parsed weather data");
+      LOG.println("Successfully parsed weather data");
       ha.setHomeTemperature(weather_leds[calculateOffset(settings.home_district, offset)]);
     } else if (payload == "explosions") {
       for (int i = 0; i < 26; ++i) {
         explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
       }
-      Serial.println("Successfully parsed explosions data");
+      LOG.println("Successfully parsed explosions data");
     } else if (payload == "missiles") {
       for (int i = 0; i < 26; ++i) {
         missiles_time[calculateOffset(i, offset)] = data["missiles"][i];
       }
-      Serial.println("Successfully parsed missiles data");
+      LOG.println("Successfully parsed missiles data");
     } else if (payload == "drones") {
       for (int i = 0; i < 26; ++i) {
         drones_time[calculateOffset(i, offset)] = data["drones"][i];
       }
-      Serial.println("Successfully parsed drones data");
+      LOG.println("Successfully parsed drones data");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -2673,28 +2676,28 @@ void onMessageCallback(WebsocketsMessage message) {
 void onEventsCallback(WebsocketsEvent event, String data) {
   if (event == WebsocketsEvent::ConnectionOpened) {
     apiConnected = true;
-    Serial.println("connnection opened");
+    LOG.println("connnection opened");
     servicePin(DATA, HIGH, false);
     websocketLastPingTime = millis();
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::ConnectionClosed) {
     apiConnected = false;
-    Serial.println("connnection closed");
+    LOG.println("connnection closed");
     servicePin(DATA, LOW, false);
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::GotPing) {
-    Serial.println("websocket ping");
+    LOG.println("websocket ping");
     client_websocket.pong();
     client_websocket.send("pong");
-    Serial.println("answered pong");
+    LOG.println("answered pong");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
-    Serial.println("websocket pong");
+    LOG.println("websocket pong");
   }
 }
 
 void socketConnect() {
-  Serial.println("connection start...");
+  LOG.println("connection start...");
   showServiceMessage("підключення...", "Сервер даних");
   client_websocket.onMessage(onMessageCallback);
   client_websocket.onEvent(onEventsCallback);
@@ -2706,15 +2709,15 @@ void socketConnect() {
     settings.serverhost,
     settings.websocket_port
   );
-  Serial.println(webSocketUrl);
+  LOG.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
   if (client_websocket.available()) {
-    Serial.print("connection time - ");
-    Serial.print(millis() - startTime);
-    Serial.println("ms");
+    LOG.print("connection time - ");
+    LOG.print(millis() - startTime);
+    LOG.println("ms");
     char firmwareInfo[100];
     sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
-    Serial.println(firmwareInfo);
+    LOG.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
 
     char userInfo[250];
@@ -2730,11 +2733,11 @@ void socketConnect() {
     userInfoJson["sht3x"] = climate.isSHT3XAvailable();
     userInfoJson["ha"] = ha.isHaAvailable();
     sprintf(userInfo, "user_info:%s", userInfoJson.as<String>().c_str());
-    Serial.println(userInfo);
+    LOG.println(userInfo);
     client_websocket.send(userInfo);
     char chipIdInfo[25];
     sprintf(chipIdInfo, "chip_id:%s", chipID);
-    Serial.println(chipIdInfo);
+    LOG.println(chipIdInfo);
     client_websocket.send(chipIdInfo);
     client_websocket.ping();
     websocketReconnect = false;
@@ -2752,7 +2755,7 @@ void websocketProcess() {
     rebootDevice(3000, true);
   }
   if (!client_websocket.available() or websocketReconnect) {
-    Serial.println("Reconnecting...");
+    LOG.println("Reconnecting...");
     socketConnect();
   }
 }
@@ -3063,11 +3066,11 @@ void mapCycle() {
 
 void alertPinCycle() {
   if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
-    Serial.println("alert pin enabled");
+    LOG.println("alert pin enabled");
     digitalWrite(settings.alertpin, HIGH);
   }
   if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
-    Serial.println("alert pin disabled");
+    LOG.println("alert pin disabled");
     digitalWrite(settings.alertpin, LOW);
   }
 }
@@ -3146,11 +3149,11 @@ void lightSensorCycle() {
 void initChipID() {
   uint64_t chipid = ESP.getEfuseMac();
   sprintf(chipID, "%04x%04x", (uint32_t)(chipid >> 32), (uint32_t)chipid);
-  Serial.printf("ChipID Inited: '%s'\n", chipID);
+  LOG.printf("ChipID Inited: '%s'\n", chipID);
 }
 
 void initSettings() {
-  Serial.println("Init settings");
+  LOG.println("Init settings");
   preferences.begin("storage", true);
 
   preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
@@ -3262,7 +3265,7 @@ void initSettings() {
 
   currentFirmware = parseFirmwareVersion(VERSION);
   fillFwVersion(currentFwVersion, currentFirmware);
-  Serial.printf("Current firmware version: %s\n", currentFwVersion);
+  LOG.printf("Current firmware version: %s\n", currentFwVersion);
   distributeBrightnessLevels();
 }
 
@@ -3272,7 +3275,7 @@ void initLegacy() {
 #endif
   switch (settings.legacy) {
   case 0:
-    Serial.println("Mode: jaam 1");
+    LOG.println("Mode: jaam 1");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
@@ -3295,7 +3298,7 @@ void initLegacy() {
     settings.display_height = 64;
     break;
   case 1:
-    Serial.println("Mode: transcarpathia");
+    LOG.println("Mode: transcarpathia");
     offset = 0;
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = LEGACY_FLAG_LEDS[i];
@@ -3303,14 +3306,14 @@ void initLegacy() {
     settings.service_diodes_mode = 0;
     break;
   case 2:
-    Serial.println("Mode: odesa");
+    LOG.println("Mode: odesa");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
     settings.service_diodes_mode = 0;
     break;
   case 3:
-    Serial.println("Mode: jaam 2");
+    LOG.println("Mode: jaam 2");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
@@ -3336,7 +3339,7 @@ void initLegacy() {
     pinMode(settings.button2pin, INPUT_PULLUP);
     button2.name = "Button 2";
   }
-  Serial.printf("Offset: %d\n", offset);
+  LOG.printf("Offset: %d\n", offset);
 }
 
 void initBuzzer() {
@@ -3351,8 +3354,8 @@ void initBuzzer() {
 
 void initAlertPin() {
   if (settings.enable_pin_on_alert) {
-    Serial.printf("alertpin: %d\n");
-    Serial.println(settings.alertpin);
+    LOG.printf("alertpin: %d\n");
+    LOG.println(settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
   }
 }
@@ -3403,29 +3406,29 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
     FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
     break;
   default:
-    Serial.print("This PIN is not supported for LEDs: ");
-    Serial.println(pin);
+    LOG.print("This PIN is not supported for LEDs: ");
+    LOG.println(pin);
     break;
   }
 }
 
 void initStrip() {
-  Serial.println("Init leds");
-  Serial.print("pixelpin: ");
-  Serial.println(settings.pixelpin);
-  Serial.print("pixelcount: ");
-  Serial.println(settings.pixelcount);
+  LOG.println("Init leds");
+  LOG.print("pixelpin: ");
+  LOG.println(settings.pixelpin);
+  LOG.print("pixelcount: ");
+  LOG.println(settings.pixelcount);
   initFastledStrip(settings.pixelpin, strip, settings.pixelcount);
   if (isBgStripEnabled()) {
-    Serial.print("bg pixelpin: ");
-    Serial.println(settings.bg_pixelpin);
-    Serial.print("bg pixelcount: ");
-    Serial.println(settings.bg_pixelcount);
+    LOG.print("bg pixelpin: ");
+    LOG.println(settings.bg_pixelpin);
+    LOG.print("bg pixelcount: ");
+    LOG.println(settings.bg_pixelcount);
     initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
   }
   if (isServiceStripEnabled()) {
-    Serial.print("service ledpin: ");
-    Serial.println(settings.service_ledpin);
+    LOG.print("service ledpin: ");
+    LOG.println(settings.service_ledpin);
     initFastledStrip(settings.service_ledpin, service_strip, 5);
     checkServicePins();
   }
@@ -3521,10 +3524,10 @@ void initUpdates() {
 void initHA() {
   if (shouldWifiReconnect) return;
   
-  Serial.println("Init Home assistant API");
+  LOG.println("Init Home assistant API");
     
   if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
-    Serial.println("Home Assistant is not available!");
+    LOG.println("Home Assistant is not available!");
     return;
   }
 
@@ -3572,7 +3575,7 @@ void initHA() {
 }
 
 void initWifi() {
-  Serial.println("Init Wifi");
+  LOG.println("Init Wifi");
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
   // reset settings - wipe credentials for testing
   // wm.resetSettings();
@@ -3590,12 +3593,12 @@ void initWifi() {
   char apssid[20];
   sprintf(apssid, "%s_%s", settings.apssid, chipID);
   if (!wm.autoConnect(apssid)) {
-    Serial.println("Reboot");
+    LOG.println("Reboot");
     rebootDevice(5000);
     return;
   }
   // Connected to WiFi
-  Serial.println("connected...yeey :)");
+  LOG.println("connected...yeey :)");
   servicePin(WIFI, HIGH, false);
   showServiceMessage("Підключено до WiFi!");
   wm.setHttpPort(8080);
@@ -3611,15 +3614,15 @@ void initWifi() {
 
 void wifiReconnect() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFI Reconnect");
+    LOG.println("WiFI Reconnect");
     shouldWifiReconnect = true;
     initWifi();
   }
 }
 
 void initTime() {
-  Serial.println("Init time");
-  Serial.printf("NTP host: %s\n", settings.ntphost);
+  LOG.println("Init time");
+  LOG.printf("NTP host: %s\n", settings.ntphost);
   timeClient.setHost(settings.ntphost);
   timeClient.setTimeZone(settings.time_zone);
   timeClient.setDSTauto(&dst); // auto update on summer/winter time.
@@ -3660,7 +3663,7 @@ void syncTimePeriodically() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  LOG.begin(115200);
 
   initChipID();
   initSettings();
@@ -3696,6 +3699,7 @@ void setup() {
 }
 
 void loop() {
+  LOG.handle();
 #if TEST_MODE==0
   wm.process();
   asyncEngine.run();
