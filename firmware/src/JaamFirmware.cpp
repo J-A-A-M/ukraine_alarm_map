@@ -103,8 +103,6 @@ struct Settings {
   int     ha_light_r             = 215;
   int     ha_light_g             = 7;
   int     ha_light_b             = 255;
-  int     sound_on_startup       = 0;
-  int     melody_on_startup      = 0;
   int     sound_on_min_of_sl     = 0;
   int     sound_on_alert         = 0;
   int     melody_on_alert        = 4;
@@ -211,7 +209,6 @@ enum ServiceLed {
 };
 
 enum SoundType {
-  START_UP,
   MIN_OF_SILINCE,
   MIN_OF_SILINCE_END,
   REGULAR,
@@ -243,6 +240,8 @@ long      explosions_time[26];
 long      missiles_time[26];
 long      drones_time[26];
 uint8_t   flag_leds[26];
+
+bool      gotWebsocketMessage = false;
 
 float     brightnessFactor = 0.5f;
 int       minBrightness = 1;
@@ -363,9 +362,6 @@ void playMelody(const char* melodyRtttl) {
 void playMelody(SoundType type) {
 #if BUZZER_ENABLED
   switch (type) {
-  case START_UP:
-    playMelody(MELODIES[settings.melody_on_startup]);
-    break;
   case MIN_OF_SILINCE:
     playMelody(MOS_BEEP);
     break;
@@ -440,6 +436,9 @@ int getNightModeType() {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
+  // do not play any sound before websocket connection
+  if (!gotWebsocketMessage) return false;
+
   // ignore mute on alert
   if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
 
@@ -447,8 +446,6 @@ bool needToPlaySound(SoundType type) {
   if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
 
   switch (type) {
-  case START_UP:
-    return settings.sound_on_startup;
   case MIN_OF_SILINCE:
     return settings.sound_on_min_of_sl;
   case MIN_OF_SILINCE_END:
@@ -2058,8 +2055,6 @@ void handleSounds(AsyncWebServerRequest* request) {
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  addCheckbox(response, "sound_on_startup", settings.sound_on_startup, "Відтворювати мелодію при старті мапи", "window.disableElement(\"melody_on_startup\", !this.checked);");
-  addSelectBox(response, "melody_on_startup", "Мелодія при старті мапи", settings.melody_on_startup, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_startup == 0, NULL, "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
   addCheckbox(response, "sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
   addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
@@ -2463,8 +2458,6 @@ void handleSaveModes(AsyncWebServerRequest* request) {
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveBool(request->getParam("sound_on_startup", true), "sound_on_startup", &settings.sound_on_startup, "sos") || saved;
-  saved = saveInt(request->getParam("melody_on_startup", true), &settings.melody_on_startup, "most") || saved;
   saved = saveBool(request->getParam("sound_on_min_of_sl", true), "sound_on_min_of_sl", &settings.sound_on_min_of_sl, "somos") || saved;
   saved = saveBool(request->getParam("sound_on_alert", true), "sound_on_alert", &settings.sound_on_alert, "soa") || saved;
   saved = saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa") || saved;
@@ -2637,6 +2630,44 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 }
 #endif
 
+void alertPinCycle() {
+  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
+    LOG.println("alert pin enabled");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
+    LOG.println("alert pin disabled");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
+void checkHomeDistrictAlerts() {
+  int ledStatus = alarm_leds[calculateOffset(settings.home_district, offset)];
+  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district, offset)];
+  bool localAlarmNow = ledStatus == 1;
+  if (localAlarmNow != alarmNow) {
+    alarmNow = localAlarmNow;
+    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
+    if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
+
+    alertPinCycle();
+
+    if (alarmNow) {
+      showServiceMessage("Тривога!", DISTRICTS[settings.home_district], 5000);
+    } else {
+      showServiceMessage("Відбій!", DISTRICTS[settings.home_district], 5000);
+    }
+    ha.setAlarmAtHome(alarmNow);
+  }
+  if (localHomeExplosions != homeExplosionTime) {
+    homeExplosionTime = localHomeExplosions;
+    if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+      showServiceMessage("Вибухи!", DISTRICTS[settings.home_district], 5000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+}
+
 //--Websocket process start
 
 void onMessageCallback(WebsocketsMessage message) {
@@ -2685,6 +2716,8 @@ void onMessageCallback(WebsocketsMessage message) {
 #endif
     }
   }
+  checkHomeDistrictAlerts();
+  gotWebsocketMessage = true;
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
@@ -3078,49 +3111,11 @@ void mapCycle() {
 
 //--Map processing end
 
-void alertPinCycle() {
-  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
-    LOG.println("alert pin enabled");
-    digitalWrite(settings.alertpin, HIGH);
-  }
-  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
-    LOG.println("alert pin disabled");
-    digitalWrite(settings.alertpin, LOW);
-  }
-}
-
 void rebootCycle() {
   if (needRebootWithDelay != -1) {
     int localDelay = needRebootWithDelay;
     needRebootWithDelay = -1;
     rebootDevice(localDelay);
-  }
-}
-
-void checkHomeDistrictAlerts() {
-  int ledStatus = alarm_leds[calculateOffset(settings.home_district, offset)];
-  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district, offset)];
-  bool localAlarmNow = ledStatus == 1;
-  if (localAlarmNow != alarmNow) {
-    alarmNow = localAlarmNow;
-    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
-    if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
-
-    alertPinCycle();
-
-    if (alarmNow) {
-      showServiceMessage("Тривога!", DISTRICTS[settings.home_district], 5000);
-    } else {
-      showServiceMessage("Відбій!", DISTRICTS[settings.home_district], 5000);
-    }
-    ha.setAlarmAtHome(alarmNow);
-  }
-  if (localHomeExplosions != homeExplosionTime) {
-    homeExplosionTime = localHomeExplosions;
-    if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-      showServiceMessage("Вибухи!", DISTRICTS[settings.home_district], 5000);
-      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
-    }
   }
 }
 
@@ -3253,14 +3248,12 @@ void initSettings() {
   settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
   settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
   settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
-  settings.sound_on_startup       = preferences.getInt("sos", settings.sound_on_startup);
   settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
   settings.sound_on_alert         = preferences.getInt("soa", settings.sound_on_alert);
   settings.sound_on_alert_end     = preferences.getInt("soae", settings.sound_on_alert_end);
   settings.sound_on_every_hour    = preferences.getInt("soeh", settings.sound_on_every_hour);
   settings.sound_on_button_click  = preferences.getInt("sobc", settings.sound_on_button_click);
   settings.sound_on_explosion     = preferences.getInt("soex", settings.sound_on_explosion);
-  settings.melody_on_startup      = preferences.getInt("most", settings.melody_on_startup);
   settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
   settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
   settings.melody_on_explosion    = preferences.getInt("moex", settings.melody_on_explosion);
@@ -3360,9 +3353,6 @@ void initBuzzer() {
 #if BUZZER_ENABLED
   player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
   player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
-  if (needToPlaySound(START_UP)) {
-    playMelody(START_UP);
-  }
 #endif
 }
 
