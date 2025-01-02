@@ -7,7 +7,9 @@
 #include <async.h>
 #include <ArduinoJson.h>
 #include <NTPtime.h>
+#if TELNET_ENABLED
 #include <TelnetSpy.h>
+#endif
 #if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
 #endif
@@ -26,6 +28,7 @@
 #include <melody_player.h>
 #include <melody_factory.h>
 #endif
+#include <esp_task_wdt.h>
 
 const PROGMEM char* VERSION = "4.0";
 
@@ -166,7 +169,12 @@ struct Settings {
   // ------- web config end
 };
 
-TelnetSpy LOG;
+#if TELNET_ENABLED
+TelnetSpy SerialAndTelnet;
+#define LOG SerialAndTelnet
+#else
+#define LOG Serial
+#endif
 
 Settings settings;
 
@@ -833,6 +841,9 @@ void handleUpdateStatus(t_httpUpdate_return ret, bool isSpiffsUpdate) {
 }
 
 void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
+  // disable watchdog timer while update
+  disableLoopWDT();
+
   LOG.println("Starting firmware update...");
   char spiffUrlChar[100];
   char firmwareUrlChar[100];
@@ -854,6 +865,9 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
     VERSION
     );
   handleUpdateStatus(fwRet, false);
+
+  // enable watchdog timer after update
+  enableLoopWDT();
 }
 
 void doUpdate() {
@@ -3696,10 +3710,19 @@ void setup() {
   asyncEngine.setInterval(calculateStates, 500);
   asyncEngine.setInterval(syncTimePeriodically, 60000);
 #endif
+  esp_err_t result  = esp_task_wdt_init(WDT_TIMEOUT, true);
+  if (result == ESP_OK) {
+    LOG.println("Watchdog timer enabled");
+    enableLoopWDT();
+  } else {
+    LOG.println("Watchdog timer NOT enabled");
+  }
 }
 
 void loop() {
+#if TELNET_ENABLED
   LOG.handle();
+#endif
 #if TEST_MODE==0
   wm.process();
   asyncEngine.run();

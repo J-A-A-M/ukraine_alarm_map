@@ -73,6 +73,8 @@ static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
 };
 #endif
 
+
+static const int WDT_TIMEOUT = 15; // seconds
 static const int CLEAR = 0;
 static const int ALERT = 1;
 
