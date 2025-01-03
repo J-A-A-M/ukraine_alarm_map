@@ -90,12 +90,6 @@ jobs:
       #     cd ${{ github.workspace }}/bin_beta/
       #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
       #     cd ${{ github.workspace }}
-      - name: Upload flasher to Github Pages
-        uses: ./.github/workflows/upload-pages
-        with:
-          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
-          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
-          version: ${{ inputs.release-version }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -112,6 +106,17 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
           makeLatest: true
+      - name: Fetch release notes
+        run: |
+          RELEASE_NOTES=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.release-version }} | jq -r '.body' | sed '/^$/d')
+          echo "$RELEASE_NOTES" > ${{ github.workspace }}/flasher/release_notes.txt
+          echo "{\"version\": \"${{ inputs.release-version }}\", \"releasenote\": \"${RELEASENOTES}\"}" > ${{ github.workspace }}/flasher/release_notes.json
+      - name: Upload flasher to Github Pages
+        uses: ./.github/workflows/upload-pages
+        with:
+          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
+          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
+          version: ${{ inputs.release-version }}
       - name: Merge master -> develop
         uses: devmasx/merge-branch@master
         with:
