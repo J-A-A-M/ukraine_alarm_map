@@ -1,5 +1,6 @@
 #define LITE 0
 #define TEST_MODE 0
+#define TELNET_ENABLED 0
 #if LITE
 #define ARDUINO_OTA_ENABLED 0
 #define FW_UPDATE_ENABLED 0
