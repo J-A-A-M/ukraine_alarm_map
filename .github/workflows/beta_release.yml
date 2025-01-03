@@ -39,12 +39,17 @@ jobs:
       #     cd ${{ github.workspace }}/bin_beta/
       #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
       #     cd ${{ github.workspace }}
+      - name: Fetch release notes
+        run: |
+          RELEASE_NOTES=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ env.BETA_VERSION }} | jq -r '.body' | sed '/^$/d')
+          echo "$RELEASE_NOTES" > ${{ github.workspace }}/flasher/release_notes_beta.txt
+          echo "{\"version\": \"${{ env.BETA_VERSION }}\", \"releasenote\": \"${RELEASENOTES}\"}" > ${{ github.workspace }}/flasher/release_notes_beta.json
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
           beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
           version: ${{ inputs.release-version }}
-          beta_build: ${{ github.run_number }}  
+          beta_build: ${{ github.run_number }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -61,7 +66,7 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
           prerelease: true
-          makeLatest: false    
+          makeLatest: false
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.2.0
         with:
