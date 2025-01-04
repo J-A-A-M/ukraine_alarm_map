@@ -90,12 +90,6 @@ jobs:
       #     cd ${{ github.workspace }}/bin_beta/
       #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
       #     cd ${{ github.workspace }}
-      - name: Commit changes
-        id: commit_changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Release ${{ inputs.release-version }}"
-          file_pattern: ${{ github.workspace }}/firmware/src/JaamFirmware.cpp ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
@@ -111,6 +105,22 @@ jobs:
           RELEASE_NOTES=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ inputs.release-version }} | jq -r '.body' | sed '/^$/d')
           echo "$RELEASE_NOTES" > ${{ github.workspace }}/flasher/release_notes.txt
           echo "{\"version\": \"${{ inputs.release-version }}\", \"releasenote\": \"${RELEASENOTES}\"}" > ${{ github.workspace }}/flasher/release_notes.json
+      - name: Copy release notes to bin folder
+        run: |
+          mkdir -p ${{ github.workspace }}/bin_beta/
+          if [ -f ${{ github.workspace }}/flasher/release_notes.txt ]; then
+            cp -f ${{ github.workspace }}/flasher/release_notes.txt ${{ github.workspace }}/bin/${{ inputs.release-version }}.txt
+            cp -f ${{ github.workspace }}/flasher/release_notes.txt ${{ github.workspace }}/bin/latest.txt
+          fi
+          if [ -f ${{ github.workspace }}/flasher/release_notes.json ]; then
+            cp -f ${{ github.workspace }}/flasher/release_notes.json ${{ github.workspace }}/bin/latest.json
+          fi
+      - name: Commit changes
+        id: commit_changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Release ${{ inputs.release-version }}"
+          file_pattern: ${{ github.workspace }}/firmware/src/JaamFirmware.cpp ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:

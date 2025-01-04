@@ -39,11 +39,33 @@ jobs:
       #     cd ${{ github.workspace }}/bin_beta/
       #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
       #     cd ${{ github.workspace }}
+      - name: Create Beta Pre Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          name: ${{ env.RELEASE_TITLE }}
+          commit: ${{ steps.commit_changes.outputs.commit_hash }}
+          tag: ${{ env.BETA_VERSION }}
+          generateReleaseNotes: true
+          allowUpdates: true
+          prerelease: true
+          makeLatest: false
       - name: Fetch release notes
         run: |
           RELEASE_NOTES=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ env.BETA_VERSION }} | jq -r '.body' | sed '/^$/d')
           echo "$RELEASE_NOTES" > ${{ github.workspace }}/flasher/release_notes_beta.txt
           echo "{\"version\": \"${{ env.BETA_VERSION }}\", \"releasenote\": \"${RELEASENOTES}\"}" > ${{ github.workspace }}/flasher/release_notes_beta.json
+      - name: Copy release notes to bin folder
+        run: |
+          mkdir -p ${{ github.workspace }}/bin_beta/
+          if [ -f ${{ github.workspace }}/flasher/release_notes_beta.txt ]; then
+            cp -f ${{ github.workspace }}/flasher/release_notes_beta.txt ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.txt
+            cp -f ${{ github.workspace }}/flasher/release_notes_beta.txt ${{ github.workspace }}/bin_beta/latest_beta.txt
+          fi
+          if [ -f ${{ github.workspace }}/flasher/release_notes_beta.json ]; then
+            cp -f ${{ github.workspace }}/flasher/release_notes_beta.json ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.txt
+            cp -f ${{ github.workspace }}/flasher/release_notes_beta.json ${{ github.workspace }}/bin_beta/latest_beta.json
+          fi
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
@@ -56,17 +78,6 @@ jobs:
         with:
           commit_message: "Beta ${{ env.BETA_VERSION }}"
           file_pattern: ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
-      - name: Create Beta Pre Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-          name: ${{ env.RELEASE_TITLE }}
-          commit: ${{ steps.commit_changes.outputs.commit_hash }}
-          tag: ${{ env.BETA_VERSION }}
-          generateReleaseNotes: true
-          allowUpdates: true
-          prerelease: true
-          makeLatest: false
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.2.0
         with:
