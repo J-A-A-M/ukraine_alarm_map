@@ -83,6 +83,10 @@ bool JaamLightSensor::isLightSensorEnabled() {
 #endif
 }
 
+bool JaamLightSensor::isAnySensorAvailable() {
+  return isLightSensorAvailable() || photoresistorPin != -1;
+}
+
 String JaamLightSensor::getSensorModel() {
   if (bh1750Initialized) {
     return "BH1750";
