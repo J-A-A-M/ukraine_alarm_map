@@ -243,7 +243,7 @@ long      missiles_time[26];
 long      drones_time[26];
 uint8_t   flag_leds[26];
 
-bool      gotWebsocketMessage = false;
+bool      isFirstDataFetchCompleted = false;
 
 float     brightnessFactor = 0.5f;
 int       minBrightness = 1;
@@ -470,7 +470,7 @@ bool needToPlaySound(SoundType type) {
   if (isBuzzerEnabled()) {
     
     // do not play any sound before websocket connection
-    if (!gotWebsocketMessage) return false;
+    if (!isFirstDataFetchCompleted) return false;
     
     // ignore mute on alert
     if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
@@ -2210,9 +2210,9 @@ void handleDev(AsyncWebServerRequest* request) {
   addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
 
   if (settings.legacy != 3) {
-    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
 #endif
   }
   response->println("<b>");
@@ -2715,15 +2715,23 @@ void alertPinCycle() {
     }
   }
   if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
-    setAlertPin();
     pinAlarmNow = true;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set alert pin on first data fetch");
+      return;
+    }
+    setAlertPin();
     long timeoutMs = settings.alert_clear_pin_time * 1000;
     LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
     asyncEngine.setTimeout(disableAlertPin, timeoutMs);
   }
   if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
-    setClearPin();
     pinAlarmNow = false;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set clear pin on first data fetch");
+      return;
+    }
+    setClearPin();
     long timeoutMs = settings.alert_clear_pin_time * 1000;
     LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
     asyncEngine.setTimeout(disableClearPin, timeoutMs);
@@ -2806,7 +2814,8 @@ void onMessageCallback(WebsocketsMessage message) {
     }
   }
   checkHomeDistrictAlerts();
-  gotWebsocketMessage = true;
+  alertPinCycle();
+  isFirstDataFetchCompleted = true;
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
@@ -3324,7 +3333,7 @@ void initSettings() {
   settings.alert_clear_pin_mode   = preferences.getInt("acpm", settings.alert_clear_pin_mode);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
   settings.clearpin               = preferences.getInt("cp", settings.clearpin);
-  settings.alert_clear_pin_time   = preferences.getInt("acpt", settings.alert_clear_pin_time);
+  settings.alert_clear_pin_time   = preferences.getFloat("acpt", settings.alert_clear_pin_time);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
