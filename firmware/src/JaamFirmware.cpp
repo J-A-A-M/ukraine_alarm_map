@@ -2544,10 +2544,10 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
-  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm") || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
-  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt") || reboot;
+  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
 
@@ -2703,6 +2703,11 @@ void disableClearPin() {
     LOG.println("clear pin: LOW");
     digitalWrite(settings.clearpin, LOW);
   }
+}
+
+void disableAlertAndClearPins() {
+  disableAlertPin();
+  disableClearPin();
 }
 
 void alertPinCycle() {
