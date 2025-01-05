@@ -2205,8 +2205,8 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
   addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
-  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути digital, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
-  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути digital, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
   addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
 
   if (settings.legacy != 3) {
