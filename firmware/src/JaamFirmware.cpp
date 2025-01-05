@@ -2679,28 +2679,28 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 
 void setAlertPin() {
   if (isAlertPinEnabled()) {
-    Serial.println("alert pin enabled");
+    LOG.println("alert pin: HIGH");
     digitalWrite(settings.alertpin, HIGH);
   }
 }
 
 void setClearPin() {
   if (isClearPinEnabled()) {
-    Serial.println("clear pin enabled");
+    LOG.println("clear pin: HIGH");
     digitalWrite(settings.clearpin, HIGH);
   }
 }
 
 void disableAlertPin() {
   if (isAlertPinEnabled()) {
-    Serial.println("alert pin disabled");
+    LOG.println("alert pin: LOW");
     digitalWrite(settings.alertpin, LOW);
   }
 }
 
 void disableClearPin() {
   if (isClearPinEnabled()) {
-    Serial.println("clear pin disabled");
+    LOG.println("clear pin: LOW");
     digitalWrite(settings.clearpin, LOW);
   }
 }
@@ -2717,12 +2717,16 @@ void alertPinCycle() {
   if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
     setAlertPin();
     pinAlarmNow = true;
-    asyncEngine.setTimeout(disableAlertPin, settings.alert_clear_pin_time * 1000);
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableAlertPin, timeoutMs);
   }
   if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
     setClearPin();
     pinAlarmNow = false;
-    asyncEngine.setTimeout(disableClearPin, settings.alert_clear_pin_time * 1000);
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableClearPin, timeoutMs);
   }
 }
 
@@ -3450,15 +3454,15 @@ void initBuzzer() {
 }
 
 void initAlertPin() {
-  if (isAlertPinEnabled) {
+  if (isAlertPinEnabled()) {
     LOG.printf("alertpin: %d\n", settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
   }
 }
 
 void initClearPin() {
-  if (isClearPinEnabled && settings.alert_clear_pin_mode == 1) {
-    Serial.printf("clearpin: %d\n", settings.clearpin);
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1) {
+    LOG.printf("clearpin: %d\n", settings.clearpin);
     pinMode(settings.clearpin, OUTPUT);
   }
 }
