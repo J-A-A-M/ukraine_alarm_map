@@ -1600,6 +1600,39 @@ void climateSensorCycle() {
   updateHaPressureSensors();
 }
 
+void setAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: HIGH");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+}
+
+void setClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: HIGH");
+    digitalWrite(settings.clearpin, HIGH);
+  }
+}
+
+void disableAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: LOW");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
+void disableClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: LOW");
+    digitalWrite(settings.clearpin, LOW);
+  }
+}
+
+void disableAlertAndClearPins() {
+  disableAlertPin();
+  disableClearPin();
+}
+
 //--Web server start
 
 int getSettingsDisplayMode(int localDisplayMode) {
@@ -2676,39 +2709,6 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
   LOG.printf("Successfully parsed %s list. List size: %d\n", payloadKey, *binsCount);
 }
 #endif
-
-void setAlertPin() {
-  if (isAlertPinEnabled()) {
-    LOG.println("alert pin: HIGH");
-    digitalWrite(settings.alertpin, HIGH);
-  }
-}
-
-void setClearPin() {
-  if (isClearPinEnabled()) {
-    LOG.println("clear pin: HIGH");
-    digitalWrite(settings.clearpin, HIGH);
-  }
-}
-
-void disableAlertPin() {
-  if (isAlertPinEnabled()) {
-    LOG.println("alert pin: LOW");
-    digitalWrite(settings.alertpin, LOW);
-  }
-}
-
-void disableClearPin() {
-  if (isClearPinEnabled()) {
-    LOG.println("clear pin: LOW");
-    digitalWrite(settings.clearpin, LOW);
-  }
-}
-
-void disableAlertAndClearPins() {
-  disableAlertPin();
-  disableClearPin();
-}
 
 void alertPinCycle() {
   if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 0) {
