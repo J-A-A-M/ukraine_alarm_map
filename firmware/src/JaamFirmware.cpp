@@ -26,7 +26,7 @@
 #include <melody_factory.h>
 #endif
 
-const PROGMEM char* VERSION = "3.10";
+const PROGMEM char* VERSION = "3.10.1";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
@@ -1713,7 +1713,7 @@ void addHeader(AsyncResponseStream* response) {
     response->print("Доступне оновлення до версії <b>4.x</b>!");
     response->println("<br>Інструкція по оновленню доступна за <b><a href='https://github.com/J-A-A-M/ukraine_alarm_map/wiki/%D0%9E%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F-%D0%B7-%D0%BF%D1%80%D0%BE%D1%88%D0%B8%D0%B2%D0%BA%D0%B8-3.x-%D0%B4%D0%BE-4.x'>посиланням</a></b>.");
     response->println("<br>3.10.1 - це останнє оновлення гілки 3.x, всі подальші оновлення будуть лише <b>у версіях 4.x</b>!");
-    response->println("<br>Якщо ви бажаєте залишитись на прошивці 3.x та вимкнуте це сповіщення, перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b>, та вимкніть опцію \"Показувати інформацію про оновлення до версії 4.х\"");
+    response->println("<br>Якщо ви бажаєте залишитись на прошивці 3.x та вимкнути це сповіщення, перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b>, та вимкніть опцію \"Показувати інформацію про оновлення до версії 4.х\"");
     response->println("</div>");
     response->println("</div>");
     response->println("</div>");
