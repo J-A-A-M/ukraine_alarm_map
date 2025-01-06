@@ -153,7 +153,7 @@ struct Settings {
   int     alert_off_time         = 5;
   int     explosion_time         = 3;
   int     alert_blink_time       = 2;
-  bool    show_v4_update_info    = true;
+  int     show_v4_update_info    = 1;
   // ------- web config end
 };
 
@@ -1706,6 +1706,18 @@ void addHeader(AsyncResponseStream* response) {
   response->println("'>");
   response->println("</div>");
   response->println("</div>");
+  if (settings.show_v4_update_info == 1) {
+    response->println("<div class='row justify-content-center'>");
+    response->println("<div class='by col-md-9 mt-2'>");
+    response->println("<div class='alert alert-success text-center'>");
+    response->print("Доступне оновлення до версії <b>4.x</b>!");
+    response->println("<br>Інструкція по оновленню доступна за <b><a href='https://github.com/J-A-A-M/ukraine_alarm_map/wiki/%D0%9E%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F-%D0%B7-%D0%BF%D1%80%D0%BE%D1%88%D0%B8%D0%B2%D0%BA%D0%B8-3.x-%D0%B4%D0%BE-4.x'>посиланням</a></b>.");
+    response->println("<br>3.10.1 - це останнє оновлення гілки 3.x, всі подальші оновлення будуть лише <b>у версіях 4.x</b>!");
+    response->println("<br>Якщо ви бажаєте залишитись на прошивці 3.x та вимкнуте це сповіщення, перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b>, та вимкніть опцію \"Показувати інформацію про оновлення до версії 4.х\"");
+    response->println("</div>");
+    response->println("</div>");
+    response->println("</div>");
+  }
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
 #if FW_UPDATE_ENABLED
@@ -1713,7 +1725,7 @@ void addHeader(AsyncResponseStream* response) {
     response->println("<div class='alert alert-success text-center'>");
     response->print("Доступна нова версія прошивки - <b>");
     response->print(newFwVersion);
-    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>");
+    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b></h8>");
     response->println("</div>");
   }
 #endif
@@ -2111,6 +2123,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveFirmware' method='POST'>");
   if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  addCheckbox(response, "show_v4_update_info", settings.show_v4_update_info, "Показувати інформацію про оновлення до версії 4.х");
   addSelectBox(response, "fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
   response->println("<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
@@ -2411,6 +2424,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
+  saved = saveBool(request->getParam("show_v4_update_info", true), "show_v4_update_info", &settings.show_v4_update_info, "svfui") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
   char url[16];
@@ -3086,6 +3100,7 @@ void initSettings() {
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
+  settings.show_v4_update_info    = preferences.getInt("svfui", settings.show_v4_update_info);
   
   preferences.end();
 
