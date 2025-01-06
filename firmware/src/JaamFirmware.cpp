@@ -26,7 +26,7 @@
 #include <melody_factory.h>
 #endif
 
-const PROGMEM char* VERSION = "3.10";
+const PROGMEM char* VERSION = "3.10.1";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
@@ -45,9 +45,9 @@ struct Settings {
   char    devicedescription[51]  = "JAAM Informer";
   char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "alerts.net.ua";
-  int     websocket_port         = 38440;
-  int     updateport             = 8090;
+  char    serverhost[31]         = "jaam.net.ua";
+  int     websocket_port         = 2052;
+  int     updateport             = 2095;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
@@ -154,8 +154,11 @@ struct Settings {
   int     alert_off_time         = 5;
   int     explosion_time         = 3;
   int     alert_blink_time       = 2;
+  int     show_v4_update_info    = 1;
   // ------- web config end
 };
+
+bool readyToShowV4UpdateInfo = false;
 
 Settings settings;
 
@@ -1397,6 +1400,21 @@ void showNewFirmwareNotification() {
 }
 #endif
 
+void showV4UpdateInfo() {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
+  char title[50];
+  char message[50];
+  if (periodIndex) {
+    strcpy(title, "Увага!");
+    strcpy(message, "Важлива інформація");
+  } else {
+    strcpy(title, "Введіть у браузері:");
+    strcpy(message, getLocalIP());
+  }
+
+  displayMessage(message, title);
+}
+
 void displayCycle() {
   if (!display.isDisplayAvailable()) return;
 
@@ -1416,6 +1434,12 @@ void displayCycle() {
   // Show Minute of silence mode if activated. (Priority - 0)
   if (minuteOfSilence) {
     displayMinuteOfSilence();
+    return;
+  }
+
+  //Show v4 update screen if activated. (Priority - 0.5)
+  if (readyToShowV4UpdateInfo && settings.show_v4_update_info ==1) {
+    showV4UpdateInfo();
     return;
   }
 
@@ -1699,6 +1723,18 @@ void addHeader(AsyncResponseStream* response) {
   response->println("'>");
   response->println("</div>");
   response->println("</div>");
+  if (settings.show_v4_update_info == 1) {
+    response->println("<div class='row justify-content-center'>");
+    response->println("<div class='by col-md-9 mt-2'>");
+    response->println("<div class='alert alert-success text-center'>");
+    response->print("Доступне оновлення до версії <b>4.x</b>!");
+    response->println("<br>Інструкція по оновленню доступна за <b><a href='https://github.com/J-A-A-M/ukraine_alarm_map/wiki/%D0%9E%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F-%D0%B7-%D0%BF%D1%80%D0%BE%D1%88%D0%B8%D0%B2%D0%BA%D0%B8-3.x-%D0%B4%D0%BE-4.x'>посиланням</a></b>.");
+    response->println("<br>3.10.1 - це останнє оновлення гілки 3.x, всі подальші оновлення будуть лише <b>у версіях 4.x</b>!");
+    response->println("<br>Якщо ви бажаєте залишитись на прошивці 3.x та вимкнути це сповіщення, перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b>, та вимкніть опцію \"Показувати інформацію про оновлення до версії 4.х\"");
+    response->println("</div>");
+    response->println("</div>");
+    response->println("</div>");
+  }
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
 #if FW_UPDATE_ENABLED
@@ -1706,7 +1742,7 @@ void addHeader(AsyncResponseStream* response) {
     response->println("<div class='alert alert-success text-center'>");
     response->print("Доступна нова версія прошивки - <b>");
     response->print(newFwVersion);
-    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/?p=fw'>Прошивка</a></b></h8>");
+    response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b></h8>");
     response->println("</div>");
   }
 #endif
@@ -2107,6 +2143,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveFirmware' method='POST'>");
   if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
+  addCheckbox(response, "show_v4_update_info", settings.show_v4_update_info, "Показувати інформацію про оновлення до версії 4.х");
   addSelectBox(response, "fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
   response->println("<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
@@ -2383,10 +2420,10 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveString(request->getParam("devicename", true), settings.devicename, "dn") || reboot;
   reboot = saveString(request->getParam("devicedescription", true), settings.devicedescription, "dd") || reboot;
   reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
-  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "host") || reboot;
+  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "wshost") || reboot;
   reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
-  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsp") || reboot;
-  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upport") || reboot;
+  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsnp") || reboot;
+  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upp") || reboot;
   reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
@@ -2408,6 +2445,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
+  saved = saveBool(request->getParam("show_v4_update_info", true), "show_v4_update_info", &settings.show_v4_update_info, "svfui") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
   char url[16];
@@ -2992,11 +3030,11 @@ void initSettings() {
   preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
   preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
   preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
-  preferences.getString("host", settings.serverhost, sizeof(settings.serverhost));
+  preferences.getString("wshost", settings.serverhost, sizeof(settings.serverhost));
   preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
   preferences.getString("id", settings.identifier, sizeof(settings.identifier));
-  settings.websocket_port         = preferences.getInt("wsp", settings.websocket_port);
-  settings.updateport             = preferences.getInt("upport", settings.updateport);
+  settings.websocket_port         = preferences.getInt("wsnp", settings.websocket_port);
+  settings.updateport             = preferences.getInt("upp", settings.updateport);
   settings.legacy                 = preferences.getInt("legacy", settings.legacy);
   settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
   settings.brightness             = preferences.getInt("brightness", settings.brightness);
@@ -3085,6 +3123,7 @@ void initSettings() {
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
+  settings.show_v4_update_info    = preferences.getInt("svfui", settings.show_v4_update_info);
   
   preferences.end();
 
@@ -3442,6 +3481,10 @@ void wifiReconnect() {
   }
 }
 
+void activatev4UpdateMessage() {
+  readyToShowV4UpdateInfo = true;
+} 
+
 void initTime() {
   Serial.println("Init time");
   Serial.printf("NTP host: %s\n", settings.ntphost);
@@ -3512,6 +3555,10 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+
+  if (settings.show_v4_update_info == 1) {
+    asyncEngine.setTimeout(activatev4UpdateMessage, 300000); // 5 minutes
+  }
 #endif
 }
 

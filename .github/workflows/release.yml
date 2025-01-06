@@ -13,7 +13,6 @@ on:
 run-name: Release ${{ inputs.release-version }} (${{ inputs.release-title }})
 jobs:
   build:
-    if: ${{ github.ref_name == 'master' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,31 +30,28 @@ jobs:
         with:
           name: JAAM_${{ inputs.release-version }}.bin
           path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
-  build_lite:
-    if: ${{ github.ref_name == 'master' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Replace version and build type in firmware source
-        run: |
-          sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/firmware/src/JaamFirmware.cpp
-          sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
-      - name: Compile firmware
-        uses: ./.github/workflows/firmware-compile
-      - name: Copy bin to upload
-        run: |
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
-      - name: Upload firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: JAAM_${{ inputs.release-version }}_lite.bin
-          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+  # build_lite:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Replace version and build type in firmware source
+  #       run: |
+  #         sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/firmware/src/JaamFirmware.cpp
+  #         sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
+  #     - name: Compile firmware
+  #       uses: ./.github/workflows/firmware-compile
+  #     - name: Copy bin to upload
+  #       run: |
+  #         cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+  #     - name: Upload firmware
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: JAAM_${{ inputs.release-version }}_lite.bin
+  #         path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
   release_firmware:
-    needs: [build, build_lite]
+    needs: [build]
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
     permissions:
       contents: write
       pages: write
@@ -71,11 +67,11 @@ jobs:
         with:
           name: JAAM_${{ inputs.release-version }}.bin
           path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
-      - name: Download firmware lite
-        uses: actions/download-artifact@v4
-        with:
-          name: JAAM_${{ inputs.release-version }}_lite.bin
-          path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+      # - name: Download firmware lite
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: JAAM_${{ inputs.release-version }}_lite.bin
+      #     path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
       - name: Copy release files to bin folder
         run: |
           mkdir -p ${{ github.workspace }}/bin/
@@ -84,43 +80,43 @@ jobs:
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/latest.bin
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/latest_beta.bin
-      - name: Leave only 3 recent releases
-        run: |
-          cd ${{ github.workspace }}/bin/
-          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-          cd ${{ github.workspace }}/bin_beta/
-          ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-          cd ${{ github.workspace }}
-      - name: Upload flasher to Github Pages
-        uses: ./.github/workflows/upload-pages
-        with:
-          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
-          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
-          version: ${{ inputs.release-version }}
+      # - name: Leave only 3 recent releases
+      #   run: |
+      #     cd ${{ github.workspace }}/bin/
+      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
+      #     cd ${{ github.workspace }}/bin_beta/
+      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
+      #     cd ${{ github.workspace }}
+      # - name: Upload flasher to Github Pages
+      #   uses: ./.github/workflows/upload-pages
+      #   with:
+      #     binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
+      #     lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
+      #     version: ${{ inputs.release-version }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Release ${{ inputs.release-version }}"
           file_pattern: ${{ github.workspace }}/firmware/src/JaamFirmware.cpp ${{ github.workspace }}/bin/ ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin"
-          name: "${{ inputs.release-version }}: ${{ inputs.release-title }}"
-          commit: ${{ steps.commit_changes.outputs.commit_hash }}
-          tag: ${{ inputs.release-version }}
-          generateReleaseNotes: true
-          allowUpdates: true
-          makeLatest: true
-      - name: Merge master -> develop
-        uses: devmasx/merge-branch@master
-        with:
-          type: now
-          target_branch: develop
-          head_to_merge: ${{ steps.commit_changes.outputs.commit_hash }}
-          message: Sync Release ${{ inputs.release-version }} to develop
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Create Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     artifacts: "${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin"
+      #     name: "${{ inputs.release-version }}: ${{ inputs.release-title }}"
+      #     commit: ${{ steps.commit_changes.outputs.commit_hash }}
+      #     tag: ${{ inputs.release-version }}
+      #     generateReleaseNotes: true
+      #     allowUpdates: true
+      #     makeLatest: true
+      # - name: Merge master -> develop
+      #   uses: devmasx/merge-branch@master
+      #   with:
+      #     type: now
+      #     target_branch: develop
+      #     head_to_merge: ${{ steps.commit_changes.outputs.commit_hash }}
+      #     message: Sync Release ${{ inputs.release-version }} to develop
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Update server bin list
         uses: appleboy/ssh-action@v1.0.3
         with:
