@@ -5,7 +5,7 @@
 BH1750_WE *bh1750;
 #endif
 bool bh1750Initialized = false;
-int photoresistorPin = A4;
+int photoresistorPin = -1;
 float lightLevel = -1;
 
 JaamLightSensor::JaamLightSensor() {
@@ -61,6 +61,9 @@ float JaamLightSensor::getLightLevel(float lightFactor) {
 }
 
 int JaamLightSensor::getPhotoresistorValue(float lightFactor) {
+  if (photoresistorPin == -1) {
+    return 0;
+  }
   return analogRead(photoresistorPin) * lightFactor;
 }
 
@@ -78,6 +81,10 @@ bool JaamLightSensor::isLightSensorEnabled() {
 #else
   return false;
 #endif
+}
+
+bool JaamLightSensor::isAnySensorAvailable() {
+  return isLightSensorAvailable() || photoresistorPin != -1;
 }
 
 String JaamLightSensor::getSensorModel() {

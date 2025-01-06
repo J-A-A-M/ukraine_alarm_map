@@ -56,13 +56,16 @@ struct Settings {
   char    identifier[51]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
-  int     bg_pixelpin            = 0;
-  int     service_ledpin         = 0;
-  int     buttonpin              = 15;
+  int     bg_pixelpin            = -1;
+  int     service_ledpin         = -1;
+  int     buttonpin              = -1;
   int     button2pin             = -1;
-  int     alertpin               = 34;
-  int     buzzerpin              = 33;
-  int     lightpin               = 32;
+  int     alertpin               = -1;
+  int     clearpin               = -1;
+  int     buzzerpin              = -1;
+  int     lightpin               = -1;
+  int     alert_clear_pin_mode   = 0;
+  float   alert_clear_pin_time   = 1;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
   char    ha_mqttpassword[66]    = "";
@@ -153,7 +156,6 @@ struct Settings {
   int     ws_alert_time          = 150000;
   int     ws_reboot_time         = 300000;
   int     min_of_silence         = 1;
-  int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
   float   temp_correction        = 0;
   float   hum_correction         = 0;
@@ -241,7 +243,7 @@ long      missiles_time[26];
 long      drones_time[26];
 uint8_t   flag_leds[26];
 
-bool      gotWebsocketMessage = false;
+bool      isFirstDataFetchCompleted = false;
 
 float     brightnessFactor = 0.5f;
 int       minBrightness = 1;
@@ -262,6 +264,7 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
@@ -311,11 +314,35 @@ int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
 bool isBgStripEnabled() {
-  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
+  return settings.bg_pixelpin > -1 && settings.bg_pixelcount > 0;
 }
 
 bool isServiceStripEnabled() {
-  return settings.service_ledpin > 0;
+  return settings.service_ledpin > -1;
+}
+
+bool isButton1Enabled() {
+  return settings.buttonpin > -1;
+}
+
+bool isButton2Enabled() {
+  return settings.button2pin > -1;
+}
+
+bool isAlertPinEnabled() {
+  return settings.alertpin > -1;
+}
+
+bool isClearPinEnabled() {
+  return settings.clearpin > -1;
+}
+
+bool isBuzzerEnabled() {
+  return settings.buzzerpin > -1;
+}
+
+bool isAnalogLightSensorEnabled() {
+  return settings.lightpin > -1;
 }
 
 // Forward declarations
@@ -354,38 +381,42 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
 
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
-  Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
-  player->playAsync(melody);
+  if (isBuzzerEnabled()) {
+    Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
+    player->playAsync(melody);
+  }
 #endif
 }
 
 void playMelody(SoundType type) {
 #if BUZZER_ENABLED
-  switch (type) {
-  case MIN_OF_SILINCE:
-    playMelody(MOS_BEEP);
-    break;
-  case MIN_OF_SILINCE_END:
-    playMelody(UA_ANTHEM);
-    break;
-  case ALERT_ON:
-    playMelody(MELODIES[settings.melody_on_alert]);
-    break;
-  case ALERT_OFF:
-    playMelody(MELODIES[settings.melody_on_alert_end]);
-    break;
-  case EXPLOSIONS:
-    playMelody(MELODIES[settings.melody_on_explosion]);
-    break;
-  case REGULAR:
-    playMelody(CLOCK_BEEP);
-    break;
-  case SINGLE_CLICK:
-    playMelody(SINGLE_CLICK_SOUND);
-    break;
-  case LONG_CLICK:
-    playMelody(LONG_CLICK_SOUND);
-    break;
+  if (isBuzzerEnabled()) {
+    switch (type) {
+    case MIN_OF_SILINCE:
+      playMelody(MOS_BEEP);
+      break;
+    case MIN_OF_SILINCE_END:
+      playMelody(UA_ANTHEM);
+      break;
+    case ALERT_ON:
+      playMelody(MELODIES[settings.melody_on_alert]);
+      break;
+    case ALERT_OFF:
+      playMelody(MELODIES[settings.melody_on_alert_end]);
+      break;
+    case EXPLOSIONS:
+      playMelody(MELODIES[settings.melody_on_explosion]);
+      break;
+    case REGULAR:
+      playMelody(CLOCK_BEEP);
+      break;
+    case SINGLE_CLICK:
+      playMelody(SINGLE_CLICK_SOUND);
+      break;
+    case LONG_CLICK:
+      playMelody(LONG_CLICK_SOUND);
+      break;
+    }
   }
 #endif
 }
@@ -405,13 +436,13 @@ bool isItNightNow() {
 
 // Determine the current brightness level
 int getCurrentBrightnessLevel() {
-  int currentValue;
+  int currentValue = 0;
   int maxValue;
   if (lightSensor.isLightSensorAvailable()) {
     // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
     currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
     maxValue = 500;
-  } else {
+  } else if (isAnalogLightSensorEnabled()) {
     // reads the input on analog pin (value between 0 and 4095)
     currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
     // 2600 - very bright indoor environment.
@@ -436,31 +467,34 @@ int getNightModeType() {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
-  // do not play any sound before websocket connection
-  if (!gotWebsocketMessage) return false;
+  if (isBuzzerEnabled()) {
+    
+    // do not play any sound before websocket connection
+    if (!isFirstDataFetchCompleted) return false;
+    
+    // ignore mute on alert
+    if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
 
-  // ignore mute on alert
-  if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
+    // disable sounds on night mode
+    if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
 
-  // disable sounds on night mode
-  if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
-
-  switch (type) {
-  case MIN_OF_SILINCE:
-    return settings.sound_on_min_of_sl;
-  case MIN_OF_SILINCE_END:
-    return settings.sound_on_min_of_sl;
-  case ALERT_ON:
-    return settings.sound_on_alert;
-  case ALERT_OFF:
-    return settings.sound_on_alert_end;
-  case EXPLOSIONS:
-    return settings.sound_on_explosion;
-  case REGULAR:
-    return settings.sound_on_every_hour;
-  case SINGLE_CLICK:
-  case LONG_CLICK:
-    return settings.sound_on_button_click;
+    switch (type) {
+    case MIN_OF_SILINCE:
+      return settings.sound_on_min_of_sl;
+    case MIN_OF_SILINCE_END:
+      return settings.sound_on_min_of_sl;
+    case ALERT_ON:
+      return settings.sound_on_alert;
+    case ALERT_OFF:
+      return settings.sound_on_alert_end;
+    case EXPLOSIONS:
+      return settings.sound_on_explosion;
+    case REGULAR:
+      return settings.sound_on_every_hour;
+    case SINGLE_CLICK:
+    case LONG_CLICK:
+      return settings.sound_on_button_click;
+    }
   }
 #endif
   return false;
@@ -1031,10 +1065,6 @@ bool isButtonActivated() {
   return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0;
 }
 
-bool isButton2Available() {
-  return settings.button2pin > -1;
-}
-
 void singleClick(int mode) {
   handleClick(mode, SINGLE_CLICK);
 }
@@ -1570,6 +1600,39 @@ void climateSensorCycle() {
   updateHaPressureSensors();
 }
 
+void setAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: HIGH");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+}
+
+void setClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: HIGH");
+    digitalWrite(settings.clearpin, HIGH);
+  }
+}
+
+void disableAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: LOW");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
+void disableClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: LOW");
+    digitalWrite(settings.clearpin, LOW);
+  }
+}
+
+void disableAlertAndClearPins() {
+  disableAlertPin();
+  disableClearPin();
+}
+
 //--Web server start
 
 int getSettingsDisplayMode(int localDisplayMode) {
@@ -1842,7 +1905,9 @@ void addLinks(AsyncResponseStream* response) {
   response->println("<a href='/colors' class='btn btn-success'>Кольори</a>");
   response->println("<a href='/modes' class='btn btn-success'>Режими</a>");
 #if BUZZER_ENABLED
-  response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
+  if (isBuzzerEnabled()) {
+    response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
+  }
 #endif
   response->println("<a href='/telemetry' class='btn btn-primary'>Телеметрія</a>");
   response->println("<a href='/dev' class='btn btn-warning'>DEV</a>");
@@ -1913,7 +1978,9 @@ void handleBrightness(AsyncWebServerRequest* request) {
   if (isServiceStripEnabled()) {
     addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
   }
-  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
+  if (lightSensor.isAnySensorAvailable()) {
+    addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
+  }
   response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
@@ -1984,7 +2051,7 @@ void handleModes(AsyncWebServerRequest* request) {
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " с.");
     if (climate.isAnySensorAvailable()) {
       response->println("Відображати в режимі \"Перемикання\":<br><br>");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
@@ -2004,24 +2071,26 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
-  addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-  addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
-  if (isButton2Available()) {
+  if (isButton1Enabled()) {
+    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+  }
+  if (isButton2Enabled()) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.button2_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.button2_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
   addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
   addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " с.", settings.alarms_notify_mode != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.legacy == 0 || settings.legacy == 3) {
     addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
@@ -2165,17 +2234,20 @@ void handleDev(AsyncWebServerRequest* request) {
   addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy == 1 || settings.legacy == 2) {
     addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
-    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
-    addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
-    addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
+    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
+    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
+    addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
+    addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
-  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-  addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
+  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
+
   if (settings.legacy != 3) {
-    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
 #endif
   }
   response->println("<b>");
@@ -2471,7 +2543,9 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
   saved = saveInt(request->getParam("melody_volume", true), &settings.melody_volume, "mv", NULL, []() {
 #if BUZZER_ENABLED
+  if (isBuzzerEnabled()) {
     player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  }
 #endif
   }) || saved;
 
@@ -2505,10 +2579,12 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
+  reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
+  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
-  reboot = saveBool(request->getParam("enable_pin_on_alert", true), "enable_pin_on_alert", &settings.enable_pin_on_alert, "epoa") || reboot;
 
   if (reboot) {
     request->redirect("/");
@@ -2531,10 +2607,12 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 
 #if BUZZER_ENABLED
 void handlePlayTestSound(AsyncWebServerRequest* request) {
-  int soundId = request->getParam("id", false)->value().toInt();
-  playMelody(MELODIES[soundId]);
-  showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
-  request->send(200, "text/plain", "Test sound played!");
+  if (isBuzzerEnabled()) {
+    int soundId = request->getParam("id", false)->value().toInt();
+    playMelody(MELODIES[soundId]);
+    showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
+    request->send(200, "text/plain", "Test sound played!");
+  }
 }
 #endif
 
@@ -2548,8 +2626,10 @@ void setupRouting() {
   webserver.on("/modes", HTTP_GET, handleModes);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
 #if BUZZER_ENABLED
-  webserver.on("/sounds", HTTP_GET, handleSounds);
-  webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+  if (isBuzzerEnabled()) {
+    webserver.on("/sounds", HTTP_GET, handleSounds);
+    webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+  }
 #endif
   webserver.on("/telemetry", HTTP_GET, handleTelemetry);
   webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
@@ -2561,7 +2641,9 @@ void setupRouting() {
   webserver.on("/update", HTTP_POST, handleUpdate);
 #endif
 #if BUZZER_ENABLED
-  webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
+  if (isBuzzerEnabled()) {
+    webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
+  }
 #endif
   webserver.begin();
   LOG.println("Webportal running");
@@ -2631,13 +2713,35 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 #endif
 
 void alertPinCycle() {
-  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
-    LOG.println("alert pin enabled");
-    digitalWrite(settings.alertpin, HIGH);
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 0) {
+    if (alarmNow && digitalRead(settings.alertpin) == LOW) {
+      setAlertPin();
+    }
+    if (!alarmNow && digitalRead(settings.alertpin) == HIGH) {
+      disableAlertPin();
+    }
   }
-  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
-    LOG.println("alert pin disabled");
-    digitalWrite(settings.alertpin, LOW);
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
+    pinAlarmNow = true;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set alert pin on first data fetch");
+      return;
+    }
+    setAlertPin();
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableAlertPin, timeoutMs);
+  }
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
+    pinAlarmNow = false;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set clear pin on first data fetch");
+      return;
+    }
+    setClearPin();
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableClearPin, timeoutMs);
   }
 }
 
@@ -2717,7 +2821,8 @@ void onMessageCallback(WebsocketsMessage message) {
     }
   }
   checkHomeDistrictAlerts();
-  gotWebsocketMessage = true;
+  alertPinCycle();
+  isFirstDataFetchCompleted = true;
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
@@ -2920,7 +3025,7 @@ void checkMinuteOfSilence() {
     }
 #if BUZZER_ENABLED
     // play UA Anthem when min of silence ends
-    if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
+    if (isBuzzerEnabled() && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
       playMelody(MIN_OF_SILINCE_END);
       uaAnthemPlaying = true;
     }
@@ -3134,10 +3239,12 @@ void calculateStates() {
   checkHomeDistrictAlerts();
 
 #if BUZZER_ENABLED
-  checkCurrentTimeAndPlaySound();
+  if (isBuzzerEnabled()) {
+    checkCurrentTimeAndPlaySound();
 
-  if (uaAnthemPlaying && !player->isPlaying()) {
-    uaAnthemPlaying = false;
+    if (uaAnthemPlaying && !player->isPlaying()) {
+      uaAnthemPlaying = false;
+    }
   }
 #endif
   // update service message expiration
@@ -3230,7 +3337,10 @@ void initSettings() {
   settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
+  settings.alert_clear_pin_mode   = preferences.getInt("acpm", settings.alert_clear_pin_mode);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.clearpin               = preferences.getInt("cp", settings.clearpin);
+  settings.alert_clear_pin_time   = preferences.getFloat("acpt", settings.alert_clear_pin_time);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
@@ -3241,7 +3351,6 @@ void initSettings() {
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
-  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
@@ -3340,9 +3449,11 @@ void initLegacy() {
     minBlinkBrightness = 0.07f;
     break;
   }
-  pinMode(settings.buttonpin, INPUT_PULLUP);
-  button1.name = "Button 1";
-  if (isButton2Available()) {
+  if (isButton1Enabled()) {
+    pinMode(settings.buttonpin, INPUT_PULLUP);
+    button1.name = "Button 1";
+  }
+  if (isButton2Enabled()) {
     pinMode(settings.button2pin, INPUT_PULLUP);
     button2.name = "Button 2";
   }
@@ -3351,16 +3462,24 @@ void initLegacy() {
 
 void initBuzzer() {
 #if BUZZER_ENABLED
-  player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
-  player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  if (isBuzzerEnabled()) {
+    player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
+    player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  }
 #endif
 }
 
 void initAlertPin() {
-  if (settings.enable_pin_on_alert) {
-    LOG.printf("alertpin: %d\n");
-    LOG.println(settings.alertpin);
+  if (isAlertPinEnabled()) {
+    LOG.printf("alertpin: %d\n", settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
+  }
+}
+
+void initClearPin() {
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1) {
+    LOG.printf("clearpin: %d\n", settings.clearpin);
+    pinMode(settings.clearpin, OUTPUT);
   }
 }
 
@@ -3498,7 +3617,9 @@ void initSensors() {
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
-  lightSensor.setPhotoresistorPin(settings.lightpin);
+  if (isAnalogLightSensorEnabled()) {
+    lightSensor.setPhotoresistorPin(settings.lightpin);
+  }
 
   // init climate sensor
   climate.begin();
@@ -3674,6 +3795,7 @@ void setup() {
   initLegacy();
   initBuzzer();
   initAlertPin();
+  initClearPin();
   initStrip();
   initDisplay();
   initSensors();
@@ -3725,9 +3847,10 @@ void loop() {
     mapCycle();
   }
 #endif
-
-  buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
-  if (isButton2Available()) {
+  if (isButton1Enabled()) {
+    buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
+  }
+  if (isButton2Enabled()) {
     buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
   }
 }
