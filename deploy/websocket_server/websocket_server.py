@@ -13,7 +13,7 @@ from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
 
-server_timezone = pytz.timezone('Europe/Kiev')
+server_timezone = pytz.timezone('Europe/Kyiv')
 
 debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
