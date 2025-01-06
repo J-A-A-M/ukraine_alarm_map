@@ -5,12 +5,15 @@ import os
 import json
 import random
 import threading
+import pytz
 from aiomcache import Client
 
 from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
 from ga4mp import GtagMP
+
+server_timezone = pytz.timezone('Europe/Kiev')
 
 debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
@@ -272,6 +275,7 @@ async def echo(websocket, path):
         "country": country,
         "timezone": timezone,
         "secure_connection": secure_connection,
+        "connect_time": datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S")
     }
 
     tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
