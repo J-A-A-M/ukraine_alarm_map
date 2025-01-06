@@ -500,6 +500,7 @@ async def dataparcer(clients, connection_type):
                 "timezone": data.get("timezone"),
                 "secure_connection": data.get("secure_connection"),
                 "connection": connection_type,
+                "connect_time": data.get("connect_time"),
             }
         )
     return google

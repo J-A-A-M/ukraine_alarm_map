@@ -14,5 +14,6 @@ public:
     int getPhotoresistorValue(float lightFactor = 1.0);
     bool isLightSensorAvailable();
     bool isLightSensorEnabled();
+    bool isAnySensorAvailable();
     String getSensorModel();
 };
