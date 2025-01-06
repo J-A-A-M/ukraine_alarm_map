@@ -153,8 +153,11 @@ struct Settings {
   int     alert_off_time         = 5;
   int     explosion_time         = 3;
   int     alert_blink_time       = 2;
+  bool    show_v4_update_info    = true;
   // ------- web config end
 };
+
+bool readyToShowV4UpdateInfo = false;
 
 Settings settings;
 
@@ -1380,6 +1383,21 @@ void showNewFirmwareNotification() {
 }
 #endif
 
+void showV4UpdateInfo() {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
+  char title[50];
+  char message[50];
+  if (periodIndex) {
+    strcpy(title, "Увага!");
+    strcpy(message, "Важлива інформація");
+  } else {
+    strcpy(title, "Введіть у браузері:");
+    strcpy(message, getLocalIP());
+  }
+
+  displayMessage(message, title);
+}
+
 void displayCycle() {
   if (!display.isDisplayAvailable()) return;
 
@@ -1399,6 +1417,12 @@ void displayCycle() {
   // Show Minute of silence mode if activated. (Priority - 0)
   if (minuteOfSilence) {
     displayMinuteOfSilence();
+    return;
+  }
+
+  //Show v4 update screen if activated. (Priority - 0.5)
+  if (readyToShowV4UpdateInfo && settings.show_v4_update_info ==1) {
+    showV4UpdateInfo();
     return;
   }
 
@@ -3411,6 +3435,10 @@ void wifiReconnect() {
   }
 }
 
+void activatev4UpdateMessage() {
+  readyToShowV4UpdateInfo = true;
+} 
+
 void initTime() {
   Serial.println("Init time");
   Serial.printf("NTP host: %s\n", settings.ntphost);
@@ -3451,6 +3479,10 @@ void setup() {
   asyncEngine.setInterval(lightSensorCycle, 2000);
   asyncEngine.setInterval(climateSensorCycle, 5000);
   asyncEngine.setInterval(calculateStates, 500);
+
+  if (settings.show_v4_update_info == 1) {
+    asyncEngine.setTimeout(activatev4UpdateMessage, 300000); // 5 minutes
+  }
 }
 
 void loop() {
