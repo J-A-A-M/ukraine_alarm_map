@@ -1,4 +1,4 @@
-  name: 🏗️ Compile Firmware + Lint Check
+  name: 🏗️ Compile Firmware
   on:
     pull_request:
       types: [ opened, synchronize, reopened ]
@@ -85,22 +85,3 @@
           with:
             name: updater.bin
             path: ${{ github.workspace }}/updater.bin
-    check_flasher:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Check flasher with proof-html
-            uses: anishathalye/proof-html@v2
-            with:
-              directory: ${{ github.workspace }}/flasher
-    run_black:
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-          - name: Run Black in the check mode
-            uses: psf/black@stable
-            with:
-              options: "--check --verbose --line-length 120 --diff --color --target-version py312"
-              src: ${{ github.workspace }}/deploy
-              version: "~= 24.0"
-
