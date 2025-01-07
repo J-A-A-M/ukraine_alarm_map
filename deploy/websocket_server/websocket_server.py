@@ -238,8 +238,8 @@ async def echo(websocket, path):
         return
 
     country = websocket.request_headers.get("cf-ipcountry", None)
-    region = websocket.request_headers.get("cf-region", None).encode("utf-8", "ignore").decode("utf-8")
-    city = websocket.request_headers.get("cf-ipcity", None).encode("utf-8", "ignore").decode("utf-8")
+    region = websocket.request_headers.get("cf-region", None)
+    city = websocket.request_headers.get("cf-ipcity", None)
     timezone = websocket.request_headers.get("cf-timezone", None)
 
     if not country or not region or not city or not timezone:
@@ -254,6 +254,10 @@ async def echo(websocket, path):
             region = region or "not-found"
             country = country or "not-found"
             timezone = timezone or "not-found"
+
+    country = country.encode("utf-8", "ignore").decode("utf-8")
+    region = region.encode("utf-8", "ignore").decode("utf-8")
+    city = city.encode("utf-8", "ignore").decode("utf-8")
 
     # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
     #     shared_data.blocked_ips.append(client_ip)
