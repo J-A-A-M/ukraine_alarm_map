@@ -3,8 +3,6 @@ import json
 import uvicorn
 import time
 import logging
-import re
-import unicodedata
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
@@ -511,21 +509,29 @@ async def dataparcer(clients, connection_type):
 async def stats(request):
     if request.path_params["token"] == data_token:
 
-        def clean_data(data):
-            if isinstance(data, bytes):
-                data = data.decode("utf-8", errors="replace")
-            data = re.sub(r"[\uD800-\uDFFF]", "", data)  # Remove surrogates
-            return unicodedata.normalize("NFKC", data)
+        def check_string(p, data):
+            for i, char in enumerate(data):
+                try:
+                    char.encode('utf-8')
+                except UnicodeEncodeError as e:
+                    print(f"Problematic character at position {i}: {repr(char)}")
 
-        tcp_clients = await mc.get(b"tcp_clients")
-        websocket_clients = await mc.get(b"websocket_clients")
-        websocket_clients_dev = await mc.get(b"websocket_clients_dev")
-
-        tcp_clients_data = json.loads(clean_data(tcp_clients)) if tcp_clients else {}
-        websocket_clients_data = json.loads(clean_data(websocket_clients)) if websocket_clients else {}
-        websocket_clients_dev_data = json.loads(clean_data(websocket_clients_dev)) if websocket_clients_dev else {}
-
+        try:
+            tcp_clients = await mc.get(b"tcp_clients")
+            tcp_clients_data = json.loads(tcp_clients.decode("utf-8")) if tcp_clients else {}
+        except UnicodeEncodeError:
+            check_string("tcp_clients", tcp_clients)
+        try:
+            websocket_clients = await mc.get(b"websocket_clients")
+            websocket_clients_data = json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
+        except UnicodeEncodeError:
+            check_string("websocket_clients", tcp_clients)
         
+        try:
+            websocket_clients_dev = await mc.get(b"websocket_clients_dev")
+            websocket_clients_dev_data = json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
+        except UnicodeEncodeError:
+            check_string("websocket_clients_dev", tcp_clients)
 
         tcp_clients = await dataparcer(tcp_clients_data, "tcp")
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
@@ -533,7 +539,8 @@ async def stats(request):
 
         map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
-        response = {
+        return JSONResponse(
+            {
                 "map": {
                     f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
                     for data in map_clients_data
@@ -543,10 +550,7 @@ async def stats(request):
                 "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
                 "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
             }
-        
-        logger.info(f"Stats response: {response}")
-
-        return JSONResponse(response)
+        )
     else:
         return JSONResponse({})
 
