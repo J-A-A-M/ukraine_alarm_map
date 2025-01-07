@@ -238,8 +238,8 @@ async def echo(websocket, path):
         return
 
     country = websocket.request_headers.get("cf-ipcountry", None)
-    region = websocket.request_headers.get("cf-region", None)
-    city = websocket.request_headers.get("cf-ipcity", None)
+    region = websocket.request_headers.get("cf-region", None).encode("utf-8", "ignore").decode("utf-8")
+    city = websocket.request_headers.get("cf-ipcity", None).encode("utf-8", "ignore").decode("utf-8")
     timezone = websocket.request_headers.get("cf-timezone", None)
 
     if not country or not region or not city or not timezone:
