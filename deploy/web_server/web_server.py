@@ -542,7 +542,7 @@ async def stats(request):
         return JSONResponse(
             {
                 "map": {
-                    f'{data.get("ip")}_{data.get("port")}': f'1'
+                    f'{data.get("port")}': f'1'
                     for data in map_clients_data
                 },
                 "google": map_clients_data,
