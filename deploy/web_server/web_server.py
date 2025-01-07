@@ -512,7 +512,7 @@ async def stats(request):
         def check_string(p, data):
             for i, char in enumerate(data):
                 try:
-                    char.encode('utf-8')
+                    char.encode("utf-8")
                 except UnicodeEncodeError as e:
                     print(f"Problematic character at position {i}: {repr(char)}")
 
@@ -526,10 +526,12 @@ async def stats(request):
             websocket_clients_data = json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
         except UnicodeEncodeError:
             check_string("websocket_clients", tcp_clients)
-        
+
         try:
             websocket_clients_dev = await mc.get(b"websocket_clients_dev")
-            websocket_clients_dev_data = json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
+            websocket_clients_dev_data = (
+                json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
+            )
         except UnicodeEncodeError:
             check_string("websocket_clients_dev", tcp_clients)
 
@@ -541,10 +543,7 @@ async def stats(request):
 
         return JSONResponse(
             {
-                "map": {
-                    f'{data.get("ip")}_{data.get("port")}': f'1'
-                    for data in map_clients_data
-                },
+                "map": {f'{data.get("ip")}_{data.get("port")}': f"1" for data in map_clients_data},
                 "google": map_clients_data,
                 "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
                 "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
