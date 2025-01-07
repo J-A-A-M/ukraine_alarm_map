@@ -282,7 +282,7 @@ async def echo(websocket, path):
         "secure_connection": secure_connection,
         "connect_time": datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    if google_stat_send
+    if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
             api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
         )
