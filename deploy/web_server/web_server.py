@@ -509,12 +509,12 @@ async def dataparcer(clients, connection_type):
 async def stats(request):
     if request.path_params["token"] == data_token:
         tcp_clients = await mc.get(b"tcp_clients")
-        tcp_clients_data = json.loads(tcp_clients) if tcp_clients else {}
+        tcp_clients_data = json.loads(tcp_clients.decode().replace("\udce2\udc80\udc99", "’")) if tcp_clients else {}
 
         websocket_clients = await mc.get(b"websocket_clients")
-        websocket_clients_data = json.loads(websocket_clients) if websocket_clients else {}
+        websocket_clients_data = json.loads(websocket_clients.decode().replace("\udce2\udc80\udc99", "’")) if websocket_clients else {}
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
-        websocket_clients_dev_data = json.loads(websocket_clients_dev) if websocket_clients_dev else {}
+        websocket_clients_dev_data = json.loads(websocket_clients_dev.decode().replace("\udce2\udc80\udc99", "’")) if websocket_clients_dev else {}
 
         tcp_clients = await dataparcer(tcp_clients_data, "tcp")
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
