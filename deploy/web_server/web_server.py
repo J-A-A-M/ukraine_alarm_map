@@ -523,17 +523,17 @@ async def stats(request):
         map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
         response = {
-            "map": {
-                f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
-                for data in map_clients_data
-            },
-            "google": map_clients_data,
-            "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
-            "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
-            "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
-        }
-
-        logger.info(f"Stats: '{response}'")
+                "map": {
+                    f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
+                    for data in map_clients_data
+                },
+                "google": map_clients_data,
+                "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
+                "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
+                "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
+            }
+        
+        logger.info(f"Stats response: {response}")
 
         return JSONResponse(response)
     else:
