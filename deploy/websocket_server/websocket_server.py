@@ -375,9 +375,9 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
-        offline_event = tracker.create_new_event("status")
-        offline_event.set_event_param("online", "false")
         if google_stat_send:
+            offline_event = tracker.create_new_event("status")
+            offline_event.set_event_param("online", "false")
             tracker.send(events=[offline_event], date=datetime.now())
             threading.Thread(target=send_google_stat, args=(tracker, offline_event)).start()
         data_task.cancel()
