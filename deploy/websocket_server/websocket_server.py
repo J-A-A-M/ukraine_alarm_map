@@ -375,13 +375,13 @@ async def echo(websocket, path):
     except Exception as e:
         pass
     finally:
+        data_task.cancel()
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
             tracker.send(events=[offline_event], date=datetime.now())
             threading.Thread(target=send_google_stat, args=(tracker, offline_event)).start()
-        data_task.cancel()
-        del shared_data.trackers[f"{client_ip}_{client_port}"]
+            del shared_data.trackers[f"{client_ip}_{client_port}"]
         del shared_data.clients[f"{client_ip}_{client_port}"]
         try:
             await data_task
