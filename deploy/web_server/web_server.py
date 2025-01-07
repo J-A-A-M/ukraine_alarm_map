@@ -508,8 +508,7 @@ async def dataparcer(clients, connection_type):
 
 async def stats(request):
     if request.path_params["token"] == data_token:
-        a = json.loads()
-
+        
         def clean_and_parse(data):
             if not data:
                 return {}
