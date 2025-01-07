@@ -5,15 +5,15 @@ import os
 import json
 import random
 import threading
-import pytz
 from aiomcache import Client
 
 from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 
-server_timezone = pytz.timezone("Europe/Kyiv")
+server_timezone = ZoneInfo("Europe/Kyiv")
 
 debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
