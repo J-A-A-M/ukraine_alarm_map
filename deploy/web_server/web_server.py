@@ -541,10 +541,7 @@ async def stats(request):
 
         return JSONResponse(
             {
-                "map": {
-                    f'{data.get("port")}'
-                    for data in map_clients_data
-                },
+                "map": {},
                 #"google": map_clients_data,
                 "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
                 "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
