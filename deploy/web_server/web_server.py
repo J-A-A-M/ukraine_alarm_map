@@ -3,6 +3,8 @@ import json
 import uvicorn
 import time
 import logging
+import re
+import unicodedata
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
@@ -508,22 +510,21 @@ async def dataparcer(clients, connection_type):
 
 async def stats(request):
     if request.path_params["token"] == data_token:
-        
-        def clean_and_parse(data):
-            if not data:
-                return {}
-            try:
-                return json.loads(data.decode("utf-8", errors="replace"))
-            except json.JSONDecodeError:
-                return {}
+
+        def clean_data(data):
+            if isinstance(data, bytes):
+                data = data.decode("utf-8", errors="replace")
+            data = re.sub(r"[\uD800-\uDFFF]", "", data)  # Remove surrogates
+            return unicodedata.normalize("NFKC", data)
 
         tcp_clients = await mc.get(b"tcp_clients")
         websocket_clients = await mc.get(b"websocket_clients")
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
 
-        tcp_clients_data = clean_and_parse(tcp_clients)
-        websocket_clients_data = clean_and_parse(websocket_clients)
-        websocket_clients_dev_data = clean_and_parse(websocket_clients_dev)
+        tcp_clients_data = json.loads(clean_data(tcp_clients)) if tcp_clients else {}
+        websocket_clients_data = json.loads(clean_data(websocket_clients)) if websocket_clients else {}
+        websocket_clients_dev_data = json.loads(clean_data(websocket_clients_dev)) if websocket_clients_dev else {}
+
         
 
         tcp_clients = await dataparcer(tcp_clients_data, "tcp")
