@@ -30,6 +30,7 @@ runs:
       run: |
         sed -i 's/>Встановити JAAM [0-9.]*</>Встановити JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Copy beta bin to flasher
       if: ${{ inputs.beta_binary_path != '' }}
       shell: bash
@@ -41,6 +42,7 @@ runs:
       run: |
         sed -i 's/>Встановити JAAM [0-9.]* Beta [0-9]*</>Встановити JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Copy lite bin to flasher
       if: ${{ inputs.lite_binary_path != '' }}
       shell: bash
@@ -52,6 +54,10 @@ runs:
       run: |
         sed -i 's/>Встановити JAAM [0-9.]* Lite</>Встановити JAAM ${{ inputs.version }} Lite</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest-lite.json
+    - name: Copy JS to the flasher
+      shell: bash
+      run: |
+        cp -f ${{ github.workspace }}/deploy/web_server/jaam_v2.js ${{ github.workspace }}/flasher/jaam_v2.js
     - name: Setup Pages
       uses: actions/configure-pages@v4
     - name: Upload artifact

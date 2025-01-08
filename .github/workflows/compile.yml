@@ -85,3 +85,4 @@
           with:
             name: updater.bin
             path: ${{ github.workspace }}/updater.bin
+
