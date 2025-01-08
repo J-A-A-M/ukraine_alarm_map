@@ -30,6 +30,16 @@ google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
+gtagmp_logger = logging.getLogger("ga4mp")
+gtagmp_logger.setLevel(debug_level)
+
+if not gtagmp_logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s : %(message)s"))
+    handler.setLevel(debug_level)
+    gtagmp_logger.addHandler(handler)
+gtagmp_logger.propagate = False
+
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
@@ -358,16 +368,16 @@ async def echo(websocket, path):
                             ping_event.set_event_param("state", "alive")
                             tracker.send(events=[ping_event], date=datetime.now())
                             threading.Thread(target=send_google_stat, args=(tracker, ping_event)).start()
-                        logger.debug(f"{client_ip}:{client_id} >>> ping analytics sent")
+                        logger.debug(f"{client_ip}:{client_id} >>> ping sent")
                     case "settings":
                         json_data = json.loads(data)
-                        settings_event = tracker.create_new_event("settings")
                         if google_stat_send:
+                            settings_event = tracker.create_new_event("settings")
                             for key, value in json_data.items():
                                 settings_event.set_event_param(key, value)
                             tracker.send(events=[settings_event], date=datetime.now())
                             threading.Thread(target=send_google_stat, args=(tracker, settings_event)).start()
-                        logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
+                            logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
                     case _:
                         logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
