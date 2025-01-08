@@ -24,6 +24,7 @@
 #include <ArduinoWebsockets.h>
 #include "JaamLightSensor.h"
 #include "JaamClimateSensor.h"
+#include "JaamButton.h"
 #if BUZZER_ENABLED
 #include <melody_player.h>
 #include <melody_factory.h>
@@ -284,20 +285,8 @@ int     wifiSignal;
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
 
-// Button variables
-#define SHORT_PRESS_TIME 500 // 500 milliseconds
-#define LONG_PRESS_TIME  500 // 500 milliseconds
-struct ButtonState {
-  const char* name;
-  int lastState = LOW; // the previous state from the input pin
-  int currentState; // the current reading from the input pin
-  unsigned long pressedTime = 0;
-  unsigned long releasedTime = 0;
-  bool isPressing = false;
-  bool isLongDetected = false;
-};
-ButtonState button1;
-ButtonState button2;
+JaamButton buttons;
+
 #define NIGHT_BRIGHTNESS_LEVEL 2
 
 int binsCount = 0;
@@ -319,14 +308,6 @@ bool isBgStripEnabled() {
 
 bool isServiceStripEnabled() {
   return settings.service_ledpin > -1;
-}
-
-bool isButton1Enabled() {
-  return settings.buttonpin > -1;
-}
-
-bool isButton2Enabled() {
-  return settings.button2pin > -1;
 }
 
 bool isAlertPinEnabled() {
@@ -1013,6 +994,7 @@ bool saveNightMode(bool newState) {
   return true;
 }
 
+//--Button start
 void handleClick(int event, SoundType soundType) {
   if (event != 0 && needToPlaySound(soundType)) playMelody(soundType);
   switch (event) {
@@ -1079,47 +1061,40 @@ void longClick(int modeLong) {
   handleClick(modeLong, LONG_CLICK);
 }
 
-// for display chars testing purposes
-// int startSymbol = 0;
-//--Button start
-void buttonUpdate(ButtonState &button, uint8_t pin, int mode, int modeLong) {
-  // read the state of the switch/button:
-  button.currentState = digitalRead(pin);
-
-  if (button.lastState == HIGH && button.currentState == LOW) { // button is pressed
-    button.pressedTime = millis();
-    button.isPressing = true;
-    button.isLongDetected = false;
-  } else if (button.lastState == LOW && button.currentState == HIGH) { // button is released
-    button.isPressing = false;
-    button.releasedTime = millis();
-
-    long pressDuration = button.releasedTime - button.pressedTime;
-
-    if (pressDuration < SHORT_PRESS_TIME) {
+void buttonClick(const char* buttonName, int mode) {
 #if TEST_MODE
-        displayMessage("Single click!", button.name);
+  displayMessage("Single click!", buttonName);
 #else
-        singleClick(mode);
+  singleClick(mode);
 #endif
-      }
-  }
+}
 
-  if (button.isPressing == true && button.isLongDetected == false) {
-    long pressDuration = millis() - button.pressedTime;
-
-    if (pressDuration > LONG_PRESS_TIME) {
+void buttonLongClick(const char* buttonName, int modeLong) {
 #if TEST_MODE
-        displayMessage("Long click!", button.name);
+  displayMessage("Long click!", buttonName);
 #else
-      longClick(modeLong);
+  longClick(modeLong);
 #endif
-      button.isLongDetected = true;
-    }
-  }
+}
 
-  // save the the last state
-  button.lastState = button.currentState;
+void button1Click() {
+  LOG.println("Button 1 click");
+  buttonClick("Button 1", settings.button_mode);
+}
+
+void button2Click() {
+  LOG.println("Button 2 click");
+  buttonClick("Button 2", settings.button2_mode);
+}
+
+void button1LongClick() {
+  LOG.println("Button 1 long click");
+  buttonLongClick("Button 1", settings.button_mode_long);
+}
+
+void button2LongClick() {
+  LOG.println("Button 2 long click");
+  buttonLongClick("Button 2", settings.button2_mode_long);
 }
 
 void distributeBrightnessLevels() {
@@ -2087,11 +2062,11 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
-  if (isButton1Enabled()) {
+  if (buttons.isButton1Enabled()) {
     addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
-  if (isButton2Enabled()) {
+  if (buttons.isButton2Enabled()) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.button2_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.button2_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
@@ -3422,10 +3397,11 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
-    settings.bg_pixelpin = 0;
+    settings.bg_pixelpin = -1;
     settings.bg_pixelcount = 0;
-    settings.service_ledpin = 0;
+    settings.service_ledpin = -1;
     settings.buttonpin = 35;
+    settings.button2pin = -1;
     settings.display_model = 1;
     settings.display_height = 64;
     break;
@@ -3465,15 +3441,19 @@ void initLegacy() {
     minBlinkBrightness = 0.07f;
     break;
   }
-  if (isButton1Enabled()) {
-    pinMode(settings.buttonpin, INPUT_PULLUP);
-    button1.name = "Button 1";
-  }
-  if (isButton2Enabled()) {
-    pinMode(settings.button2pin, INPUT_PULLUP);
-    button2.name = "Button 2";
-  }
   LOG.printf("Offset: %d\n", offset);
+}
+
+void initButtons() {
+  LOG.println("Init buttons");
+
+  buttons.setButton1Pin(settings.buttonpin);
+  buttons.setButton1ClickListener(button1Click);
+  buttons.setButton1LongClickListener(button1LongClick);
+
+  buttons.setButton2Pin(settings.button2pin);
+  buttons.setButton2ClickListener(button2Click);
+  buttons.setButton2LongClickListener(button2LongClick);
 }
 
 void initBuzzer() {
@@ -3809,6 +3789,7 @@ void setup() {
   initChipID();
   initSettings();
   initLegacy();
+  initButtons();
   initBuzzer();
   initAlertPin();
   initClearPin();
@@ -3863,10 +3844,5 @@ void loop() {
     mapCycle();
   }
 #endif
-  if (isButton1Enabled()) {
-    buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
-  }
-  if (isButton2Enabled()) {
-    buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
-  }
+  buttons.tick();
 }
