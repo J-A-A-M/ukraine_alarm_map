@@ -104,8 +104,16 @@
                         <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці.</li>
                         <li><b>JAAM Lite</b> - "скорочена" версія прошивки. Видалено підтримку дисплею, Home Assistant, сенсорів освітлення та клімату, динаміка (buzzer), не підтримує оновлення через веб-інтерфейс</li>
                     </ul>
-                    
+
                 </div>
+            </div>
+            <!-- Отримання Release Notes -->
+            <div class='by col-md-9 mt-2'>
+                <div class="alert alert-info text-rigth" id="release-notes">Завантаження опису версії...</div>
+                    <div class="text-center">
+                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.1')">Отримати опис JAAM 4.1</button>
+                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.2-b87')">Отримати опис JAAM 4.2 Beta 87</button>
+                    </div>
             </div>
             <div class='by col-md-9 mt-2'>
                 <div class='alert alert-info'>
@@ -173,6 +181,8 @@
     <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
     <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="jaam_v2.js"></script>
 </body>
 
 </html>

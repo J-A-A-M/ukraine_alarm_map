@@ -468,10 +468,10 @@ int getNightModeType() {
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
-    
+
     // do not play any sound before websocket connection
     if (!isFirstDataFetchCompleted) return false;
-    
+
     // ignore mute on alert
     if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
 
@@ -1810,7 +1810,7 @@ void addCard(AsyncResponseStream* response, const char* title, V value, const ch
 
 void addHeader(AsyncResponseStream* response) {
   response->println("<!DOCTYPE html>");
-  response->println("<html lang='en'>");
+  response->println("<html lang='uk'>");
   response->println("<head>");
   response->println("<meta charset='UTF-8'>");
   response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
@@ -1858,17 +1858,25 @@ void addHeader(AsyncResponseStream* response) {
   response->println("'>");
   response->println("</div>");
   response->println("</div>");
-  response->println("<div class='row justify-content-center'>");
-  response->println("<div class='by col-md-9 mt-2'>");
 #if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
+    response->println("<div class='row justify-content-center'>");
+    response->println("<div class='by col-md-9 mt-2'>");
     response->println("<div class='alert alert-success text-center'>");
     response->print("Доступна нова версія прошивки - <b>");
     response->print(newFwVersion);
     response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b></h8>");
     response->println("</div>");
+    response->print("<div class='alert alert-info text-rigth' id='release-notes' data-version='");
+    response->print(newFwVersion);
+    response->println("'>Завантажити опис оновлення?</div>");
+    response->print("<div class='text-center'><button class='btn btn-info' onclick='fetchReleaseNotes()'>Отримати опис оновлення</button></div><br>");
+    response->println("</div>");
+    response->println("</div>");
   }
 #endif
+  response->println("<div class='row justify-content-center'>");
+  response->println("<div class='by col-md-9 mt-2'>");
   response->print("Локальна IP-адреса: <b>");
   response->print(getLocalIP());
   response->println("</b>");
@@ -1929,6 +1937,14 @@ void addFooter(AsyncResponseStream* response) {
   response->println("</div>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
+#if FW_UPDATE_ENABLED
+  if (fwUpdateAvailable) {
+    response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
+    response->print("<script src='http://");
+    response->print(settings.serverhost);
+    response->println("/static/jaam_v2.js'></script>");
+}
+#endif
   response->print("<script src='http://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.js'></script>");
@@ -2456,9 +2472,9 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
-  
+
   if (saved) autoBrightnessUpdate();
-  
+
   char url[18];
   sprintf(url, "/brightness?svd=%d", saved);
   request->redirect(url);
@@ -2474,7 +2490,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
   saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
-  
+
   char url[14];
   sprintf(url, "/colors?svd=%d", saved);
   request->redirect(url);
@@ -2751,7 +2767,7 @@ void checkHomeDistrictAlerts() {
   bool localAlarmNow = ledStatus == 1;
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
-    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
+    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON);
     if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
 
     alertPinCycle();
@@ -3108,14 +3124,14 @@ void mapAlarms() {
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = processAlarms(
-      adapted_alarm_leds[i], 
-      adapted_alarm_timers[i], 
-      adapted_explosion_timers[i], 
-      adapted_missiles_timers[i], 
-      adapted_drones_timers[i], 
-      i, 
-      blinkBrightness, 
-      notificationBrightness, 
+      adapted_alarm_leds[i],
+      adapted_alarm_timers[i],
+      adapted_explosion_timers[i],
+      adapted_missiles_timers[i],
+      adapted_drones_timers[i],
+      i,
+      blinkBrightness,
+      notificationBrightness,
       false
     );
   }
@@ -3123,7 +3139,7 @@ void mapAlarms() {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
     fill_solid(
-      bg_strip, 
+      bg_strip,
       settings.bg_pixelcount,
       processAlarms(
         adapted_alarm_leds[localDistrict],
@@ -3376,7 +3392,7 @@ void initSettings() {
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
-  
+
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
@@ -3648,9 +3664,9 @@ void initUpdates() {
 
 void initHA() {
   if (shouldWifiReconnect) return;
-  
+
   LOG.println("Init Home assistant API");
-    
+
   if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
     LOG.println("Home Assistant is not available!");
     return;
