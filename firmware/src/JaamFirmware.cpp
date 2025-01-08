@@ -3381,10 +3381,11 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
-    settings.bg_pixelpin = 0;
+    settings.bg_pixelpin = -1;
     settings.bg_pixelcount = 0;
-    settings.service_ledpin = 0;
+    settings.service_ledpin = -1;
     settings.buttonpin = 35;
+    settings.button2pin = -1;
     settings.display_model = 1;
     settings.display_height = 64;
     break;
