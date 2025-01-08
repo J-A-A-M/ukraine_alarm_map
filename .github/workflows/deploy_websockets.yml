@@ -1,4 +1,4 @@
-name: 🧪 Deploy Dev Websockets
+name: 🧪 Deploy  Websockets
 on:
   workflow_dispatch:
     inputs:
@@ -17,12 +17,12 @@ on:
           - CRITICAL
           - ERROR
 
-run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
+run-name: Deploy Websockets from '${{ github.ref_name }}' branch
 jobs:
-    deploy_websocket_dev:
+    deploy_websocket:
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy Dev WebSockets
+          - name: Redeploy WebSockets
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
