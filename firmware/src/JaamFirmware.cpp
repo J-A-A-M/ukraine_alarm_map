@@ -235,6 +235,7 @@ ServiceMessage serviceMessage;
 CRGB strip[26];
 CRGB bg_strip[100];
 CRGB service_strip[5];
+int service_strip_update_index = 0;
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -659,12 +660,26 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 }
 #endif
 
+void serviceLedUpdate() {
+  if (isServiceStripEnabled()) {
+    fill_solid(service_strip, 5, CRGB::Black);
+    service_strip[service_strip_update_index] = fromHue(86, settings.current_brightness);
+    FastLED.show();
+    if (service_strip_update_index == 4) {
+      service_strip_update_index = 0;
+    } else {
+      service_strip_update_index++;
+    }
+  }
+}
+
 #if FW_UPDATE_ENABLED || ARDUINO_OTA_ENABLED
 void showUpdateProgress(size_t progress, size_t total) {
   if (total == 0) return;
   char progressText[5];
   sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
+  serviceLedUpdate();
 }
 
 void mapUpdate() {
