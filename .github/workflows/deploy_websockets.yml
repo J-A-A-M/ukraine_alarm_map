@@ -1,4 +1,4 @@
-name: 🧪 Deploy  Websockets
+name: ⚖️ Deploy Websockets
 on:
   workflow_dispatch:
     inputs:
