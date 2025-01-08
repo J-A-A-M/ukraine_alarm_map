@@ -326,6 +326,17 @@ bool isAnalogLightSensorEnabled() {
   return settings.lightpin > -1;
 }
 
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightness_factor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
+  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
+}
+
+CRGB fromHue(int hue, float brightness) {
+  RGBColor rgb = hue2rgb(hue);
+  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
+}
+
 // Forward declarations
 void displayCycle();
 
@@ -656,7 +667,19 @@ void showUpdateProgress(size_t progress, size_t total) {
   showServiceMessage(progressText, "Оновлення:");
 }
 
+void mapUpdate() {
+  CRGB hue = fromHue(86, settings.current_brightness);
+  for (uint16_t i = 0; i < 26; i++) {
+    strip[i] = hue;
+  }
+  if (isBgStripEnabled()) {
+    fill_solid(bg_strip, settings.bg_pixelcount, hue);
+  }
+  FastLED.show();
+}
+
 void showUpdateStart() {
+  mapUpdate();
   showServiceMessage("Починаємо!", "Оновлення:");
   delay(1000);
 }
@@ -2903,17 +2926,6 @@ void websocketProcess() {
   }
 }
 //--Websocket process end
-
-CRGB fromRgb(int r, int g, int b, float brightness) {
-  // use brightness_factor as a multiplier to get scaled brightness
-  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
-  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
-}
-
-CRGB fromHue(int hue, float brightness) {
-  RGBColor rgb = hue2rgb(hue);
-  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
-}
 
 //--Map processing start
 
