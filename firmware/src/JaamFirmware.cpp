@@ -660,17 +660,36 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 }
 #endif
 
-void serviceLedUpdate() {
+void mapUpdate(float percents) {
+  CRGB hue = fromHue(86, settings.current_brightness);
+  int ledsCount = round(settings.pixelcount * percents);
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    if (i < ledsCount) {
+      strip[i] = hue;
+    } else {
+      strip[i] = CRGB::Black;
+    }
+  }
+  if (isBgStripEnabled()) {
+    int bgLedsCount = round(settings.bg_pixelcount * percents);
+    for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
+      if (i < bgLedsCount) {
+        bg_strip[i] = hue;
+      } else {
+        bg_strip[i] = CRGB::Black;
+      }
+    }
+  }
   if (isServiceStripEnabled()) {
     fill_solid(service_strip, 5, CRGB::Black);
-    service_strip[service_strip_update_index] = fromHue(86, settings.current_brightness);
-    FastLED.show();
+    service_strip[service_strip_update_index] = hue;
     if (service_strip_update_index == 4) {
       service_strip_update_index = 0;
     } else {
       service_strip_update_index++;
     }
   }
+  FastLED.show();
 }
 
 #if FW_UPDATE_ENABLED || ARDUINO_OTA_ENABLED
@@ -679,22 +698,10 @@ void showUpdateProgress(size_t progress, size_t total) {
   char progressText[5];
   sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
-  serviceLedUpdate();
-}
-
-void mapUpdate() {
-  CRGB hue = fromHue(86, settings.current_brightness);
-  for (uint16_t i = 0; i < 26; i++) {
-    strip[i] = hue;
-  }
-  if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, hue);
-  }
-  FastLED.show();
+  mapUpdate(progress * 1.0f / total);
 }
 
 void showUpdateStart() {
-  mapUpdate();
   showServiceMessage("Починаємо!", "Оновлення:");
   delay(1000);
 }
