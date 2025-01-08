@@ -235,6 +235,7 @@ ServiceMessage serviceMessage;
 CRGB strip[26];
 CRGB bg_strip[100];
 CRGB service_strip[5];
+int service_strip_update_index = 0;
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -324,6 +325,17 @@ bool isBuzzerEnabled() {
 
 bool isAnalogLightSensorEnabled() {
   return settings.lightpin > -1;
+}
+
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightness_factor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
+  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
+}
+
+CRGB fromHue(int hue, float brightness) {
+  RGBColor rgb = hue2rgb(hue);
+  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
 // Forward declarations
@@ -648,12 +660,45 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 }
 #endif
 
+void mapUpdate(float percents) {
+  CRGB hue = fromHue(86, settings.current_brightness);
+  int ledsCount = round(settings.pixelcount * percents);
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    if (i < ledsCount) {
+      strip[i] = hue;
+    } else {
+      strip[i] = CRGB::Black;
+    }
+  }
+  if (isBgStripEnabled()) {
+    int bgLedsCount = round(settings.bg_pixelcount * percents);
+    for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
+      if (i < bgLedsCount) {
+        bg_strip[i] = hue;
+      } else {
+        bg_strip[i] = CRGB::Black;
+      }
+    }
+  }
+  if (isServiceStripEnabled()) {
+    fill_solid(service_strip, 5, CRGB::Black);
+    service_strip[service_strip_update_index] = hue;
+    if (service_strip_update_index == 4) {
+      service_strip_update_index = 0;
+    } else {
+      service_strip_update_index++;
+    }
+  }
+  FastLED.show();
+}
+
 #if FW_UPDATE_ENABLED || ARDUINO_OTA_ENABLED
 void showUpdateProgress(size_t progress, size_t total) {
   if (total == 0) return;
   char progressText[5];
   sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
+  mapUpdate(progress * 1.0f / total);
 }
 
 void showUpdateStart() {
@@ -2903,17 +2948,6 @@ void websocketProcess() {
   }
 }
 //--Websocket process end
-
-CRGB fromRgb(int r, int g, int b, float brightness) {
-  // use brightness_factor as a multiplier to get scaled brightness
-  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
-  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
-}
-
-CRGB fromHue(int hue, float brightness) {
-  RGBColor rgb = hue2rgb(hue);
-  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
-}
 
 //--Map processing start
 
