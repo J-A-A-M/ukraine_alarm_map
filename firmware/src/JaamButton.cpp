@@ -56,5 +56,3 @@ bool JaamButton::isButton2Enabled() {
 bool JaamButton::isAnyButtonEnabled() {
     return isButton1Enabled() || isButton2Enabled();
 }
-
-
