@@ -30,7 +30,7 @@ google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
-gtagmp_logger = logging.getLogger('ga4mp')
+gtagmp_logger = logging.getLogger("ga4mp")
 gtagmp_logger.setLevel(debug_level)
 
 if not gtagmp_logger.handlers:
@@ -39,8 +39,6 @@ if not gtagmp_logger.handlers:
     handler.setLevel(debug_level)
     gtagmp_logger.addHandler(handler)
 gtagmp_logger.propagate = False
-
-
 
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
