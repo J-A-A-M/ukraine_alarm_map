@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -g|--google-stat)
-            LOGGING="$2"
+            GOOGLE_STAT="$2"
             shift 2
             ;;
         *)
