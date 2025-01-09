@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <StreamString.h>
 #include <ESPmDNS.h>
 #include <async.h>
 #include <ArduinoJson.h>
@@ -1659,6 +1660,67 @@ int getSettingsDisplayMode(int localDisplayMode) {
   return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
 }
 
+void backupSettings(Print* response) {
+  JsonDocument doc;
+  doc["fw_version"] = VERSION;
+  doc["chip_id"] = chipID;
+  doc["time"] = timeClient.unixToString("DD.MM.YYYY hh:mm:ss").c_str();
+  JsonArray settingsArray = doc["settings"].to<JsonArray>();
+  preferences.begin("storage", true);
+  for (const char* key : SETTINGS_KEYS) {
+    if (preferences.isKey(key)) {
+      JsonObject setting = settingsArray.add<JsonObject>();
+      setting["key"] = key;
+      PreferenceType type = preferences.getType(key);
+      switch (type) {
+        case PT_I32:
+          setting["value"] = preferences.getInt(key);
+          setting["type"] = PF_INT;
+          break;
+        case PT_STR:
+          setting["value"] = preferences.getString(key);
+          setting["type"] = PF_STRING;
+          break;
+        case PT_BLOB:
+          setting["value"] = preferences.getFloat(key);
+          setting["type"] = PF_FLOAT;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  preferences.end();
+
+  response->print(doc.as<String>());
+}
+
+bool restoreSettings(JsonObject doc) {
+  JsonArray settingsArray = doc["settings"].as<JsonArray>();
+  preferences.begin("storage", false);
+  bool restored = false;
+  for (JsonObject setting : settingsArray) {
+    const char* key = setting["key"];
+    const char* type = setting["type"];
+    if (strcmp(type, PF_INT) == 0) {
+      int valueInt = setting["value"].as<int>();
+      preferences.putInt(key, valueInt);
+      LOG.printf("Restored setting: '%s' with value '%d'\n", key, valueInt);
+    } else if (strcmp(type, PF_STRING) == 0) {
+      const char* valueStr = setting["value"].as<const char*>();
+      preferences.putString(key, valueStr);
+      LOG.printf("Restored setting: '%s' with value '%s'\n", key, valueStr);
+    } else if (strcmp(type, PF_FLOAT) == 0) {
+      float valueFloat = setting["value"].as<float>();
+      preferences.putFloat(key, valueFloat);
+      LOG.printf("Restored setting: '%s' with value '%f.2'\n", key, valueFloat);
+    }
+    restored = true;
+  }
+  preferences.end();
+  return restored;
+} 
+
 int checkboxIndex = 1;
 int sliderIndex = 1;
 int selectIndex = 1;
@@ -2247,9 +2309,9 @@ void handleDev(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
-  response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<form action='/saveDev' method='POST'>");
   addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
     addSelectBox(response, "display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
@@ -2291,13 +2353,18 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
   response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
   response->println("</b>");
-  response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
+  response->println("<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>");
   response->print("<a href='http://");
   response->print(getLocalIP());
   response->println(":8080/0wifi' target='_blank' class='btn btn-primary float-right' aria-expanded='false'>Змінити налаштування WiFi</a>");
-  response->println("</div>");
-  response->println("</div>");
   response->println("</form>");
+  response->println("<form id='form_restore' action='/restore' method='POST' enctype='multipart/form-data'>");
+  response->println("<a href='/backup' target='_blank' class='btn btn-info' aria-expanded='false'>Завантажити налаштування</a>");
+  response->println("<label for='restore' class='btn btn-primary float-right' aria-expanded='false'>Відновити налаштування</label>");
+  response->println("<input id='restore' name='restore' type='file' style='visibility:hidden;' onchange='javascript:document.getElementById(\"form_restore\").submit();' accept='application/json'/>");
+  response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
 
   addFooter(response);
 
@@ -2629,6 +2696,38 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   }
   request->redirect("/?p=tch");
 }
+
+void handleBackup(AsyncWebServerRequest* request) {
+  AsyncResponseStream* response = request->beginResponseStream("application/json");
+  backupSettings(response);
+  char filenameHeader[65];
+  sprintf(filenameHeader, "attachment; filename=\"jaam_backup_%s.json\"", timeClient.unixToString("YYYY.MM.DD_hh-mm-ss").c_str());
+  response->addHeader("Content-Disposition", filenameHeader);
+  response->setCode(200);
+  request->send(response);
+}
+
+StreamString jsonBody;
+
+void handleRestoreBody(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  jsonBody.write(data, len);
+}
+
+void handleRestore(AsyncWebServerRequest *request) {
+  LOG.println("Restoring settings...");
+  LOG.printf("JSON to restore: %s\n", jsonBody.c_str());
+  JsonDocument json;
+  deserializeJson(json, jsonBody.c_str());
+  bool reboot = restoreSettings(json.as<JsonObject>());
+  if (reboot) {
+    request->redirect("/");
+    rebootDevice(3000, true);
+  } else {
+    request->redirect("/dev");
+  }
+  jsonBody.clear();
+}
+
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
@@ -2681,6 +2780,8 @@ void setupRouting() {
     webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
   }
 #endif
+  webserver.on("/backup", HTTP_GET, handleBackup);
+  webserver.on("/restore", HTTP_POST, handleRestore, handleRestoreBody, NULL);
   webserver.begin();
   LOG.println("Webportal running");
 }
