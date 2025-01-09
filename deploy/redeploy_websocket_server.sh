@@ -4,6 +4,7 @@
 MEMCACHED_HOST=""
 WEBSOCKET_PORT=38440
 PING_INTERVAL=20
+PING_TIMEOUT=20
 ENVIRONMENT="PROD"
 LOGGING="WARNING"
 GOOGLE_STAT="True"
@@ -31,6 +32,10 @@ while [[ $# -gt 0 ]]; do
             PING_INTERVAL="$2"
             shift 2
             ;;
+        -t|--ping-timeout)
+            PING_TIMEOUT="$2"
+            shift 2
+            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -51,6 +56,7 @@ echo "WEBSOCKET SERVER"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
 echo "PING_INTERVAL: $PING_INTERVAL"
+echo "PING_TIMEOUT: $PING_TIMEOUT"
 echo "ENVIRONMENT: $ENVIRONMENT"
 echo "LOGGING: $LOGGING"
 echo "GOOGLE_STAT: $GOOGLE_STAT"
@@ -76,7 +82,7 @@ docker rm map_websocket_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server --restart unless-stopped --network=jaam -d -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" map_websocket_server
+docker run --name map_websocket_server --restart unless-stopped --network=jaam -d -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env PING_TIMEOUT="$PING_TIMEOUT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" map_websocket_server
 
 echo "Container deployed successfully!"
 

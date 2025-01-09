@@ -17,7 +17,8 @@ server_timezone = ZoneInfo("Europe/Kyiv")
 
 debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
-ping_interval = int(os.environ.get("PING_INTERVAL", 60))
+ping_interval = int(os.environ.get("PING_INTERVAL", 20))
+ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
@@ -718,7 +719,7 @@ async def get_data_from_memcached(mc):
     )
 
 
-start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
+start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 
