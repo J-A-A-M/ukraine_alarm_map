@@ -382,9 +382,9 @@ async def echo(websocket, path):
                     case _:
                         logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
-        logger.error(f"Connection closed with error - {e}")
+        logger.error(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
     except Exception as e:
-        pass
+        logger.error(f"{client_ip}:{client_port}: Exception - {e}")
     finally:
         data_task.cancel()
         if google_stat_send:
