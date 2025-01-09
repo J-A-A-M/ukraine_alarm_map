@@ -145,6 +145,7 @@ struct Settings {
   int     toggle_mode_temp       = 1;
   int     toggle_mode_hum        = 1;
   int     toggle_mode_press      = 1;
+  int     toggle_mode_weather    = 1;
   int     button_mode            = 0;
   int     button2_mode           = 0;
   int     button_mode_long       = 0;
@@ -1570,13 +1571,14 @@ void showToggleModes() {
   int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSizeForToggle(), timeClient.second());
   switch (periodIndex) {
   case 0:
-    // Display Mode Clock
     showClock();
     break;
   case 1:
-    // Display Mode Temperature
+    // Display Mode Weather
+    if (settings.toggle_mode_weather) {
     showTemp();
     break;
+    }
   case 2:
   case 3:
   case 4:
@@ -2275,6 +2277,7 @@ void handleModes(AsyncWebServerRequest* request) {
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
       if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.toggle_mode_hum, "Вологість");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.toggle_mode_press, "Тиск");
+      addCheckbox(response, "toggle_mode_weather", settings.toggle_mode_weather, "Погоду у домашньому регіоні");
     }
   }
 
@@ -2724,6 +2727,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", &settings.toggle_mode_temp, "tmt") || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", &settings.toggle_mode_hum, "tmh") || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", &settings.toggle_mode_press, "tmp") || saved;
+  saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", &settings.toggle_mode_weather, "tmw") || saved;
   saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, climateSensorCycle) || saved;
   saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, climateSensorCycle) || saved;
   saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, climateSensorCycle) || saved;
@@ -3568,6 +3572,7 @@ void initSettings() {
   settings.toggle_mode_temp       = preferences.getInt("tmt", settings.toggle_mode_temp);
   settings.toggle_mode_hum        = preferences.getInt("tmh", settings.toggle_mode_hum);
   settings.toggle_mode_press      = preferences.getInt("tmp", settings.toggle_mode_press);
+  settings.toggle_mode_weather    = preferences.getInt("tmw", settings.toggle_mode_weather);
   settings.button_mode            = preferences.getInt("bm", settings.button_mode);
   settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
