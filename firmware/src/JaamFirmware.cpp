@@ -32,7 +32,7 @@
 #endif
 #include <esp_task_wdt.h>
 
-const PROGMEM char* VERSION = "4.2-b88";
+const PROGMEM char* VERSION = "4.2-b89";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
