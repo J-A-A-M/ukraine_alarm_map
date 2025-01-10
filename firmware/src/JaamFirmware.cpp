@@ -1668,6 +1668,9 @@ void backupSettings(Print* response) {
   JsonArray settingsArray = doc["settings"].to<JsonArray>();
   preferences.begin("storage", true);
   for (const char* key : SETTINGS_KEYS) {
+    // skip id key, we do not need to backup it
+    if (strcmp(key, "id") == 0) continue;
+
     if (preferences.isKey(key)) {
       JsonObject setting = settingsArray.add<JsonObject>();
       setting["key"] = key;
@@ -1702,6 +1705,10 @@ bool restoreSettings(JsonObject doc) {
   for (JsonObject setting : settingsArray) {
     const char* key = setting["key"];
     const char* type = setting["type"];
+
+    // skip id key, we do not need to restore it
+    if (strcmp(key, "id") == 0) continue;
+    
     if (strcmp(type, PF_INT) == 0) {
       int valueInt = setting["value"].as<int>();
       preferences.putInt(key, valueInt);
@@ -1902,7 +1909,7 @@ void addHeader(AsyncResponseStream* response) {
   // To prevent favicon request
   response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
   response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
-  response->print("<link rel='stylesheet' href='http://");
+  response->print("<link rel='stylesheet' href='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.css'>");
   response->println("</head>");
@@ -1915,7 +1922,7 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://");
+  response->print("<img class='full-screen-img' src='https://");
   response->print(settings.serverhost);
   response->print("/");
   switch (getCurrentMapMode()) {
@@ -2035,17 +2042,13 @@ void addFooter(AsyncResponseStream* response) {
   response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js'></script>");
-#if FW_UPDATE_ENABLED
-  if (fwUpdateAvailable) {
-    response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
-    response->print("<script src='http://");
-    response->print(settings.serverhost);
-    response->println("/static/jaam_v2.js'></script>");
-}
-#endif
-  response->print("<script src='http://");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
+  response->print("<script src='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.js'></script>");
+  response->print("<script src='https://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v2.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -2374,6 +2377,11 @@ void handleDev(AsyncWebServerRequest* request) {
   response->print(getLocalIP());
   response->println(":8080/0wifi' target='_blank' class='btn btn-primary float-right' aria-expanded='false'>Змінити налаштування WiFi</a>");
   response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
+  response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<b><p class='text'>У цьому розділі можна зберегти та відновити налаштування мапи. Зберігаються всі налаштування, крім налаштувань WiFi.</p></b>");
   response->println("<form id='form_restore' action='/restore' method='POST' enctype='multipart/form-data'>");
   response->println("<a href='/backup' target='_blank' class='btn btn-info' aria-expanded='false'>Завантажити налаштування</a>");
   response->println("<label for='restore' class='btn btn-primary float-right' aria-expanded='false'>Відновити налаштування</label>");
@@ -2739,7 +2747,7 @@ void handleRestore(AsyncWebServerRequest *request) {
     rebootDevice(3000, true);
   }
   jsonBody.clear();
-  request->send(redirectResponce(request, "/", false, false, restored, !restored));
+  request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
 }
 
 #if FW_UPDATE_ENABLED
