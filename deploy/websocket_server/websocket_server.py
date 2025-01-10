@@ -17,7 +17,8 @@ server_timezone = ZoneInfo("Europe/Kyiv")
 
 debug_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
-ping_interval = int(os.environ.get("PING_INTERVAL", 60))
+ping_interval = int(os.environ.get("PING_INTERVAL", 20))
+ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
@@ -136,7 +137,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
     while True:
         if client["firmware"] == "unknown":
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
             continue
         client_id = client["firmware"]
         try:
@@ -225,7 +226,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
             break
@@ -381,11 +382,10 @@ async def echo(websocket, path):
                     case _:
                         logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
-        logger.error(f"Connection closed with error - {e}")
+        logger.warning(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
     except Exception as e:
-        pass
+        logger.error(f"{client_ip}:{client_port}: Exception - {e}")
     finally:
-        data_task.cancel()
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
@@ -394,10 +394,10 @@ async def echo(websocket, path):
             del shared_data.trackers[f"{client_ip}_{client_port}"]
         del shared_data.clients[f"{client_ip}_{client_port}"]
         try:
-            await data_task
+            data_task.cancel()
         except asyncio.CancelledError:
-            logger.debug(f"{client_ip}:{client_port} !!! tasks cancelled")
-        logger.debug(f"{client_ip}:{client_port} !!! end")
+            logger.warning(f"{client_ip}:{client_port} !!! tasks cancelled")
+        logger.warning(f"{client_ip}:{client_port} !!! end")
 
 
 async def district_data_v1(district_id):
@@ -718,7 +718,7 @@ async def get_data_from_memcached(mc):
     )
 
 
-start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval)
+start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout)
 
 asyncio.get_event_loop().run_until_complete(start_server)
 
