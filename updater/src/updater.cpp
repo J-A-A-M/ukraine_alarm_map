@@ -118,6 +118,7 @@ void updateFirmware() {
 
 void setup() {
   Serial.begin(115200);
+  delay(3000);
   uint64_t chipid = ESP.getEfuseMac();
   Serial.printf("Chip ID: %04x%04x\n", (uint32_t)(chipid >> 32), (uint32_t)chipid);
   WiFi.begin(ssid, password);

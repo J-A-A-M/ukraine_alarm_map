@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <StreamString.h>
 #include <ESPmDNS.h>
 #include <async.h>
 #include <ArduinoJson.h>
@@ -1659,6 +1660,74 @@ int getSettingsDisplayMode(int localDisplayMode) {
   return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
 }
 
+void backupSettings(Print* response) {
+  JsonDocument doc;
+  doc["fw_version"] = VERSION;
+  doc["chip_id"] = chipID;
+  doc["time"] = timeClient.unixToString("DD.MM.YYYY hh:mm:ss").c_str();
+  JsonArray settingsArray = doc["settings"].to<JsonArray>();
+  preferences.begin("storage", true);
+  for (const char* key : SETTINGS_KEYS) {
+    // skip id key, we do not need to backup it
+    if (strcmp(key, "id") == 0) continue;
+
+    if (preferences.isKey(key)) {
+      JsonObject setting = settingsArray.add<JsonObject>();
+      setting["key"] = key;
+      PreferenceType type = preferences.getType(key);
+      switch (type) {
+        case PT_I32:
+          setting["value"] = preferences.getInt(key);
+          setting["type"] = PF_INT;
+          break;
+        case PT_STR:
+          setting["value"] = preferences.getString(key);
+          setting["type"] = PF_STRING;
+          break;
+        case PT_BLOB:
+          setting["value"] = preferences.getFloat(key);
+          setting["type"] = PF_FLOAT;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  preferences.end();
+
+  response->print(doc.as<String>());
+}
+
+bool restoreSettings(JsonObject doc) {
+  JsonArray settingsArray = doc["settings"].as<JsonArray>();
+  preferences.begin("storage", false);
+  bool restored = false;
+  for (JsonObject setting : settingsArray) {
+    const char* key = setting["key"];
+    const char* type = setting["type"];
+
+    // skip id key, we do not need to restore it
+    if (strcmp(key, "id") == 0) continue;
+    
+    if (strcmp(type, PF_INT) == 0) {
+      int valueInt = setting["value"].as<int>();
+      preferences.putInt(key, valueInt);
+      LOG.printf("Restored setting: '%s' with value '%d'\n", key, valueInt);
+    } else if (strcmp(type, PF_STRING) == 0) {
+      const char* valueStr = setting["value"].as<const char*>();
+      preferences.putString(key, valueStr);
+      LOG.printf("Restored setting: '%s' with value '%s'\n", key, valueStr);
+    } else if (strcmp(type, PF_FLOAT) == 0) {
+      float valueFloat = setting["value"].as<float>();
+      preferences.putFloat(key, valueFloat);
+      LOG.printf("Restored setting: '%s' with value '%f.2'\n", key, valueFloat);
+    }
+    restored = true;
+  }
+  preferences.end();
+  return restored;
+} 
+
 int checkboxIndex = 1;
 int sliderIndex = 1;
 int selectIndex = 1;
@@ -1840,7 +1909,7 @@ void addHeader(AsyncResponseStream* response) {
   // To prevent favicon request
   response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
   response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
-  response->print("<link rel='stylesheet' href='http://");
+  response->print("<link rel='stylesheet' href='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.css'>");
   response->println("</head>");
@@ -1853,7 +1922,7 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://");
+  response->print("<img class='full-screen-img' src='https://");
   response->print(settings.serverhost);
   response->print("/");
   switch (getCurrentMapMode()) {
@@ -1948,26 +2017,42 @@ void addLinks(AsyncResponseStream* response) {
 
 void addFooter(AsyncResponseStream* response) {
   response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
-  response->println("<div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div id='saved-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
   response->println("<div class='toast-body'>");
   response->println("💾 Налаштування збережено!");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='reboot-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("💾 Налаштування збережено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("✅ Налаштування відновлено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-error-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("🚫 Помилка відновлення налаштувань!");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js'></script>");
 #if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
     response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
-    response->print("<script src='http://");
-    response->print(settings.serverhost);
-    response->println("/static/jaam_v2.js'></script>");
-}
+  }
 #endif
-  response->print("<script src='http://");
+  response->print("<script src='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.js'></script>");
+  response->print("<script src='https://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v2.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -2247,9 +2332,9 @@ void handleDev(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
-  response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<form action='/saveDev' method='POST'>");
   addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
     addSelectBox(response, "display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
@@ -2291,13 +2376,23 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
   response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
   response->println("</b>");
-  response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
+  response->println("<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>");
   response->print("<a href='http://");
   response->print(getLocalIP());
   response->println(":8080/0wifi' target='_blank' class='btn btn-primary float-right' aria-expanded='false'>Змінити налаштування WiFi</a>");
-  response->println("</div>");
-  response->println("</div>");
   response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
+  response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<b><p class='text'>У цьому розділі можна зберегти та відновити налаштування мапи. Зберігаються всі налаштування, крім налаштувань WiFi.</p></b>");
+  response->println("<form id='form_restore' action='/restore' method='POST' enctype='multipart/form-data'>");
+  response->println("<a href='/backup' target='_blank' class='btn btn-info' aria-expanded='false'>Завантажити налаштування</a>");
+  response->println("<label for='restore' class='btn btn-primary float-right' aria-expanded='false'>Відновити налаштування</label>");
+  response->println("<input id='restore' name='restore' type='file' style='visibility:hidden;' onchange='javascript:document.getElementById(\"form_restore\").submit();' accept='application/json'/>");
+  response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
 
   addFooter(response);
 
@@ -2474,6 +2569,16 @@ void handleUpdate(AsyncWebServerRequest* request) {
 }
 #endif
 
+AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
+  AsyncWebServerResponse* response = request->beginResponse(302);
+  response->addHeader("Location", location);
+  response->addHeader("Set-Cookie", "scroll=true");
+  if (saved) response->addHeader("Set-Cookie", "saved=true");
+  if (restore) response->addHeader("Set-Cookie", "restore=true");
+  if (restoreError) response->addHeader("Set-Cookie", "restore-error=true");
+  return response;
+}
+
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
   saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
@@ -2494,10 +2599,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
 
   if (saved) autoBrightnessUpdate();
-
-  char url[18];
-  sprintf(url, "/brightness?svd=%d", saved);
-  request->redirect(url);
+  
+  request->send(redirectResponce(request, "/brightness", saved));
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
@@ -2511,9 +2614,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
 
-  char url[14];
-  sprintf(url, "/colors?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
@@ -2559,9 +2660,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  char url[13];
-  sprintf(url, "/modes?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/modes", saved));
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
@@ -2585,13 +2684,11 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
 #endif
   }) || saved;
 
-  char url[14];
-  sprintf(url, "/sounds?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/sounds", saved));
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->redirect("/telemetry");
+  request->send(redirectResponce(request, "/telemetry", false));
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2623,21 +2720,58 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
 
   if (reboot) {
-    request->redirect("/");
     rebootDevice(3000, true);
+  }
+  request->send(redirectResponce(request, "/dev", false, reboot));
+}
+
+void handleBackup(AsyncWebServerRequest* request) {
+  AsyncResponseStream* response = request->beginResponseStream("application/json");
+  backupSettings(response);
+  char filenameHeader[65];
+  sprintf(filenameHeader, "attachment; filename=\"jaam_backup_%s.json\"", timeClient.unixToString("YYYY.MM.DD_hh-mm-ss").c_str());
+  response->addHeader("Content-Disposition", filenameHeader);
+  response->setCode(200);
+  request->send(response);
+}
+
+StreamString jsonBody;
+
+void handleRestoreBody(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  LOG.println("Received restore json part...");
+  LOG.printf("Filename: %s\n", filename.c_str());
+  size_t totalSize = request->contentLength();
+  LOG.printf("File size: %d\n", totalSize);
+  LOG.printf("Part Size: %d\n", len);
+  if (totalSize > MAX_JSON_SIZE) {
+    LOG.println("File size is too big!");
     return;
   }
-  request->redirect("/?p=tch");
+  jsonBody.write(data, len);
 }
+
+void handleRestore(AsyncWebServerRequest *request) {
+  LOG.println("Restoring settings...");
+  const char* jsonString = jsonBody.c_str();
+  LOG.printf("JSON to restore: %s\n", jsonString);
+  JsonDocument json;
+  deserializeJson(json, jsonString);
+  bool restored = restoreSettings(json.as<JsonObject>());
+  if (restored) {
+    rebootDevice(3000, true);
+  }
+  jsonBody.clear();
+  LOG.printf("Setting restored: %s\n", restored ? "true" : "false");
+  request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
+}
+
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
-  char url[16];
-  sprintf(url, "/firmware?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/firmware", saved));
 }
 #endif
 
@@ -2681,6 +2815,8 @@ void setupRouting() {
     webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
   }
 #endif
+  webserver.on("/backup", HTTP_GET, handleBackup);
+  webserver.on("/restore", HTTP_POST, handleRestore, handleRestoreBody, NULL);
   webserver.begin();
   LOG.println("Webportal running");
 }

@@ -1,3 +1,44 @@
+const saved = Cookies.get("saved");
+const needToScrool = Cookies.get("scroll");
+const reboot = Cookies.get("reboot");
+const restore = Cookies.get("restore");
+const restoreError = Cookies.get("restore-error");
+
+function showToast(toastId) {
+    const toast = document.getElementById(toastId);
+    toast.classList.remove('hide');
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+    }, 2000);
+}
+
+if (saved) {
+    showToast('saved-toast');
+    Cookies.remove("saved");
+};
+
+if (needToScrool) {
+    window.scrollTo(0, document.body.scrollHeight);
+    Cookies.remove("scroll");
+};
+
+if (reboot) {
+    showToast('reboot-toast');
+    Cookies.remove("reboot");
+}
+
+if (restore) {
+    showToast('restore-toast');
+    Cookies.remove("restore");
+}
+
+if (restoreError) {
+    showToast('restore-error-toast');
+    Cookies.remove("restore-error");
+}
+
 // Cache to store fetched release notes
 const releaseNotesCache = {};
 
