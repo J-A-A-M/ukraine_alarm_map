@@ -2032,8 +2032,8 @@ void addFooter(AsyncResponseStream* response) {
   response->println("✅ Налаштування відновлено! Перезавантаження...");
   response->println("</div>");
   response->println("</div>");
-  response->println("<div id='restore-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
-  response->println("<div class='restore-error-toast'>");
+  response->println("<div id='restore-error-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
   response->println("🚫 Помилка відновлення налаштувань!");
   response->println("</div>");
   response->println("</div>");
@@ -2738,19 +2738,30 @@ void handleBackup(AsyncWebServerRequest* request) {
 StreamString jsonBody;
 
 void handleRestoreBody(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  LOG.println("Received restore json part...");
+  LOG.printf("Filename: %s\n", filename.c_str());
+  size_t totalSize = request->contentLength();
+  LOG.printf("File size: %d\n", totalSize);
+  LOG.printf("Part Size: %d\n", len);
+  if (totalSize > MAX_JSON_SIZE) {
+    LOG.println("File size is too big!");
+    return;
+  }
   jsonBody.write(data, len);
 }
 
 void handleRestore(AsyncWebServerRequest *request) {
   LOG.println("Restoring settings...");
-  LOG.printf("JSON to restore: %s\n", jsonBody.c_str());
+  const char* jsonString = jsonBody.c_str();
+  LOG.printf("JSON to restore: %s\n", jsonString);
   JsonDocument json;
-  deserializeJson(json, jsonBody.c_str());
+  deserializeJson(json, jsonString);
   bool restored = restoreSettings(json.as<JsonObject>());
   if (restored) {
     rebootDevice(3000, true);
   }
   jsonBody.clear();
+  LOG.printf("Setting restored: %s\n", restored ? "true" : "false");
   request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
 }
 

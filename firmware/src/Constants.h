@@ -400,3 +400,4 @@ static const char* SETTINGS_KEYS[] = {
 static const char* PF_STRING = "S";
 static const char* PF_INT = "I";
 static const char* PF_FLOAT = "F";
+static const size_t MAX_JSON_SIZE = 6000; // 6KB
