@@ -56,10 +56,6 @@ runs:
       run: |
         sed -i 's/>Встановити JAAM [0-9.]* Lite</>Встановити JAAM ${{ inputs.version }} Lite</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest-lite.json
-    - name: Copy JS to the flasher
-      shell: bash
-      run: |
-        cp -f ${{ github.workspace }}/deploy/web_server/jaam_v2.js ${{ github.workspace }}/flasher/jaam_v2.js
     - name: Setup Pages
       uses: actions/configure-pages@v4
     - name: Upload artifact
