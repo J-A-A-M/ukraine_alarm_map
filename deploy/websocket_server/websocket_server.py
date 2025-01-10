@@ -382,7 +382,7 @@ async def echo(websocket, path):
                     case _:
                         logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
     except websockets.exceptions.ConnectionClosedError as e:
-        logger.error(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
+        logger.warning(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
     except Exception as e:
         logger.error(f"{client_ip}:{client_port}: Exception - {e}")
     finally:
