@@ -2010,15 +2010,31 @@ void addLinks(AsyncResponseStream* response) {
 
 void addFooter(AsyncResponseStream* response) {
   response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
-  response->println("<div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div id='saved-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
   response->println("<div class='toast-body'>");
   response->println("💾 Налаштування збережено!");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='reboot-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("💾 Налаштування збережено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("✅ Налаштування відновлено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='restore-error-toast'>");
+  response->println("🚫 Помилка відновлення налаштувань!");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js'></script>");
 #if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
     response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
@@ -2541,6 +2557,16 @@ void handleUpdate(AsyncWebServerRequest* request) {
 }
 #endif
 
+AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
+  AsyncWebServerResponse* response = request->beginResponse(302);
+  response->addHeader("Location", location);
+  response->addHeader("Set-Cookie", "scroll=true");
+  if (saved) response->addHeader("Set-Cookie", "saved=true");
+  if (restore) response->addHeader("Set-Cookie", "restore=true");
+  if (restoreError) response->addHeader("Set-Cookie", "restore-error=true");
+  return response;
+}
+
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
   saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
@@ -2561,10 +2587,8 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
 
   if (saved) autoBrightnessUpdate();
-
-  char url[18];
-  sprintf(url, "/brightness?svd=%d", saved);
-  request->redirect(url);
+  
+  request->send(redirectResponce(request, "/brightness", saved));
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
@@ -2578,9 +2602,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
 
-  char url[14];
-  sprintf(url, "/colors?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
@@ -2626,9 +2648,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  char url[13];
-  sprintf(url, "/modes?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/modes", saved));
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
@@ -2652,13 +2672,11 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
 #endif
   }) || saved;
 
-  char url[14];
-  sprintf(url, "/sounds?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/sounds", saved));
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->redirect("/telemetry");
+  request->send(redirectResponce(request, "/telemetry", false));
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2690,11 +2708,9 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
 
   if (reboot) {
-    request->redirect("/");
     rebootDevice(3000, true);
-    return;
   }
-  request->redirect("/?p=tch");
+  request->send(redirectResponce(request, "/dev", false, reboot));
 }
 
 void handleBackup(AsyncWebServerRequest* request) {
@@ -2718,14 +2734,12 @@ void handleRestore(AsyncWebServerRequest *request) {
   LOG.printf("JSON to restore: %s\n", jsonBody.c_str());
   JsonDocument json;
   deserializeJson(json, jsonBody.c_str());
-  bool reboot = restoreSettings(json.as<JsonObject>());
-  if (reboot) {
-    request->redirect("/");
+  bool restored = restoreSettings(json.as<JsonObject>());
+  if (restored) {
     rebootDevice(3000, true);
-  } else {
-    request->redirect("/dev");
   }
   jsonBody.clear();
+  request->send(redirectResponce(request, "/", false, false, restored, !restored));
 }
 
 #if FW_UPDATE_ENABLED
@@ -2734,9 +2748,7 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
-  char url[16];
-  sprintf(url, "/firmware?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/firmware", saved));
 }
 #endif
 
