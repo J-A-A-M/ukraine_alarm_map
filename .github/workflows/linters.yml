@@ -12,10 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Copy JS to the flasher
-        # This step is required to copy the JS file to the flasher directory to check it with proof-html
-        run: |
-          cp -f ${{ github.workspace }}/deploy/web_server/jaam_v2.js ${{ github.workspace }}/flasher/jaam_v2.js
       - name: Check flasher with proof-html
         uses: anishathalye/proof-html@v2
         with:
