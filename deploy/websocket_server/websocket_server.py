@@ -137,7 +137,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
     client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
     while True:
         if client["firmware"] == "unknown":
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
             continue
         client_id = client["firmware"]
         try:
@@ -226,7 +226,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
         except websockets.exceptions.ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
             break
@@ -386,7 +386,6 @@ async def echo(websocket, path):
     except Exception as e:
         logger.error(f"{client_ip}:{client_port}: Exception - {e}")
     finally:
-        data_task.cancel()
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
@@ -395,10 +394,10 @@ async def echo(websocket, path):
             del shared_data.trackers[f"{client_ip}_{client_port}"]
         del shared_data.clients[f"{client_ip}_{client_port}"]
         try:
-            await data_task
+            data_task.cancel()
         except asyncio.CancelledError:
-            logger.debug(f"{client_ip}:{client_port} !!! tasks cancelled")
-        logger.debug(f"{client_ip}:{client_port} !!! end")
+            logger.warning(f"{client_ip}:{client_port} !!! tasks cancelled")
+        logger.warning(f"{client_ip}:{client_port} !!! end")
 
 
 async def district_data_v1(district_id):
