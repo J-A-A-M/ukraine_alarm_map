@@ -3090,37 +3090,35 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drones_time, int position, float alertBrightness, float notificationBrightness, bool is_bgstrip) {
+CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
   CRGB hue;
-  float localBrightnessAlert = settings.brightness_alert / 100.0f;
-  float localBrightnessClear = settings.brightness_clear / 100.0f;
-  float localBrightnessHomeDistrict = settings.brightness_home_district / 100.0f;
-  float bgBrightnessFactor =  is_bgstrip ? settings.brightness_bg / 100.0f : 1.0f;
+  float localBrightnessAlert = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_alert / 100.0f;
+  float localBrightnessClear = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_clear / 100.0f;
+  float localBrightnessHomeDistrict = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_home_district / 100.0f;
 
   int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
   int colorSwitch;
-  float localBrightness;
 
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
   if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     colorSwitch = settings.color_explosion;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion * bgBrightnessFactor);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // missiles has second priority
-  if (settings.enable_missiles && missiles_time > 0 && currentTime - missiles_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+  if (settings.enable_missiles && missilesTime > 0 && currentTime - missilesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     colorSwitch = settings.color_missiles;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion * bgBrightnessFactor);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // drones has third priority
-  if (settings.enable_drones && drones_time > 0 && currentTime - drones_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+  if (settings.enable_drones && dronesTime > 0 && currentTime - dronesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
     colorSwitch = settings.color_drones;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion * bgBrightnessFactor);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
@@ -3128,17 +3126,18 @@ CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drone
     case ALERT:
       if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
         colorSwitch = settings.color_new_alert;
-        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_new_alert * bgBrightnessFactor);
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_new_alert);
       } else {
         colorSwitch = settings.color_alert;
-        hue = fromHue(colorSwitch, settings.current_brightness * localBrightnessAlert * bgBrightnessFactor);
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightnessAlert);
       }
       break;
     case CLEAR:
       if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
         colorSwitch = settings.color_alert_over;
-        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_alert_over * bgBrightnessFactor);
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_alert_over);
       } else {
+        float localBrightness;
         if (position == localDistrict) {
           colorSwitch = settings.color_home_district;
           localBrightness = localBrightnessHomeDistrict;
@@ -3146,7 +3145,7 @@ CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drone
           colorSwitch = settings.color_clear;
           localBrightness = localBrightnessClear;
         }
-        hue = fromHue(colorSwitch, settings.current_brightness * localBrightness * bgBrightnessFactor);
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightness);
       }
       break;
   }
