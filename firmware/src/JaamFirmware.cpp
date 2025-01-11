@@ -329,7 +329,7 @@ bool isAnalogLightSensorEnabled() {
 }
 
 CRGB fromRgb(int r, int g, int b, float brightness) {
-  // use brightness_factor as a multiplier to get scaled brightness
+  // use brightnessFactor as a multiplier to get scaled brightness
   int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
   return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
@@ -673,6 +673,9 @@ void mapUpdate(float percents) {
   }
   if (isBgStripEnabled()) {
     int bgLedsCount = round(settings.bg_pixelcount * percents);
+    float bgBrightnessFactor = settings.brightness_bg / 100.0f;
+    CRGB bgHue = fromHue(86, settings.current_brightness * bgBrightnessFactor);
+
     for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
       if (i < bgLedsCount) {
         bg_strip[i] = hue;
@@ -3087,66 +3090,62 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drones_time, int position, float alertBrightness, float notificationBrightness, bool is_bgstrip) {
+CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
   CRGB hue;
-  float local_brightness_alert = settings.brightness_alert / 100.0f;
-  float local_brightness_clear = settings.brightness_clear / 100.0f;
-  float local_brightness_home_district = settings.brightness_home_district / 100.0f;
-  float local_brightness_bg = settings.brightness_bg / 100.0f;
+  float localBrightnessAlert = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_alert / 100.0f;
+  float localBrightnessClear = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_clear / 100.0f;
+  float localBrightnessHomeDistrict = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_home_district / 100.0f;
 
-  int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-  int color_switch;
-  float local_brightness;
+  int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+  int colorSwitch;
 
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
   if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_explosion;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    colorSwitch = settings.color_explosion;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // missiles has second priority
-  if (settings.enable_missiles && missiles_time > 0 && currentTime - missiles_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_missiles;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+  if (settings.enable_missiles && missilesTime > 0 && currentTime - missilesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    colorSwitch = settings.color_missiles;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // drones has third priority
-  if (settings.enable_drones && drones_time > 0 && currentTime - drones_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_drones;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+  if (settings.enable_drones && dronesTime > 0 && currentTime - dronesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    colorSwitch = settings.color_drones;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   switch (led) {
     case ALERT:
       if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_new_alert;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
+        colorSwitch = settings.color_new_alert;
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_new_alert);
       } else {
-        color_switch = settings.color_alert;
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+        colorSwitch = settings.color_alert;
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightnessAlert);
       }
       break;
     case CLEAR:
       if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_alert_over;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
+        colorSwitch = settings.color_alert_over;
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_alert_over);
       } else {
-        if (position == local_district) {
-          color_switch = settings.color_home_district;
-          local_brightness = local_brightness_home_district;
+        float localBrightness;
+        if (position == localDistrict) {
+          colorSwitch = settings.color_home_district;
+          localBrightness = localBrightnessHomeDistrict;
         } else {
-          color_switch = settings.color_clear;
-          local_brightness = local_brightness_clear;
+          colorSwitch = settings.color_clear;
+          localBrightness = localBrightnessClear;
         }
-        if (is_bgstrip){
-          local_brightness = local_brightness_bg;
-        }
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness);
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightness);
       }
       break;
   }
@@ -3216,7 +3215,8 @@ void mapReconnect() {
     strip[i] = hue;
   }
   if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, hue);
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(64, localBrightness * settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3232,7 +3232,8 @@ void mapOff() {
 void mapLamp() {
   fill_solid(strip, settings.pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
   if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3314,7 +3315,8 @@ void mapWeather() {
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.brightness_bg));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3327,7 +3329,8 @@ void mapFlag() {
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.brightness_bg));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3339,7 +3342,8 @@ void mapRandom() {
   if (isBgStripEnabled()) {
     int bgRandomLed = random(settings.bg_pixelcount);
     int bgRandomColor = random(360);
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.brightness_bg);
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness * brightness_factror);
   }
   FastLED.show();
 }
