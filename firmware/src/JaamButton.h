@@ -8,6 +8,8 @@ public:
     void setButton2ClickListener(void (*listener)(void));
     void setButton1LongClickListener(void (*listener)(void));
     void setButton2LongClickListener(void (*listener)(void));
+    void setButton1DuringLongClickListener(void (*listener)(void));
+    void setButton2DuringLongClickListener(void (*listener)(void));
     bool isButton1Enabled();
     bool isButton2Enabled();
     bool isAnyButtonEnabled();

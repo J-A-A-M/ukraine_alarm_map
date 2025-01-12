@@ -19,6 +19,7 @@ void JaamButton::setButton1Pin(int pin) {
     button1Pin = pin;
     if (isButton1Enabled()) {
         button1.setup(button1Pin);
+        button1.setLongPressIntervalMs(100);
     }
 }
 
@@ -26,6 +27,7 @@ void JaamButton::setButton2Pin(int pin) {
     button2Pin = pin;
     if (isButton1Enabled()) {
         button2.setup(button2Pin);
+        button2.setLongPressIntervalMs(100);
     }
 }
 
@@ -50,6 +52,18 @@ void JaamButton::setButton1LongClickListener(void (*listener)(void)) {
 void JaamButton::setButton2LongClickListener(void (*listener)(void)) {
     if (isButton2Enabled()) {
         button2.attachLongPressStart(listener);
+    }
+}
+
+void JaamButton::setButton1DuringLongClickListener(void (*listener)(void)) {
+    if (isButton1Enabled()) {
+        button1.attachDuringLongPress(listener);
+    }
+}
+
+void JaamButton::setButton2DuringLongClickListener(void (*listener)(void)) {
+    if (isButton2Enabled()) {
+        button2.attachDuringLongPress(listener);
     }
 }
 

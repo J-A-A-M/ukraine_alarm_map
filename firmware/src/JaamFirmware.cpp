@@ -1126,6 +1126,63 @@ void buttonLongClick(const char* buttonName, int modeLong) {
 #endif
 }
 
+bool saveLampBrightness(int newBrightness) {
+  if (settings.ha_light_brightness == newBrightness) return false;
+  settings.ha_light_brightness = newBrightness;
+  preferences.begin("storage", false);
+  preferences.putInt("ha_lbri", settings.ha_light_brightness);
+  preferences.end();
+  reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
+  LOG.print("ha_light_brightness commited to preferences: ");
+  LOG.println(settings.ha_light_brightness);
+  ha.setLampBrightness(newBrightness);
+  mapCycle();
+  return true;
+}
+
+void buttonDuringLongClick(const char* buttonName, int modeLong) {
+#if FW_UPDATE_ENABLED
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+    return;
+  }
+#endif
+  switch (modeLong) {
+    case 8:
+      // if lamp mode is active, increase lamp brightness
+      if (getCurrentMapMode() == 5) {
+        int newBrightness = settings.ha_light_brightness + 1;
+        if (newBrightness > 100) {
+          newBrightness = 100;
+        }
+        saveLampBrightness(newBrightness);
+        char message[5];
+        sprintf(message, "%d%%", newBrightness);
+        displayMessage(message, "Яскравість лампи:");
+      } else {
+        showServiceMessage("Лише для режиму лампи");
+      }
+      break;
+    case 9:
+      // if lamp mode is active, decrease lamp brightness
+      if (getCurrentMapMode() == 5) {
+        int newBrightness = settings.ha_light_brightness - 1;
+        if (newBrightness < 0) {
+          newBrightness = 0;
+        }
+        saveLampBrightness(newBrightness);
+        char message[5];
+        sprintf(message, "%d%%", newBrightness);
+        displayMessage(message, "Яскравість лампи:");
+      } else {
+        showServiceMessage("Лише для режиму лампи");
+      }
+      break;
+    default:
+      // do nothing
+      break;
+  }
+}
+
 void button1Click() {
   LOG.println("Button 1 click");
   buttonClick("Button 1", settings.button_mode);
@@ -1144,6 +1201,16 @@ void button1LongClick() {
 void button2LongClick() {
   LOG.println("Button 2 long click");
   buttonLongClick("Button 2", settings.button2_mode_long);
+}
+
+void button1DuringLongClick() {
+  LOG.println("Button 1 during long click");
+  buttonDuringLongClick("Button 1", settings.button_mode_long);
+}
+
+void button2DuringLongClick() {
+  LOG.println("Button 2 during long click");
+  buttonDuringLongClick("Button 2", settings.button2_mode_long);
 }
 
 void distributeBrightnessLevels() {
@@ -1234,20 +1301,6 @@ bool saveShowHomeAlarmTime(bool newState) {
   if (display.isDisplayAvailable()) {
     ha.setShowHomeAlarmTime(newState);
   }
-  return true;
-}
-
-bool saveLampBrightness(int newBrightness) {
-  if (settings.ha_light_brightness == newBrightness) return false;
-  settings.ha_light_brightness = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("ha_lbri", settings.ha_light_brightness);
-  preferences.end();
-  reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
-  LOG.print("ha_light_brightness commited to preferences: ");
-  LOG.println(settings.ha_light_brightness);
-  ha.setLampBrightness(newBrightness);
-  mapCycle();
   return true;
 }
 
@@ -3624,10 +3677,12 @@ void initButtons() {
   buttons.setButton1Pin(settings.buttonpin);
   buttons.setButton1ClickListener(button1Click);
   buttons.setButton1LongClickListener(button1LongClick);
+  buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
   buttons.setButton2Pin(settings.button2pin);
   buttons.setButton2ClickListener(button2Click);
   buttons.setButton2LongClickListener(button2LongClick);
+  buttons.setButton2DuringLongClickListener(button2DuringLongClick);
 }
 
 void initBuzzer() {
