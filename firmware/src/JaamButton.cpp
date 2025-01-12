@@ -1,11 +1,15 @@
 #include "JaamButton.h"
 #include <OneButton.h>
 
+typedef void (*duringLongClickCallback)(JaamButton::Action action);
 
 int button1Pin = -1;
 int button2Pin = -1;
 OneButton button1;
 OneButton button2;
+duringLongClickCallback button1DuringLongClickListener;
+duringLongClickCallback button2DuringLongClickListener;
+
 
 JaamButton::JaamButton() {
 }
@@ -55,15 +59,27 @@ void JaamButton::setButton2LongClickListener(void (*listener)(void)) {
     }
 }
 
-void JaamButton::setButton1DuringLongClickListener(void (*listener)(void)) {
+void JaamButton::setButton1DuringLongClickListener(void (*listener)(Action action)) {
     if (isButton1Enabled()) {
-        button1.attachDuringLongPress(listener);
+        button1DuringLongClickListener = listener;
+        button1.attachDuringLongPress([] {
+            button1DuringLongClickListener(DURING_LONG_CLICK);
+        });
+        button1.attachLongPressStop([] {
+            button1DuringLongClickListener(LONG_CLICK_END);
+        });
     }
 }
 
-void JaamButton::setButton2DuringLongClickListener(void (*listener)(void)) {
+void JaamButton::setButton2DuringLongClickListener(void (*listener)(Action action)) {
     if (isButton2Enabled()) {
-        button2.attachDuringLongPress(listener);
+        button2DuringLongClickListener = listener;
+        button2.attachDuringLongPress([]() {
+            button2DuringLongClickListener(DURING_LONG_CLICK);
+        });
+        button2.attachLongPressStop([]() {
+            button2DuringLongClickListener(LONG_CLICK_END);
+        });
     }
 }
 
