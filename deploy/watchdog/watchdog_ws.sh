@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CONTAINER_NAME="map_websocket_server"  # Replace with your container name or ID
-THRESHOLD=90                         # CPU usage threshold in percentage
+THRESHOLD=60                         # CPU usage threshold in percentage
 INTERVAL=60                         # Time in seconds between checks
 LOG_FILE="watchdog_ws.log"       # Path to the log file
 
