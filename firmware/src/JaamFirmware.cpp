@@ -1044,24 +1044,30 @@ bool saveNightMode(bool newState) {
 }
 
 //--Button start
-void handleClick(int event, SoundType soundType) {
+void handleClick(int event, JaamButton::Action action) {
+  SoundType soundType = action == JaamButton::Action::SINGLE_CLICK ? SoundType::SINGLE_CLICK : SoundType::LONG_CLICK;
   if (event != 0 && needToPlaySound(soundType)) playMelody(soundType);
   switch (event) {
+    // change map mode
     case 1:
       nextMapMode();
       break;
+    // change display mode
     case 2:
       nextDisplayMode();
       break;
+    // toggle map
     case 3:
       isMapOff = !isMapOff;
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
       mapCycle();
       break;
+    // toggle display
     case 4:
       isDisplayOff = !isDisplayOff;
       showServiceMessage(!isDisplayOff ? "Увімкнено" : "Вимкнено", "Дисплей:");
       break;
+    // toggle display and map
     case 5:
       if (isDisplayOff != isMapOff) {
         isDisplayOff = false;
@@ -1073,11 +1079,18 @@ void handleClick(int event, SoundType soundType) {
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
       mapCycle();
       break;
+    // toggle night mode
     case 6:
       saveNightMode(!nightMode);
       break;
+    // toggle lamp (singl click) or reboot device (long click)
     case 7:
-      rebootDevice();
+      if (action == JaamButton::Action::SINGLE_CLICK) {
+        int newMapMode = settings.map_mode == 5 ? prevMapMode : 5;
+        saveMapMode(newMapMode);
+      } else if (JaamButton::Action::LONG_CLICK) {
+        rebootDevice();
+      }
       break;
 #if FW_UPDATE_ENABLED
     case 100:
@@ -1097,17 +1110,17 @@ bool isButtonActivated() {
 }
 
 void singleClick(int mode) {
-  handleClick(mode, SINGLE_CLICK);
+  handleClick(mode, JaamButton::SINGLE_CLICK);
 }
 
 void longClick(int modeLong) {
 #if FW_UPDATE_ENABLED
   if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
-    handleClick(100, LONG_CLICK);
+    handleClick(100, JaamButton::LONG_CLICK);
     return;
   }
 #endif
-  handleClick(modeLong, LONG_CLICK);
+  handleClick(modeLong, JaamButton::LONG_CLICK);
 }
 
 void buttonClick(const char* buttonName, int mode) {

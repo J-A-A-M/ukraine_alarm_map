@@ -2,6 +2,8 @@ class JaamButton {
 
 public:
     enum Action {
+        SINGLE_CLICK,
+        LONG_CLICK,
         DURING_LONG_CLICK,
         LONG_CLICK_END
     };
