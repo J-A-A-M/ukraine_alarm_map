@@ -1044,24 +1044,30 @@ bool saveNightMode(bool newState) {
 }
 
 //--Button start
-void handleClick(int event, SoundType soundType) {
+void handleClick(int event, JaamButton::Action action) {
+  SoundType soundType = action == JaamButton::Action::SINGLE_CLICK ? SoundType::SINGLE_CLICK : SoundType::LONG_CLICK;
   if (event != 0 && needToPlaySound(soundType)) playMelody(soundType);
   switch (event) {
+    // change map mode
     case 1:
       nextMapMode();
       break;
+    // change display mode
     case 2:
       nextDisplayMode();
       break;
+    // toggle map
     case 3:
       isMapOff = !isMapOff;
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
       mapCycle();
       break;
+    // toggle display
     case 4:
       isDisplayOff = !isDisplayOff;
       showServiceMessage(!isDisplayOff ? "Увімкнено" : "Вимкнено", "Дисплей:");
       break;
+    // toggle display and map
     case 5:
       if (isDisplayOff != isMapOff) {
         isDisplayOff = false;
@@ -1073,11 +1079,18 @@ void handleClick(int event, SoundType soundType) {
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
       mapCycle();
       break;
+    // toggle night mode
     case 6:
       saveNightMode(!nightMode);
       break;
+    // toggle lamp (singl click) or reboot device (long click)
     case 7:
-      rebootDevice();
+      if (action == JaamButton::Action::SINGLE_CLICK) {
+        int newMapMode = settings.map_mode == 5 ? prevMapMode : 5;
+        saveMapMode(newMapMode);
+      } else if (JaamButton::Action::LONG_CLICK) {
+        rebootDevice();
+      }
       break;
 #if FW_UPDATE_ENABLED
     case 100:
@@ -1097,17 +1110,17 @@ bool isButtonActivated() {
 }
 
 void singleClick(int mode) {
-  handleClick(mode, SINGLE_CLICK);
+  handleClick(mode, JaamButton::SINGLE_CLICK);
 }
 
 void longClick(int modeLong) {
 #if FW_UPDATE_ENABLED
   if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
-    handleClick(100, LONG_CLICK);
+    handleClick(100, JaamButton::LONG_CLICK);
     return;
   }
 #endif
-  handleClick(modeLong, LONG_CLICK);
+  handleClick(modeLong, JaamButton::LONG_CLICK);
 }
 
 void buttonClick(const char* buttonName, int mode) {
@@ -1124,6 +1137,91 @@ void buttonLongClick(const char* buttonName, int modeLong) {
 #else
   longClick(modeLong);
 #endif
+}
+
+bool saveLampBrightness(int newBrightness, bool saveToSettings, bool checkPrevBrightness) {
+  if (checkPrevBrightness && settings.ha_light_brightness == newBrightness) return false;
+
+  settings.ha_light_brightness = newBrightness;
+
+  if (saveToSettings) {
+    preferences.begin("storage", false);
+    preferences.putInt("ha_lbri", settings.ha_light_brightness);
+    preferences.end();
+    reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
+    LOG.print("ha_light_brightness commited to preferences: ");
+    LOG.println(settings.ha_light_brightness);
+    ha.setLampBrightness(newBrightness);
+  }
+  
+  mapCycle();
+  return true;
+}
+
+bool saveLampBrightness(int newBrightness) {
+  return saveLampBrightness(newBrightness, true, true);
+}
+
+void saveCurrentLampBrightness() {
+  LOG.println("Save current lamp brightness");
+  saveLampBrightness(settings.ha_light_brightness, true, false);
+}
+
+char lampBrightnessMsg[4];
+
+void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Action action) {
+#if FW_UPDATE_ENABLED
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+    return;
+  }
+#endif
+  if (action == JaamButton::Action::DURING_LONG_CLICK) {
+    switch (modeLong) {
+      case 8:
+        // if lamp mode is active, increase lamp brightness
+        if (getCurrentMapMode() == 5) {
+          int newBrightness = settings.ha_light_brightness + 1;
+          if (newBrightness > 100) {
+            newBrightness = 100;
+          }
+          saveLampBrightness(newBrightness, false, true);
+          sprintf(lampBrightnessMsg, "%d%%", newBrightness);
+          showServiceMessage(lampBrightnessMsg, "Яскравість лампи:");
+        } else {
+          showServiceMessage("Лише для режиму лампи");
+        }
+        break;
+      case 9:
+        // if lamp mode is active, decrease lamp brightness
+        if (getCurrentMapMode() == 5) {
+          int newBrightness = settings.ha_light_brightness - 1;
+          if (newBrightness < 0) {
+            newBrightness = 0;
+          }
+          saveLampBrightness(newBrightness, false, true);
+          sprintf(lampBrightnessMsg, "%d%%", newBrightness);
+          showServiceMessage(lampBrightnessMsg, "Яскравість лампи:");
+        } else {
+          showServiceMessage("Лише для режиму лампи");
+        }
+        break;
+      default:
+        // do nothing
+        break;
+  }
+  } else if (action == JaamButton::Action::LONG_CLICK_END) {
+    switch (modeLong) {
+      case 8:
+      case 9:
+        if (getCurrentMapMode() == 5) {
+          saveCurrentLampBrightness();
+        }
+        break;
+      default:
+        // do nothing
+        break;
+    }
+  }
 }
 
 void button1Click() {
@@ -1144,6 +1242,16 @@ void button1LongClick() {
 void button2LongClick() {
   LOG.println("Button 2 long click");
   buttonLongClick("Button 2", settings.button2_mode_long);
+}
+
+void button1DuringLongClick(JaamButton::Action action) {
+  LOG.println("Button 1 during long click");
+  buttonDuringLongClick("Button 1", settings.button_mode_long, action);
+}
+
+void button2DuringLongClick(JaamButton::Action action) {
+  LOG.println("Button 2 during long click");
+  buttonDuringLongClick("Button 2", settings.button2_mode_long, action);
 }
 
 void distributeBrightnessLevels() {
@@ -1234,20 +1342,6 @@ bool saveShowHomeAlarmTime(bool newState) {
   if (display.isDisplayAvailable()) {
     ha.setShowHomeAlarmTime(newState);
   }
-  return true;
-}
-
-bool saveLampBrightness(int newBrightness) {
-  if (settings.ha_light_brightness == newBrightness) return false;
-  settings.ha_light_brightness = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("ha_lbri", settings.ha_light_brightness);
-  preferences.end();
-  reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
-  LOG.print("ha_light_brightness commited to preferences: ");
-  LOG.println(settings.ha_light_brightness);
-  ha.setLampBrightness(newBrightness);
-  mapCycle();
   return true;
 }
 
@@ -3624,10 +3718,12 @@ void initButtons() {
   buttons.setButton1Pin(settings.buttonpin);
   buttons.setButton1ClickListener(button1Click);
   buttons.setButton1LongClickListener(button1LongClick);
+  buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
   buttons.setButton2Pin(settings.button2pin);
   buttons.setButton2ClickListener(button2Click);
   buttons.setButton2LongClickListener(button2LongClick);
+  buttons.setButton2DuringLongClickListener(button2DuringLongClick);
 }
 
 void initBuzzer() {

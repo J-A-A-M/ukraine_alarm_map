@@ -209,7 +209,7 @@ static const char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
   "Лише домашній"
 };
 
-#define SINGLE_CLICK_OPTIONS_MAX 7
+#define SINGLE_CLICK_OPTIONS_MAX 8
 static const char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
@@ -217,10 +217,11 @@ static const char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
   "Увімк./Вимк. мапу",
   "Увімк./Вимк. дисплей",
   "Увімк./Вимк. мапу та дисплей",
-  "Увімк./Вимк. нічний режим"
+  "Увімк./Вимк. нічний режим",
+  "Увімк./Вимк. режим лампи"
 };
 
-#define LONG_CLICK_OPTIONS_MAX 8
+#define LONG_CLICK_OPTIONS_MAX 10
 static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
   "Вимкнено",
   "Перемикання режимів мапи",
@@ -229,7 +230,9 @@ static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
   "Увімк./Вимк. дисплей",
   "Увімк./Вимк. мапу та дисплей",
   "Увімк./Вимк. нічний режим",
-  "Перезавантаження пристрою"
+  "Перезавантаження пристрою",
+  "Збільшити яскравість лампи",
+  "Зменшити яскравість лампи"
 };
 
 #define ALERT_PIN_MODES_COUNT 2
