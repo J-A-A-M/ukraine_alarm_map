@@ -87,14 +87,14 @@ async def get_regions(mc):
                         "type": district["regionType"],
                         "parent": state["regionId"],
                         "state": state["regionId"],
-                    }  
+                    }
                     for community in district["regionChildIds"]:
                         regions_cached_data[community["regionId"]] = {
                             "name": community["regionName"],
                             "type": community["regionType"],
                             "parent": district["regionId"],
                             "state": state["regionId"],
-                        } 
+                        }
             logger.debug("end regions data")
             await mc.set(b"alerts_regions", json.dumps(regions_cached_data).encode("utf-8"))
             await asyncio.sleep(regions_loop_time)
@@ -105,7 +105,7 @@ async def get_regions(mc):
         except Exception as e:
             logger.error(f"get_regions: caught an exception: {e}")
             await asyncio.sleep(60)
-        
+
 
 async def get_alerts_data(mc):
     await asyncio.sleep(5)
@@ -130,7 +130,11 @@ async def get_alerts_data(mc):
                 or alerts_cached_data.get("version", 0) != version
             ):
                 logger.debug("fill empty fields")
-                alerts_cached_data = {"version": version, "states": {}, "info": {"last_update": None, "is_started": False}}
+                alerts_cached_data = {
+                    "version": version,
+                    "states": {},
+                    "info": {"last_update": None, "is_started": False},
+                }
 
                 logger.debug("fill start data")
                 alerts_regions_cached = await mc.get(b"alerts_regions")
@@ -175,7 +179,10 @@ async def get_alerts_data(mc):
 
             logger.debug("parse states")
             for region_name, data in regions.items():
-                if region_name not in alert_region_names and alerts_cached_data["states"][region_name]["alertnow"] is True:
+                if (
+                    region_name not in alert_region_names
+                    and alerts_cached_data["states"][region_name]["alertnow"] is True
+                ):
                     alerts_cached_data["states"][region_name]["alertnow"] = False
                     alerts_cached_data["states"][region_name]["changed"] = current_datetime
 

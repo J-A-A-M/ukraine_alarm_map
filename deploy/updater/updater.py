@@ -159,7 +159,6 @@ async def update_data(mc):
                         alert_mode_v1 = 2
                     alert_mode_v2 = 0
                     alert_mode_v3 = 0
-                    
 
                 alerts_v1.append(str(alert_mode_v1))
                 alerts_v2.append([str(alert_mode_v2), alerts_data["states"][region_name]["changed"]])
