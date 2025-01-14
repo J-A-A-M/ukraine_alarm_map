@@ -301,6 +301,7 @@ async def alerts_data(websocket, client, shared_data, alert_version):
             await asyncio.sleep(0.5)
         except ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
+            break
         except Exception as e:
             logger.warning(f"{client_ip}:{client_id}: {e}")
 
