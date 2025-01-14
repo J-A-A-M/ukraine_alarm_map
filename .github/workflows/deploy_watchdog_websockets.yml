@@ -7,6 +7,11 @@ on:
         description: "Watched container name"
         required: true
         default: "map_websocket_server"
+      image_name:
+        type: string
+        description: "Watchdog container name"
+        required: true
+        default: "map_watchdog"
       threshold:
         type: integer
         description: "CPU threshold (in %)"
@@ -21,7 +26,7 @@ on:
         type: string
         description: "Log file"
         required: true
-        default: "watchdog_ws.log"
+        default: "watchdog.log"
 
 run-name: Deploy Watchdog Websockets from '${{ github.ref_name }}' branch
 jobs:
@@ -39,7 +44,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -t ${{ inputs.threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
+                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -w ${{ inputs.image_name }} -t ${{ inputs.threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

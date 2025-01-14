@@ -2,15 +2,21 @@
 
 # Default values
 CONTAINER_NAME="map_websocket_server"  # Replace with your container name or ID
+IMAGE_NAME="map_watchdog" 
 THRESHOLD=60                         # CPU usage threshold in percentage
 INTERVAL=60                         # Time in seconds between checks
-LOG_FILE="watchdog_ws.log"       # Path to the log file
+LOG_FILE="watchdog.log"       # Path to the log file
+
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -c|--container-name)
             CONTAINER_NAME="$2"
+            shift 2
+            ;;
+        -w|--image-name)
+            IMAGE_NAME="$2"
             shift 2
             ;;
         -t|--threshold)
@@ -38,6 +44,7 @@ echo "CONTAINER_NAME: $CONTAINER_NAME"
 echo "THRESHOLD: $THRESHOLD"
 echo "INTERVAL: $INTERVAL"
 echo "LOG_FILE: $LOG_FILE"
+echo "IMAGE_NAME: $IMAGE_NAME"
 
 
 # Updating the Git repo
@@ -50,16 +57,25 @@ echo "Moving to deployment directory..."
 cd watchdog
 
 # Building Docker image
-echo "Building Docker image..."
-docker build -t map_watchdog -f Dockerfile .
+echo "Building Docker image "$IMAGE_NAME"..."
+docker build -t "$IMAGE_NAME" -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
-echo "Stopping and removing old container..."
-docker stop map_watchdog || true
-docker rm map_watchdog || true
+echo "Stopping and removing old container "$IMAGE_NAME"..."
+docker stop "$IMAGE_NAME" || true
+docker rm "$IMAGE_NAME" || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_watchdog --restart unless-stopped --network=jaam -d -e CONTAINER_NAME="$CONTAINER_NAME" -e THRESHOLD="$THRESHOLD" -e INTERVAL="$INTERVAL" -e LOG_FILE="$LOG_FILE" -v /var/run/docker.sock:/var/run/docker.sock map_watchdog
+docker run --name "$IMAGE_NAME" \
+    --restart unless-stopped \
+    --network=jaam \
+    -d \
+    -e CONTAINER_NAME="$CONTAINER_NAME" \
+    -e THRESHOLD="$THRESHOLD" \
+    -e INTERVAL="$INTERVAL" \
+    -e LOG_FILE="$LOG_FILE" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    "$IMAGE_NAME"
 
 echo "Container deployed successfully!"
