@@ -76,7 +76,7 @@ docker run --name "$IMAGE_NAME" \
     -e INTERVAL="$INTERVAL" \
     -e LOG_FILE="$LOG_FILE" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$LOG_FILE":/root/"$LOG_FILE" \
+    -v /root/"$LOG_FILE":/"$LOG_FILE" \
     "$IMAGE_NAME"
 
 echo "Container deployed successfully!"
