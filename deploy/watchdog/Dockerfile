@@ -5,7 +5,7 @@ FROM alpine:latest
 RUN apk add --no-cache docker bash bc
 
 # Copy the watchdog script into the container
-COPY watchdog_ws.sh /watchdog.sh
+COPY watchdog.sh /watchdog.sh
 
 # Make the script executable
 RUN chmod +x /watchdog.sh
