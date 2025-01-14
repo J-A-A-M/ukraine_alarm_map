@@ -301,7 +301,6 @@ async def alerts_data(websocket, client, shared_data, alert_version):
             await asyncio.sleep(0.5)
         except ConnectionClosedError:
             logger.warning(f"{client_ip}:{client_id} !!! data stopped")
-            break
         except Exception as e:
             logger.warning(f"{client_ip}:{client_id}: {e}")
 
@@ -312,7 +311,6 @@ async def send_google_stat(tracker, event):
 
 async def echo(websocket):
     try:
-        path = websocket.request.path
         client_port = websocket.remote_address[1]
         # get real header from websocket
         client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
@@ -372,7 +370,7 @@ async def echo(websocket):
                 api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
             )
 
-        match path:
+        match websocket.request.path:
             case "/data_v1":
                 producer_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v1))
 
@@ -728,13 +726,10 @@ async def get_data_from_memcached(mc):
 
 async def main():
     async with serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout):
-        await asyncio.get_running_loop().create_future()  # run forever
-
-    update_shared_data_coroutine = partial(update_shared_data, shared_data, mc)()
-    asyncio.get_event_loop().create_task(update_shared_data_coroutine)
-    print_clients_coroutine = partial(print_clients, shared_data, mc)()
-    asyncio.get_event_loop().create_task(print_clients_coroutine)
-    asyncio.get_event_loop().run_forever()
+        await asyncio.gather(
+            update_shared_data(shared_data, mc),
+            print_clients(shared_data, mc),
+        )
 
 
 if __name__ == "__main__":
