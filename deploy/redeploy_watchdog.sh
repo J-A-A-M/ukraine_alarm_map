@@ -2,26 +2,26 @@
 
 # Default values
 CONTAINER_NAME="map_websocket_server"  # Replace with your container name or ID
-THRESHOLD=70                         # CPU usage threshold in percentage
+THRESHOLD=60                         # CPU usage threshold in percentage
 INTERVAL=60                         # Time in seconds between checks
 LOG_FILE="watchdog_ws.log"       # Path to the log file
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -c|--data-token)
+        -c|--container-name)
             CONTAINER_NAME="$2"
             shift 2
             ;;
-        -t|--memcached-host)
+        -t|--threshold)
             THRESHOLD="$2"
             shift 2
             ;;
-        -i|--port)
+        -i|--interval)
             INTERVAL="$2"
             shift 2
             ;;
-        -l|--logging)
+        -l|--log-file)
             LOG_FILE="$2"
             shift 2
             ;;
@@ -60,6 +60,6 @@ docker rm map_watchdog || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_watchdog --restart unless-stopped --network=jaam -d -v /var/run/docker.sock:/var/run/docker.sock map_watchdog
+docker run --name map_watchdog --restart unless-stopped --network=jaam -d -e CONTAINER_NAME="$CONTAINER_NAME" -e THRESHOLD="$THRESHOLD" -e INTERVAL="$INTERVAL" -e LOG_FILE="$LOG_FILE" -v /var/run/docker.sock:/var/run/docker.sock map_watchdog
 
 echo "Container deployed successfully!"

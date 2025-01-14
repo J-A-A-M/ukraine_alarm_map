@@ -1,9 +1,9 @@
 #!/bin/bash
 
-CONTAINER_NAME="map_websocket_server"  # Replace with your container name or ID
-THRESHOLD=60                         # CPU usage threshold in percentage
-INTERVAL=60                         # Time in seconds between checks
-LOG_FILE="watchdog_ws.log"       # Path to the log file
+CONTAINER_NAME="${CONTAINER_NAME:?Environment variable CONTAINER_NAME is required}"  # Replace with your container name or ID
+THRESHOLD="${THRESHOLD:?Environment variable THRESHOLD is required}"                         # CPU usage threshold in percentage
+INTERVAL="${INTERVAL:?Environment variable INTERVAL is required}"                        # Time in seconds between checks
+LOG_FILE="${LOG_FILE:?Environment variable LOG_FILE is required}"  #"watchdog_ws.log"       # Path to the log file
 
 # Function to log messages with timestamp
 log() {

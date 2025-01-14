@@ -1,0 +1,50 @@
+name: ⚖️ Deploy Watchdog Websockets
+on:
+  workflow_dispatch:
+    inputs:
+      container_name:
+        type: string
+        description: "Watched container name"
+        required: true
+        default: "map_websocket_server"
+      threshold:
+        type: integer
+        description: "CPU threshold (in %)"
+        required: true
+        default: 60
+      interval:
+        type: integer
+        description: "Checking interval (in seconds)"
+        required: true
+        default: 60
+      log_file:
+        type: string
+        description: "Log file"
+        required: true
+        default: "watchdog_ws.log"
+
+run-name: Deploy Watchdog Websockets from '${{ github.ref_name }}' branch
+jobs:
+    deploy_websocket:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy Watchdog WebSockets
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -t ${{ inputs.threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f
