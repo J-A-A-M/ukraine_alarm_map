@@ -4,7 +4,8 @@
 CONTAINER_NAME="map_websocket_server"  # Replace with your container name or ID
 IMAGE_NAME="map_watchdog" 
 THRESHOLD=60                         # CPU usage threshold in percentage
-INTERVAL=60                         # Time in seconds between checks
+RESTART_THRESHOLD=2                  # CPU threshold hits
+INTERVAL=30                         # Time in seconds between checks
 LOG_FILE="watchdog.log"       # Path to the log file
 
 
@@ -21,6 +22,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--threshold)
             THRESHOLD="$2"
+            shift 2
+            ;;
+        -r|--restart-threshold)
+            RESTART_THRESHOLD="$2"
             shift 2
             ;;
         -i|--interval)
@@ -42,6 +47,7 @@ echo "WATCHDOG"
 
 echo "CONTAINER_NAME: $CONTAINER_NAME"
 echo "THRESHOLD: $THRESHOLD"
+echo "RESTART_THRESHOLD: $RESTART_THRESHOLD"
 echo "INTERVAL: $INTERVAL"
 echo "LOG_FILE: $LOG_FILE"
 echo "IMAGE_NAME: $IMAGE_NAME"
@@ -75,6 +81,7 @@ docker run --name "$IMAGE_NAME" \
     -d \
     -e CONTAINER_NAME="$CONTAINER_NAME" \
     -e THRESHOLD="$THRESHOLD" \
+    -e RESTART_THRESHOLD="$RESTART_THRESHOLD" \
     -e INTERVAL="$INTERVAL" \
     -e LOG_FILE="$LOG_FILE" \
     -v /var/run/docker.sock:/var/run/docker.sock \

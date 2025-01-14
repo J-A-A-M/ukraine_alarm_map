@@ -17,11 +17,16 @@ on:
         description: "CPU threshold (in %)"
         required: true
         default: 60
+      restart_threshold:
+        type: integer
+        description: "How many times CPU must hit threshold"
+        required: true
+        default: 2
       interval:
         type: integer
         description: "Checking interval (in seconds)"
         required: true
-        default: 60
+        default: 30
       log_file:
         type: string
         description: "Log file"
@@ -44,7 +49,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -w ${{ inputs.image_name }} -t ${{ inputs.threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
+                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -w ${{ inputs.image_name }} -t ${{ inputs.threshold }} -r ${{ inputs.restart_threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
