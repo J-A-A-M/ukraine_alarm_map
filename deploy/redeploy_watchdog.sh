@@ -65,6 +65,8 @@ echo "Stopping and removing old container "$IMAGE_NAME"..."
 docker stop "$IMAGE_NAME" || true
 docker rm "$IMAGE_NAME" || true
 
+touch /root/"$LOG_FILE"
+
 # Deploying the new container
 echo "Deploying new container..."
 docker run --name "$IMAGE_NAME" \
