@@ -133,7 +133,9 @@ def bin_sort(bin):
     return (major, minor, patch, beta)
 
 
-async def message_handler(websocket, client, client_port, client_ip, tracker, country, region, city):
+async def message_handler(websocket, client, client_port, client_ip, country, region, city):
+    if google_stat_send:
+        tracker = shared_data.trackers[f"{client_ip}_{client_port}"]
     async for message in websocket:
         match client["firmware"]:
             case "unknown":
@@ -384,7 +386,7 @@ async def echo(websocket):
             case _:
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_port, client_ip, tracker, country, region, city)
+            message_handler(websocket, client, client_port, client_ip, country, region, city)
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
