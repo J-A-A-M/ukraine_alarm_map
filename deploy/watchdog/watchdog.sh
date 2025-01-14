@@ -45,7 +45,7 @@ while true; do
             violation_count=0  # Reset counter after restart
         fi
     else
-        log "CPU usage is $CPU_USAGE% of $THRESHOLD%. No action required."
+        log "CPU usage is $CPU_USAGE% of $THRESHOLD%."
         violation_count=0  # Reset counter if CPU usage is below threshold
     fi
 
