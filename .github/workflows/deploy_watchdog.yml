@@ -1,4 +1,4 @@
-name: ⚖️ Deploy Watchdog Websockets
+name: ⚖️ Deploy Watchdog
 on:
   workflow_dispatch:
     inputs:
@@ -33,12 +33,12 @@ on:
         required: true
         default: "watchdog.log"
 
-run-name: Deploy Watchdog Websockets from '${{ github.ref_name }}' branch
+run-name: Deploy Watchdog from '${{ github.ref_name }}' branch
 jobs:
     deploy_websocket:
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy Watchdog WebSockets
+          - name: Redeploy Watchdog
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
