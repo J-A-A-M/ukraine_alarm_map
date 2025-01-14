@@ -62,6 +62,7 @@ async def update_data(mc):
         svg_cached = await mc.get(b"svg")
         alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
         alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
+        alerts_cached_v3 = await mc.get(b"alerts_websocket_v3")
         weather_cached_v1 = await mc.get(b"weather_websocket_v1")
         explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
         rockets_cached_v1 = await mc.get(b"rockets_websocket_v1")
@@ -88,6 +89,10 @@ async def update_data(mc):
             alerts_cached_data_v2 = json.loads(alerts_cached_v2.decode("utf-8"))
         else:
             alerts_cached_data_v2 = []
+        if alerts_cached_v3:
+            alerts_cached_data_v3 = json.loads(alerts_cached_v3.decode("utf-8"))
+        else:
+            alerts_cached_data_v3 = []
         if weather_cached_v1:
             weather_cached_data_v1 = json.loads(weather_cached_v1.decode("utf-8"))
         else:
@@ -123,6 +128,7 @@ async def update_data(mc):
 
         alerts_v1 = []
         alerts_v2 = []
+        alerts_v3 = []
         weather_v1 = []
         explosions_v1 = []
         explosions_svg = []
@@ -142,15 +148,22 @@ async def update_data(mc):
                     else:
                         alert_mode_v1 = 3
                     alert_mode_v2 = 1
+                    if alerts_data["states"][region_name]["district"]:
+                        alert_mode_v3 = 4
+                    else:
+                        alert_mode_v3 = 1
                 else:
                     if time_diff > 300:
                         alert_mode_v1 = 0
                     else:
                         alert_mode_v1 = 2
                     alert_mode_v2 = 0
+                    alert_mode_v3 = 0
+                    
 
                 alerts_v1.append(str(alert_mode_v1))
                 alerts_v2.append([str(alert_mode_v2), alerts_data["states"][region_name]["changed"]])
+                alerts_v3.append([str(alert_mode_v3), alerts_data["states"][region_name]["changed"]])
         except Exception as e:
             logger.error(f"Alert error: {e}")
 
@@ -257,6 +270,13 @@ async def update_data(mc):
             logger.debug("alerts_v2 stored")
         else:
             logger.debug("alerts_v2 not changed")
+
+        if alerts_cached_data_v3 != alerts_v3:
+            logger.debug("store alerts_v3: %s" % current_datetime)
+            await mc.set(b"alerts_websocket_v3", json.dumps(alerts_v3).encode("utf-8"))
+            logger.debug("alerts_v3 stored")
+        else:
+            logger.debug("alerts_v3 not changed")
 
         if weather_cached_data_v1 != weather_v1:
             logger.debug("store weather_v1: %s" % current_datetime)
