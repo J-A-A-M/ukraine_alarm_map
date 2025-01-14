@@ -206,7 +206,7 @@ async def message_handler(websocket, client, client_port, client_ip, tracker, co
 
 
 async def alerts_data(websocket, client, shared_data, alert_version):
-    client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
+    client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.5)
