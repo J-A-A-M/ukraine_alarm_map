@@ -15,7 +15,7 @@ from websockets.asyncio.server import serve
 
 server_timezone = ZoneInfo("Europe/Kyiv")
 
-debug_level = os.environ.get("LOGGING") or "DEBUG"
+log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 20))
 ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
@@ -28,16 +28,16 @@ environment = os.environ.get("ENVIRONMENT") or "PROD"
 geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
 
-logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
 gtagmp_logger = logging.getLogger("ga4mp")
-gtagmp_logger.setLevel(debug_level)
+gtagmp_logger.setLevel(log_level)
 
 if not gtagmp_logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s : %(message)s"))
-    handler.setLevel(debug_level)
+    handler.setLevel(log_level)
     gtagmp_logger.addHandler(handler)
 gtagmp_logger.propagate = False
 
@@ -184,14 +184,12 @@ async def message_handler(websocket, client, client_port, client_ip, country, re
                     tracker.store.set_user_property("ip", client_ip)
                     online_event = tracker.create_new_event("status")
                     online_event.set_event_param("online", "true")
-                    tracker.send(events=[online_event], date=datetime.now())
                     await send_google_stat(tracker, online_event)
                 logger.debug(f"{client_ip}:{client_id} >>> chip_id saved")
             case "pong":
                 if google_stat_send:
                     ping_event = tracker.create_new_event("ping")
                     ping_event.set_event_param("state", "alive")
-                    tracker.send(events=[ping_event], date=datetime.now())
                     await send_google_stat(tracker, ping_event)
                 logger.debug(f"{client_ip}:{client_id} >>> ping sent")
             case "settings":
@@ -200,7 +198,6 @@ async def message_handler(websocket, client, client_port, client_ip, country, re
                     settings_event = tracker.create_new_event("settings")
                     for key, value in json_data.items():
                         settings_event.set_event_param(key, value)
-                    tracker.send(events=[settings_event], date=datetime.now())
                     await send_google_stat(tracker, settings_event)
                     logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
             case _:
@@ -402,7 +399,6 @@ async def echo(websocket):
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
-            tracker.send(events=[offline_event], date=datetime.now())
             await send_google_stat(tracker, offline_event)
             del shared_data.trackers[f"{client_ip}_{client_port}"]
         del shared_data.clients[f"{client_ip}_{client_port}"]
