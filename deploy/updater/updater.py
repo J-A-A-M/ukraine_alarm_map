@@ -113,11 +113,15 @@ async def update_data(mc):
             current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             alerts_data = json.loads(alerts_data.decode("utf-8")) if alerts_data else "No alerts data from Memcached"
-            weather_data = json.loads(weather_data.decode("utf-8")) if weather_data else "No weather data from Memcached"
+            weather_data = (
+                json.loads(weather_data.decode("utf-8")) if weather_data else "No weather data from Memcached"
+            )
             explosions_data = (
                 json.loads(explosions_data.decode("utf-8")) if explosions_data else "No explosions data from Memcached"
             )
-            rockets_data = json.loads(rockets_data.decode("utf-8")) if rockets_data else "No missiles data from Memcached"
+            rockets_data = (
+                json.loads(rockets_data.decode("utf-8")) if rockets_data else "No missiles data from Memcached"
+            )
             drones_data = json.loads(drones_data.decode("utf-8")) if drones_data else "No drones data from Memcached"
 
             logger.debug(f"Alerts updated: {alerts_data['info']['last_update']}")
@@ -309,9 +313,7 @@ async def update_data(mc):
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(
-            update_data(mc)
-        )
+        await asyncio.gather(update_data(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
     except Exception as e:
