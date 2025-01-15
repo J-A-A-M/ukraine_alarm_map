@@ -390,7 +390,7 @@ async def echo(websocket):
             return_when=asyncio.FIRST_COMPLETED,
         )
         (future,) = done  # unpack a set of length one
-        logger.info(future.result())  # raise an exception or use future.exception()
+        logger.warning(future.result())  # raise an exception or use future.exception()
         for task in pending:
             task.cancel()
     except ConnectionClosedError as e:
