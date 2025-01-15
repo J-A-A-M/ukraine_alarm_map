@@ -23,14 +23,15 @@ static const char AVENGERS[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4
 static const char SIREN2[]               PROGMEM = "Siren2:d=4,o=5,b=200:a.,8g#,a.,8g#,a.,8g#";
 static const char SQUIDGAME[]            PROGMEM = "SquidGame:d=32,o=4,b=200:8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,4g,32p,8g.,32p,4g,32p,8c5.,32p,4a#,32p,8a.,4g,32p,8a.,4a#.,16p.,4a#.,16p.,4a#.";
 static const char BANDERA[]              PROGMEM = "Bandera:d=32,o=4,b=140:8e,32p,8e,8c5,8b,8a,32p,8a,4p,8c5,32p,8c5,8d5,8c5,4b.,32p,8b,32p,8b,8b,8b,8b,8e5,8d5,8c5,8b,4a,32p,8a.,16a,32p,8a,8a";
-static const char HUILO[]                PROGMEM = "Huilo:d=32,o=4,b=200:8e5,8p,4e5,4d5,2c5,2p5,8g,8c5,8d5,8e5,8d5,8c5,8e5,2a,2p,8g,8a,8b,8c5,8b,8a,8e,2f,2p,8e,8f,8e,8f,8e,8f,8f#,2g";
+static const char HUILO[]                PROGMEM = "Huilo:d=32,o=4,b=150:8e5,8p,4e5,4d5,2c5,2p5,8g,8c5,8d5,8e5,8d5,8c5,8e5,2a,2p,8g,8a,8b,8c5,8b,8a,8e,2f,2p,8e,8f,8e,8f,8e,8f,8f#,2g";
+static const char HELLDIVERS[]           PROGMEM = "Helldivers:d=4,o=5,b=120:8f,8e,8d,1a4,4a4,4p,4c.,1d,2p,8f,8e,8d,1f,8c.,32p,8c.,8d.,4a,8d,2g";
 
 static const char CLOCK_BEEP[]           PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
 static const char MOS_BEEP[]             PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 static const char SINGLE_CLICK_SOUND[]   PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 static const char LONG_CLICK_SOUND[]     PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 22
+#define MELODIES_COUNT 23
 static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   UA_ANTHEM,
   OI_U_LUZI,
@@ -53,7 +54,8 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   SIREN2,
   SQUIDGAME,
   BANDERA,
-  HUILO
+  HUILO,
+  HELLDIVERS
 };
 
 static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
@@ -78,7 +80,8 @@ static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   "Сирена 2",
   "Squid Game",
   "Батько наш Бандера",
-  "ПТН ХЙЛ"
+  "ПТН ХЙЛ",
+  "Helldivers 2 - A cup of Liber-Tea"
 };
 #endif
 
