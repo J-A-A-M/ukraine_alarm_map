@@ -7,8 +7,7 @@ import cairosvg
 import random
 import pytz
 import math
-
-from datetime import datetime
+import datetime
 
 version = 2
 
@@ -88,9 +87,8 @@ class SharedData:
 
 
 async def get_local_time_formatted():
-    local_time = datetime.now(pytz.timezone("Europe/Kiev"))
-    formatted_local_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
-    return formatted_local_time
+    current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    return current_datetime
 
 
 async def svg_generator(mc, shared_data):
