@@ -179,7 +179,7 @@ async def update_data(mc):
                         timestamp = int(datetimeObjUtc.timestamp())
                         explosions_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 300:
+                        if time_diff > 180:
                             exp_mod = 0
                         else:
                             exp_mod = 1
@@ -199,7 +199,7 @@ async def update_data(mc):
                         timestamp = int(datetimeObjUtc.timestamp())
                         rockets_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 300:
+                        if time_diff > 180:
                             exp_mod = 0
                         else:
                             exp_mod = 1
@@ -219,7 +219,7 @@ async def update_data(mc):
                         timestamp = int(datetimeObjUtc.timestamp())
                         drones_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 300:
+                        if time_diff > 180:
                             exp_mod = 0
                         else:
                             exp_mod = 1
