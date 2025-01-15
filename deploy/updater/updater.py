@@ -179,7 +179,7 @@ async def update_data(mc):
                     if region in explosions_data["states"]:
                         isoDatetimeStr = explosions_data["states"][region]["changed"]
                         datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.timezone.utc)
+                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
                         timestamp = int(datetimeObjUtc.timestamp())
                         explosions_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp
@@ -199,7 +199,7 @@ async def update_data(mc):
                     if region in rockets_data["states"]:
                         isoDatetimeStr = rockets_data["states"][region]["changed"]
                         datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.timezone.utc)
+                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
                         timestamp = int(datetimeObjUtc.timestamp())
                         rockets_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp
@@ -219,7 +219,7 @@ async def update_data(mc):
                     if region in drones_data["states"]:
                         isoDatetimeStr = drones_data["states"][region]["changed"]
                         datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.timezone.utc)
+                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
                         timestamp = int(datetimeObjUtc.timestamp())
                         drones_v1.append(str(timestamp))
                         time_diff = int(datetime.datetime.now().timestamp()) - timestamp

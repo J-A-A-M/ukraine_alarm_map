@@ -387,7 +387,7 @@ async def tcp_v1(request):
 
 
 def get_local_time_formatted():
-    local_time = datetime.datetime.now(datetime.timezone.utc)
+    local_time = datetime.datetime.now(datetime.UTC)
     formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_local_time
 
@@ -444,7 +444,7 @@ async def region_data_v1(request):
     if region_id:
         iso_datetime_str = alerts_cached_data["states"][region]["changed"]
         datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-        datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.timezone.utc)
+        datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
         alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
 
         return JSONResponse(
