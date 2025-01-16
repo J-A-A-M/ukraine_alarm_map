@@ -3,6 +3,8 @@ import logging
 import os
 import json
 import random
+import secrets
+import string
 from aiomcache import Client
 
 from geoip2 import database, errors
@@ -132,16 +134,16 @@ def bin_sort(bin):
 
     return (major, minor, patch, beta)
 
+def generate_random_hash(lenght):
+    characters = string.ascii_lowercase + string.digits  # a-z, 0-9
+    return ''.join(secrets.choice(characters) for _ in range(lenght))
 
-async def message_handler(websocket, client, client_port, client_ip, country, region, city):
+
+async def message_handler(websocket, client, client_id, client_ip, country, region, city):
     if google_stat_send:
-        tracker = shared_data.trackers[f"{client_ip}_{client_port}"]
+        tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
-        match client["firmware"]:
-            case "unknown":
-                client_id = client_port
-            case _:
-                client_id = client["firmware"]
+
         logger.debug(f"{client_ip}:{client_id} >>> {message}")
 
         def split_message(message):
@@ -172,7 +174,7 @@ async def message_handler(websocket, client, client_port, client_ip, country, re
                         tracker.store.set_user_property(key, value)
             case "chip_id":
                 client["chip_id"] = data
-                logger.debug(f"{client_ip}:{client_id} >>> sleep init")
+                logger.info(f"{client_ip}:{client_id} >>> chip init")
                 if google_stat_send:
                     tracker.client_id = data
                     tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
@@ -204,13 +206,12 @@ async def message_handler(websocket, client, client_port, client_ip, country, re
                 logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
 
 
-async def alerts_data(websocket, client, shared_data, alert_version):
+async def alerts_data(websocket, client, client_id, shared_data, alert_version):
     client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.5)
             continue
-        client_id = client["firmware"]
         try:
             logger.debug(f"{client_ip}:{client_id}: check")
             match alert_version:
@@ -311,14 +312,14 @@ async def send_google_stat(tracker, event):
 
 async def echo(websocket):
     try:
-        client_port = websocket.remote_address[1]
+        client_id = generate_random_hash(8)
         # get real header from websocket
         client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
         secure_connection = websocket.request.headers.get("X-Connection-Secure", "false")
-        logger.info(f"{client_ip}:{client_port} >>> new client")
+        logger.info(f"{client_ip}:{client_id} >>> new client")
 
         if client_ip in shared_data.blocked_ips:
-            logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
+            logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
             return
 
         country = websocket.request.headers.get("cf-ipcountry", None)
@@ -348,7 +349,7 @@ async def echo(websocket):
         #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
         #     return
 
-        client = shared_data.clients[f"{client_ip}_{client_port}"] = {
+        client = shared_data.clients[f"{client_ip}_{client_id}"] = {
             "alerts": "[]",
             "weather": "[]",
             "explosions": "[]",
@@ -366,24 +367,25 @@ async def echo(websocket):
             "connect_time": datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
         }
         if google_stat_send:
-            tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
+            tracker = shared_data.trackers[f"{client_ip}_{client_id}"] = GtagMP(
                 api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
             )
 
         match websocket.request.path:
             case "/data_v1":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v1))
+                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v1))
 
             case "/data_v2":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v2))
+                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v2))
 
             case "/data_v3":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v3))
+                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v3))
 
             case _:
+                logger.warning(f"{client_ip}:{client_id}: unknown path connection")
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_port, client_ip, country, region, city)
+            message_handler(websocket, client, client_id, client_ip, country, region, city)
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
@@ -394,17 +396,17 @@ async def echo(websocket):
         for task in pending:
             task.cancel()
     except ConnectionClosedError as e:
-        logger.warning(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
+        logger.warning(f"{client_ip}:{client_id}: ConnectionClosedError - {e}")
     except Exception as e:
-        logger.error(f"{client_ip}:{client_port}: Exception - {e}")
+        logger.error(f"{client_ip}:{client_id}: Exception - {e}")
     finally:
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
             await send_google_stat(tracker, offline_event)
-            del shared_data.trackers[f"{client_ip}_{client_port}"]
-        del shared_data.clients[f"{client_ip}_{client_port}"]
-        logger.warning(f"{client_ip}:{client_port} !!! end")
+            del shared_data.trackers[f"{client_ip}_{client_id}"]
+        del shared_data.clients[f"{client_ip}_{client_id}"]
+        logger.warning(f"{client_ip}:{client_id} !!! end")
 
 
 async def district_data_v1(district_id):
