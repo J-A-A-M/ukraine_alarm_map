@@ -207,8 +207,7 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                 logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
 
 
-async def alerts_data(websocket, client, client_id, shared_data, alert_version):
-    client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
+async def alerts_data(websocket, client, client_id, client_ip, shared_data, alert_version):
     while True:
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.5)
@@ -375,17 +374,17 @@ async def echo(websocket):
         match websocket.request.path:
             case "/data_v1":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v1)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1)
                 )
 
             case "/data_v2":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v2)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2)
                 )
 
             case "/data_v3":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v3)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3)
                 )
 
             case _:
