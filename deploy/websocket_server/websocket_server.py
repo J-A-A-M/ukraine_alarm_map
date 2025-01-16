@@ -404,31 +404,34 @@ async def echo(websocket: ServerConnection):
         match websocket.request.path:
             case "/data_v1":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1),
+                    name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v2":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2),
+                    name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v3":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3)
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3),
+                    name=f"alerts_data_{client_id}",
                 )
 
             case _:
                 logger.warning(f"{client_ip}:{client_id}: unknown path connection")
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_id, client_ip, country, region, city)
+            message_handler(websocket, client, client_id, client_ip, country, region, city), name=f"message_handler_{client_id}"
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
             return_when=asyncio.FIRST_EXCEPTION,
         )
-        (task,) = done  # unpack a set of length one
-        logger.warning(f"{client_ip}:{client_id} !!! task done, result: {task.result()}")
+        (finished,) = done
+        logger.warning(f"{client_ip}:{client_id} !!! task {finished.get_name()} finished, exception: {finished.exception()}")
         for task in pending:
             logger.warning(f"{client_ip}:{client_id} >>> cancel task {task.get_name()}")
             task.cancel()
