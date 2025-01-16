@@ -429,7 +429,7 @@ async def echo(websocket: ServerConnection):
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
-            return_when=asyncio.FIRST_EXCEPTION,
+            return_when=asyncio.FIRST_COMPLETED,
         )
         chip_id = get_chip_id(client, client_id)
         (finished,) = done
