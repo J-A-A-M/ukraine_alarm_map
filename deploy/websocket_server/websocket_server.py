@@ -152,6 +152,7 @@ def generate_random_hash(lenght):
 def get_chip_id(client, client_id):
     return client["chip_id"] if client["chip_id"] != "unknown" else client_id
 
+
 async def get_client_chip_id(client):
     chip_id_timeout = 10.0
     while client["chip_id"] == "unknown":
@@ -303,11 +304,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
                 temp_bins = list(json.loads(shared_data.bins))
-                if (
-                    firmware.startswith("3.")
-                    or firmware.startswith("2.")
-                    or firmware.startswith("1.")
-                ):
+                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest.bin")
                 temp_bins.sort(key=bin_sort, reverse=True)
@@ -317,11 +314,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
                 temp_bins = list(json.loads(shared_data.test_bins))
-                if (
-                    firmware.startswith("3.")
-                    or firmware.startswith("2.")
-                    or firmware.startswith("1.")
-                ):
+                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest_beta.bin")
                 temp_bins.sort(key=bin_sort, reverse=True)
@@ -785,4 +778,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
- 
