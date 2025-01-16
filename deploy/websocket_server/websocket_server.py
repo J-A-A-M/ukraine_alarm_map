@@ -424,7 +424,8 @@ async def echo(websocket: ServerConnection):
                 logger.warning(f"{client_ip}:{client_id}: unknown path connection")
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_id, client_ip, country, region, city), name=f"message_handler_{client_id}"
+            message_handler(websocket, client, client_id, client_ip, country, region, city),
+            name=f"message_handler_{client_id}",
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
@@ -432,7 +433,9 @@ async def echo(websocket: ServerConnection):
         )
         chip_id = get_chip_id(client, client_id)
         (finished,) = done
-        logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {finished.exception()}")
+        logger.warning(
+            f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {finished.exception()}"
+        )
         for task in pending:
             logger.warning(f"{client_ip}:{chip_id} >>> cancel task {task.get_name()}")
             task.cancel()
