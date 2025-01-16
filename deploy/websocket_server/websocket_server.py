@@ -329,11 +329,11 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
         except ChipIdTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
             await websocket.close()
-            break
+            raise Exception("Chip ID timeout")
         except FirmwareTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
             await websocket.close()
-            break
+            raise Exception("Firmware timeout")
 
 
 async def send_google_stat(tracker, event):
@@ -425,13 +425,14 @@ async def echo(websocket: ServerConnection):
         )
         done, pending = await asyncio.wait(
             [consumer_task, producer_task],
-            return_when=asyncio.FIRST_COMPLETED,
+            return_when=asyncio.FIRST_EXCEPTION,
         )
-        (future,) = done  # unpack a set of length one
-        logger.warning(f"{client_ip}:{client_id} !!! done {future.get_name()} result: {future.result()}")
+        (task,) = done  # unpack a set of length one
+        logger.warning(f"{client_ip}:{client_id} !!! task done, result: {task.result()}")
         for task in pending:
             logger.warning(f"{client_ip}:{client_id} >>> cancel task {task.get_name()}")
             task.cancel()
+        await asyncio.wait(pending)
     except ConnectionClosedError as e:
         chip_id = get_chip_id(client, client_id)
         logger.warning(f"{client_ip}:{chip_id}: ConnectionClosedError - {e}")
