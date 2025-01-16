@@ -134,9 +134,10 @@ def bin_sort(bin):
 
     return (major, minor, patch, beta)
 
+
 def generate_random_hash(lenght):
     characters = string.ascii_lowercase + string.digits  # a-z, 0-9
-    return ''.join(secrets.choice(characters) for _ in range(lenght))
+    return "".join(secrets.choice(characters) for _ in range(lenght))
 
 
 async def message_handler(websocket, client, client_id, client_ip, country, region, city):
@@ -373,13 +374,19 @@ async def echo(websocket):
 
         match websocket.request.path:
             case "/data_v1":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v1))
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v1)
+                )
 
             case "/data_v2":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v2))
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v2)
+                )
 
             case "/data_v3":
-                producer_task = asyncio.create_task(alerts_data(websocket, client, client_id, shared_data, AlertVersion.v3))
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, shared_data, AlertVersion.v3)
+                )
 
             case _:
                 logger.warning(f"{client_ip}:{client_id}: unknown path connection")
