@@ -5,12 +5,12 @@ THRESHOLD="${THRESHOLD:?Environment variable THRESHOLD is required}"            
 INTERVAL="${INTERVAL:-60}"                                                          # Check interval (default: 60s)
 LOG_FILE="${LOG_FILE:-watchdog.log}"                                                # Log file path
 RESTART_THRESHOLD="${RESTART_THRESHOLD:-2}"                                         # Number of consecutive threshold hits to restart
-TZ="${TZ:-UTC}"
+TIMEZONE="${TIMEZONE:-UTC}"
 
 # Function to log messages with timestamp
 log() {
     local timestamp
-    timestamp=$(TZ=$TZ date '+%Y-%m-%d %H:%M:%S %Z')
+    timestamp=$(TZ=$TIMEZONE date '+%Y-%m-%d %H:%M:%S %Z')
     echo "$timestamp - $1" | tee -a "$LOG_FILE"
 }
 
