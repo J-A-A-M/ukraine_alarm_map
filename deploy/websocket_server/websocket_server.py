@@ -140,11 +140,15 @@ def generate_random_hash(lenght):
     return "".join(secrets.choice(characters) for _ in range(lenght))
 
 
+def get_chip_id(client, client_id):
+    return client["chip_id"] if client["chip_id"] != "unknown" else client_id
+
+
 async def message_handler(websocket, client, client_id, client_ip, country, region, city):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
-        chip_id = client["chip_id"] if client["chip_id"] != "unknown" else client_id
+        chip_id = get_chip_id(client, client_id)
 
         logger.debug(f"{client_ip}:{chip_id} >>> {message}")
 
@@ -175,7 +179,7 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                         tracker.store.set_user_property(key, value)
             case "chip_id":
                 client["chip_id"] = data
-                logger.info(f"{client_ip}:{data} >>> chip init: {data}")
+                logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
                 if google_stat_send:
                     tracker.client_id = data
                     tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
@@ -215,7 +219,7 @@ async def alerts_data(websocket, client, client_id, client_ip, shared_data, aler
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.5)
             continue
-        chip_id = client["chip_id"] if client["chip_id"] != "unknown" else client_id
+        chip_id = get_chip_id(client, client_id)
         try:
             logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
@@ -406,9 +410,11 @@ async def echo(websocket):
         for task in pending:
             task.cancel()
     except ConnectionClosedError as e:
-        logger.warning(f"{client_ip}:{client_id}: ConnectionClosedError - {e}")
+        chip_id = get_chip_id(client, client_id)
+        logger.warning(f"{client_ip}:{chip_id}: ConnectionClosedError - {e}")
     except Exception as e:
-        logger.error(f"{client_ip}:{client_id}: Exception - {e}")
+        chip_id = get_chip_id(client, client_id)
+        logger.error(f"{client_ip}:{chip_id}: Exception - {e}")
     finally:
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
@@ -416,7 +422,8 @@ async def echo(websocket):
             await send_google_stat(tracker, offline_event)
             del shared_data.trackers[f"{client_ip}_{client_id}"]
         del shared_data.clients[f"{client_ip}_{client_id}"]
-        logger.warning(f"{client_ip}:{client_id} !!! end")
+        chip_id = get_chip_id(client, client_id)
+        logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
 async def district_data_v1(district_id):
