@@ -5,8 +5,9 @@ import json
 import random
 import secrets
 import string
-from aiomcache import Client
+import traceback
 
+from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
 from datetime import datetime, timezone, timedelta
@@ -336,6 +337,8 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             break
         except ConnectionClosedError as e:
             logger.warning(f"{client_ip}:{chip_id} !!! data stopped  - {e}")
+            trace = traceback.format_exc()
+            logger.warning(trace)
             break
         except Exception as e:
             logger.warning(f"{client_ip}:{chip_id}: {e}")
