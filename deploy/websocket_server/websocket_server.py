@@ -5,7 +5,6 @@ import json
 import random
 import secrets
 import string
-import traceback
 
 from aiomcache import Client
 from geoip2 import database, errors
@@ -336,10 +335,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             await websocket.close()
             break
         except ConnectionClosedError as e:
-            logger.warning(f"{client_ip}:{chip_id} !!! data stopped  - {e}")
-            trace = traceback.format_exc()
-            logger.warning(trace)
-            break
+            logger.warning(f"{client_ip}:{chip_id} !!! data send error, trying to resend  - {e}")
         except Exception as e:
             logger.warning(f"{client_ip}:{chip_id}: {e}")
 
