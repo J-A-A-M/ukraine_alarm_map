@@ -15,6 +15,15 @@ from ga4mp import GtagMP
 from websockets import ConnectionClosedError
 from websockets.asyncio.server import serve, ServerConnection
 
+
+class ChipIdTimeoutException(Exception):
+    pass
+
+
+class FirmwareTimeoutException(Exception):
+    pass
+
+
 server_timezone = ZoneInfo("Europe/Kyiv")
 
 log_level = os.environ.get("LOGGING") or "DEBUG"
@@ -776,12 +785,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-class ChipIdTimeoutException(Exception):
-    pass
-
-
-class FirmwareTimeoutException(Exception):
-    pass
  
