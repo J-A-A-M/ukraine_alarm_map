@@ -329,11 +329,11 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
         except ChipIdTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
             await websocket.close()
-            break;
+            break
         except FirmwareTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
             await websocket.close()
-            break;
+            break
 
 
 async def send_google_stat(tracker, event):
@@ -679,7 +679,10 @@ async def get_data_from_memcached(mc):
             values_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
             values_v2.append(
-                [random.randint(0, 1), (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ")]
+                [
+                    random.randint(0, 1),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
             )
         explosion_index = random.randint(0, 25)
         explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
