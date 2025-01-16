@@ -162,7 +162,6 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                 logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
             case "firmware":
                 client["firmware"] = data
-                client_id = client["firmware"]
                 parts = data.split("_", 1)
                 if google_stat_send:
                     tracker.store.set_user_property("firmware_v", parts[0])
