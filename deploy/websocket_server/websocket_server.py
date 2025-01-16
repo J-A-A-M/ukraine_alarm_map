@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
-from websockets.asyncio.server import serve
+from websockets.asyncio.server import serve, ServerConnection
 
 server_timezone = ZoneInfo("Europe/Kyiv")
 
@@ -144,7 +144,7 @@ def get_chip_id(client, client_id):
     return client["chip_id"] if client["chip_id"] != "unknown" else client_id
 
 
-async def message_handler(websocket, client, client_id, client_ip, country, region, city):
+async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
@@ -211,12 +211,20 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                 logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
 
 
-async def alerts_data(websocket, client, client_id, client_ip, shared_data, alert_version):
+async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
+    chip_id_timeout = 10.0
     while True:
+        if chip_id_timeout <= 0:
+            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+            await websocket.close()
+            break
         if client["chip_id"] == "unknown":
+            logger.debug(f"{client_ip}:{client_id} waiting for chip_id...")
             await asyncio.sleep(0.5)
+            chip_id_timeout -= 0.5
             continue
         if client["firmware"] == "unknown":
+            logger.debug(f"{client_ip}:{client_id} waiting for firmware...")
             await asyncio.sleep(0.5)
             continue
         chip_id = get_chip_id(client, client_id)
@@ -318,7 +326,7 @@ async def send_google_stat(tracker, event):
     tracker.send(events=[event], date=datetime.now())
 
 
-async def echo(websocket):
+async def echo(websocket: ServerConnection):
     try:
         client_id = generate_random_hash(8)
         # get real header from websocket
