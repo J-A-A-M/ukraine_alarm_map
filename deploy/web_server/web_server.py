@@ -3,6 +3,7 @@ import json
 import uvicorn
 import time
 import logging
+import datetime
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
@@ -13,8 +14,6 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from aiomcache import Client
-
-from datetime import datetime, timezone
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
@@ -388,7 +387,7 @@ async def tcp_v1(request):
 
 
 def get_local_time_formatted():
-    local_time = datetime.now(timezone.utc)
+    local_time = datetime.datetime.now(datetime.UTC)
     formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_local_time
 
@@ -396,8 +395,8 @@ def get_local_time_formatted():
 def calculate_time_difference(timestamp1, timestamp2):
     format_str = "%Y-%m-%dT%H:%M:%SZ"
 
-    time1 = datetime.strptime(timestamp1, format_str)
-    time2 = datetime.strptime(timestamp2, format_str)
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
 
     time_difference = (time2 - time1).total_seconds()
     return int(abs(time_difference))
@@ -444,8 +443,8 @@ async def region_data_v1(request):
 
     if region_id:
         iso_datetime_str = alerts_cached_data["states"][region]["changed"]
-        datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-        datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+        datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+        datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
         alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
 
         return JSONResponse(
