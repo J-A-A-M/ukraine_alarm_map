@@ -174,7 +174,7 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                         tracker.store.set_user_property(key, value)
             case "chip_id":
                 client["chip_id"] = data
-                logger.info(f"{client_ip}:{client_id} >>> chip init")
+                logger.info(f"{client_ip}:{client_id} >>> chip init: {data}")
                 if google_stat_send:
                     tracker.client_id = data
                     tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
