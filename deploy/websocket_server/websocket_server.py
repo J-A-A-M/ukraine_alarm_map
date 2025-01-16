@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
 from websockets.asyncio.server import serve, ServerConnection
+from logging import WARNING
 
 
 class ChipIdTimeoutException(Exception):
@@ -43,12 +44,14 @@ logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(messa
 logger = logging.getLogger(__name__)
 
 gtagmp_logger = logging.getLogger("ga4mp")
-gtagmp_logger.setLevel(log_level)
+# always warning for ga4mp
+gtagmp_logger.setLevel(WARNING)
 
 if not gtagmp_logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s : %(message)s"))
-    handler.setLevel(log_level)
+    # always warning for ga4mp
+    handler.setLevel(WARNING)
     gtagmp_logger.addHandler(handler)
 gtagmp_logger.propagate = False
 
