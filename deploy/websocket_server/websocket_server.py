@@ -432,10 +432,11 @@ async def echo(websocket: ServerConnection):
             return_when=asyncio.FIRST_COMPLETED,
         )
         chip_id = get_chip_id(client, client_id)
-        (finished,) = done
-        logger.warning(
-            f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {finished.exception()}"
-        )
+        for finished in done:
+            if exception := finished.exception():
+                logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {exception}")
+            else:
+                logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished")
         for task in pending:
             logger.warning(f"{client_ip}:{chip_id} >>> cancel task {task.get_name()}")
             task.cancel()
