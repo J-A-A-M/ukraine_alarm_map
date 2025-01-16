@@ -7,15 +7,15 @@ on:
         description: "Enable Google stat"
         default: true
       ping_interval:
-        type: integer
+        type: number
         description: "Websocket ping interval (in seconds)"
         default: 20
       ping_timeout:
-        type: integer
+        type: number
         description: "Websocket ping timeout (in seconds)"
         default: 20
       logging:
-        type: string
+        type: choice
         description: "Log level"
         required: true
         default: "WARNING"

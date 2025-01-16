@@ -13,17 +13,17 @@ on:
         required: true
         default: "map_watchdog"
       threshold:
-        type: integer
+        type: number
         description: "CPU threshold (in %)"
         required: true
         default: 60
       restart_threshold:
-        type: integer
+        type: number
         description: "How many times CPU must hit threshold"
         required: true
         default: 2
       interval:
-        type: integer
+        type: number
         description: "Checking interval (in seconds)"
         required: true
         default: 30

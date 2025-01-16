@@ -1,21 +1,33 @@
 import asyncio
-import websockets
 import logging
 import os
 import json
 import random
-import threading
-from aiomcache import Client
+import secrets
+import string
+import datetime
 
+from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
-from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
+from websockets import ConnectionClosedError
+from websockets.asyncio.server import serve, ServerConnection
+from logging import WARNING
+
+
+class ChipIdTimeoutException(Exception):
+    pass
+
+
+class FirmwareTimeoutException(Exception):
+    pass
+
 
 server_timezone = ZoneInfo("Europe/Kyiv")
 
-debug_level = os.environ.get("LOGGING") or "DEBUG"
+log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 20))
 ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
@@ -28,16 +40,18 @@ environment = os.environ.get("ENVIRONMENT") or "PROD"
 geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
 
-logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
 gtagmp_logger = logging.getLogger("ga4mp")
-gtagmp_logger.setLevel(debug_level)
+# always warning for ga4mp
+gtagmp_logger.setLevel(WARNING)
 
 if not gtagmp_logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s : %(message)s"))
-    handler.setLevel(debug_level)
+    # always warning for ga4mp
+    handler.setLevel(WARNING)
     gtagmp_logger.addHandler(handler)
 gtagmp_logger.propagate = False
 
@@ -133,271 +147,316 @@ def bin_sort(bin):
     return (major, minor, patch, beta)
 
 
-async def alerts_data(websocket, client, shared_data, alert_version):
-    client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
+def generate_random_hash(lenght):
+    characters = string.ascii_lowercase + string.digits  # a-z, 0-9
+    return "".join(secrets.choice(characters) for _ in range(lenght))
+
+
+def get_chip_id(client, client_id):
+    return client["chip_id"] if client["chip_id"] != "unknown" else client_id
+
+
+async def get_client_chip_id(client):
+    chip_id_timeout = 10.0
+    while client["chip_id"] == "unknown":
+        await asyncio.sleep(0.5)
+        if chip_id_timeout <= 0:
+            raise ChipIdTimeoutException("Chip ID timeout")
+        chip_id_timeout -= 0.5
+    return client["chip_id"]
+
+
+async def get_client_firmware(client):
+    firmware_timeout = 10.0
+    while client["firmware"] == "unknown":
+        await asyncio.sleep(0.5)
+        if firmware_timeout <= 0:
+            raise FirmwareTimeoutException("Firmware timeout")
+        firmware_timeout -= 0.5
+    return client["firmware"]
+
+
+async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
+    if google_stat_send:
+        tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
+    async for message in websocket:
+        chip_id = get_chip_id(client, client_id)
+
+        logger.debug(f"{client_ip}:{chip_id} >>> {message}")
+
+        def split_message(message):
+            parts = message.split(":", 1)  # Split at most into 2 parts
+            header = parts[0]
+            data = parts[1] if len(parts) > 1 else ""
+            return header, data
+
+        header, data = split_message(message)
+        match header:
+            case "district":
+                district_data = await district_data_v1(int(data))
+                payload = json.dumps(district_data).encode("utf-8")
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
+            case "firmware":
+                client["firmware"] = data
+                parts = data.split("_", 1)
+                if google_stat_send:
+                    tracker.store.set_user_property("firmware_v", parts[0])
+                    tracker.store.set_user_property("identifier", parts[1])
+                logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
+            case "user_info":
+                json_data = json.loads(data)
+                if google_stat_send:
+                    for key, value in json_data.items():
+                        tracker.store.set_user_property(key, value)
+            case "chip_id":
+                client["chip_id"] = data
+                logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
+                if google_stat_send:
+                    tracker.client_id = data
+                    tracker.store.set_session_parameter("session_id", f"{data}_{datetime.datetime.now().timestamp()}")
+                    tracker.store.set_user_property("user_id", data)
+                    tracker.store.set_user_property("chip_id", data)
+                    tracker.store.set_user_property("country", country)
+                    tracker.store.set_user_property("region", region)
+                    tracker.store.set_user_property("city", city)
+                    tracker.store.set_user_property("ip", client_ip)
+                    online_event = tracker.create_new_event("status")
+                    online_event.set_event_param("online", "true")
+                    await send_google_stat(tracker, online_event)
+                logger.debug(f"{client_ip}:{data} >>> chip_id saved")
+            case "pong":
+                if google_stat_send:
+                    ping_event = tracker.create_new_event("ping")
+                    ping_event.set_event_param("state", "alive")
+                    await send_google_stat(tracker, ping_event)
+                logger.debug(f"{client_ip}:{chip_id} >>> ping sent")
+            case "settings":
+                json_data = json.loads(data)
+                if google_stat_send:
+                    settings_event = tracker.create_new_event("settings")
+                    for key, value in json_data.items():
+                        settings_event.set_event_param(key, value)
+                    await send_google_stat(tracker, settings_event)
+                    logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
+            case _:
+                logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
+
+
+async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
     while True:
-        if client["firmware"] == "unknown":
-            await asyncio.sleep(0.5)
-            continue
-        client_id = client["firmware"]
         try:
-            logger.debug(f"{client_ip}:{client_id}: check")
+            chip_id = await get_client_chip_id(client)
+            firmware = await get_client_firmware(client)
+            logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
                 case AlertVersion.v1:
                     if client["alerts"] != shared_data.alerts_v1:
                         alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts_v1)])
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
                     if client["alerts"] != shared_data.alerts_v2:
                         alerts = []
                         for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
+                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
                             alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                 case AlertVersion.v3:
                     if client["alerts"] != shared_data.alerts_v2:
                         alerts = []
                         for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
+                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
                             alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                     if client["rockets"] != shared_data.rockets_v1:
                         rockets = json.dumps([int(rocket) for rocket in json.loads(shared_data.rockets_v1)])
                         payload = '{"payload": "missiles", "missiles": %s}' % rockets
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new missiles")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
                         client["rockets"] = shared_data.rockets_v1
                     if client["drones"] != shared_data.drones_v1:
                         drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
                         payload = '{"payload": "drones", "drones": %s}' % drones
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new drones")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones"] = shared_data.drones_v1
             if client["explosions"] != shared_data.explosions_v1:
                 explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new explosions")
+                logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
                 client["explosions"] = shared_data.explosions_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new weather")
+                logger.debug(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
                 temp_bins = list(json.loads(shared_data.bins))
-                if (
-                    client["firmware"].startswith("3.")
-                    or client["firmware"].startswith("2.")
-                    or client["firmware"].startswith("1.")
-                ):
+                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest.bin")
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new bins")
+                logger.debug(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
                 temp_bins = list(json.loads(shared_data.test_bins))
-                if (
-                    client["firmware"].startswith("3.")
-                    or client["firmware"].startswith("2.")
-                    or client["firmware"].startswith("1.")
-                ):
+                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest_beta.bin")
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
+                logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.5)
-        except websockets.exceptions.ConnectionClosedError:
-            logger.warning(f"{client_ip}:{client_id} !!! data stopped")
+        except ChipIdTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+            await websocket.close()
             break
-        except Exception as e:
-            logger.warning(f"{client_ip}:{client_id}: {e}")
+        except FirmwareTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+            await websocket.close()
+            break
 
 
-def send_google_stat(tracker, event):
-    tracker.send(events=[event], date=datetime.now())
+async def send_google_stat(tracker, event):
+    tracker.send(events=[event], date=datetime.datetime.now())
 
 
-async def echo(websocket, path):
-    client_port = websocket.remote_address[1]
-    # get real header from websocket
-    client_ip = websocket.request_headers.get("CF-Connecting-IP", websocket.remote_address[0])
-    secure_connection = websocket.request_headers.get("X-Connection-Secure", "false")
-    logger.info(f"{client_ip}:{client_port} >>> new client")
-
-    if client_ip in shared_data.blocked_ips:
-        logger.warning(f"{client_ip}:{client_port} !!! BLOCKED")
-        return
-
-    country = websocket.request_headers.get("cf-ipcountry", None)
-    region = websocket.request_headers.get("cf-region", None)
-    city = websocket.request_headers.get("cf-ipcity", None)
-    timezone = websocket.request_headers.get("cf-timezone", None)
-
-    if not country or not region or not city or not timezone:
-        try:
-            response = geo.city(client_ip)
-            city = city or response.city.name or "not-in-db"
-            region = region or response.subdivisions.most_specific.name or "not-in-db"
-            country = country or response.country.iso_code or "not-in-db"
-            timezone = timezone or response.location.time_zone or "not-in-db"
-        except errors.AddressNotFoundError:
-            city = city or "not-found"
-            region = region or "not-found"
-            country = country or "not-found"
-            timezone = timezone or "not-found"
-
-    country = country.encode("utf-8", "ignore").decode("utf-8")
-    region = region.encode("utf-8", "ignore").decode("utf-8")
-    city = city.encode("utf-8", "ignore").decode("utf-8")
-
-    # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
-    #     shared_data.blocked_ips.append(client_ip)
-    #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
-    #     return
-
-    client = shared_data.clients[f"{client_ip}_{client_port}"] = {
-        "alerts": "[]",
-        "weather": "[]",
-        "explosions": "[]",
-        "rockets": "[]",
-        "drones": "[]",
-        "bins": "[]",
-        "test_bins": "[]",
-        "firmware": "unknown",
-        "chip_id": "unknown",
-        "city": city,
-        "region": region,
-        "country": country,
-        "timezone": timezone,
-        "secure_connection": secure_connection,
-        "connect_time": datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
-    }
-    if google_stat_send:
-        tracker = shared_data.trackers[f"{client_ip}_{client_port}"] = GtagMP(
-            api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
-        )
-
-    match path:
-        case "/data_v1":
-            data_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v1))
-
-        case "/data_v2":
-            data_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v2))
-
-        case "/data_v3":
-            data_task = asyncio.create_task(alerts_data(websocket, client, shared_data, AlertVersion.v3))
-
-        case _:
-            return
+async def echo(websocket: ServerConnection):
     try:
-        while True:
-            async for message in websocket:
-                match client["firmware"]:
-                    case "unknown":
-                        client_id = client_port
-                    case _:
-                        client_id = client["firmware"]
-                logger.debug(f"{client_ip}:{client_id} >>> {message}")
+        client_id = generate_random_hash(8)
+        # get real header from websocket
+        client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
+        secure_connection = websocket.request.headers.get("X-Connection-Secure", "false")
+        logger.info(f"{client_ip}:{client_id} >>> new client")
 
-                def split_message(message):
-                    parts = message.split(":", 1)  # Split at most into 2 parts
-                    header = parts[0]
-                    data = parts[1] if len(parts) > 1 else ""
-                    return header, data
+        if client_ip in shared_data.blocked_ips:
+            logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
+            return
 
-                header, data = split_message(message)
-                match header:
-                    case "district":
-                        district_data = await district_data_v1(int(data))
-                        payload = json.dumps(district_data).encode("utf-8")
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
-                    case "firmware":
-                        client["firmware"] = data
-                        client_id = client["firmware"]
-                        parts = data.split("_", 1)
-                        if google_stat_send:
-                            tracker.store.set_user_property("firmware_v", parts[0])
-                            tracker.store.set_user_property("identifier", parts[1])
-                        logger.debug(f"{client_ip}:{client_id} >>> firmware saved")
-                    case "user_info":
-                        json_data = json.loads(data)
-                        if google_stat_send:
-                            for key, value in json_data.items():
-                                tracker.store.set_user_property(key, value)
-                    case "chip_id":
-                        client["chip_id"] = data
-                        logger.debug(f"{client_ip}:{client_id} >>> sleep init")
-                        if google_stat_send:
-                            tracker.client_id = data
-                            tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
-                            tracker.store.set_user_property("user_id", data)
-                            tracker.store.set_user_property("chip_id", data)
-                            tracker.store.set_user_property("country", country)
-                            tracker.store.set_user_property("region", region)
-                            tracker.store.set_user_property("city", city)
-                            tracker.store.set_user_property("ip", client_ip)
-                            online_event = tracker.create_new_event("status")
-                            online_event.set_event_param("online", "true")
-                            tracker.send(events=[online_event], date=datetime.now())
-                            threading.Thread(target=send_google_stat, args=(tracker, online_event)).start()
-                        logger.debug(f"{client_ip}:{client_id} >>> chip_id saved")
-                    case "pong":
-                        if google_stat_send:
-                            ping_event = tracker.create_new_event("ping")
-                            ping_event.set_event_param("state", "alive")
-                            tracker.send(events=[ping_event], date=datetime.now())
-                            threading.Thread(target=send_google_stat, args=(tracker, ping_event)).start()
-                        logger.debug(f"{client_ip}:{client_id} >>> ping sent")
-                    case "settings":
-                        json_data = json.loads(data)
-                        if google_stat_send:
-                            settings_event = tracker.create_new_event("settings")
-                            for key, value in json_data.items():
-                                settings_event.set_event_param(key, value)
-                            tracker.send(events=[settings_event], date=datetime.now())
-                            threading.Thread(target=send_google_stat, args=(tracker, settings_event)).start()
-                            logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
-                    case _:
-                        logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
-    except websockets.exceptions.ConnectionClosedError as e:
-        logger.warning(f"{client_ip}:{client_port}: ConnectionClosedError - {e}")
+        country = websocket.request.headers.get("cf-ipcountry", None)
+        region = websocket.request.headers.get("cf-region", None)
+        city = websocket.request.headers.get("cf-ipcity", None)
+        timezone = websocket.request.headers.get("cf-timezone", None)
+
+        if not country or not region or not city or not timezone:
+            try:
+                response = geo.city(client_ip)
+                city = city or response.city.name or "not-in-db"
+                region = region or response.subdivisions.most_specific.name or "not-in-db"
+                country = country or response.country.iso_code or "not-in-db"
+                timezone = timezone or response.location.time_zone or "not-in-db"
+            except errors.AddressNotFoundError:
+                city = city or "not-found"
+                region = region or "not-found"
+                country = country or "not-found"
+                timezone = timezone or "not-found"
+
+        country = country.encode("utf-8", "ignore").decode("utf-8")
+        region = region.encode("utf-8", "ignore").decode("utf-8")
+        city = city.encode("utf-8", "ignore").decode("utf-8")
+
+        # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
+        #     shared_data.blocked_ips.append(client_ip)
+        #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
+        #     return
+
+        client = shared_data.clients[f"{client_ip}_{client_id}"] = {
+            "alerts": "[]",
+            "weather": "[]",
+            "explosions": "[]",
+            "rockets": "[]",
+            "drones": "[]",
+            "bins": "[]",
+            "test_bins": "[]",
+            "firmware": "unknown",
+            "chip_id": "unknown",
+            "city": city,
+            "region": region,
+            "country": country,
+            "timezone": timezone,
+            "secure_connection": secure_connection,
+            "connect_time": datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        if google_stat_send:
+            tracker = shared_data.trackers[f"{client_ip}_{client_id}"] = GtagMP(
+                api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
+            )
+
+        match websocket.request.path:
+            case "/data_v1":
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case "/data_v2":
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case "/data_v3":
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case _:
+                logger.warning(f"{client_ip}:{client_id}: unknown path connection")
+                return
+        consumer_task = asyncio.create_task(
+            message_handler(websocket, client, client_id, client_ip, country, region, city),
+            name=f"message_handler_{client_id}",
+        )
+        done, pending = await asyncio.wait(
+            [consumer_task, producer_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        chip_id = get_chip_id(client, client_id)
+        for finished in done:
+            if exception := finished.exception():
+                logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {exception}")
+            else:
+                logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished")
+        if pending:
+            for task in pending:
+                logger.warning(f"{client_ip}:{chip_id} >>> cancel task {task.get_name()}")
+                task.cancel()
+            await asyncio.wait(pending)
+    except ConnectionClosedError as e:
+        chip_id = get_chip_id(client, client_id)
+        logger.warning(f"{client_ip}:{chip_id}: ConnectionClosedError - {e}")
     except Exception as e:
-        logger.error(f"{client_ip}:{client_port}: Exception - {e}")
+        chip_id = get_chip_id(client, client_id)
+        logger.error(f"{client_ip}:{chip_id}: Exception - {e}")
     finally:
         if google_stat_send:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
-            tracker.send(events=[offline_event], date=datetime.now())
-            threading.Thread(target=send_google_stat, args=(tracker, offline_event)).start()
-            del shared_data.trackers[f"{client_ip}_{client_port}"]
-        del shared_data.clients[f"{client_ip}_{client_port}"]
-        try:
-            data_task.cancel()
-        except asyncio.CancelledError:
-            logger.warning(f"{client_ip}:{client_port} !!! tasks cancelled")
-        logger.warning(f"{client_ip}:{client_port} !!! end")
+            await send_google_stat(tracker, offline_event)
+            del shared_data.trackers[f"{client_ip}_{client_id}"]
+        del shared_data.clients[f"{client_ip}_{client_id}"]
+        chip_id = get_chip_id(client, client_id)
+        logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
 async def district_data_v1(district_id):
@@ -409,8 +468,8 @@ async def district_data_v1(district_id):
             break
 
     iso_datetime_str = alerts_cached_data[region]["changed"]
-    datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-    datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+    datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+    datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
     alerts_cached_data[region]["changed"] = int(datetime_obj_utc.timestamp())
 
     return {
@@ -563,9 +622,9 @@ async def get_data_from_memcached_test(shared_data):
             alert = 1
             temp = 30
             if region_id == 0:
-                explosion[25] = int(datetime.now().timestamp())
+                explosion[25] = int(datetime.datetime.now().timestamp())
             else:
-                explosion[region_id - 1] = int(datetime.now().timestamp())
+                explosion[region_id - 1] = int(datetime.datetime.now().timestamp())
             logger.debug(f"District: %s, %s" % (region_id, region_name))
         else:
             alert = 0
@@ -620,14 +679,17 @@ async def get_data_from_memcached(mc):
             values_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
             values_v2.append(
-                [random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ")]
+                [
+                    random.randint(0, 1),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
             )
         explosion_index = random.randint(0, 25)
-        explosions_v1[explosion_index] = int(datetime.now().timestamp())
+        explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
         rocket_index = random.randint(0, 25)
-        rockets_v1[rocket_index] = int(datetime.now().timestamp())
+        rockets_v1[rocket_index] = int(datetime.datetime.now().timestamp())
         drone_index = random.randint(0, 25)
-        drones_v1[drone_index] = int(datetime.now().timestamp())
+        drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
@@ -718,13 +780,13 @@ async def get_data_from_memcached(mc):
     )
 
 
-start_server = websockets.serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout)
+async def main():
+    async with serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout):
+        await asyncio.gather(
+            update_shared_data(shared_data, mc),
+            print_clients(shared_data, mc),
+        )
 
-asyncio.get_event_loop().run_until_complete(start_server)
 
-update_shared_data_coroutine = partial(update_shared_data, shared_data, mc)()
-asyncio.get_event_loop().create_task(update_shared_data_coroutine)
-print_clients_coroutine = partial(print_clients, shared_data, mc)()
-asyncio.get_event_loop().create_task(print_clients_coroutine)
-
-asyncio.get_event_loop().run_forever()
+if __name__ == "__main__":
+    asyncio.run(main())
