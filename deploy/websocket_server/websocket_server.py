@@ -144,8 +144,9 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
+        chip_id = client["chip_id"] if client["chip_id"] != "unknown" else client_id
 
-        logger.debug(f"{client_ip}:{client_id} >>> {message}")
+        logger.debug(f"{client_ip}:{chip_id} >>> {message}")
 
         def split_message(message):
             parts = message.split(":", 1)  # Split at most into 2 parts
@@ -159,14 +160,14 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                 district_data = await district_data_v1(int(data))
                 payload = json.dumps(district_data).encode("utf-8")
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< district {payload} ")
+                logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
             case "firmware":
                 client["firmware"] = data
                 parts = data.split("_", 1)
                 if google_stat_send:
                     tracker.store.set_user_property("firmware_v", parts[0])
                     tracker.store.set_user_property("identifier", parts[1])
-                logger.debug(f"{client_ip}:{client_id} >>> firmware saved")
+                logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
             case "user_info":
                 json_data = json.loads(data)
                 if google_stat_send:
@@ -174,7 +175,7 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                         tracker.store.set_user_property(key, value)
             case "chip_id":
                 client["chip_id"] = data
-                logger.info(f"{client_ip}:{client_id} >>> chip init: {data}")
+                logger.info(f"{client_ip}:{data} >>> chip init: {data}")
                 if google_stat_send:
                     tracker.client_id = data
                     tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
@@ -187,13 +188,13 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                     online_event = tracker.create_new_event("status")
                     online_event.set_event_param("online", "true")
                     await send_google_stat(tracker, online_event)
-                logger.debug(f"{client_ip}:{client_id} >>> chip_id saved")
+                logger.debug(f"{client_ip}:{data} >>> chip_id saved")
             case "pong":
                 if google_stat_send:
                     ping_event = tracker.create_new_event("ping")
                     ping_event.set_event_param("state", "alive")
                     await send_google_stat(tracker, ping_event)
-                logger.debug(f"{client_ip}:{client_id} >>> ping sent")
+                logger.debug(f"{client_ip}:{chip_id} >>> ping sent")
             case "settings":
                 json_data = json.loads(data)
                 if google_stat_send:
@@ -201,25 +202,29 @@ async def message_handler(websocket, client, client_id, client_ip, country, regi
                     for key, value in json_data.items():
                         settings_event.set_event_param(key, value)
                     await send_google_stat(tracker, settings_event)
-                    logger.debug(f"{client_ip}:{client_id} >>> settings analytics sent")
+                    logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
             case _:
-                logger.debug(f"{client_ip}:{client_id} !!! unknown data request")
+                logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
 
 
 async def alerts_data(websocket, client, client_id, client_ip, shared_data, alert_version):
     while True:
+        if client["chip_id"] == "unknown":
+            await asyncio.sleep(0.5)
+            continue
         if client["firmware"] == "unknown":
             await asyncio.sleep(0.5)
             continue
+        chip_id = client["chip_id"] if client["chip_id"] != "unknown" else client_id
         try:
-            logger.debug(f"{client_ip}:{client_id}: check")
+            logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
                 case AlertVersion.v1:
                     if client["alerts"] != shared_data.alerts_v1:
                         alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts_v1)])
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
                     if client["alerts"] != shared_data.alerts_v2:
@@ -231,7 +236,7 @@ async def alerts_data(websocket, client, client_id, client_ip, shared_data, aler
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                 case AlertVersion.v3:
                     if client["alerts"] != shared_data.alerts_v2:
@@ -243,31 +248,31 @@ async def alerts_data(websocket, client, client_id, client_ip, shared_data, aler
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new alerts")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                     if client["rockets"] != shared_data.rockets_v1:
                         rockets = json.dumps([int(rocket) for rocket in json.loads(shared_data.rockets_v1)])
                         payload = '{"payload": "missiles", "missiles": %s}' % rockets
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new missiles")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
                         client["rockets"] = shared_data.rockets_v1
                     if client["drones"] != shared_data.drones_v1:
                         drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
                         payload = '{"payload": "drones", "drones": %s}' % drones
                         await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{client_id} <<< new drones")
+                        logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones"] = shared_data.drones_v1
             if client["explosions"] != shared_data.explosions_v1:
                 explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
                 payload = '{"payload": "explosions", "explosions": %s}' % explosions
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new explosions")
+                logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
                 client["explosions"] = shared_data.explosions_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new weather")
+                logger.debug(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins:
                 temp_bins = list(json.loads(shared_data.bins))
@@ -281,7 +286,7 @@ async def alerts_data(websocket, client, client_id, client_ip, shared_data, aler
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new bins")
+                logger.debug(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins:
                 temp_bins = list(json.loads(shared_data.test_bins))
@@ -295,14 +300,14 @@ async def alerts_data(websocket, client, client_id, client_ip, shared_data, aler
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
-                logger.debug(f"{client_ip}:{client_id} <<< new test_bins")
+                logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.5)
         except ConnectionClosedError as e:
-            logger.warning(f"{client_ip}:{client_id} !!! data stopped  - {e}")
+            logger.warning(f"{client_ip}:{chip_id} !!! data stopped  - {e}")
             break
         except Exception as e:
-            logger.warning(f"{client_ip}:{client_id}: {e}")
+            logger.warning(f"{client_ip}:{chip_id}: {e}")
 
 
 async def send_google_stat(tracker, event):

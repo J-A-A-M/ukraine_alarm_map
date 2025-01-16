@@ -3136,6 +3136,10 @@ void socketConnect() {
     LOG.print("connection time - ");
     LOG.print(millis() - startTime);
     LOG.println("ms");
+    char chipIdInfo[25];
+    sprintf(chipIdInfo, "chip_id:%s", chipID);
+    LOG.println(chipIdInfo);
+    client_websocket.send(chipIdInfo);
     char firmwareInfo[100];
     sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
     LOG.println(firmwareInfo);
@@ -3156,10 +3160,6 @@ void socketConnect() {
     sprintf(userInfo, "user_info:%s", userInfoJson.as<String>().c_str());
     LOG.println(userInfo);
     client_websocket.send(userInfo);
-    char chipIdInfo[25];
-    sprintf(chipIdInfo, "chip_id:%s", chipID);
-    LOG.println(chipIdInfo);
-    client_websocket.send(chipIdInfo);
     client_websocket.ping();
     websocketReconnect = false;
     showServiceMessage("підключено!", "Сервер даних", 3000);
