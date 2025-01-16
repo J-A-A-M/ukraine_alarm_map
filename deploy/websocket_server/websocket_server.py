@@ -437,10 +437,11 @@ async def echo(websocket: ServerConnection):
                 logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished, exception: {exception}")
             else:
                 logger.warning(f"{client_ip}:{chip_id} !!! task {finished.get_name()} finished")
-        for task in pending:
-            logger.warning(f"{client_ip}:{chip_id} >>> cancel task {task.get_name()}")
-            task.cancel()
-        await asyncio.wait(pending)
+        if pending:
+            for task in pending:
+                logger.warning(f"{client_ip}:{chip_id} >>> cancel task {task.get_name()}")
+                task.cancel()
+            await asyncio.wait(pending)
     except ConnectionClosedError as e:
         chip_id = get_chip_id(client, client_id)
         logger.warning(f"{client_ip}:{chip_id}: ConnectionClosedError - {e}")
