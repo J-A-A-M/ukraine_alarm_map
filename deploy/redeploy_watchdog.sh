@@ -7,6 +7,7 @@ THRESHOLD=60                         # CPU usage threshold in percentage
 RESTART_THRESHOLD=2                  # CPU threshold hits
 INTERVAL=30                         # Time in seconds between checks
 LOG_FILE="watchdog.log"       # Path to the log file
+TZ="Europe/Kyiv" 
 
 
 # Check for arguments
@@ -51,6 +52,7 @@ echo "RESTART_THRESHOLD: $RESTART_THRESHOLD"
 echo "INTERVAL: $INTERVAL"
 echo "LOG_FILE: $LOG_FILE"
 echo "IMAGE_NAME: $IMAGE_NAME"
+echo "TZ: $TZ"
 
 
 # Updating the Git repo
@@ -84,6 +86,7 @@ docker run --name "$IMAGE_NAME" \
     -e RESTART_THRESHOLD="$RESTART_THRESHOLD" \
     -e INTERVAL="$INTERVAL" \
     -e LOG_FILE="$LOG_FILE" \
+    -e TZ="$TZ" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /root/"$LOG_FILE":/"$LOG_FILE" \
     "$IMAGE_NAME"
