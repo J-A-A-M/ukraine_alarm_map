@@ -143,6 +143,25 @@ def generate_random_hash(lenght):
 def get_chip_id(client, client_id):
     return client["chip_id"] if client["chip_id"] != "unknown" else client_id
 
+async def get_client_chip_id(client):
+    chip_id_timeout = 10.0
+    while client["chip_id"] == "unknown":
+        await asyncio.sleep(0.5)
+        if chip_id_timeout <= 0:
+            raise ChipIdTimeoutException("Chip ID timeout")
+        chip_id_timeout -= 0.5
+    return client["chip_id"]
+
+
+async def get_client_firmware(client):
+    firmware_timeout = 10.0
+    while client["firmware"] == "unknown":
+        await asyncio.sleep(0.5)
+        if firmware_timeout <= 0:
+            raise FirmwareTimeoutException("Firmware timeout")
+        firmware_timeout -= 0.5
+    return client["firmware"]
+
 
 async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
     if google_stat_send:
@@ -212,23 +231,10 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
 
 
 async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
-    chip_id_timeout = 10.0
     while True:
-        if chip_id_timeout <= 0:
-            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-            await websocket.close()
-            break
-        if client["chip_id"] == "unknown":
-            logger.debug(f"{client_ip}:{client_id} waiting for chip_id...")
-            await asyncio.sleep(0.5)
-            chip_id_timeout -= 0.5
-            continue
-        if client["firmware"] == "unknown":
-            logger.debug(f"{client_ip}:{client_id} waiting for firmware...")
-            await asyncio.sleep(0.5)
-            continue
-        chip_id = get_chip_id(client, client_id)
         try:
+            chip_id = await get_client_chip_id(client)
+            firmware = await get_client_firmware(client)
             logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
                 case AlertVersion.v1:
@@ -289,9 +295,9 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             if client["bins"] != shared_data.bins:
                 temp_bins = list(json.loads(shared_data.bins))
                 if (
-                    client["firmware"].startswith("3.")
-                    or client["firmware"].startswith("2.")
-                    or client["firmware"].startswith("1.")
+                    firmware.startswith("3.")
+                    or firmware.startswith("2.")
+                    or firmware.startswith("1.")
                 ):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest.bin")
@@ -303,9 +309,9 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             if client["test_bins"] != shared_data.test_bins:
                 temp_bins = list(json.loads(shared_data.test_bins))
                 if (
-                    client["firmware"].startswith("3.")
-                    or client["firmware"].startswith("2.")
-                    or client["firmware"].startswith("1.")
+                    firmware.startswith("3.")
+                    or firmware.startswith("2.")
+                    or firmware.startswith("1.")
                 ):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
                     temp_bins.append("latest_beta.bin")
@@ -315,6 +321,14 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.5)
+        except ChipIdTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+            await websocket.close()
+            break
+        except FirmwareTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+            await websocket.close()
+            break
         except ConnectionClosedError as e:
             logger.warning(f"{client_ip}:{chip_id} !!! data stopped  - {e}")
             break
@@ -762,3 +776,12 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+class ChipIdTimeoutException(Exception):
+    pass
+
+
+class FirmwareTimeoutException(Exception):
+    pass
+ 
