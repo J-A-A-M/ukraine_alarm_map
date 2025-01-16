@@ -1,1 +1,1 @@
-aiomcache==0.8.1
+aiomcache==0.8.2
