@@ -329,11 +329,11 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
         except ChipIdTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
             await websocket.close()
-            raise Exception("Chip ID timeout")
+            break;
         except FirmwareTimeoutException as e:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
             await websocket.close()
-            raise Exception("Firmware timeout")
+            break;
 
 
 async def send_google_stat(tracker, event):
