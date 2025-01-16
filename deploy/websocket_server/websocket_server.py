@@ -5,11 +5,11 @@ import json
 import random
 import secrets
 import string
+import datetime
 
 from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
-from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
@@ -214,7 +214,7 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                 logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
                 if google_stat_send:
                     tracker.client_id = data
-                    tracker.store.set_session_parameter("session_id", f"{data}_{datetime.now().timestamp()}")
+                    tracker.store.set_session_parameter("session_id", f"{data}_{datetime.datetime.now().timestamp()}")
                     tracker.store.set_user_property("user_id", data)
                     tracker.store.set_user_property("chip_id", data)
                     tracker.store.set_user_property("country", country)
@@ -261,8 +261,8 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                     if client["alerts"] != shared_data.alerts_v2:
                         alerts = []
                         for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
+                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
                             alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
@@ -273,8 +273,8 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                     if client["alerts"] != shared_data.alerts_v2:
                         alerts = []
                         for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
+                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
                             alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
                         alerts = json.dumps(alerts)
                         payload = '{"payload":"alerts","alerts":%s}' % alerts
@@ -337,7 +337,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
 
 
 async def send_google_stat(tracker, event):
-    tracker.send(events=[event], date=datetime.now())
+    tracker.send(events=[event], date=datetime.datetime.now())
 
 
 async def echo(websocket: ServerConnection):
@@ -394,7 +394,7 @@ async def echo(websocket: ServerConnection):
             "country": country,
             "timezone": timezone,
             "secure_connection": secure_connection,
-            "connect_time": datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
+            "connect_time": datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
         }
         if google_stat_send:
             tracker = shared_data.trackers[f"{client_ip}_{client_id}"] = GtagMP(
@@ -468,8 +468,8 @@ async def district_data_v1(district_id):
             break
 
     iso_datetime_str = alerts_cached_data[region]["changed"]
-    datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-    datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+    datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+    datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
     alerts_cached_data[region]["changed"] = int(datetime_obj_utc.timestamp())
 
     return {
@@ -622,9 +622,9 @@ async def get_data_from_memcached_test(shared_data):
             alert = 1
             temp = 30
             if region_id == 0:
-                explosion[25] = int(datetime.now().timestamp())
+                explosion[25] = int(datetime.datetime.now().timestamp())
             else:
-                explosion[region_id - 1] = int(datetime.now().timestamp())
+                explosion[region_id - 1] = int(datetime.datetime.now().timestamp())
             logger.debug(f"District: %s, %s" % (region_id, region_name))
         else:
             alert = 0
@@ -679,14 +679,14 @@ async def get_data_from_memcached(mc):
             values_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
             values_v2.append(
-                [random.randint(0, 1), (datetime.now() - timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ")]
+                [random.randint(0, 1), (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ")]
             )
         explosion_index = random.randint(0, 25)
-        explosions_v1[explosion_index] = int(datetime.now().timestamp())
+        explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
         rocket_index = random.randint(0, 25)
-        rockets_v1[rocket_index] = int(datetime.now().timestamp())
+        rockets_v1[rocket_index] = int(datetime.datetime.now().timestamp())
         drone_index = random.randint(0, 25)
-        drones_v1[drone_index] = int(datetime.now().timestamp())
+        drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
