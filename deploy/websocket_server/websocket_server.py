@@ -343,7 +343,6 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
     while True:
         chip_id = get_chip_id(client, client_id)
         try:
-            await asyncio.sleep(ping_interval)
             pong_waiter = await websocket.ping()
             logger.debug(f"{client_ip}:{chip_id} >>> ping")
             latency = await asyncio.wait_for(pong_waiter, ping_timeout)
@@ -354,6 +353,8 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
                 ping_event = tracker.create_new_event("ping")
                 ping_event.set_event_param("state", "alive")
                 await send_google_stat(tracker, ping_event)
+            # wait for next ping
+            await asyncio.sleep(ping_interval)
         except asyncio.TimeoutError:
             timeouts_count += 1
             if timeouts_count < ping_timeout_count:
