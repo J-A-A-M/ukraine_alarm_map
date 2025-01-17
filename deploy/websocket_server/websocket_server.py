@@ -800,7 +800,15 @@ def process_response(connection: ServerConnection, request: Request, responce: R
 
 
 async def main():
-    async with serve(echo, "0.0.0.0", websocket_port, process_request=process_request, process_response=process_response, ping_interval=ping_interval, ping_timeout=ping_timeout):
+    async with serve(
+        echo,
+        "0.0.0.0",
+        websocket_port,
+        process_request=process_request,
+        process_response=process_response,
+        ping_interval=ping_interval,
+        ping_timeout=ping_timeout,
+    ):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
             print_clients(shared_data, mc),
