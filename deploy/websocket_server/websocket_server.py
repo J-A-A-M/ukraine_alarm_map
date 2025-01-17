@@ -348,7 +348,7 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             logger.debug(f"{client_ip}:{chip_id} >>> ping")
             latency = await asyncio.wait_for(pong_waiter, ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
-            client["latency"] = int(latency * 1000) # convert to ms
+            client["latency"] = int(latency * 1000)  # convert to ms
             timeouts_count = 0
             if google_stat_send:
                 ping_event = tracker.create_new_event("ping")
