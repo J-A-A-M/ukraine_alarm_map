@@ -142,6 +142,7 @@ struct Settings {
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
+  int     toggle_mode_weather    = 1;
   int     toggle_mode_temp       = 1;
   int     toggle_mode_hum        = 1;
   int     toggle_mode_press      = 1;
@@ -1153,7 +1154,7 @@ bool saveLampBrightness(int newBrightness, bool saveToSettings, bool checkPrevBr
     LOG.println(settings.ha_light_brightness);
     ha.setLampBrightness(newBrightness);
   }
-  
+
   mapCycle();
   return true;
 }
@@ -1567,20 +1568,29 @@ void showClimate() {
 }
 
 void showToggleModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSizeForToggle(), timeClient.second());
+  int numOfNonClimateInfo = settings.toggle_mode_weather ? 2 : 1;
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, numOfNonClimateInfo + getClimateInfoSizeForToggle(), timeClient.second());
   switch (periodIndex) {
   case 0:
     // Display Mode Clock
     showClock();
     break;
   case 1:
-    // Display Mode Temperature
-    showTemp();
-    break;
+    // Display Mode Weather when climate sensor is not available
+    // Display Mode Weather when climate sensor available and weather enabled in settings
+    // Else show 0 element of local climate info
+    if (!settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
+      showLocalClimateInfoForToggle(0);
+      break;
+    } else {
+      showTemp();
+      break;
+    }
   case 2:
   case 3:
   case 4:
-    showLocalClimateInfoForToggle(periodIndex - 2);
+    // Display Mode Climate info
+    showLocalClimateInfoForToggle(periodIndex - numOfNonClimateInfo);
     break;
   default:
     break;
@@ -1805,7 +1815,7 @@ bool restoreSettings(JsonObject doc) {
 
     // skip id key, we do not need to restore it
     if (strcmp(key, "id") == 0) continue;
-    
+
     if (strcmp(type, PF_INT) == 0) {
       int valueInt = setting["value"].as<int>();
       preferences.putInt(key, valueInt);
@@ -1823,7 +1833,7 @@ bool restoreSettings(JsonObject doc) {
   }
   preferences.end();
   return restored;
-} 
+}
 
 int checkboxIndex = 1;
 int sliderIndex = 1;
@@ -2272,6 +2282,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " с.");
     if (climate.isAnySensorAvailable()) {
       response->println("Відображати в режимі \"Перемикання\":<br><br>");
+      addCheckbox(response, "toggle_mode_weather", settings.toggle_mode_weather, "Погоду у домашньому регіоні");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
       if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.toggle_mode_hum, "Вологість");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.toggle_mode_press, "Тиск");
@@ -2696,7 +2707,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
 
   if (saved) autoBrightnessUpdate();
-  
+
   request->send(redirectResponce(request, "/brightness", saved));
 }
 
@@ -2721,6 +2732,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
   saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
+  saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", &settings.toggle_mode_weather, "tmw") || saved;
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", &settings.toggle_mode_temp, "tmt") || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", &settings.toggle_mode_hum, "tmh") || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", &settings.toggle_mode_press, "tmp") || saved;
@@ -3565,6 +3577,7 @@ void initSettings() {
   settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
   settings.display_mode           = preferences.getInt("dm", settings.display_mode);
   settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
+  settings.toggle_mode_weather    = preferences.getInt("tmw", settings.toggle_mode_weather);
   settings.toggle_mode_temp       = preferences.getInt("tmt", settings.toggle_mode_temp);
   settings.toggle_mode_hum        = preferences.getInt("tmh", settings.toggle_mode_hum);
   settings.toggle_mode_press      = preferences.getInt("tmp", settings.toggle_mode_press);
