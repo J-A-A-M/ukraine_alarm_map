@@ -12,9 +12,10 @@ from geoip2 import database, errors
 from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
-from websockets import ConnectionClosedError
-from websockets.asyncio.server import serve, ServerConnection
+from websockets import ConnectionClosedError, InvalidHandshake
+from websockets.asyncio.server import serve, ServerConnection, Request
 from logging import WARNING
+from http import HTTPStatus
 
 
 class ChipIdTimeoutException(Exception):
@@ -780,8 +781,26 @@ async def get_data_from_memcached(mc):
     )
 
 
+async def process_request(connection: ServerConnection, request: Request):
+    client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
+    try:
+        # health check
+        if request.path == "/healthz":
+            logger.info(f"{client_ip}: health check")
+            return connection.respond(HTTPStatus.OK, "OK\n")
+        
+        # waiting for the connection to be closed
+        logger.info(f"{client_ip}: new connection")
+        await connection.wait_closed()
+        logger.info(f"{client_ip}: connection closed")
+    except InvalidHandshake as e:
+        logger.warning(f"{client_ip}: InvalidHandshake - {e}")
+    except Exception as e:
+        logger.warning(f"{client_ip}: Exception during connection - {e}")
+
+
 async def main():
-    async with serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout):
+    async with serve(echo, "0.0.0.0", websocket_port, process_request=process_request, ping_interval=ping_interval, ping_timeout=ping_timeout):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
             print_clients(shared_data, mc),
