@@ -350,7 +350,7 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             timeouts_count = 0
         except asyncio.TimeoutError:
             timeouts_count += 1
-            if (timeouts_count < ping_timeout_count):
+            if timeouts_count < ping_timeout_count:
                 logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
                 continue
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
