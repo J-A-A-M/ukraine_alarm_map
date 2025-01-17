@@ -227,12 +227,6 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                     online_event.set_event_param("online", "true")
                     await send_google_stat(tracker, online_event)
                 logger.debug(f"{client_ip}:{data} >>> chip_id saved")
-            case "pong":
-                if google_stat_send:
-                    ping_event = tracker.create_new_event("ping")
-                    ping_event.set_event_param("state", "alive")
-                    await send_google_stat(tracker, ping_event)
-                logger.debug(f"{client_ip}:{chip_id} >>> ping sent")
             case "settings":
                 json_data = json.loads(data)
                 if google_stat_send:
@@ -338,6 +332,8 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
 
 async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
     timeouts_count = 0
+    if google_stat_send:
+        tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     while True:
         chip_id = get_chip_id(client, client_id)
         try:
@@ -348,6 +344,10 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
             client["latency"] = latency
             timeouts_count = 0
+            if google_stat_send:
+                ping_event = tracker.create_new_event("ping")
+                ping_event.set_event_param("state", "alive")
+                await send_google_stat(tracker, ping_event)
         except asyncio.TimeoutError:
             timeouts_count += 1
             if timeouts_count < ping_timeout_count:
