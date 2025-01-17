@@ -1154,7 +1154,7 @@ bool saveLampBrightness(int newBrightness, bool saveToSettings, bool checkPrevBr
     LOG.println(settings.ha_light_brightness);
     ha.setLampBrightness(newBrightness);
   }
-  
+
   mapCycle();
   return true;
 }
@@ -1568,21 +1568,31 @@ void showClimate() {
 }
 
 void showToggleModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSizeForToggle(), timeClient.second());
+  int numOfNonClimateInfo;
+  if (settings.toggle_mode_weather){
+    numOfNonClimateInfo = 2;
+  } else {
+    numOfNonClimateInfo = 1;
+  }
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, numOfNonClimateInfo + getClimateInfoSizeForToggle(), timeClient.second());
   switch (periodIndex) {
   case 0:
     showClock();
     break;
   case 1:
-    // Display Mode Weather
+    // Display Mode Weather when enabled elase show 0 element of local climate info
     if (settings.toggle_mode_weather) {
-    showTemp();
-    break;
+      showTemp();
+      break;
+    } else {
+      showLocalClimateInfoForToggle(0);
+      break;
     }
   case 2:
   case 3:
   case 4:
-    showLocalClimateInfoForToggle(periodIndex - 2);
+    // Display Mode Climate info, when weather is disabled, start from 1
+    showLocalClimateInfoForToggle(periodIndex - numOfNonClimateInfo);
     break;
   default:
     break;
@@ -1807,7 +1817,7 @@ bool restoreSettings(JsonObject doc) {
 
     // skip id key, we do not need to restore it
     if (strcmp(key, "id") == 0) continue;
-    
+
     if (strcmp(type, PF_INT) == 0) {
       int valueInt = setting["value"].as<int>();
       preferences.putInt(key, valueInt);
@@ -1825,7 +1835,7 @@ bool restoreSettings(JsonObject doc) {
   }
   preferences.end();
   return restored;
-} 
+}
 
 int checkboxIndex = 1;
 int sliderIndex = 1;
@@ -2699,7 +2709,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
 
   if (saved) autoBrightnessUpdate();
-  
+
   request->send(redirectResponce(request, "/brightness", saved));
 }
 
