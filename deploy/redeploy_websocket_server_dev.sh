@@ -3,14 +3,15 @@
 # Default values
 MEMCACHED_HOST=""
 WEBSOCKET_PORT=38447
-PING_INTERVAL=20
-PING_TIMEOUT=20
+PING_INTERVAL=60
+PING_TIMEOUT=30
+PING_TIMEOUT_COUNT=1
 ENVIRONMENT="DEV"
 RANDOM_MODE="False"
 TEST_MODE="False"
 MEMCACHE_FETCH_INTERVAL=1
-LOGGING="DEBUG"
-GOOGLE_STAT="True"
+LOGGING="INFO"
+GOOGLE_STAT="False"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--ping-timeout)
             PING_TIMEOUT="$2"
+            shift 2
+            ;;
+        -c|--ping-timeout-count)
+            PING_TIMEOUT_COUNT="$2"
             shift 2
             ;;
         -r|--random-mode)
@@ -72,6 +77,7 @@ echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
 echo "PING_INTERVAL: $PING_INTERVAL"
 echo "PING_TIMEOUT: $PING_TIMEOUT"
+echo "PING_TIMEOUT_COUNT: $PING_TIMEOUT_COUNT"
 echo "ENVIRONMENT: $ENVIRONMENT"
 echo "RANDOM_MODE: $RANDOM_MODE"
 echo "TEST_MODE: $TEST_MODE"
@@ -100,7 +106,7 @@ docker rm map_websocket_server_dev || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server_dev --restart unless-stopped --network=jaam  -d --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env PING_TIMEOUT="$PING_TIMEOUT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env TEST_MODE="$TEST_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" map_websocket_server_dev
+docker run --name map_websocket_server_dev --restart unless-stopped --network=jaam  -d --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env PING_TIMEOUT="$PING_TIMEOUT" --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env TEST_MODE="$TEST_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" map_websocket_server_dev
 
 echo "Container deployed successfully!"
 

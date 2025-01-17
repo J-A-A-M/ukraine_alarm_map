@@ -3108,9 +3108,6 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::GotPing) {
     LOG.println("websocket ping");
-    client_websocket.pong();
-    client_websocket.send("pong");
-    LOG.println("answered pong");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
     LOG.println("websocket pong");

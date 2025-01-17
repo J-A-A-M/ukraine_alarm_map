@@ -13,8 +13,9 @@ from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
-from websockets.asyncio.server import serve, ServerConnection
+from websockets.asyncio.server import serve, ServerConnection, Request, Response
 from logging import WARNING
+from http import HTTPStatus
 
 
 class ChipIdTimeoutException(Exception):
@@ -31,6 +32,7 @@ log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 20))
 ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
+ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT", 1))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
@@ -176,6 +178,12 @@ async def get_client_firmware(client):
     return client["firmware"]
 
 
+async def get_client_ip(connection: ServerConnection):
+    return connection.request.headers.get(
+        "CF-Connecting-IP", connection.request.headers.get("X-Real-IP", connection.remote_address[0])
+    )
+
+
 async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
@@ -225,12 +233,6 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                     online_event.set_event_param("online", "true")
                     await send_google_stat(tracker, online_event)
                 logger.debug(f"{client_ip}:{data} >>> chip_id saved")
-            case "pong":
-                if google_stat_send:
-                    ping_event = tracker.create_new_event("ping")
-                    ping_event.set_event_param("state", "alive")
-                    await send_google_stat(tracker, ping_event)
-                logger.debug(f"{client_ip}:{chip_id} >>> ping sent")
             case "settings":
                 json_data = json.loads(data)
                 if google_stat_send:
@@ -326,13 +328,39 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.5)
-        except ChipIdTimeoutException as e:
+        except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-            await websocket.close()
             break
-        except FirmwareTimeoutException as e:
+        except FirmwareTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
-            await websocket.close()
+            break
+
+
+async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
+    timeouts_count = 0
+    if google_stat_send:
+        tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
+    while True:
+        chip_id = get_chip_id(client, client_id)
+        try:
+            pong_waiter = await websocket.ping()
+            logger.debug(f"{client_ip}:{chip_id} >>> ping")
+            latency = await asyncio.wait_for(pong_waiter, ping_timeout)
+            logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
+            client["latency"] = int(latency * 1000)  # convert to ms
+            timeouts_count = 0
+            if google_stat_send:
+                ping_event = tracker.create_new_event("ping")
+                ping_event.set_event_param("state", "alive")
+                await send_google_stat(tracker, ping_event)
+            # wait for next ping
+            await asyncio.sleep(ping_interval)
+        except asyncio.TimeoutError:
+            timeouts_count += 1
+            if timeouts_count < ping_timeout_count:
+                logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
+                continue
+            logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
             break
 
 
@@ -344,7 +372,7 @@ async def echo(websocket: ServerConnection):
     try:
         client_id = generate_random_hash(8)
         # get real header from websocket
-        client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
+        client_ip = await get_client_ip(websocket)
         secure_connection = websocket.request.headers.get("X-Connection-Secure", "false")
         logger.info(f"{client_ip}:{client_id} >>> new client")
 
@@ -389,6 +417,7 @@ async def echo(websocket: ServerConnection):
             "test_bins": "[]",
             "firmware": "unknown",
             "chip_id": "unknown",
+            "latency": -1,
             "city": city,
             "region": region,
             "country": country,
@@ -427,8 +456,12 @@ async def echo(websocket: ServerConnection):
             message_handler(websocket, client, client_id, client_ip, country, region, city),
             name=f"message_handler_{client_id}",
         )
+        ping_pong_task = asyncio.create_task(
+            ping_pong(websocket, client, client_id, client_ip),
+            name=f"ping_pong_{client_id}",
+        )
         done, pending = await asyncio.wait(
-            [consumer_task, producer_task],
+            [consumer_task, producer_task, ping_pong_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
         chip_id = get_chip_id(client, client_id)
@@ -780,8 +813,36 @@ async def get_data_from_memcached(mc):
     )
 
 
+async def process_request(connection: ServerConnection, request: Request):
+    client_ip = await get_client_ip(connection)
+    # health check
+    if request.path == "/healthz":
+        logger.info(f"{client_ip}: health check")
+        return connection.respond(HTTPStatus.OK, "OK\n")
+    # check for valid path
+    if not request.path.startswith("/data_v"):
+        logger.warning(f"{client_ip}: invalid path - {request.path}")
+        return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
+
+
+async def process_response(connection: ServerConnection, request: Request, responce: Response):
+    client_ip = await get_client_ip(connection)
+    if connection.protocol.handshake_exc:
+        logger.warning(f"{client_ip}: invalid handshake - {connection.protocol.handshake_exc}")
+        # clear exception, already handled
+        connection.protocol.handshake_exc = None
+
+
 async def main():
-    async with serve(echo, "0.0.0.0", websocket_port, ping_interval=ping_interval, ping_timeout=ping_timeout):
+    async with serve(
+        echo,
+        "0.0.0.0",
+        websocket_port,
+        process_request=process_request,
+        process_response=process_response,
+        ping_interval=None,
+        ping_timeout=None,
+    ):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
             print_clients(shared_data, mc),
