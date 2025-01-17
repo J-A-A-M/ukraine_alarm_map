@@ -178,6 +178,12 @@ async def get_client_firmware(client):
     return client["firmware"]
 
 
+async def get_client_ip(connection: ServerConnection):
+    return connection.request.headers.get(
+        "CF-Connecting-IP", connection.request.headers.get("X-Real-IP", connection.remote_address[0])
+    )
+
+
 async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
@@ -342,7 +348,7 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             logger.debug(f"{client_ip}:{chip_id} >>> ping")
             latency = await asyncio.wait_for(pong_waiter, ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
-            client["latency"] = latency
+            client["latency"] = int(latency * 1000) # convert to ms
             timeouts_count = 0
             if google_stat_send:
                 ping_event = tracker.create_new_event("ping")
@@ -365,7 +371,7 @@ async def echo(websocket: ServerConnection):
     try:
         client_id = generate_random_hash(8)
         # get real header from websocket
-        client_ip = websocket.request.headers.get("CF-Connecting-IP", websocket.remote_address[0])
+        client_ip = await get_client_ip(websocket)
         secure_connection = websocket.request.headers.get("X-Connection-Secure", "false")
         logger.info(f"{client_ip}:{client_id} >>> new client")
 
@@ -806,8 +812,8 @@ async def get_data_from_memcached(mc):
     )
 
 
-def process_request(connection: ServerConnection, request: Request):
-    client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
+async def process_request(connection: ServerConnection, request: Request):
+    client_ip = await get_client_ip(connection)
     # health check
     if request.path == "/healthz":
         logger.info(f"{client_ip}: health check")
@@ -818,8 +824,8 @@ def process_request(connection: ServerConnection, request: Request):
         return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
 
 
-def process_response(connection: ServerConnection, request: Request, responce: Response):
-    client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
+async def process_response(connection: ServerConnection, request: Request, responce: Response):
+    client_ip = await get_client_ip(connection)
     if connection.protocol.handshake_exc:
         logger.warning(f"{client_ip}: invalid handshake - {connection.protocol.handshake_exc}")
         # clear exception, already handled
