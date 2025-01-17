@@ -1568,30 +1568,28 @@ void showClimate() {
 }
 
 void showToggleModes() {
-  int numOfNonClimateInfo;
-  if (settings.toggle_mode_weather){
-    numOfNonClimateInfo = 2;
-  } else {
-    numOfNonClimateInfo = 1;
-  }
+  int numOfNonClimateInfo = settings.toggle_mode_weather ? 2 : 1;
   int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, numOfNonClimateInfo + getClimateInfoSizeForToggle(), timeClient.second());
   switch (periodIndex) {
   case 0:
+    // Display Mode Clock
     showClock();
     break;
   case 1:
-    // Display Mode Weather when enabled elase show 0 element of local climate info
-    if (settings.toggle_mode_weather) {
-      showTemp();
+    // Display Mode Weather when climate sensor is not available
+    // Display Mode Weather when climate sensor available and weather enabled in settings
+    // Else show 0 element of local climate info
+    if (!settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
+      showLocalClimateInfoForToggle(0);
       break;
     } else {
-      showLocalClimateInfoForToggle(0);
+      showTemp();
       break;
     }
   case 2:
   case 3:
   case 4:
-    // Display Mode Climate info, when weather is disabled, start from 1
+    // Display Mode Climate info
     showLocalClimateInfoForToggle(periodIndex - numOfNonClimateInfo);
     break;
   default:
