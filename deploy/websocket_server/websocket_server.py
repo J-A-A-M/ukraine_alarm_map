@@ -820,7 +820,7 @@ async def process_request(connection: ServerConnection, request: Request):
         return connection.respond(HTTPStatus.OK, "OK\n")
     # check for valid path
     if not request.path.startswith("/data_v"):
-        logger.warning(f"{client_ip}: invalid path")
+        logger.warning(f"{client_ip}: invalid path - {request.path}")
         return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
 
 
