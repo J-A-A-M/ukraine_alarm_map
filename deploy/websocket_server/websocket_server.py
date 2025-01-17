@@ -13,7 +13,7 @@ from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError, InvalidHandshake
-from websockets.asyncio.server import serve, ServerConnection, Request
+from websockets.asyncio.server import serve, ServerConnection, Request, Response
 from logging import WARNING
 from http import HTTPStatus
 
@@ -327,13 +327,11 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
             await asyncio.sleep(0.5)
-        except ChipIdTimeoutException as e:
+        except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-            await websocket.close()
             break
-        except FirmwareTimeoutException as e:
+        except FirmwareTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
-            await websocket.close()
             break
 
 
@@ -783,19 +781,26 @@ async def get_data_from_memcached(mc):
 
 def process_request(connection: ServerConnection, request: Request):
     client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
-    try:
-        # health check
-        if request.path == "/healthz":
-            logger.info(f"{client_ip}: health check")
-            return connection.respond(HTTPStatus.OK, "OK\n")
-    except InvalidHandshake as e:
-        logger.warning(f"{client_ip}: InvalidHandshake - {e}")
-    except Exception as e:
-        logger.warning(f"{client_ip}: Exception during connection - {e}")
+    # health check
+    if request.path == "/healthz":
+        logger.info(f"{client_ip}: health check")
+        return connection.respond(HTTPStatus.OK, "OK\n")
+    # check for valid path
+    if not request.path.startswith("/data_v"):
+        logger.warning(f"{client_ip}: invalid path")
+        return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
+
+
+def process_response(connection: ServerConnection, request: Request, responce: Response):
+    client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
+    if connection.protocol.handshake_exc:
+        logger.warning(f"{client_ip}: invalid handshake - {connection.protocol.handshake_exc}")
+        # clear exception, already handled
+        connection.protocol.handshake_exc = None
 
 
 async def main():
-    async with serve(echo, "0.0.0.0", websocket_port, process_request=process_request, ping_interval=ping_interval, ping_timeout=ping_timeout):
+    async with serve(echo, "0.0.0.0", websocket_port, process_request=process_request, process_response=process_response, ping_interval=ping_interval, ping_timeout=ping_timeout):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
             print_clients(shared_data, mc),
