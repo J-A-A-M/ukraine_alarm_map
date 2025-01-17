@@ -493,6 +493,7 @@ async def dataparcer(clients, connection_type):
                 "version": version,
                 "id": plate_id,
                 "chip_id": data.get("chip_id"),
+                "latency": data.get("latency"),
                 "country": data.get("country"),
                 "district": data.get("region"),
                 "city": data.get("city"),

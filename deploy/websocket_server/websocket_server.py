@@ -335,6 +335,22 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             break
 
 
+async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
+    while True:
+        try:
+            chip_id = get_chip_id(client, client_id)
+            await asyncio.sleep(ping_interval)
+            pong_waiter = await websocket.ping()
+            logger.debug(f"{client_ip}:{chip_id} >>> ping")
+            latency = await asyncio.wait_for(pong_waiter, ping_timeout)
+            logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
+            client["latency"] = latency
+        except asyncio.TimeoutError:
+            chip_id = get_chip_id(client, client_id)
+            logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
+            break
+
+
 async def send_google_stat(tracker, event):
     tracker.send(events=[event], date=datetime.datetime.now())
 
@@ -388,6 +404,7 @@ async def echo(websocket: ServerConnection):
             "test_bins": "[]",
             "firmware": "unknown",
             "chip_id": "unknown",
+            "latency": -1,
             "city": city,
             "region": region,
             "country": country,
@@ -426,8 +443,12 @@ async def echo(websocket: ServerConnection):
             message_handler(websocket, client, client_id, client_ip, country, region, city),
             name=f"message_handler_{client_id}",
         )
+        ping_pong_task = asyncio.create_task(
+            ping_pong(websocket, client, client_id, client_ip),
+            name=f"ping_pong_{client_id}",
+        )
         done, pending = await asyncio.wait(
-            [consumer_task, producer_task],
+            [consumer_task, producer_task, ping_pong_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
         chip_id = get_chip_id(client, client_id)
@@ -806,8 +827,8 @@ async def main():
         websocket_port,
         process_request=process_request,
         process_response=process_response,
-        ping_interval=ping_interval,
-        ping_timeout=ping_timeout,
+        ping_interval=None,
+        ping_timeout=None,
     ):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
