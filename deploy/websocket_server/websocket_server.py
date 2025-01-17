@@ -12,7 +12,7 @@ from geoip2 import database, errors
 from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
-from websockets import ConnectionClosedError, InvalidHandshake
+from websockets import ConnectionClosedError
 from websockets.asyncio.server import serve, ServerConnection, Request, Response
 from logging import WARNING
 from http import HTTPStatus
