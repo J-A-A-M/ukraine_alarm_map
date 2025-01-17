@@ -781,18 +781,13 @@ async def get_data_from_memcached(mc):
     )
 
 
-async def process_request(connection: ServerConnection, request: Request):
+def process_request(connection: ServerConnection, request: Request):
     client_ip = request.headers.get("CF-Connecting-IP", connection.remote_address[0])
     try:
         # health check
         if request.path == "/healthz":
             logger.info(f"{client_ip}: health check")
             return connection.respond(HTTPStatus.OK, "OK\n")
-        
-        # waiting for the connection to be closed
-        logger.info(f"{client_ip}: new connection")
-        await connection.wait_closed()
-        logger.info(f"{client_ip}: connection closed")
     except InvalidHandshake as e:
         logger.warning(f"{client_ip}: InvalidHandshake - {e}")
     except Exception as e:
