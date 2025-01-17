@@ -32,6 +32,7 @@ log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL", 20))
 ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
+ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT", 1))
 memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
@@ -336,17 +337,22 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
 
 
 async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
+    timeouts_count = 0
     while True:
+        chip_id = get_chip_id(client, client_id)
         try:
-            chip_id = get_chip_id(client, client_id)
             await asyncio.sleep(ping_interval)
             pong_waiter = await websocket.ping()
             logger.debug(f"{client_ip}:{chip_id} >>> ping")
             latency = await asyncio.wait_for(pong_waiter, ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
             client["latency"] = latency
+            timeouts_count = 0
         except asyncio.TimeoutError:
-            chip_id = get_chip_id(client, client_id)
+            timeouts_count += 1
+            if (timeouts_count < ping_timeout_count):
+                logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
+                continue
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
             break
 
