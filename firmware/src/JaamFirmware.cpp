@@ -1550,40 +1550,34 @@ void showClimate() {
 
 int getNextToggleMode(int periodIndex) {
   if (periodIndex == currentDisplayToggleIndex) return currentDisplayToggleMode;
-  LOG.printf("Current toggle mode: %d\n", currentDisplayToggleMode);
   switch (currentDisplayToggleMode) {
   case 0:
     // if weather is enabled or no sensors available
     if (settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
       // show weather info
-      LOG.printf("Next toggle mode: %d\n", 1);
       return 1;
     }
   case 1:
     // if local temperature is enabled and available
     if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) {
       // show local temperature
-      LOG.printf("Next toggle mode: %d\n", 2);
       return 2;
     }
   case 2:
     // if local humidity is enabled and available
     if (settings.toggle_mode_hum && climate.isHumidityAvailable()) {
       // show local humidity
-      LOG.printf("Next toggle mode: %d\n", 3);
       return 3;
     }
   case 3:
     // if local pressure is enabled and available
     if (settings.toggle_mode_press && climate.isPressureAvailable()) {
       // show local pressure
-      LOG.printf("Next toggle mode: %d\n", 4);
       return 4;
     }
     // else show time
   case 4:
   default:
-    LOG.printf("Next toggle mode: %d\n", 0);
     return 0;
   }
 }
