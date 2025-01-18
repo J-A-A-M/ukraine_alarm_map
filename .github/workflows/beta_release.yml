@@ -58,7 +58,7 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
           prerelease: true
-          makeLatest: false    
+          makeLatest: false
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.2.0
         with:
