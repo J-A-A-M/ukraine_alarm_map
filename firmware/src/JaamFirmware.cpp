@@ -51,9 +51,9 @@ struct Settings {
   char    devicedescription[51]  = "JAAM Informer";
   char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "jaam.net.ua";
-  int     websocket_port         = 2052;
-  int     updateport             = 2095;
+  char    serverhost[31]         = "ws.jaam.net.ua";
+  int     websocket_port         = 80;
+  int     updateport             = 80;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
