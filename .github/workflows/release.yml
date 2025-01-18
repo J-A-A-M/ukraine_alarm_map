@@ -82,14 +82,10 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
-      # Disabled for now
-      # - name: Leave only 3 recent releases
-      #   run: |
-      #     cd ${{ github.workspace }}/bin/
-      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-      #     cd ${{ github.workspace }}/bin_beta/
-      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-      #     cd ${{ github.workspace }}
+      - name: Leave only 5 recent PROD builds and 10 recent BETA builds
+        run: |
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/ 5
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
@@ -120,16 +116,3 @@ jobs:
           head_to_merge: ${{ steps.commit_changes.outputs.commit_hash }}
           message: Sync Release ${{ inputs.release-version }} to develop
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update server bin list
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.CLOUD_SERVER_IP }}
-          username: ${{ secrets.CLOUD_SERVER_USER }}
-          key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-          script: |
-            cd /root/ukraine_alarm_map/deploy/
-            git fetch --all
-            git switch master
-            git pull
-            bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
-
