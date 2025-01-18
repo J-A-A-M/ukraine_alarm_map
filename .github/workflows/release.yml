@@ -82,14 +82,10 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
-      # Disabled for now
-      # - name: Leave only 3 recent releases
-      #   run: |
-      #     cd ${{ github.workspace }}/bin/
-      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-      #     cd ${{ github.workspace }}/bin_beta/
-      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-      #     cd ${{ github.workspace }}
+      - name: Leave only 5 recent PROD builds and 10 recent BETA builds
+        run: |
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/ 5
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
