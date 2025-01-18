@@ -1,4 +1,4 @@
-starlette==0.40.0
-uvicorn==0.24.0.post1
-aiomcache==0.8.1
-pymemcache==3.5.2
+starlette==0.45.2
+uvicorn==0.34.0
+aiomcache==0.8.2
+pymemcache==4.0.0

@@ -1,0 +1,60 @@
+name: ⚖️ Deploy Watchdog
+on:
+  workflow_dispatch:
+    inputs:
+      container_name:
+        type: string
+        description: "Watched container name"
+        required: true
+        default: "map_websocket_server"
+      image_name:
+        type: string
+        description: "Watchdog container name"
+        required: true
+        default: "map_watchdog"
+      threshold:
+        type: number
+        description: "CPU threshold (in %)"
+        required: true
+        default: 60
+      restart_threshold:
+        type: number
+        description: "How many times CPU must hit threshold"
+        required: true
+        default: 2
+      interval:
+        type: number
+        description: "Checking interval (in seconds)"
+        required: true
+        default: 30
+      log_file:
+        type: string
+        description: "Log file"
+        required: true
+        default: "watchdog.log"
+
+run-name: Deploy Watchdog from '${{ github.ref_name }}' branch
+jobs:
+    deploy_websocket:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy Watchdog
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_watchdog.sh -c ${{ inputs.container_name }} -w ${{ inputs.image_name }} -t ${{ inputs.threshold }} -r ${{ inputs.restart_threshold }} -i ${{ inputs.interval }} -l ${{ inputs.log_file }}
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f

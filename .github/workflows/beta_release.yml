@@ -33,12 +33,9 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin_beta/
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
           cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-      # Disabled for now
-      # - name: Leave only 3 recent BETA builds
-      #   run: |
-      #     cd ${{ github.workspace }}/bin_beta/
-      #     ls -tp | grep -v '/$' | tail -n +5 | xargs -I {} rm -- {}
-      #     cd ${{ github.workspace }}
+      - name: Leave only 10 recent BETA builds
+        run: |
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
@@ -61,7 +58,7 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
           prerelease: true
-          makeLatest: false    
+          makeLatest: false
       - name: Update server test bin list
         uses: appleboy/ssh-action@v1.2.0
         with:

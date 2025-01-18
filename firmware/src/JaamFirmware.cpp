@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <StreamString.h>
 #include <ESPmDNS.h>
 #include <async.h>
 #include <ArduinoJson.h>
@@ -24,13 +25,14 @@
 #include <ArduinoWebsockets.h>
 #include "JaamLightSensor.h"
 #include "JaamClimateSensor.h"
+#include "JaamButton.h"
 #if BUZZER_ENABLED
 #include <melody_player.h>
 #include <melody_factory.h>
 #endif
 #include <esp_task_wdt.h>
 
-const PROGMEM char* VERSION = "4.1";
+const PROGMEM char* VERSION = "4.2-b96";
 
 struct Settings {
   const char*   apssid                 = "JAAM";
@@ -49,20 +51,23 @@ struct Settings {
   char    devicedescription[51]  = "JAAM Informer";
   char    broadcastname[31]      = "jaam";
   char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "jaam.net.ua";
-  int     websocket_port         = 2052;
-  int     updateport             = 2095;
+  char    serverhost[31]         = "ws.jaam.net.ua";
+  int     websocket_port         = 80;
+  int     updateport             = 80;
   char    bin_name[51]           = "";
   char    identifier[51]         = "github";
   int     legacy                 = 1;
   int     pixelpin               = 13;
-  int     bg_pixelpin            = 0;
-  int     service_ledpin         = 0;
-  int     buttonpin              = 15;
+  int     bg_pixelpin            = -1;
+  int     service_ledpin         = -1;
+  int     buttonpin              = -1;
   int     button2pin             = -1;
-  int     alertpin               = 34;
-  int     buzzerpin              = 33;
-  int     lightpin               = 32;
+  int     alertpin               = -1;
+  int     clearpin               = -1;
+  int     buzzerpin              = -1;
+  int     lightpin               = -1;
+  int     alert_clear_pin_mode   = 0;
+  float   alert_clear_pin_time   = 1;
   int     ha_mqttport            = 1883;
   char    ha_mqttuser[31]        = "";
   char    ha_mqttpassword[66]    = "";
@@ -137,6 +142,7 @@ struct Settings {
   // -------  9 - Toggle modes
   int     display_mode           = 2;
   int     display_mode_time      = 5;
+  int     toggle_mode_weather    = 1;
   int     toggle_mode_temp       = 1;
   int     toggle_mode_hum        = 1;
   int     toggle_mode_press      = 1;
@@ -153,7 +159,6 @@ struct Settings {
   int     ws_alert_time          = 150000;
   int     ws_reboot_time         = 300000;
   int     min_of_silence         = 1;
-  int     enable_pin_on_alert    = 0;
   int     fw_update_channel      = 0;
   float   temp_correction        = 0;
   float   hum_correction         = 0;
@@ -232,6 +237,7 @@ ServiceMessage serviceMessage;
 CRGB strip[26];
 CRGB bg_strip[100];
 CRGB service_strip[5];
+int service_strip_update_index = 0;
 
 uint8_t   alarm_leds[26];
 long      alarm_time[26];
@@ -241,7 +247,7 @@ long      missiles_time[26];
 long      drones_time[26];
 uint8_t   flag_leds[26];
 
-bool      gotWebsocketMessage = false;
+bool      isFirstDataFetchCompleted = false;
 
 float     brightnessFactor = 0.5f;
 int       minBrightness = 1;
@@ -262,6 +268,7 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
@@ -281,20 +288,16 @@ int     wifiSignal;
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
 
-// Button variables
-#define SHORT_PRESS_TIME 500 // 500 milliseconds
-#define LONG_PRESS_TIME  500 // 500 milliseconds
-struct ButtonState {
-  const char* name;
-  int lastState = LOW; // the previous state from the input pin
-  int currentState; // the current reading from the input pin
-  unsigned long pressedTime = 0;
-  unsigned long releasedTime = 0;
-  bool isPressing = false;
-  bool isLongDetected = false;
-};
-ButtonState button1;
-ButtonState button2;
+// 0 - Time
+// 1 - Home District Temperature
+// 2 - Climate Temperature
+// 3 - Climate Humidity
+// 4 - Climate Pressure
+int     currentDisplayToggleMode = 0;
+int     currentDisplayToggleIndex = 0;
+
+JaamButton buttons;
+
 #define NIGHT_BRIGHTNESS_LEVEL 2
 
 int binsCount = 0;
@@ -311,11 +314,38 @@ int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
 bool isBgStripEnabled() {
-  return settings.bg_pixelpin > 0 && settings.bg_pixelcount > 0;
+  return settings.bg_pixelpin > -1 && settings.bg_pixelcount > 0;
 }
 
 bool isServiceStripEnabled() {
-  return settings.service_ledpin > 0;
+  return settings.service_ledpin > -1;
+}
+
+bool isAlertPinEnabled() {
+  return settings.alertpin > -1;
+}
+
+bool isClearPinEnabled() {
+  return settings.clearpin > -1;
+}
+
+bool isBuzzerEnabled() {
+  return settings.buzzerpin > -1;
+}
+
+bool isAnalogLightSensorEnabled() {
+  return settings.lightpin > -1;
+}
+
+CRGB fromRgb(int r, int g, int b, float brightness) {
+  // use brightnessFactor as a multiplier to get scaled brightness
+  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
+  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
+}
+
+CRGB fromHue(int hue, float brightness) {
+  RGBColor rgb = hue2rgb(hue);
+  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
 // Forward declarations
@@ -354,38 +384,42 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
 
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
-  Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
-  player->playAsync(melody);
+  if (isBuzzerEnabled()) {
+    Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
+    player->playAsync(melody);
+  }
 #endif
 }
 
 void playMelody(SoundType type) {
 #if BUZZER_ENABLED
-  switch (type) {
-  case MIN_OF_SILINCE:
-    playMelody(MOS_BEEP);
-    break;
-  case MIN_OF_SILINCE_END:
-    playMelody(UA_ANTHEM);
-    break;
-  case ALERT_ON:
-    playMelody(MELODIES[settings.melody_on_alert]);
-    break;
-  case ALERT_OFF:
-    playMelody(MELODIES[settings.melody_on_alert_end]);
-    break;
-  case EXPLOSIONS:
-    playMelody(MELODIES[settings.melody_on_explosion]);
-    break;
-  case REGULAR:
-    playMelody(CLOCK_BEEP);
-    break;
-  case SINGLE_CLICK:
-    playMelody(SINGLE_CLICK_SOUND);
-    break;
-  case LONG_CLICK:
-    playMelody(LONG_CLICK_SOUND);
-    break;
+  if (isBuzzerEnabled()) {
+    switch (type) {
+    case MIN_OF_SILINCE:
+      playMelody(MOS_BEEP);
+      break;
+    case MIN_OF_SILINCE_END:
+      playMelody(UA_ANTHEM);
+      break;
+    case ALERT_ON:
+      playMelody(MELODIES[settings.melody_on_alert]);
+      break;
+    case ALERT_OFF:
+      playMelody(MELODIES[settings.melody_on_alert_end]);
+      break;
+    case EXPLOSIONS:
+      playMelody(MELODIES[settings.melody_on_explosion]);
+      break;
+    case REGULAR:
+      playMelody(CLOCK_BEEP);
+      break;
+    case SINGLE_CLICK:
+      playMelody(SINGLE_CLICK_SOUND);
+      break;
+    case LONG_CLICK:
+      playMelody(LONG_CLICK_SOUND);
+      break;
+    }
   }
 #endif
 }
@@ -405,13 +439,13 @@ bool isItNightNow() {
 
 // Determine the current brightness level
 int getCurrentBrightnessLevel() {
-  int currentValue;
+  int currentValue = 0;
   int maxValue;
   if (lightSensor.isLightSensorAvailable()) {
     // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
     currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
     maxValue = 500;
-  } else {
+  } else if (isAnalogLightSensorEnabled()) {
     // reads the input on analog pin (value between 0 and 4095)
     currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
     // 2600 - very bright indoor environment.
@@ -436,31 +470,34 @@ int getNightModeType() {
 
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED
-  // do not play any sound before websocket connection
-  if (!gotWebsocketMessage) return false;
+  if (isBuzzerEnabled()) {
 
-  // ignore mute on alert
-  if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
+    // do not play any sound before websocket connection
+    if (!isFirstDataFetchCompleted) return false;
 
-  // disable sounds on night mode
-  if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
+    // ignore mute on alert
+    if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
 
-  switch (type) {
-  case MIN_OF_SILINCE:
-    return settings.sound_on_min_of_sl;
-  case MIN_OF_SILINCE_END:
-    return settings.sound_on_min_of_sl;
-  case ALERT_ON:
-    return settings.sound_on_alert;
-  case ALERT_OFF:
-    return settings.sound_on_alert_end;
-  case EXPLOSIONS:
-    return settings.sound_on_explosion;
-  case REGULAR:
-    return settings.sound_on_every_hour;
-  case SINGLE_CLICK:
-  case LONG_CLICK:
-    return settings.sound_on_button_click;
+    // disable sounds on night mode
+    if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
+
+    switch (type) {
+    case MIN_OF_SILINCE:
+      return settings.sound_on_min_of_sl;
+    case MIN_OF_SILINCE_END:
+      return settings.sound_on_min_of_sl;
+    case ALERT_ON:
+      return settings.sound_on_alert;
+    case ALERT_OFF:
+      return settings.sound_on_alert_end;
+    case EXPLOSIONS:
+      return settings.sound_on_explosion;
+    case REGULAR:
+      return settings.sound_on_every_hour;
+    case SINGLE_CLICK:
+    case LONG_CLICK:
+      return settings.sound_on_button_click;
+    }
   }
 #endif
   return false;
@@ -633,12 +670,48 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 }
 #endif
 
+void mapUpdate(float percents) {
+  CRGB hue = fromHue(86, settings.current_brightness);
+  int ledsCount = round(settings.pixelcount * percents);
+  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+    if (i < ledsCount) {
+      strip[i] = hue;
+    } else {
+      strip[i] = CRGB::Black;
+    }
+  }
+  if (isBgStripEnabled()) {
+    int bgLedsCount = round(settings.bg_pixelcount * percents);
+    float bgBrightnessFactor = settings.brightness_bg / 100.0f;
+    CRGB bgHue = fromHue(86, settings.current_brightness * bgBrightnessFactor);
+
+    for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
+      if (i < bgLedsCount) {
+        bg_strip[i] = hue;
+      } else {
+        bg_strip[i] = CRGB::Black;
+      }
+    }
+  }
+  if (isServiceStripEnabled()) {
+    fill_solid(service_strip, 5, CRGB::Black);
+    service_strip[service_strip_update_index] = hue;
+    if (service_strip_update_index == 4) {
+      service_strip_update_index = 0;
+    } else {
+      service_strip_update_index++;
+    }
+  }
+  FastLED.show();
+}
+
 #if FW_UPDATE_ENABLED || ARDUINO_OTA_ENABLED
 void showUpdateProgress(size_t progress, size_t total) {
   if (total == 0) return;
   char progressText[5];
   sprintf(progressText, "%d%%", progress / (total / 100));
   showServiceMessage(progressText, "Оновлення:");
+  mapUpdate(progress * 1.0f / total);
 }
 
 void showUpdateStart() {
@@ -979,24 +1052,31 @@ bool saveNightMode(bool newState) {
   return true;
 }
 
-void handleClick(int event, SoundType soundType) {
+//--Button start
+void handleClick(int event, JaamButton::Action action) {
+  SoundType soundType = action == JaamButton::Action::SINGLE_CLICK ? SoundType::SINGLE_CLICK : SoundType::LONG_CLICK;
   if (event != 0 && needToPlaySound(soundType)) playMelody(soundType);
   switch (event) {
+    // change map mode
     case 1:
       nextMapMode();
       break;
+    // change display mode
     case 2:
       nextDisplayMode();
       break;
+    // toggle map
     case 3:
       isMapOff = !isMapOff;
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Мапу:");
       mapCycle();
       break;
+    // toggle display
     case 4:
       isDisplayOff = !isDisplayOff;
       showServiceMessage(!isDisplayOff ? "Увімкнено" : "Вимкнено", "Дисплей:");
       break;
+    // toggle display and map
     case 5:
       if (isDisplayOff != isMapOff) {
         isDisplayOff = false;
@@ -1008,11 +1088,18 @@ void handleClick(int event, SoundType soundType) {
       showServiceMessage(!isMapOff ? "Увімкнено" : "Вимкнено", "Дисплей та мапу:");
       mapCycle();
       break;
+    // toggle night mode
     case 6:
       saveNightMode(!nightMode);
       break;
+    // toggle lamp (singl click) or reboot device (long click)
     case 7:
-      rebootDevice();
+      if (action == JaamButton::Action::SINGLE_CLICK) {
+        int newMapMode = settings.map_mode == 5 ? prevMapMode : 5;
+        saveMapMode(newMapMode);
+      } else if (JaamButton::Action::LONG_CLICK) {
+        rebootDevice();
+      }
       break;
 #if FW_UPDATE_ENABLED
     case 100:
@@ -1031,65 +1118,149 @@ bool isButtonActivated() {
   return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0;
 }
 
-bool isButton2Available() {
-  return settings.button2pin > -1;
-}
-
 void singleClick(int mode) {
-  handleClick(mode, SINGLE_CLICK);
+  handleClick(mode, JaamButton::SINGLE_CLICK);
 }
 
 void longClick(int modeLong) {
 #if FW_UPDATE_ENABLED
   if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
-    handleClick(100, LONG_CLICK);
+    handleClick(100, JaamButton::LONG_CLICK);
     return;
   }
 #endif
-  handleClick(modeLong, LONG_CLICK);
+  handleClick(modeLong, JaamButton::LONG_CLICK);
 }
 
-// for display chars testing purposes
-// int startSymbol = 0;
-//--Button start
-void buttonUpdate(ButtonState &button, uint8_t pin, int mode, int modeLong) {
-  // read the state of the switch/button:
-  button.currentState = digitalRead(pin);
-
-  if (button.lastState == HIGH && button.currentState == LOW) { // button is pressed
-    button.pressedTime = millis();
-    button.isPressing = true;
-    button.isLongDetected = false;
-  } else if (button.lastState == LOW && button.currentState == HIGH) { // button is released
-    button.isPressing = false;
-    button.releasedTime = millis();
-
-    long pressDuration = button.releasedTime - button.pressedTime;
-
-    if (pressDuration < SHORT_PRESS_TIME) {
+void buttonClick(const char* buttonName, int mode) {
 #if TEST_MODE
-        displayMessage("Single click!", button.name);
+  displayMessage("Single click!", buttonName);
 #else
-        singleClick(mode);
+  singleClick(mode);
 #endif
-      }
+}
+
+void buttonLongClick(const char* buttonName, int modeLong) {
+#if TEST_MODE
+  displayMessage("Long click!", buttonName);
+#else
+  longClick(modeLong);
+#endif
+}
+
+bool saveLampBrightness(int newBrightness, bool saveToSettings, bool checkPrevBrightness) {
+  if (checkPrevBrightness && settings.ha_light_brightness == newBrightness) return false;
+
+  settings.ha_light_brightness = newBrightness;
+
+  if (saveToSettings) {
+    preferences.begin("storage", false);
+    preferences.putInt("ha_lbri", settings.ha_light_brightness);
+    preferences.end();
+    reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
+    LOG.print("ha_light_brightness commited to preferences: ");
+    LOG.println(settings.ha_light_brightness);
+    ha.setLampBrightness(newBrightness);
   }
 
-  if (button.isPressing == true && button.isLongDetected == false) {
-    long pressDuration = millis() - button.pressedTime;
+  mapCycle();
+  return true;
+}
 
-    if (pressDuration > LONG_PRESS_TIME) {
-#if TEST_MODE
-        displayMessage("Long click!", button.name);
-#else
-      longClick(modeLong);
+bool saveLampBrightness(int newBrightness) {
+  return saveLampBrightness(newBrightness, true, true);
+}
+
+void saveCurrentLampBrightness() {
+  LOG.println("Save current lamp brightness");
+  saveLampBrightness(settings.ha_light_brightness, true, false);
+}
+
+char lampBrightnessMsg[4];
+
+void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Action action) {
+#if FW_UPDATE_ENABLED
+  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+    return;
+  }
 #endif
-      button.isLongDetected = true;
+  if (action == JaamButton::Action::DURING_LONG_CLICK) {
+    switch (modeLong) {
+      case 8:
+        // if lamp mode is active, increase lamp brightness
+        if (getCurrentMapMode() == 5) {
+          int newBrightness = settings.ha_light_brightness + 1;
+          if (newBrightness > 100) {
+            newBrightness = 100;
+          }
+          saveLampBrightness(newBrightness, false, true);
+          sprintf(lampBrightnessMsg, "%d%%", newBrightness);
+          showServiceMessage(lampBrightnessMsg, "Яскравість лампи:");
+        } else {
+          showServiceMessage("Лише для режиму лампи");
+        }
+        break;
+      case 9:
+        // if lamp mode is active, decrease lamp brightness
+        if (getCurrentMapMode() == 5) {
+          int newBrightness = settings.ha_light_brightness - 1;
+          if (newBrightness < 0) {
+            newBrightness = 0;
+          }
+          saveLampBrightness(newBrightness, false, true);
+          sprintf(lampBrightnessMsg, "%d%%", newBrightness);
+          showServiceMessage(lampBrightnessMsg, "Яскравість лампи:");
+        } else {
+          showServiceMessage("Лише для режиму лампи");
+        }
+        break;
+      default:
+        // do nothing
+        break;
+  }
+  } else if (action == JaamButton::Action::LONG_CLICK_END) {
+    switch (modeLong) {
+      case 8:
+      case 9:
+        if (getCurrentMapMode() == 5) {
+          saveCurrentLampBrightness();
+        }
+        break;
+      default:
+        // do nothing
+        break;
     }
   }
+}
 
-  // save the the last state
-  button.lastState = button.currentState;
+void button1Click() {
+  LOG.println("Button 1 click");
+  buttonClick("Button 1", settings.button_mode);
+}
+
+void button2Click() {
+  LOG.println("Button 2 click");
+  buttonClick("Button 2", settings.button2_mode);
+}
+
+void button1LongClick() {
+  LOG.println("Button 1 long click");
+  buttonLongClick("Button 1", settings.button_mode_long);
+}
+
+void button2LongClick() {
+  LOG.println("Button 2 long click");
+  buttonLongClick("Button 2", settings.button2_mode_long);
+}
+
+void button1DuringLongClick(JaamButton::Action action) {
+  LOG.println("Button 1 during long click");
+  buttonDuringLongClick("Button 1", settings.button_mode_long, action);
+}
+
+void button2DuringLongClick(JaamButton::Action action) {
+  LOG.println("Button 2 during long click");
+  buttonDuringLongClick("Button 2", settings.button2_mode_long, action);
 }
 
 void distributeBrightnessLevels() {
@@ -1180,20 +1351,6 @@ bool saveShowHomeAlarmTime(bool newState) {
   if (display.isDisplayAvailable()) {
     ha.setShowHomeAlarmTime(newState);
   }
-  return true;
-}
-
-bool saveLampBrightness(int newBrightness) {
-  if (settings.ha_light_brightness == newBrightness) return false;
-  settings.ha_light_brightness = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("ha_lbri", settings.ha_light_brightness);
-  preferences.end();
-  reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
-  LOG.print("ha_light_brightness commited to preferences: ");
-  LOG.println(settings.ha_light_brightness);
-  ha.setLampBrightness(newBrightness);
-  mapCycle();
   return true;
 }
 
@@ -1353,14 +1510,6 @@ int getClimateInfoSize() {
   return size;
 }
 
-int getClimateInfoSizeForToggle() {
-  int size = 0;
-  if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) size++;
-  if (settings.toggle_mode_hum && climate.isHumidityAvailable()) size++;
-  if (settings.toggle_mode_press && climate.isPressureAvailable()) size++;
-  return size;
-}
-
 void showLocalTemp() {
   char message[10];
   sprintf(message, "%.1f%cC", climate.getTemperature(settings.temp_correction), (char)128);
@@ -1394,33 +1543,51 @@ void showLocalClimateInfo(int index) {
   }
 }
 
-void showLocalClimateInfoForToggle(int index) {
-  if (index == 0 && climate.isTemperatureAvailable() && settings.toggle_mode_temp) {
-    showLocalTemp();
-    return;
-  }
-  if (!settings.toggle_mode_temp) index++;
-
-  if (index <= 1 && climate.isHumidityAvailable() && settings.toggle_mode_hum) {
-    showLocalHum();
-    return;
-  }
-  if (!settings.toggle_mode_hum) index++;
-
-  if (index <= 2 && climate.isPressureAvailable() && settings.toggle_mode_press) {
-    showLocalPressure();
-    return;
-  }
-}
-
 void showClimate() {
   int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
   showLocalClimateInfo(periodIndex);
 }
 
+int getNextToggleMode(int periodIndex) {
+  if (periodIndex == currentDisplayToggleIndex) return currentDisplayToggleMode;
+  switch (currentDisplayToggleMode) {
+  case 0:
+    // if weather is enabled or no sensors available
+    if (settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
+      // show weather info
+      return 1;
+    }
+  case 1:
+    // if local temperature is enabled and available
+    if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) {
+      // show local temperature
+      return 2;
+    }
+  case 2:
+    // if local humidity is enabled and available
+    if (settings.toggle_mode_hum && climate.isHumidityAvailable()) {
+      // show local humidity
+      return 3;
+    }
+  case 3:
+    // if local pressure is enabled and available
+    if (settings.toggle_mode_press && climate.isPressureAvailable()) {
+      // show local pressure
+      return 4;
+    }
+    // else show time
+  case 4:
+  default:
+    return 0;
+  }
+}
+
 void showToggleModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2 + getClimateInfoSizeForToggle(), timeClient.second());
-  switch (periodIndex) {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 5, timeClient.second());
+  int nextToggleMode = getNextToggleMode(periodIndex);
+  currentDisplayToggleIndex = periodIndex;
+  currentDisplayToggleMode = nextToggleMode;
+  switch (currentDisplayToggleMode) {
   case 0:
     // Display Mode Clock
     showClock();
@@ -1430,9 +1597,16 @@ void showToggleModes() {
     showTemp();
     break;
   case 2:
+    // Display Climate Temperature
+    showLocalTemp();
+    break;
   case 3:
+    // Display Climate Humidity
+    showLocalHum();
+    break;
   case 4:
-    showLocalClimateInfoForToggle(periodIndex - 2);
+    // Display Climate Pressure
+    showLocalPressure();
     break;
   default:
     break;
@@ -1570,10 +1744,111 @@ void climateSensorCycle() {
   updateHaPressureSensors();
 }
 
+void setAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: HIGH");
+    digitalWrite(settings.alertpin, HIGH);
+  }
+}
+
+void setClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: HIGH");
+    digitalWrite(settings.clearpin, HIGH);
+  }
+}
+
+void disableAlertPin() {
+  if (isAlertPinEnabled()) {
+    LOG.println("alert pin: LOW");
+    digitalWrite(settings.alertpin, LOW);
+  }
+}
+
+void disableClearPin() {
+  if (isClearPinEnabled()) {
+    LOG.println("clear pin: LOW");
+    digitalWrite(settings.clearpin, LOW);
+  }
+}
+
+void disableAlertAndClearPins() {
+  disableAlertPin();
+  disableClearPin();
+}
+
 //--Web server start
 
 int getSettingsDisplayMode(int localDisplayMode) {
   return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
+}
+
+void backupSettings(Print* response) {
+  JsonDocument doc;
+  doc["fw_version"] = VERSION;
+  doc["chip_id"] = chipID;
+  doc["time"] = timeClient.unixToString("DD.MM.YYYY hh:mm:ss").c_str();
+  JsonArray settingsArray = doc["settings"].to<JsonArray>();
+  preferences.begin("storage", true);
+  for (const char* key : SETTINGS_KEYS) {
+    // skip id key, we do not need to backup it
+    if (strcmp(key, "id") == 0) continue;
+
+    if (preferences.isKey(key)) {
+      JsonObject setting = settingsArray.add<JsonObject>();
+      setting["key"] = key;
+      PreferenceType type = preferences.getType(key);
+      switch (type) {
+        case PT_I32:
+          setting["value"] = preferences.getInt(key);
+          setting["type"] = PF_INT;
+          break;
+        case PT_STR:
+          setting["value"] = preferences.getString(key);
+          setting["type"] = PF_STRING;
+          break;
+        case PT_BLOB:
+          setting["value"] = preferences.getFloat(key);
+          setting["type"] = PF_FLOAT;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  preferences.end();
+
+  response->print(doc.as<String>());
+}
+
+bool restoreSettings(JsonObject doc) {
+  JsonArray settingsArray = doc["settings"].as<JsonArray>();
+  preferences.begin("storage", false);
+  bool restored = false;
+  for (JsonObject setting : settingsArray) {
+    const char* key = setting["key"];
+    const char* type = setting["type"];
+
+    // skip id key, we do not need to restore it
+    if (strcmp(key, "id") == 0) continue;
+
+    if (strcmp(type, PF_INT) == 0) {
+      int valueInt = setting["value"].as<int>();
+      preferences.putInt(key, valueInt);
+      LOG.printf("Restored setting: '%s' with value '%d'\n", key, valueInt);
+    } else if (strcmp(type, PF_STRING) == 0) {
+      const char* valueStr = setting["value"].as<const char*>();
+      preferences.putString(key, valueStr);
+      LOG.printf("Restored setting: '%s' with value '%s'\n", key, valueStr);
+    } else if (strcmp(type, PF_FLOAT) == 0) {
+      float valueFloat = setting["value"].as<float>();
+      preferences.putFloat(key, valueFloat);
+      LOG.printf("Restored setting: '%s' with value '%f.2'\n", key, valueFloat);
+    }
+    restored = true;
+  }
+  preferences.end();
+  return restored;
 }
 
 int checkboxIndex = 1;
@@ -1747,7 +2022,7 @@ void addCard(AsyncResponseStream* response, const char* title, V value, const ch
 
 void addHeader(AsyncResponseStream* response) {
   response->println("<!DOCTYPE html>");
-  response->println("<html lang='en'>");
+  response->println("<html lang='uk'>");
   response->println("<head>");
   response->println("<meta charset='UTF-8'>");
   response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
@@ -1757,7 +2032,7 @@ void addHeader(AsyncResponseStream* response) {
   // To prevent favicon request
   response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
   response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
-  response->print("<link rel='stylesheet' href='http://");
+  response->print("<link rel='stylesheet' href='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.css'>");
   response->println("</head>");
@@ -1770,7 +2045,7 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  response->print("<img class='full-screen-img' src='http://");
+  response->print("<img class='full-screen-img' src='https://");
   response->print(settings.serverhost);
   response->print("/");
   switch (getCurrentMapMode()) {
@@ -1795,17 +2070,25 @@ void addHeader(AsyncResponseStream* response) {
   response->println("'>");
   response->println("</div>");
   response->println("</div>");
-  response->println("<div class='row justify-content-center'>");
-  response->println("<div class='by col-md-9 mt-2'>");
 #if FW_UPDATE_ENABLED
   if (fwUpdateAvailable) {
+    response->println("<div class='row justify-content-center'>");
+    response->println("<div class='by col-md-9 mt-2'>");
     response->println("<div class='alert alert-success text-center'>");
     response->print("Доступна нова версія прошивки - <b>");
     response->print(newFwVersion);
     response->println("</b></br>Для оновлення перейдіть в розділ <b><a href='/firmware'>Прошивка</a></b></h8>");
     response->println("</div>");
+    response->print("<div class='alert alert-info text-rigth' id='release-notes' data-version='");
+    response->print(newFwVersion);
+    response->println("'>Завантажити опис оновлення?</div>");
+    response->print("<div class='text-center'><button class='btn btn-info' onclick='fetchReleaseNotes()'>Отримати опис оновлення</button></div><br>");
+    response->println("</div>");
+    response->println("</div>");
   }
 #endif
+  response->println("<div class='row justify-content-center'>");
+  response->println("<div class='by col-md-9 mt-2'>");
   response->print("Локальна IP-адреса: <b>");
   response->print(getLocalIP());
   response->println("</b>");
@@ -1842,7 +2125,9 @@ void addLinks(AsyncResponseStream* response) {
   response->println("<a href='/colors' class='btn btn-success'>Кольори</a>");
   response->println("<a href='/modes' class='btn btn-success'>Режими</a>");
 #if BUZZER_ENABLED
-  response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
+  if (isBuzzerEnabled()) {
+    response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
+  }
 #endif
   response->println("<a href='/telemetry' class='btn btn-primary'>Телеметрія</a>");
   response->println("<a href='/dev' class='btn btn-warning'>DEV</a>");
@@ -1855,18 +2140,42 @@ void addLinks(AsyncResponseStream* response) {
 
 void addFooter(AsyncResponseStream* response) {
   response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
-  response->println("<div id='liveToast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div id='saved-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
   response->println("<div class='toast-body'>");
   response->println("💾 Налаштування збережено!");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='reboot-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("💾 Налаштування збережено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("✅ Налаштування відновлено! Перезавантаження...");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div id='restore-error-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
+  response->println("<div class='toast-body'>");
+  response->println("🚫 Помилка відновлення налаштувань!");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("</div>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js' integrity='sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj' crossorigin='anonymous'></script>");
   response->println("<script src='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js' integrity='sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct' crossorigin='anonymous'></script>");
-  response->print("<script src='http://");
+  response->println("<script src='https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js'></script>");
+#if FW_UPDATE_ENABLED
+  if (fwUpdateAvailable) {
+    response->println("<script src='https://cdn.jsdelivr.net/npm/marked/marked.min.js'></script>");
+  }
+#endif
+  response->print("<script src='https://");
   response->print(settings.serverhost);
   response->println("/static/jaam_v1.js'></script>");
+  response->print("<script src='https://");
+  response->print(settings.serverhost);
+  response->println("/static/jaam_v2.js'></script>");
   response->println("</body>");
   response->println("</html>");
 }
@@ -1913,8 +2222,10 @@ void handleBrightness(AsyncWebServerRequest* request) {
   if (isServiceStripEnabled()) {
     addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
   }
-  addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
-  response->println("<p class='text-info'>Детальніше на <a href='https://github.com/v00g100skr/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
+  if (lightSensor.isAnySensorAvailable()) {
+    addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
+  }
+  response->println("<p class='text-info'>Детальніше про сенсор освітлення на <a href='https://github.com/J-A-A-M/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
@@ -1984,9 +2295,10 @@ void handleModes(AsyncWebServerRequest* request) {
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
     addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " секунд");
+    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " с.");
     if (climate.isAnySensorAvailable()) {
       response->println("Відображати в режимі \"Перемикання\":<br><br>");
+      addCheckbox(response, "toggle_mode_weather", settings.toggle_mode_weather, "Погоду у домашньому регіоні");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
       if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.toggle_mode_hum, "Вологість");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.toggle_mode_press, "Тиск");
@@ -2004,24 +2316,26 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
-  addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-  addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
-  if (isButton2Available()) {
+  if (buttons.isButton1Enabled()) {
+    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+  }
+  if (buttons.isButton2Enabled()) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.button2_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.button2_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
   addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у дом. регіоні");
+    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
   addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи", settings.explosion_time, 1, 10, 1, " хвилин", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " секунд", settings.alarms_notify_mode != 2);
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " с.", settings.alarms_notify_mode != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.legacy == 0 || settings.legacy == 3) {
     addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
@@ -2142,9 +2456,9 @@ void handleDev(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
-  response->println("<form action='/saveDev' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<form action='/saveDev' method='POST'>");
   addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
     addSelectBox(response, "display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
@@ -2165,17 +2479,20 @@ void handleDev(AsyncWebServerRequest* request) {
   addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
   if (settings.legacy == 1 || settings.legacy == 2) {
     addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
-    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки (0 - стрічки немає)", "number", String(settings.bg_pixelcount).c_str());
-    addInputText(response, "buttonpin", "Керуючий пін кнопки 1", "number", String(settings.buttonpin).c_str());
-    addInputText(response, "button2pin", "Керуючий пін кнопки 2", "number", String(settings.button2pin).c_str());
+    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
+    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
+    addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
+    addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
   }
-  addInputText(response, "alertpin", "Пін, який замкнеться при тривозі у дом. регіоні (має бути digital)", "number", String(settings.alertpin).c_str());
-  addCheckbox(response, "enable_pin_on_alert", settings.enable_pin_on_alert, ("Замикати пін " + String(settings.alertpin) + " при тривозі у дом. регіоні").c_str());
+  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
+  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
+  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
+  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
+
   if (settings.legacy != 3) {
-    addInputText(response, "lightpin", "Пін фоторезистора (має бути analog)", "number", String(settings.lightpin).c_str());
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
 #if BUZZER_ENABLED
-    addInputText(response, "buzzerpin", "Керуючий пін динаміка (buzzer)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
 #endif
   }
   response->println("<b>");
@@ -2183,13 +2500,23 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
   response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
   response->println("</b>");
-  response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
+  response->println("<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>");
   response->print("<a href='http://");
   response->print(getLocalIP());
   response->println(":8080/0wifi' target='_blank' class='btn btn-primary float-right' aria-expanded='false'>Змінити налаштування WiFi</a>");
-  response->println("</div>");
-  response->println("</div>");
   response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
+  response->println("<div class='row justify-content-center' data-parent='#accordion'>");
+  response->println("<div class='by col-md-9 mt-2'>");
+  response->println("<b><p class='text'>У цьому розділі можна зберегти та відновити налаштування мапи. Зберігаються всі налаштування, крім налаштувань WiFi.</p></b>");
+  response->println("<form id='form_restore' action='/restore' method='POST' enctype='multipart/form-data'>");
+  response->println("<a href='/backup' target='_blank' class='btn btn-info' aria-expanded='false'>Завантажити налаштування</a>");
+  response->println("<label for='restore' class='btn btn-primary float-right' aria-expanded='false'>Відновити налаштування</label>");
+  response->println("<input id='restore' name='restore' type='file' style='visibility:hidden;' onchange='javascript:document.getElementById(\"form_restore\").submit();' accept='application/json'/>");
+  response->println("</form>");
+  response->println("</div>");
+  response->println("</div>");
 
   addFooter(response);
 
@@ -2366,6 +2693,16 @@ void handleUpdate(AsyncWebServerRequest* request) {
 }
 #endif
 
+AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
+  AsyncWebServerResponse* response = request->beginResponse(302);
+  response->addHeader("Location", location);
+  response->addHeader("Set-Cookie", "scroll=true");
+  if (saved) response->addHeader("Set-Cookie", "saved=true");
+  if (restore) response->addHeader("Set-Cookie", "restore=true");
+  if (restoreError) response->addHeader("Set-Cookie", "restore-error=true");
+  return response;
+}
+
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
   saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
@@ -2384,12 +2721,10 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
   saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
   saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
-  
+
   if (saved) autoBrightnessUpdate();
-  
-  char url[18];
-  sprintf(url, "/brightness?svd=%d", saved);
-  request->redirect(url);
+
+  request->send(redirectResponce(request, "/brightness", saved));
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
@@ -2402,10 +2737,8 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
   saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
   saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
-  
-  char url[14];
-  sprintf(url, "/colors?svd=%d", saved);
-  request->redirect(url);
+
+  request->send(redirectResponce(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
@@ -2415,6 +2748,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
   saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
+  saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", &settings.toggle_mode_weather, "tmw") || saved;
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", &settings.toggle_mode_temp, "tmt") || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", &settings.toggle_mode_hum, "tmh") || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", &settings.toggle_mode_press, "tmp") || saved;
@@ -2451,9 +2785,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  char url[13];
-  sprintf(url, "/modes?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/modes", saved));
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
@@ -2471,17 +2803,17 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
   saved = saveInt(request->getParam("melody_volume", true), &settings.melody_volume, "mv", NULL, []() {
 #if BUZZER_ENABLED
+  if (isBuzzerEnabled()) {
     player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  }
 #endif
   }) || saved;
 
-  char url[14];
-  sprintf(url, "/sounds?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/sounds", saved));
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->redirect("/telemetry");
+  request->send(redirectResponce(request, "/telemetry", false));
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2505,36 +2837,77 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
+  reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
+  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
-  reboot = saveBool(request->getParam("enable_pin_on_alert", true), "enable_pin_on_alert", &settings.enable_pin_on_alert, "epoa") || reboot;
 
   if (reboot) {
-    request->redirect("/");
     rebootDevice(3000, true);
+  }
+  request->send(redirectResponce(request, "/dev", false, reboot));
+}
+
+void handleBackup(AsyncWebServerRequest* request) {
+  AsyncResponseStream* response = request->beginResponseStream("application/json");
+  backupSettings(response);
+  char filenameHeader[65];
+  sprintf(filenameHeader, "attachment; filename=\"jaam_backup_%s.json\"", timeClient.unixToString("YYYY.MM.DD_hh-mm-ss").c_str());
+  response->addHeader("Content-Disposition", filenameHeader);
+  response->setCode(200);
+  request->send(response);
+}
+
+StreamString jsonBody;
+
+void handleRestoreBody(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  LOG.println("Received restore json part...");
+  LOG.printf("Filename: %s\n", filename.c_str());
+  size_t totalSize = request->contentLength();
+  LOG.printf("File size: %d\n", totalSize);
+  LOG.printf("Part Size: %d\n", len);
+  if (totalSize > MAX_JSON_SIZE) {
+    LOG.println("File size is too big!");
     return;
   }
-  request->redirect("/?p=tch");
+  jsonBody.write(data, len);
 }
+
+void handleRestore(AsyncWebServerRequest *request) {
+  LOG.println("Restoring settings...");
+  const char* jsonString = jsonBody.c_str();
+  LOG.printf("JSON to restore: %s\n", jsonString);
+  JsonDocument json;
+  deserializeJson(json, jsonString);
+  bool restored = restoreSettings(json.as<JsonObject>());
+  if (restored) {
+    rebootDevice(3000, true);
+  }
+  jsonBody.clear();
+  LOG.printf("Setting restored: %s\n", restored ? "true" : "false");
+  request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
+}
+
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
 
-  char url[16];
-  sprintf(url, "/firmware?svd=%d", saved);
-  request->redirect(url);
+  request->send(redirectResponce(request, "/firmware", saved));
 }
 #endif
 
 #if BUZZER_ENABLED
 void handlePlayTestSound(AsyncWebServerRequest* request) {
-  int soundId = request->getParam("id", false)->value().toInt();
-  playMelody(MELODIES[soundId]);
-  showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
-  request->send(200, "text/plain", "Test sound played!");
+  if (isBuzzerEnabled()) {
+    int soundId = request->getParam("id", false)->value().toInt();
+    playMelody(MELODIES[soundId]);
+    showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
+    request->send(200, "text/plain", "Test sound played!");
+  }
 }
 #endif
 
@@ -2548,8 +2921,10 @@ void setupRouting() {
   webserver.on("/modes", HTTP_GET, handleModes);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
 #if BUZZER_ENABLED
-  webserver.on("/sounds", HTTP_GET, handleSounds);
-  webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+  if (isBuzzerEnabled()) {
+    webserver.on("/sounds", HTTP_GET, handleSounds);
+    webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
+  }
 #endif
   webserver.on("/telemetry", HTTP_GET, handleTelemetry);
   webserver.on("/refreshTelemetry", HTTP_POST, handleRefreshTelemetry);
@@ -2561,8 +2936,12 @@ void setupRouting() {
   webserver.on("/update", HTTP_POST, handleUpdate);
 #endif
 #if BUZZER_ENABLED
-  webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
+  if (isBuzzerEnabled()) {
+    webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
+  }
 #endif
+  webserver.on("/backup", HTTP_GET, handleBackup);
+  webserver.on("/restore", HTTP_POST, handleRestore, handleRestoreBody, NULL);
   webserver.begin();
   LOG.println("Webportal running");
 }
@@ -2631,13 +3010,35 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 #endif
 
 void alertPinCycle() {
-  if (alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == LOW) {
-    LOG.println("alert pin enabled");
-    digitalWrite(settings.alertpin, HIGH);
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 0) {
+    if (alarmNow && digitalRead(settings.alertpin) == LOW) {
+      setAlertPin();
+    }
+    if (!alarmNow && digitalRead(settings.alertpin) == HIGH) {
+      disableAlertPin();
+    }
   }
-  if (!alarmNow && settings.enable_pin_on_alert && digitalRead(settings.alertpin) == HIGH) {
-    LOG.println("alert pin disabled");
-    digitalWrite(settings.alertpin, LOW);
+  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
+    pinAlarmNow = true;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set alert pin on first data fetch");
+      return;
+    }
+    setAlertPin();
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableAlertPin, timeoutMs);
+  }
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
+    pinAlarmNow = false;
+    if (!isFirstDataFetchCompleted) {
+      LOG.println("Do not set clear pin on first data fetch");
+      return;
+    }
+    setClearPin();
+    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableClearPin, timeoutMs);
   }
 }
 
@@ -2647,7 +3048,7 @@ void checkHomeDistrictAlerts() {
   bool localAlarmNow = ledStatus == 1;
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
-    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON); 
+    if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON);
     if (!alarmNow && needToPlaySound(ALERT_OFF)) playMelody(ALERT_OFF);
 
     alertPinCycle();
@@ -2717,7 +3118,8 @@ void onMessageCallback(WebsocketsMessage message) {
     }
   }
   checkHomeDistrictAlerts();
-  gotWebsocketMessage = true;
+  alertPinCycle();
+  isFirstDataFetchCompleted = true;
 }
 
 void onEventsCallback(WebsocketsEvent event, String data) {
@@ -2734,9 +3136,6 @@ void onEventsCallback(WebsocketsEvent event, String data) {
     ha.setMapApiConnect(apiConnected);
   } else if (event == WebsocketsEvent::GotPing) {
     LOG.println("websocket ping");
-    client_websocket.pong();
-    client_websocket.send("pong");
-    LOG.println("answered pong");
     websocketLastPingTime = millis();
   } else if (event == WebsocketsEvent::GotPong) {
     LOG.println("websocket pong");
@@ -2762,6 +3161,10 @@ void socketConnect() {
     LOG.print("connection time - ");
     LOG.print(millis() - startTime);
     LOG.println("ms");
+    char chipIdInfo[25];
+    sprintf(chipIdInfo, "chip_id:%s", chipID);
+    LOG.println(chipIdInfo);
+    client_websocket.send(chipIdInfo);
     char firmwareInfo[100];
     sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
     LOG.println(firmwareInfo);
@@ -2782,10 +3185,6 @@ void socketConnect() {
     sprintf(userInfo, "user_info:%s", userInfoJson.as<String>().c_str());
     LOG.println(userInfo);
     client_websocket.send(userInfo);
-    char chipIdInfo[25];
-    sprintf(chipIdInfo, "chip_id:%s", chipID);
-    LOG.println(chipIdInfo);
-    client_websocket.send(chipIdInfo);
     client_websocket.ping();
     websocketReconnect = false;
     showServiceMessage("підключено!", "Сервер даних", 3000);
@@ -2808,79 +3207,64 @@ void websocketProcess() {
 }
 //--Websocket process end
 
-CRGB fromRgb(int r, int g, int b, float brightness) {
-  // use brightness_factor as a multiplier to get scaled brightness
-  int scaledBrightness = (brightness == 0.0f) ? 0 : round(max(brightness, minBrightness * 1.0f) * 255.0f / 100.0f * brightnessFactor);
-  return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
-}
-
-CRGB fromHue(int hue, float brightness) {
-  RGBColor rgb = hue2rgb(hue);
-  return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
-}
-
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missiles_time, int drones_time, int position, float alertBrightness, float notificationBrightness, bool is_bgstrip) {
+CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
   CRGB hue;
-  float local_brightness_alert = settings.brightness_alert / 100.0f;
-  float local_brightness_clear = settings.brightness_clear / 100.0f;
-  float local_brightness_home_district = settings.brightness_home_district / 100.0f;
-  float local_brightness_bg = settings.brightness_bg / 100.0f;
+  float localBrightnessAlert = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_alert / 100.0f;
+  float localBrightnessClear = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_clear / 100.0f;
+  float localBrightnessHomeDistrict = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_home_district / 100.0f;
 
-  int local_district = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-  int color_switch;
-  float local_brightness;
+  int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+  int colorSwitch;
 
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
   if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_explosion;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+    colorSwitch = settings.color_explosion;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // missiles has second priority
-  if (settings.enable_missiles && missiles_time > 0 && currentTime - missiles_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_missiles;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+  if (settings.enable_missiles && missilesTime > 0 && currentTime - missilesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    colorSwitch = settings.color_missiles;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   // drones has third priority
-  if (settings.enable_drones && drones_time > 0 && currentTime - drones_time < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    color_switch = settings.color_drones;
-    hue = fromHue(color_switch, notificationBrightness * settings.brightness_explosion);
+  if (settings.enable_drones && dronesTime > 0 && currentTime - dronesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
+    colorSwitch = settings.color_drones;
+    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
     return hue;
   }
 
   switch (led) {
     case ALERT:
       if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_new_alert;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_new_alert);
+        colorSwitch = settings.color_new_alert;
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_new_alert);
       } else {
-        color_switch = settings.color_alert;
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness_alert);
+        colorSwitch = settings.color_alert;
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightnessAlert);
       }
       break;
     case CLEAR:
       if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
-        color_switch = settings.color_alert_over;
-        hue = fromHue(color_switch, alertBrightness * settings.brightness_alert_over);
+        colorSwitch = settings.color_alert_over;
+        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_alert_over);
       } else {
-        if (position == local_district) {
-          color_switch = settings.color_home_district;
-          local_brightness = local_brightness_home_district;
+        float localBrightness;
+        if (position == localDistrict) {
+          colorSwitch = settings.color_home_district;
+          localBrightness = localBrightnessHomeDistrict;
         } else {
-          color_switch = settings.color_clear;
-          local_brightness = local_brightness_clear;
+          colorSwitch = settings.color_clear;
+          localBrightness = localBrightnessClear;
         }
-        if (is_bgstrip){
-          local_brightness = local_brightness_bg;
-        }
-        hue = fromHue(color_switch, settings.current_brightness * local_brightness);
+        hue = fromHue(colorSwitch, settings.current_brightness * localBrightness);
       }
       break;
   }
@@ -2920,7 +3304,7 @@ void checkMinuteOfSilence() {
     }
 #if BUZZER_ENABLED
     // play UA Anthem when min of silence ends
-    if (!minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
+    if (isBuzzerEnabled() && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
       playMelody(MIN_OF_SILINCE_END);
       uaAnthemPlaying = true;
     }
@@ -2950,7 +3334,8 @@ void mapReconnect() {
     strip[i] = hue;
   }
   if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, hue);
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(64, localBrightness * settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -2966,7 +3351,8 @@ void mapOff() {
 void mapLamp() {
   fill_solid(strip, settings.pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
   if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3003,14 +3389,14 @@ void mapAlarms() {
   }
   for (uint16_t i = 0; i < settings.pixelcount; i++) {
     strip[i] = processAlarms(
-      adapted_alarm_leds[i], 
-      adapted_alarm_timers[i], 
-      adapted_explosion_timers[i], 
-      adapted_missiles_timers[i], 
-      adapted_drones_timers[i], 
-      i, 
-      blinkBrightness, 
-      notificationBrightness, 
+      adapted_alarm_leds[i],
+      adapted_alarm_timers[i],
+      adapted_explosion_timers[i],
+      adapted_missiles_timers[i],
+      adapted_drones_timers[i],
+      i,
+      blinkBrightness,
+      notificationBrightness,
       false
     );
   }
@@ -3018,7 +3404,7 @@ void mapAlarms() {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
     fill_solid(
-      bg_strip, 
+      bg_strip,
       settings.bg_pixelcount,
       processAlarms(
         adapted_alarm_leds[localDistrict],
@@ -3048,7 +3434,8 @@ void mapWeather() {
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.brightness_bg));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3061,7 +3448,8 @@ void mapFlag() {
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.brightness_bg));
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness * brightness_factror));
   }
   FastLED.show();
 }
@@ -3073,7 +3461,8 @@ void mapRandom() {
   if (isBgStripEnabled()) {
     int bgRandomLed = random(settings.bg_pixelcount);
     int bgRandomColor = random(360);
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.brightness_bg);
+    float brightness_factror = settings.brightness_bg / 100.0f;
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness * brightness_factror);
   }
   FastLED.show();
 }
@@ -3134,10 +3523,12 @@ void calculateStates() {
   checkHomeDistrictAlerts();
 
 #if BUZZER_ENABLED
-  checkCurrentTimeAndPlaySound();
+  if (isBuzzerEnabled()) {
+    checkCurrentTimeAndPlaySound();
 
-  if (uaAnthemPlaying && !player->isPlaying()) {
-    uaAnthemPlaying = false;
+    if (uaAnthemPlaying && !player->isPlaying()) {
+      uaAnthemPlaying = false;
+    }
   }
 #endif
   // update service message expiration
@@ -3202,6 +3593,7 @@ void initSettings() {
   settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
   settings.display_mode           = preferences.getInt("dm", settings.display_mode);
   settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
+  settings.toggle_mode_weather    = preferences.getInt("tmw", settings.toggle_mode_weather);
   settings.toggle_mode_temp       = preferences.getInt("tmt", settings.toggle_mode_temp);
   settings.toggle_mode_hum        = preferences.getInt("tmh", settings.toggle_mode_hum);
   settings.toggle_mode_press      = preferences.getInt("tmp", settings.toggle_mode_press);
@@ -3230,7 +3622,10 @@ void initSettings() {
   settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
   settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
   settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
+  settings.alert_clear_pin_mode   = preferences.getInt("acpm", settings.alert_clear_pin_mode);
   settings.alertpin               = preferences.getInt("ap", settings.alertpin);
+  settings.clearpin               = preferences.getInt("cp", settings.clearpin);
+  settings.alert_clear_pin_time   = preferences.getFloat("acpt", settings.alert_clear_pin_time);
   settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
   settings.lightpin               = preferences.getInt("lp", settings.lightpin);
   settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
@@ -3241,7 +3636,6 @@ void initSettings() {
   settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
   settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
   settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
-  settings.enable_pin_on_alert    = preferences.getInt("epoa", settings.enable_pin_on_alert);
   settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
   settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
   settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
@@ -3267,7 +3661,7 @@ void initSettings() {
   settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
   settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
   settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
-  
+
   preferences.end();
 
   currentFirmware = parseFirmwareVersion(VERSION);
@@ -3297,10 +3691,11 @@ void initLegacy() {
 
     settings.kyiv_district_mode = 3;
     settings.pixelpin = 13;
-    settings.bg_pixelpin = 0;
+    settings.bg_pixelpin = -1;
     settings.bg_pixelcount = 0;
-    settings.service_ledpin = 0;
+    settings.service_ledpin = -1;
     settings.buttonpin = 35;
+    settings.button2pin = -1;
     settings.display_model = 1;
     settings.display_height = 64;
     break;
@@ -3340,27 +3735,43 @@ void initLegacy() {
     minBlinkBrightness = 0.07f;
     break;
   }
-  pinMode(settings.buttonpin, INPUT_PULLUP);
-  button1.name = "Button 1";
-  if (isButton2Available()) {
-    pinMode(settings.button2pin, INPUT_PULLUP);
-    button2.name = "Button 2";
-  }
   LOG.printf("Offset: %d\n", offset);
+}
+
+void initButtons() {
+  LOG.println("Init buttons");
+
+  buttons.setButton1Pin(settings.buttonpin);
+  buttons.setButton1ClickListener(button1Click);
+  buttons.setButton1LongClickListener(button1LongClick);
+  buttons.setButton1DuringLongClickListener(button1DuringLongClick);
+
+  buttons.setButton2Pin(settings.button2pin);
+  buttons.setButton2ClickListener(button2Click);
+  buttons.setButton2LongClickListener(button2LongClick);
+  buttons.setButton2DuringLongClickListener(button2DuringLongClick);
 }
 
 void initBuzzer() {
 #if BUZZER_ENABLED
-  player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
-  player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  if (isBuzzerEnabled()) {
+    player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
+    player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+  }
 #endif
 }
 
 void initAlertPin() {
-  if (settings.enable_pin_on_alert) {
-    LOG.printf("alertpin: %d\n");
-    LOG.println(settings.alertpin);
+  if (isAlertPinEnabled()) {
+    LOG.printf("alertpin: %d\n", settings.alertpin);
     pinMode(settings.alertpin, OUTPUT);
+  }
+}
+
+void initClearPin() {
+  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1) {
+    LOG.printf("clearpin: %d\n", settings.clearpin);
+    pinMode(settings.clearpin, OUTPUT);
   }
 }
 
@@ -3498,7 +3909,9 @@ void initSensors() {
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
-  lightSensor.setPhotoresistorPin(settings.lightpin);
+  if (isAnalogLightSensorEnabled()) {
+    lightSensor.setPhotoresistorPin(settings.lightpin);
+  }
 
   // init climate sensor
   climate.begin();
@@ -3527,9 +3940,9 @@ void initUpdates() {
 
 void initHA() {
   if (shouldWifiReconnect) return;
-  
+
   LOG.println("Init Home assistant API");
-    
+
   if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
     LOG.println("Home Assistant is not available!");
     return;
@@ -3672,8 +4085,10 @@ void setup() {
   initChipID();
   initSettings();
   initLegacy();
+  initButtons();
   initBuzzer();
   initAlertPin();
+  initClearPin();
   initStrip();
   initDisplay();
   initSensors();
@@ -3725,9 +4140,5 @@ void loop() {
     mapCycle();
   }
 #endif
-
-  buttonUpdate(button1, settings.buttonpin, settings.button_mode, settings.button_mode_long);
-  if (isButton2Available()) {
-    buttonUpdate(button2, settings.button2pin, settings.button2_mode, settings.button2_mode_long);
-  }
+  buttons.tick();
 }

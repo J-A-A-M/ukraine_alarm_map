@@ -1,0 +1,57 @@
+name: ⚖️ Deploy Websockets
+on:
+  workflow_dispatch:
+    inputs:
+      google_stat:
+        type: boolean
+        description: "Enable Google stat"
+        default: true
+      ping_interval:
+        type: number
+        description: "Websocket ping interval (in seconds)"
+        default: 60
+      ping_timeout:
+        type: number
+        description: "Websocket ping timeout (in seconds)"
+        default: 30
+      ping_timeout_count:
+        type: number
+        description: "Websocket ping timeout count before disconnect"
+        default: 1
+      logging:
+        type: choice
+        description: "Log level"
+        required: true
+        default: "WARNING"
+        options:
+          - DEBUG
+          - INFO
+          - WARNING
+          - CRITICAL
+          - ERROR
+
+run-name: Deploy Websockets from '${{ github.ref_name }}' branch
+jobs:
+    deploy_websocket:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy WebSockets
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_websocket_server.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -g ${{ inputs.google_stat && 'True' || 'False' }} -l ${{ inputs.logging }} -p ${{ inputs.ping_interval }} -t ${{ inputs.ping_timeout }} -c ${{ inputs.ping_timeout_count }}
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f

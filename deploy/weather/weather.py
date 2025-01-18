@@ -3,9 +3,8 @@ import os
 import asyncio
 import aiohttp
 import logging
+import datetime
 from aiomcache import Client
-
-from datetime import datetime
 
 version = 1
 
@@ -56,7 +55,7 @@ async def weather_data(mc):
         if weather_cached:
             weather_cached_data = json.loads(weather_cached.decode("utf-8"))
 
-        current_datetime = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         weather_cached_data = {
             "version": version,
             "states": {},

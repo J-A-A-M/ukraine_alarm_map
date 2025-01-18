@@ -3,6 +3,7 @@ import json
 import uvicorn
 import time
 import logging
+import datetime
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
@@ -13,8 +14,6 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from aiomcache import Client
-
-from datetime import datetime, timezone
 
 debug_level = os.environ.get("LOGGING")
 debug = os.environ.get("DEBUG", False)
@@ -125,7 +124,7 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
 async def main(request):
     response = """
     <!DOCTYPE html>
-    <html lang='en'>
+    <html lang='uk'>
     <head>
         <meta charset='UTF-8'>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
@@ -155,8 +154,8 @@ async def main(request):
                     <p>Корисні посилання:</p>
                     <ul>
                         <li><a href="https://github.com/J-A-A-M/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
-                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li> 
-                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>                             
+                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li>
+                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>
                     </ul>
                 </div>
                 <div class='col-md-6 offset-md-3'>
@@ -165,17 +164,17 @@ async def main(request):
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">v1</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
                         <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
                         <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
-                        
+
                         <li><a href="/api_status.json">API healthcheck</a></li>
                     </ul>
                 </div>
-                
+
                 <div class='col-md-6 offset-md-3'>
                     <p>Джерела даних:</p>
                     <ul>
                         <li><a href="https://app.etryvoga.com/">app.etryvoga.com (дані по вибухам зі ЗМІ)</a></li>
                         <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com (офіційне API тривог)</a></li>
-                        <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>                         
+                        <li><a href="https://openweathermap.org/api">openweathermap.org (погода)</a></li>
                     </ul>
                 </div>
                 <div class='col-md-6 offset-md-3'>
@@ -388,7 +387,7 @@ async def tcp_v1(request):
 
 
 def get_local_time_formatted():
-    local_time = datetime.now(timezone.utc)
+    local_time = datetime.datetime.now(datetime.UTC)
     formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_local_time
 
@@ -396,8 +395,8 @@ def get_local_time_formatted():
 def calculate_time_difference(timestamp1, timestamp2):
     format_str = "%Y-%m-%dT%H:%M:%SZ"
 
-    time1 = datetime.strptime(timestamp1, format_str)
-    time2 = datetime.strptime(timestamp2, format_str)
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
 
     time_difference = (time2 - time1).total_seconds()
     return int(abs(time_difference))
@@ -444,8 +443,8 @@ async def region_data_v1(request):
 
     if region_id:
         iso_datetime_str = alerts_cached_data["states"][region]["changed"]
-        datetime_obj = datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-        datetime_obj_utc = datetime_obj.replace(tzinfo=timezone.utc)
+        datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
+        datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
         alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
 
         return JSONResponse(
@@ -494,12 +493,14 @@ async def dataparcer(clients, connection_type):
                 "version": version,
                 "id": plate_id,
                 "chip_id": data.get("chip_id"),
+                "latency": data.get("latency"),
                 "country": data.get("country"),
                 "district": data.get("region"),
                 "city": data.get("city"),
                 "timezone": data.get("timezone"),
                 "secure_connection": data.get("secure_connection"),
                 "connection": connection_type,
+                "connect_time": data.get("connect_time"),
             }
         )
     return google
@@ -508,12 +509,12 @@ async def dataparcer(clients, connection_type):
 async def stats(request):
     if request.path_params["token"] == data_token:
         tcp_clients = await mc.get(b"tcp_clients")
-        tcp_clients_data = json.loads(tcp_clients.decode("utf-8")) if tcp_clients else {}
+        tcp_clients_data = json.loads(tcp_clients) if tcp_clients else {}
 
         websocket_clients = await mc.get(b"websocket_clients")
-        websocket_clients_data = json.loads(websocket_clients.decode("utf-8")) if websocket_clients else {}
+        websocket_clients_data = json.loads(websocket_clients) if websocket_clients else {}
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
-        websocket_clients_dev_data = json.loads(websocket_clients_dev.decode("utf-8")) if websocket_clients_dev else {}
+        websocket_clients_dev_data = json.loads(websocket_clients_dev) if websocket_clients_dev else {}
 
         tcp_clients = await dataparcer(tcp_clients_data, "tcp")
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
@@ -521,18 +522,20 @@ async def stats(request):
 
         map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
 
-        return JSONResponse(
-            {
-                "map": {
-                    f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
-                    for data in map_clients_data
-                },
-                "google": map_clients_data,
-                "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
-                "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
-                "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
-            }
-        )
+        response = {
+            "map": {
+                f'{data.get("ip")}_{data.get("port")}': f'{data.get("version")}-{data.get("id")}:{data.get("district")}:{data.get("city")}'
+                for data in map_clients_data
+            },
+            "google": map_clients_data,
+            "api": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in api_clients.items()},
+            "img": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in image_clients.items()},
+            "web": {ip: f"{int(time.time() - float(data[0]))} {data[1]}" for ip, data in web_clients.items()},
+        }
+
+        logger.info(f"Stats: '{response}'")
+
+        return JSONResponse(response)
     else:
         return JSONResponse({})
 
