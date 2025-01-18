@@ -288,6 +288,14 @@ int     wifiSignal;
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
 
+// 0 - Time
+// 1 - Home District Temperature
+// 2 - Climate Temperature
+// 3 - Climate Humidity
+// 4 - Climate Pressure
+int     currentDisplayToggleMode = 0;
+int     currentDisplayToggleIndex = 0;
+
 JaamButton buttons;
 
 #define NIGHT_BRIGHTNESS_LEVEL 2
@@ -1502,14 +1510,6 @@ int getClimateInfoSize() {
   return size;
 }
 
-int getClimateInfoSizeForToggle() {
-  int size = 0;
-  if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) size++;
-  if (settings.toggle_mode_hum && climate.isHumidityAvailable()) size++;
-  if (settings.toggle_mode_press && climate.isPressureAvailable()) size++;
-  return size;
-}
-
 void showLocalTemp() {
   char message[10];
   sprintf(message, "%.1f%cC", climate.getTemperature(settings.temp_correction), (char)128);
@@ -1543,53 +1543,70 @@ void showLocalClimateInfo(int index) {
   }
 }
 
-void showLocalClimateInfoForToggle(int index) {
-  if (index == 0 && climate.isTemperatureAvailable() && settings.toggle_mode_temp) {
-    showLocalTemp();
-    return;
-  }
-  if (!settings.toggle_mode_temp) index++;
-
-  if (index <= 1 && climate.isHumidityAvailable() && settings.toggle_mode_hum) {
-    showLocalHum();
-    return;
-  }
-  if (!settings.toggle_mode_hum) index++;
-
-  if (index <= 2 && climate.isPressureAvailable() && settings.toggle_mode_press) {
-    showLocalPressure();
-    return;
-  }
-}
-
 void showClimate() {
   int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
   showLocalClimateInfo(periodIndex);
 }
 
+int getNextToggleMode(int periodIndex) {
+  if (periodIndex == currentDisplayToggleIndex) return currentDisplayToggleMode;
+  switch (currentDisplayToggleMode) {
+  case 0:
+    // if weather is enabled or no sensors available
+    if (settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
+      // show weather info
+      return 1;
+    }
+  case 1:
+    // if local temperature is enabled and available
+    if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) {
+      // show local temperature
+      return 2;
+    }
+  case 2:
+    // if local humidity is enabled and available
+    if (settings.toggle_mode_hum && climate.isHumidityAvailable()) {
+      // show local humidity
+      return 3;
+    }
+  case 3:
+    // if local pressure is enabled and available
+    if (settings.toggle_mode_press && climate.isPressureAvailable()) {
+      // show local pressure
+      return 4;
+    }
+    // else show time
+  case 4:
+  default:
+    return 0;
+  }
+}
+
 void showToggleModes() {
-  int numOfNonClimateInfo = climate.isAnySensorAvailable() ? (settings.toggle_mode_weather ? 2 : 1) : 2;
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, numOfNonClimateInfo + getClimateInfoSizeForToggle(), timeClient.second());
-  switch (periodIndex) {
+  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 5, timeClient.second());
+  int nextToggleMode = getNextToggleMode(periodIndex);
+  currentDisplayToggleIndex = periodIndex;
+  currentDisplayToggleMode = nextToggleMode;
+  switch (currentDisplayToggleMode) {
   case 0:
     // Display Mode Clock
     showClock();
     break;
   case 1:
-    if (settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
-      // Display Mode Temperature
-      showTemp();
-      break;
-    } else {
-      // Display Mode Climate info
-      showLocalClimateInfoForToggle(0);
-      break;
-    }
+    // Display Mode Temperature
+    showTemp();
+    break;
   case 2:
+    // Display Climate Temperature
+    showLocalTemp();
+    break;
   case 3:
+    // Display Climate Humidity
+    showLocalHum();
+    break;
   case 4:
-    // Display Mode Climate info
-    showLocalClimateInfoForToggle(periodIndex - numOfNonClimateInfo);
+    // Display Climate Pressure
+    showLocalPressure();
     break;
   default:
     break;
