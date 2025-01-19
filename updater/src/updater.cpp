@@ -104,6 +104,15 @@ void updateFirmware() {
 
 #endif
 
+  // Reset some important settings to default
+  preferences.remove("wshost"); // clear websocket host
+  preferences.remove("wsnp"); // clear websocket port
+  preferences.remove("upp"); // clear update server port
+  preferences.remove("dn"); // clear device name
+  preferences.remove("dd"); // clear device description
+  preferences.remove("bn"); // clear broadcaat name
+  preferences.remove("ntph"); // clear ntp server host
+
   preferences.end();
 
   if (firmwareUrl == "") {
