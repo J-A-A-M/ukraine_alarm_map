@@ -90,7 +90,7 @@ class SharedData:
 
 
 async def get_local_time_formatted():
-    current_datetime = datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S")
+    current_datetime = datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%d %H:%M:%S")
     return current_datetime
 
 
