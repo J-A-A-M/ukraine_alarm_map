@@ -150,6 +150,8 @@ struct Settings {
   int     button2_mode           = 0;
   int     button_mode_long       = 0;
   int     button2_mode_long      = 0;
+  int     use_touch_button1      = 0;
+  int     use_touch_button2      = 0;
   int     alarms_notify_mode     = 2;
   int     display_model          = 1;
   int     display_width          = 128;
@@ -2482,7 +2484,9 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
+    addCheckbox(response, "use_touch_button1", settings.use_touch_button1, "Підтримка touch-кнопки TTP223 для кнопки 1");
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
+    addCheckbox(response, "use_touch_button2", settings.use_touch_button2, "Підтримка touch-кнопки TTP223 для кнопки 2");
   }
   addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
   addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
@@ -2837,6 +2841,8 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
+  reboot = saveBool(request->getParam("use_touch_button1", true), "use_touch_button1", &settings.use_touch_button1, "utb1") || reboot;
+  reboot = saveBool(request->getParam("use_touch_button2", true), "use_touch_button2", &settings.use_touch_button2, "utb2") || reboot;
   reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
@@ -3601,6 +3607,8 @@ void initSettings() {
   settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
+  settings.use_touch_button1      = preferences.getInt("utb1", settings.use_touch_button1);
+  settings.use_touch_button2      = preferences.getInt("utb2", settings.use_touch_button2);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.enable_explosions      = preferences.getInt("eex", settings.enable_explosions);
   settings.enable_missiles        = preferences.getInt("emi", settings.enable_missiles);
@@ -3698,6 +3706,7 @@ void initLegacy() {
     settings.button2pin = -1;
     settings.display_model = 1;
     settings.display_height = 64;
+    settings.use_touch_button1 = 0;
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -3733,6 +3742,8 @@ void initLegacy() {
     brightnessFactor = 0.3f;
     minBrightness = 2;
     minBlinkBrightness = 0.07f;
+    settings.use_touch_button1 = 0;
+    settings.use_touch_button2 = 0;
     break;
   }
   LOG.printf("Offset: %d\n", offset);
@@ -3741,12 +3752,16 @@ void initLegacy() {
 void initButtons() {
   LOG.println("Init buttons");
 
-  buttons.setButton1Pin(settings.buttonpin);
+  LOG.printf("button1pin: %d\n", settings.buttonpin);
+  LOG.printf("button1 touch: %d\n", settings.use_touch_button1);
+  buttons.setButton1Pin(settings.buttonpin, !settings.use_touch_button1);
   buttons.setButton1ClickListener(button1Click);
   buttons.setButton1LongClickListener(button1LongClick);
   buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
-  buttons.setButton2Pin(settings.button2pin);
+  LOG.printf("button2pin: %d\n", settings.button2pin);
+  LOG.printf("button2 touch: %d\n", settings.use_touch_button2);
+  buttons.setButton2Pin(settings.button2pin, !settings.use_touch_button2);
   buttons.setButton2ClickListener(button2Click);
   buttons.setButton2LongClickListener(button2LongClick);
   buttons.setButton2DuringLongClickListener(button2DuringLongClick);

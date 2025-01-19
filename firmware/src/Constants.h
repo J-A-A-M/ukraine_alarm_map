@@ -409,7 +409,9 @@ static const char* SETTINGS_KEYS[] = {
   "aoft",
   "ext",
   "abt",
-  "mv"
+  "mv",
+  "utb1",
+  "utb2"
 };
 
 static const char* PF_STRING = "S";

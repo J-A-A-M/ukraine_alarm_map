@@ -9,8 +9,8 @@ public:
     };
     JaamButton();
     void tick();
-    void setButton1Pin(int pin);
-    void setButton2Pin(int pin);
+    void setButton1Pin(int pin, bool activeLow);
+    void setButton2Pin(int pin, bool activeLow);
     void setButton1ClickListener(void (*listener)(void));
     void setButton2ClickListener(void (*listener)(void));
     void setButton1LongClickListener(void (*listener)(void));
