@@ -29,7 +29,7 @@ void JaamButton::setButton1Pin(int pin, bool activeLow) {
 
 void JaamButton::setButton2Pin(int pin, bool activeLow) {
     button2Pin = pin;
-    if (isButton1Enabled()) {
+    if (isButton2Enabled()) {
         button2.setup(button2Pin, INPUT_PULLUP, activeLow);
         button2.setLongPressIntervalMs(100);
     }
