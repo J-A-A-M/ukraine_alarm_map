@@ -150,6 +150,7 @@ struct Settings {
   int     button2_mode           = 0;
   int     button_mode_long       = 0;
   int     button2_mode_long      = 0;
+  int     use_touch_button       = 0;
   int     alarms_notify_mode     = 2;
   int     display_model          = 1;
   int     display_width          = 128;
@@ -1116,6 +1117,16 @@ void handleClick(int event, JaamButton::Action action) {
 
 bool isButtonActivated() {
   return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0;
+}
+
+bool buttonActiveLow() {
+  if (settings.use_touch_button == 1) {
+      LOG.println("buttonActiveLow: false");
+      return false;
+  } else {
+      LOG.println("buttonActiveLow: true");
+      return true;
+  }
 }
 
 void singleClick(int mode) {
@@ -2483,6 +2494,7 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
     addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
+    addCheckbox(response, "use_touch_button", settings.use_touch_button, "Підтримка touch-кнопки TTP223");
   }
   addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
   addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
@@ -2837,6 +2849,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
   reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
   reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
+  reboot = saveBool(request->getParam("use_touch_button", true), "use_touch_button", &settings.use_touch_button, "utb") || reboot;
   reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
   reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
@@ -3601,6 +3614,7 @@ void initSettings() {
   settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
   settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
   settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
+  settings.use_touch_button       = preferences.getInt("utb", settings.use_touch_button);
   settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
   settings.enable_explosions      = preferences.getInt("eex", settings.enable_explosions);
   settings.enable_missiles        = preferences.getInt("emi", settings.enable_missiles);
@@ -3741,12 +3755,12 @@ void initLegacy() {
 void initButtons() {
   LOG.println("Init buttons");
 
-  buttons.setButton1Pin(settings.buttonpin);
+  buttons.setButton1Pin(settings.buttonpin, buttonActiveLow());
   buttons.setButton1ClickListener(button1Click);
   buttons.setButton1LongClickListener(button1LongClick);
   buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
-  buttons.setButton2Pin(settings.button2pin);
+  buttons.setButton2Pin(settings.button2pin, buttonActiveLow());
   buttons.setButton2ClickListener(button2Click);
   buttons.setButton2LongClickListener(button2LongClick);
   buttons.setButton2DuringLongClickListener(button2DuringLongClick);
