@@ -130,7 +130,7 @@ def bin_sort(bin):
     fw_beta = version.split("-")
     fw = fw_beta[0]
     if len(fw_beta) == 1:
-        beta = 0
+        beta = 10000
     else:
         beta = int(fw_beta[1].removeprefix("b"))
 
