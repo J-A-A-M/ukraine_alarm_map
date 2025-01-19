@@ -2,23 +2,26 @@ import json
 import os
 import asyncio
 import logging
-from aiomcache import Client
 import cairosvg
 import random
 import pytz
 import math
 import datetime
+from aiomcache import Client
+from zoneinfo import ZoneInfo
 
 version = 2
 
-debug_level = os.environ.get("LOGGING")
+server_timezone = ZoneInfo("Europe/Kyiv")
+
+log_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 loop_time = int(os.environ.get("SVG_PERIOD", 2))
 min_temp = float(os.environ.get("MIN_TEMP", -10))
 max_temp = float(os.environ.get("MAX_TEMP", 30))
 
-logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
+logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -87,7 +90,7 @@ class SharedData:
 
 
 async def get_local_time_formatted():
-    current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    current_datetime = datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S")
     return current_datetime
 
 
