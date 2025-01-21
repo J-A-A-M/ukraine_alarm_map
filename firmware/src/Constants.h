@@ -2,9 +2,7 @@
 #include <Arduino.h>
 #if TELNET_ENABLED
 #include <TelnetSpy.h>
-#endif
 
-#if TELNET_ENABLED
 TelnetSpy SerialAndTelnet;
 #define LOG SerialAndTelnet
 #else
