@@ -3,10 +3,16 @@ on:
   push:
     branches:
       - develop
+    paths:
+      - "flasher/**"
+      - "deploy/**"
   pull_request:
     types: [ opened, synchronize, reopened ]
     branches:
       - develop
+    paths:
+      - "flasher/**"
+      - "deploy/**"
 jobs:
   check_flasher:
     runs-on: ubuntu-latest
