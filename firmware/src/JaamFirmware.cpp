@@ -2225,7 +2225,7 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
-  response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
+  response->println("<p class='text-danger'>Якщо мапа втратить працездатність після змін та перезавантаження, необхідно перепрошити мапу на сайті <a href='https://flasher.jaam.net.ua/'>flasher.jaam.net.ua</a>. Якщо звичайна прошивка не допомогла, перепрошити ще раз з видаленням всіх даних (під час прошивки треба поставити галочку 'Erase device')</p>");
   response->println("</b>");
   response->println("<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>");
   response->print("<a href='http://");
