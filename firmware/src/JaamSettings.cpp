@@ -334,7 +334,6 @@ bool JaamSettings::restoreSettingsBackup(const char* settings) {
 
         // skip id key, we do not need to restore it
         if (strcmp(key, "id") == 0) continue;
-        LOG.printf("Restoring setting: '%s' with type '%s'\n", key, type);
 
         if (strcmp(type, PF_STRING) == 0) {
             String valueString = settingObj["value"].as<String>();

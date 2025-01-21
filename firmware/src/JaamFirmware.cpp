@@ -3275,7 +3275,7 @@ void initSettings() {
 
 void initLegacy() {
 #if TEST_MODE
-  settings.setInt(LEGACY, 3, false);
+  settings.saveInt(LEGACY, 3, false);
 #endif
   switch (settings.getInt(LEGACY)) {
   case 0:
