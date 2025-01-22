@@ -185,6 +185,7 @@ async def get_client_ip(connection: ServerConnection):
         "CF-Connecting-IP", connection.request.headers.get("X-Real-IP", connection.remote_address[0])
     )
 
+
 async def get_geo_ip_data(ip, mc, request):
     key = b"geo_ip_{ip}"
     data = await mc.get(key)
@@ -195,7 +196,7 @@ async def get_geo_ip_data(ip, mc, request):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
-                    # example: 
+                    # example:
                     # {
                     #   "hostname": "188-163-48-155.broadband.kyivstar.net",
                     #   "city": "Kramatorsk",
@@ -210,7 +211,7 @@ async def get_geo_ip_data(ip, mc, request):
                     # remove first word from data["org"] if starting with AS
                     data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
                     logger.debug(f"{ip} >>> data from IPINFO: {data}")
-                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400) # 24 hours
+                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400)  # 24 hours
                     return data
         except Exception as e:
             logger.warning(f"Error in get_geo_ip_data: {e}")
@@ -244,7 +245,7 @@ async def get_geo_ip_data(ip, mc, request):
             country = country.encode("utf-8", "ignore").decode("utf-8")
             region = region.encode("utf-8", "ignore").decode("utf-8")
             city = city.encode("utf-8", "ignore").decode("utf-8")
-            data =  {
+            data = {
                 "hostname": "unknown",
                 "city": city,
                 "region": region,
@@ -254,7 +255,7 @@ async def get_geo_ip_data(ip, mc, request):
                 "postal": postal_code,
                 "timezone": timezone,
             }
-            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600) # 1 hour
+            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600)  # 1 hour
             logger.debug(f"{ip} >>> data from headers: {data}")
             return data
 
@@ -510,7 +511,15 @@ async def echo(websocket: ServerConnection):
                 logger.warning(f"{client_ip}:{client_id}: unknown path connection")
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_id, client_ip, geo_ip_data["country"], geo_ip_data["region"], geo_ip_data["city"]),
+            message_handler(
+                websocket,
+                client,
+                client_id,
+                client_ip,
+                geo_ip_data["country"],
+                geo_ip_data["region"],
+                geo_ip_data["city"],
+            ),
             name=f"message_handler_{client_id}",
         )
         ping_pong_task = asyncio.create_task(
