@@ -186,7 +186,7 @@ async def get_client_ip(connection: ServerConnection):
     )
 
 async def get_geo_ip_data(ip, mc, request):
-    key = f"geo_{ip}"
+    key = b"geo_{ip}"
     data = await mc.get(key)
     if data:
         return json.loads(data)
