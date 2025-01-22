@@ -1,6 +1,5 @@
 #include "Definitions.h"
 #include "JaamUtils.h"
-#include <Preferences.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 #include <StreamString.h>
@@ -8,9 +7,6 @@
 #include <async.h>
 #include <ArduinoJson.h>
 #include <NTPtime.h>
-#if TELNET_ENABLED
-#include <TelnetSpy.h>
-#endif
 #if ARDUINO_OTA_ENABLED
 #include <ArduinoOTA.h>
 #endif
@@ -26,6 +22,7 @@
 #include "JaamLightSensor.h"
 #include "JaamClimateSensor.h"
 #include "JaamButton.h"
+#include "JaamSettings.h"
 #if BUZZER_ENABLED
 #include <melody_player.h>
 #include <melody_factory.h>
@@ -34,163 +31,15 @@
 
 const PROGMEM char* VERSION = "4.3-b97";
 
-struct Settings {
-  const char*   apssid                 = "JAAM";
-  const char*   softwareversion        = VERSION;
-  int           pixelcount             = 26;
-  int           bg_pixelcount          = 0;
-  int           buttontime             = 100;
-  int           powerpin               = 12;
-  int           wifipin                = 14;
-  int           datapin                = 25;
-  int           hapin                  = 26;
-  int           reservedpin            = 27;
-
-  // ------- web config start
-  char    devicename[31]         = "JAAM";
-  char    devicedescription[51]  = "JAAM Informer";
-  char    broadcastname[31]      = "jaam";
-  char    ntphost[31]            = "pool.ntp.org";
-  char    serverhost[31]         = "ws.jaam.net.ua";
-  int     websocket_port         = 80;
-  int     updateport             = 80;
-  char    bin_name[51]           = "";
-  char    identifier[51]         = "github";
-  int     legacy                 = 1;
-  int     pixelpin               = 13;
-  int     bg_pixelpin            = -1;
-  int     service_ledpin         = -1;
-  int     buttonpin              = -1;
-  int     button2pin             = -1;
-  int     alertpin               = -1;
-  int     clearpin               = -1;
-  int     buzzerpin              = -1;
-  int     lightpin               = -1;
-  int     alert_clear_pin_mode   = 0;
-  float   alert_clear_pin_time   = 1;
-  int     ha_mqttport            = 1883;
-  char    ha_mqttuser[31]        = "";
-  char    ha_mqttpassword[66]    = "";
-  char    ha_brokeraddress[31]   = "";
-  int     current_brightness     = 50;
-  int     brightness             = 50;
-  int     brightness_day         = 50;
-  int     brightness_night       = 5;
-  int     brightness_mode        = 0;
-  int     home_alert_time        = 0;
-  int     color_alert            = 0;
-  int     color_clear            = 120;
-  int     color_new_alert        = 30;
-  int     color_alert_over       = 100;
-  int     enable_explosions      = 1;
-  int     color_explosion        = 180;
-  int     enable_missiles        = 1;
-  int     color_missiles         = 275;
-  int     enable_drones          = 1;
-  int     color_drones           = 330;
-  int     color_home_district    = 120;
-  int     brightness_alert       = 100;
-  int     brightness_clear       = 100;
-  int     brightness_new_alert   = 100;
-  int     brightness_alert_over  = 100;
-  int     brightness_explosion   = 100;
-  int     brightness_home_district = 100;
-  int     brightness_bg          = 100;
-  int     brightness_service     = 50;
-  int     weather_min_temp       = -10;
-  int     weather_max_temp       = 30;
-  int     alarms_auto_switch     = 1;
-  int     home_district          = 7;
-  int     kyiv_district_mode     = 1;
-  int     service_diodes_mode    = 0;
-  int     new_fw_notification    = 1;
-  int     ha_light_brightness    = 50;
-  int     ha_light_r             = 215;
-  int     ha_light_g             = 7;
-  int     ha_light_b             = 255;
-  int     sound_on_min_of_sl     = 0;
-  int     sound_on_alert         = 0;
-  int     melody_on_alert        = 4;
-  int     sound_on_alert_end     = 0;
-  int     melody_on_alert_end    = 5;
-  int     sound_on_explosion     = 0;
-  int     melody_on_explosion    = 18;
-  int     sound_on_every_hour    = 0;
-  int     sound_on_button_click  = 0;
-  int     mute_sound_on_night    = 0;
-  int     melody_volume          = 100;
-  int     invert_display         = 0;
-  int     dim_display_on_night   = 1;
-  int     ignore_mute_on_alert   = 0;
-
-
-  // ------- Map Modes:
-  // -------  0 - Off
-  // -------  1 - Alarms
-  // -------  2 - Weather
-  // -------  3 - UA Flag
-  // -------  4 - Random colors
-  // -------  5 - Lamp
-  int     map_mode               = 1;
-
-  // ------- Display Modes:
-  // -------  0 - Off
-  // -------  1 - Clock
-  // -------  2 - Home District Temperature
-  // -------  3 - Tech info
-  // -------  4 - Climate (if sensor installed)
-  // -------  9 - Toggle modes
-  int     display_mode           = 2;
-  int     display_mode_time      = 5;
-  int     toggle_mode_weather    = 1;
-  int     toggle_mode_temp       = 1;
-  int     toggle_mode_hum        = 1;
-  int     toggle_mode_press      = 1;
-  int     button_mode            = 0;
-  int     button2_mode           = 0;
-  int     button_mode_long       = 0;
-  int     button2_mode_long      = 0;
-  int     use_touch_button1      = 0;
-  int     use_touch_button2      = 0;
-  int     alarms_notify_mode     = 2;
-  int     display_model          = 1;
-  int     display_width          = 128;
-  int     display_height         = 32;
-  int     day_start              = 8;
-  int     night_start            = 22;
-  int     ws_alert_time          = 150000;
-  int     ws_reboot_time         = 300000;
-  int     min_of_silence         = 1;
-  int     fw_update_channel      = 0;
-  float   temp_correction        = 0;
-  float   hum_correction         = 0;
-  float   pressure_correction    = 0;
-  float   light_sensor_factor    = 1;
-  int     time_zone              = 2;
-  int     alert_on_time          = 5;
-  int     alert_off_time         = 5;
-  int     explosion_time         = 3;
-  int     alert_blink_time       = 2;
-  // ------- web config end
-};
-
-#if TELNET_ENABLED
-TelnetSpy SerialAndTelnet;
-#define LOG SerialAndTelnet
-#else
-#define LOG Serial
-#endif
-
-Settings settings;
-
+JaamSettings settings;
 Firmware currentFirmware;
 #if FW_UPDATE_ENABLED
 Firmware latestFirmware;
+char bin_name[51] = "";
 #endif
 
 using namespace websockets;
 
-Preferences       preferences;
 WiFiManager       wm;
 WiFiClient        client;
 WebsocketsClient  client_websocket;
@@ -316,27 +165,27 @@ int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
 bool isBgStripEnabled() {
-  return settings.bg_pixelpin > -1 && settings.bg_pixelcount > 0;
+  return settings.getInt(BG_LED_PIN) > -1 && settings.getInt(BG_LED_COUNT) > 0;
 }
 
 bool isServiceStripEnabled() {
-  return settings.service_ledpin > -1;
+  return settings.getInt(SERVICE_LED_PIN) > -1;
 }
 
 bool isAlertPinEnabled() {
-  return settings.alertpin > -1;
+  return settings.getInt(ALERT_PIN) > -1;
 }
 
 bool isClearPinEnabled() {
-  return settings.clearpin > -1;
+  return settings.getInt(CLEAR_PIN) > -1;
 }
 
 bool isBuzzerEnabled() {
-  return settings.buzzerpin > -1;
+  return settings.getInt(BUZZER_PIN) > -1;
 }
 
 bool isAnalogLightSensorEnabled() {
-  return settings.lightpin > -1;
+  return settings.getInt(LIGHT_SENSOR_PIN) > -1;
 }
 
 CRGB fromRgb(int r, int g, int b, float brightness) {
@@ -404,13 +253,13 @@ void playMelody(SoundType type) {
       playMelody(UA_ANTHEM);
       break;
     case ALERT_ON:
-      playMelody(MELODIES[settings.melody_on_alert]);
+      playMelody(MELODIES[settings.getInt(MELODY_ON_ALERT)]);
       break;
     case ALERT_OFF:
-      playMelody(MELODIES[settings.melody_on_alert_end]);
+      playMelody(MELODIES[settings.getInt(MELODY_ON_ALERT_END)]);
       break;
     case EXPLOSIONS:
-      playMelody(MELODIES[settings.melody_on_explosion]);
+      playMelody(MELODIES[settings.getInt(MELODY_ON_EXPLOSION)]);
       break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
@@ -427,16 +276,18 @@ void playMelody(SoundType type) {
 }
 
 bool isItNightNow() {
+  int dayStart = settings.getInt(DAY_START);
+  int nightStart = settings.getInt(NIGHT_START);
   // if day and night start time is equels it means it's always day, return day
-  if (settings.night_start == settings.day_start) return false;
+  if (dayStart == nightStart) return false;
 
   int currentHour = timeClient.hour();
 
   // handle case, when night start hour is bigger than day start hour, ex. night start at 22 and day start at 9
-  if (settings.night_start > settings.day_start) return currentHour >= settings.night_start || currentHour < settings.day_start ? true : false;
+  if (nightStart > dayStart) return currentHour >= nightStart || currentHour < dayStart ? true : false;
 
   // handle case, when day start hour is bigger than night start hour, ex. night start at 1 and day start at 8
-  return currentHour < settings.day_start && currentHour >= settings.night_start ? true : false;
+  return currentHour < dayStart && currentHour >= nightStart ? true : false;
 }
 
 // Determine the current brightness level
@@ -445,11 +296,11 @@ int getCurrentBrightnessLevel() {
   int maxValue;
   if (lightSensor.isLightSensorAvailable()) {
     // Digital light sensor has higher priority. BH1750 measurmant range is 0..27306 lx. 500 lx - very bright indoor environment.
-    currentValue = round(lightSensor.getLightLevel(settings.light_sensor_factor));
+    currentValue = round(lightSensor.getLightLevel(settings.getFloat(LIGHT_SENSOR_FACTOR)));
     maxValue = 500;
   } else if (isAnalogLightSensorEnabled()) {
     // reads the input on analog pin (value between 0 and 4095)
-    currentValue = lightSensor.getPhotoresistorValue(settings.light_sensor_factor);
+    currentValue = lightSensor.getPhotoresistorValue(settings.getFloat(LIGHT_SENSOR_FACTOR));
     // 2600 - very bright indoor environment.
     maxValue = 2600;
   }
@@ -463,9 +314,9 @@ int getNightModeType() {
   // Night Mode activated by button
   if (nightMode) return 1;
   // Night mode activated by time
-  if (settings.brightness_mode == 1 && isItNightNow()) return 2;
+  if (settings.getInt(BRIGHTNESS_MODE) == 1 && isItNightNow()) return 2;
   // Night mode activated by sensor
-  if (settings.brightness_mode == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
+  if (settings.getInt(BRIGHTNESS_MODE) == 2 && getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL) return 3;
   // Night mode is off
   return 0;
 }
@@ -478,27 +329,27 @@ bool needToPlaySound(SoundType type) {
     if (!isFirstDataFetchCompleted) return false;
 
     // ignore mute on alert
-    if (SoundType::ALERT_ON == type && settings.sound_on_alert && settings.ignore_mute_on_alert) return true;
+    if (SoundType::ALERT_ON == type && settings.getBool(SOUND_ON_ALERT) && settings.getBool(IGNORE_MUTE_ON_ALERT)) return true;
 
     // disable sounds on night mode
-    if (settings.mute_sound_on_night && getNightModeType() > 0) return false;
+    if (settings.getBool(MUTE_SOUND_ON_NIGHT) && getNightModeType() > 0) return false;
 
     switch (type) {
     case MIN_OF_SILINCE:
-      return settings.sound_on_min_of_sl;
+      return settings.getBool(SOUND_ON_MIN_OF_SL);
     case MIN_OF_SILINCE_END:
-      return settings.sound_on_min_of_sl;
+      return settings.getBool(SOUND_ON_MIN_OF_SL);
     case ALERT_ON:
-      return settings.sound_on_alert;
+      return settings.getBool(SOUND_ON_ALERT);
     case ALERT_OFF:
-      return settings.sound_on_alert_end;
+      return settings.getBool(SOUND_ON_ALERT_END);
     case EXPLOSIONS:
-      return settings.sound_on_explosion;
+      return settings.getBool(SOUND_ON_EXPLOSION);
     case REGULAR:
-      return settings.sound_on_every_hour;
+      return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
     case LONG_CLICK:
-      return settings.sound_on_button_click;
+      return settings.getBool(SOUND_ON_BUTTON_CLICK);
     }
   }
 #endif
@@ -506,35 +357,35 @@ bool needToPlaySound(SoundType type) {
 }
 
 void servicePin(ServiceLed type, uint8_t status, bool force) {
-  if (force || ((settings.legacy == 0 || settings.legacy == 3) && settings.service_diodes_mode)) {
+  if (force || ((settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) && settings.getBool(SERVICE_DIODES_MODE))) {
     int pin = 0;
-    int scaledBrightness = (settings.brightness_service == 0) ? 0 : round(max(settings.brightness_service, minBrightness) * 255.0f / 100.0f * brightnessFactor);
+    int scaledBrightness = (settings.getInt(BRIGHTNESS_SERVICE) == 0) ? 0 : round(max(settings.getInt(BRIGHTNESS_SERVICE), minBrightness) * 255.0f / 100.0f * brightnessFactor);
     switch (type) {
       case POWER:
-        pin = settings.powerpin;
+        pin = settings.getInt(POWER_PIN);
         service_strip[0] = status ? CRGB(CRGB::Red).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case WIFI:
-        pin = settings.wifipin;
+        pin = settings.getInt(WIFI_PIN);
         service_strip[1] = status ? CRGB(CRGB::Blue).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case DATA:
-        pin = settings.datapin;
+        pin = settings.getInt(DATA_PIN);
         service_strip[2] = status ? CRGB(CRGB::Green).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case HA:
-        pin = settings.hapin;
+        pin = settings.getInt(HA_PIN);
         service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
       case RESERVED:
-        pin = settings.reservedpin;
+        pin = settings.getInt(RESERVED_PIN);
         service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
     }
-    if (pin > 0 && settings.legacy == 0) {
+    if (pin > 0 && settings.getInt(LEGACY) == 0) {
       digitalWrite(pin, status);
     }
-    if (isServiceStripEnabled() && settings.legacy == 3) {
+    if (isServiceStripEnabled() && settings.getInt(LEGACY) == 3) {
       FastLED.show();
     }
   }
@@ -673,9 +524,11 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 #endif
 
 void mapUpdate(float percents) {
-  CRGB hue = fromHue(86, settings.current_brightness);
-  int ledsCount = round(settings.pixelcount * percents);
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+  int currentBrightness = settings.getInt(CURRENT_BRIGHTNESS);
+  int pixelsCount = settings.getInt(MAIN_LED_COUNT);
+  CRGB hue = fromHue(86, currentBrightness);
+  int ledsCount = round(pixelsCount * percents);
+  for (uint16_t i = 0; i < pixelsCount; i++) {
     if (i < ledsCount) {
       strip[i] = hue;
     } else {
@@ -683,11 +536,12 @@ void mapUpdate(float percents) {
     }
   }
   if (isBgStripEnabled()) {
-    int bgLedsCount = round(settings.bg_pixelcount * percents);
-    float bgBrightnessFactor = settings.brightness_bg / 100.0f;
-    CRGB bgHue = fromHue(86, settings.current_brightness * bgBrightnessFactor);
+    int bgPixelCount = settings.getInt(BG_LED_COUNT);
+    int bgLedsCount = round(bgPixelCount * percents);
+    float bgBrightnessFactor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    CRGB bgHue = fromHue(86, currentBrightness * bgBrightnessFactor);
 
-    for (uint16_t i = 0; i < settings.bg_pixelcount; i++) {
+    for (uint16_t i = 0; i < bgPixelCount; i++) {
       if (i < bgLedsCount) {
         bg_strip[i] = hue;
       } else {
@@ -748,24 +602,24 @@ void showHttpUpdateErrorMessage(int error) {
 
 void initBroadcast() {
   LOG.println("Init network device broadcast");
-
-  if (!MDNS.begin(settings.broadcastname)) {
+  const char* broadcastName = settings.getString(BROADCAST_NAME);
+  if (!MDNS.begin(broadcastName)) {
     LOG.println("Error setting up mDNS responder");
     showServiceMessage("Помилка mDNS");
     while (1) {
       delay(1000);
     }
   }
-  LOG.printf("Device broadcasted to network: %s.local", settings.broadcastname);
+  LOG.printf("Device broadcasted to network: %s.local", broadcastName);
   LOG.println();
 }
 
 int getCurrentMapMode() {
   if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
 
-  int currentMapMode = isMapOff ? 0 : settings.map_mode;
-  int position = settings.home_district;
-  switch (settings.alarms_auto_switch) {
+  int currentMapMode = isMapOff ? 0 : settings.getInt(MAP_MODE);
+  int position = settings.getInt(HOME_DISTRICT);
+  switch (settings.getInt(ALARMS_AUTO_SWITCH)) {
     case 1:
       for (int j = 0; j < COUNTERS[position]; j++) {
         int alarm_led_id = calculateOffset(NEIGHBORING_DISTRICS[position][j], offset);
@@ -790,7 +644,7 @@ void onMqttStateChanged(bool haStatus) {
   if (haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
     ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
-    ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.home_district)]);
+    ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.getInt(HOME_DISTRICT))]);
   }
 }
 
@@ -798,29 +652,24 @@ void onMqttStateChanged(bool haStatus) {
 void mapCycle();
 
 bool saveMapMode(int newMapMode) {
-  if (newMapMode == settings.map_mode) return false;
+  if (newMapMode == settings.getInt(MAP_MODE)) return false;
 
   if (newMapMode == 5) {
-    prevMapMode = settings.map_mode;
+    prevMapMode = settings.getInt(MAP_MODE);
   }
-  settings.map_mode = newMapMode;
-  preferences.begin("storage", false);
-  preferences.putInt("mapmode", settings.map_mode);
-  preferences.end();
-  reportSettingsChange("map_mode", settings.map_mode);
-  LOG.print("map_mode commited to preferences: ");
-  LOG.println(settings.map_mode);
-  ha.setLampState(settings.map_mode == 5);
-  ha.setMapMode(settings.map_mode);
+  settings.saveInt(MAP_MODE, newMapMode);
+  reportSettingsChange("map_mode", newMapMode);
+  ha.setLampState(newMapMode == 5);
+  ha.setMapMode(newMapMode);
   ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
-  showServiceMessage(MAP_MODES[settings.map_mode], "Режим мапи:");
+  showServiceMessage(MAP_MODES[newMapMode], "Режим мапи:");
   // update to selected mapMode
   mapCycle();
   return true;
 }
 
 bool onNewLampStateFromHa(bool state) {
-  if (settings.map_mode == 5 && state) return false;
+  if (settings.getInt(MAP_MODE) == 5 && state) return false;
   int newMapMode = state ? 5 : prevMapMode;
   return saveMapMode(newMapMode);
 }
@@ -830,11 +679,11 @@ int getHaDisplayMode(int localDisplayMode) {
 }
 
 void updateInvertDisplayMode() {
-  display.invertDisplay(settings.invert_display);
+  display.invertDisplay(settings.getBool(INVERT_DISPLAY));
 }
 
 bool shouldDisplayBeOff() {
-  return serviceMessage.expired && (isDisplayOff || settings.display_mode == 0);
+  return serviceMessage.expired && (isDisplayOff || settings.getInt(DISPLAY_MODE) == 0);
 }
 
 int getBrightnessFromSensor(int brightnessLevels[]) {
@@ -852,11 +701,12 @@ int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrigh
   //   return tempBrightnes;
   // }
 
+  int brightnessMode = settings.getInt(BRIGHTNESS_MODE);
   // if auto brightness set to day/night mode, check current hour and choose brightness
-  if (settings.brightness_mode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
+  if (brightnessMode == 1) return isItNightNow() ? nightBrightness : dayBrightness;
 
   // if auto brightnes set to light sensor, read sensor value end return appropriate brightness.
-  if (settings.brightness_mode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
+  if (brightnessMode == 2) return brightnessLevels ? getBrightnessFromSensor(brightnessLevels) : getCurrentBrightnessLevel() <= NIGHT_BRIGHTNESS_LEVEL ? nightBrightness : dayBrightness;
 
   // if auto brightnes deactivated, return regular brightnes
   // default
@@ -865,7 +715,7 @@ int getCurrentBrightnes(int defaultBrightness, int dayBrightness, int nightBrigh
 
 void updateDisplayBrightness() {
   if (!display.isDisplayAvailable()) return;
-  int localDimDisplay = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(0, 0, settings.dim_display_on_night ? 1 : 0, NULL);
+  int localDimDisplay = shouldDisplayBeOff() ? 0 : getCurrentBrightnes(0, 0, settings.getInt(DIM_DISPLAY_ON_NIGHT) ? 1 : 0, NULL);
   if (localDimDisplay == currentDimDisplay) return;
   currentDimDisplay = localDimDisplay;
   LOG.printf("Set display dim: %s\n", currentDimDisplay ? "ON" : "OFF");
@@ -875,10 +725,11 @@ void updateDisplayBrightness() {
 //--Update
 #if FW_UPDATE_ENABLED
 void saveLatestFirmware() {
-  const int *count = settings.fw_update_channel ? &testBinsCount : &binsCount;
+  int fwUpdateChannel = settings.getInt(FW_UPDATE_CHANNEL);
+  const int *count = fwUpdateChannel ? &testBinsCount : &binsCount;
   Firmware firmware = currentFirmware;
   for (int i = 0; i < *count; i++) {
-    const char* filename = settings.fw_update_channel ? test_bin_list[i] : bin_list[i];
+    const char* filename = fwUpdateChannel ? test_bin_list[i] : bin_list[i];
     if (prefix("latest", filename)) continue;
     Firmware parsedFirmware = parseFirmwareVersion(filename);
     if (firstIsNewer(parsedFirmware, firmware)) {
@@ -924,8 +775,8 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
   sprintf(
     firmwareUrlChar,
     "http://%s:%d%s%s",
-    settings.serverhost,
-    settings.updateport,
+    settings.getString(WS_SERVER_HOST),
+    settings.getInt(UPDATE_SERVER_PORT),
     isBeta ? "/beta/" : "/",
     binFileName
   );
@@ -945,7 +796,7 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
 void doUpdate() {
   if (initUpdate) {
     initUpdate = false;
-    downloadAndUpdateFw(settings.bin_name, settings.fw_update_channel == 1);
+    downloadAndUpdateFw(bin_name, settings.getInt(FW_UPDATE_CHANNEL) == 1);
   }
 }
 #endif
@@ -953,8 +804,8 @@ void doUpdate() {
 
 //--Service
 void checkServicePins() {
-  if (settings.legacy == 0 || settings.legacy == 3) {
-    if (settings.service_diodes_mode) {
+  if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
+    if (settings.getInt(SERVICE_DIODES_MODE)) {
       // LOG.println("Dioded enabled");
       servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
@@ -985,7 +836,7 @@ void checkServicePins() {
 //--Service end
 
 void nextMapMode() {
-  int newMapMode = settings.map_mode + 1;
+  int newMapMode = settings.getInt(MAP_MODE) + 1;
   if (newMapMode > 5) {
     newMapMode = 0;
   }
@@ -993,15 +844,10 @@ void nextMapMode() {
 }
 
 bool saveDisplayMode(int newDisplayMode) {
-  if (newDisplayMode == settings.display_mode) return false;
-  settings.display_mode = newDisplayMode;
-  preferences.begin("storage", false);
-  preferences.putInt("dm", settings.display_mode);
-  preferences.end();
-  reportSettingsChange("display_mode", settings.display_mode);
-  LOG.print("display_mode commited to preferences: ");
-  LOG.println(settings.display_mode);
-  int localDisplayMode = getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions);
+  if (newDisplayMode == settings.getInt(DISPLAY_MODE)) return false;
+  settings.saveInt(DISPLAY_MODE, newDisplayMode);
+  reportSettingsChange("display_mode", newDisplayMode);
+  int localDisplayMode = getLocalDisplayMode(newDisplayMode, ignoreDisplayModeOptions);
   if (display.isDisplayAvailable()) {
     ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
   }
@@ -1012,7 +858,7 @@ bool saveDisplayMode(int newDisplayMode) {
 }
 
 void nextDisplayMode() {
-  int newDisplayMode = settings.display_mode + 1;
+  int newDisplayMode = settings.getInt(DISPLAY_MODE) + 1;
   while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX) || newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
     if (newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
       newDisplayMode = 0;
@@ -1028,21 +874,16 @@ void nextDisplayMode() {
 }
 
 void autoBrightnessUpdate() {
-  int tempBrightness = getCurrentBrightnes(settings.brightness, settings.brightness_day, settings.brightness_night, ledsBrightnessLevels);
-  if (tempBrightness != settings.current_brightness) {
-    settings.current_brightness = tempBrightness;
-    preferences.begin("storage", false);
-    preferences.putInt("cbr", settings.current_brightness);
-    preferences.end();
-    LOG.print("set current brightness: ");
-    LOG.println(settings.current_brightness);
+  int tempBrightness = getCurrentBrightnes(settings.getInt(BRIGHTNESS), settings.getInt(BRIGHTNESS_DAY), settings.getInt(BRIGHTNESS_NIGHT), ledsBrightnessLevels);
+  if (tempBrightness != settings.getInt(CURRENT_BRIGHTNESS)) {
+    settings.saveInt(CURRENT_BRIGHTNESS, tempBrightness);
   }
 }
 
 bool saveNightMode(bool newState) {
   nightMode = newState;
   if (nightMode) {
-    prevBrightness = settings.brightness;
+    prevBrightness = settings.getInt(BRIGHTNESS);
   }
   showServiceMessage(nightMode ? "Увімкнено" : "Вимкнено", "Нічний режим:");
   autoBrightnessUpdate();
@@ -1097,7 +938,7 @@ void handleClick(int event, JaamButton::Action action) {
     // toggle lamp (singl click) or reboot device (long click)
     case 7:
       if (action == JaamButton::Action::SINGLE_CLICK) {
-        int newMapMode = settings.map_mode == 5 ? prevMapMode : 5;
+        int newMapMode = settings.getInt(MAP_MODE) == 5 ? prevMapMode : 5;
         saveMapMode(newMapMode);
       } else if (JaamButton::Action::LONG_CLICK) {
         rebootDevice();
@@ -1107,7 +948,7 @@ void handleClick(int event, JaamButton::Action action) {
     case 100:
       char updateFileName[30];
       sprintf(updateFileName, "%s.bin", newFwVersion);
-      downloadAndUpdateFw(updateFileName, settings.fw_update_channel == 1);
+      downloadAndUpdateFw(updateFileName, settings.getInt(FW_UPDATE_CHANNEL) == 1);
       break;
 #endif
     default:
@@ -1117,7 +958,7 @@ void handleClick(int event, JaamButton::Action action) {
 }
 
 bool isButtonActivated() {
-  return settings.button_mode != 0 || settings.button_mode_long != 0 || settings.button2_mode != 0 || settings.button2_mode_long != 0;
+  return settings.getInt(BUTTON_1_MODE) != 0 || settings.getInt(BUTTON_1_MODE_LONG) != 0 || settings.getInt(BUTTON_2_MODE) != 0 || settings.getInt(BUTTON_2_MODE_LONG) != 0;
 }
 
 void singleClick(int mode) {
@@ -1126,7 +967,7 @@ void singleClick(int mode) {
 
 void longClick(int modeLong) {
 #if FW_UPDATE_ENABLED
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+  if (settings.getInt(NEW_FW_NOTIFICATION) == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
     handleClick(100, JaamButton::LONG_CLICK);
     return;
   }
@@ -1151,17 +992,11 @@ void buttonLongClick(const char* buttonName, int modeLong) {
 }
 
 bool saveLampBrightness(int newBrightness, bool saveToSettings, bool checkPrevBrightness) {
-  if (checkPrevBrightness && settings.ha_light_brightness == newBrightness) return false;
+  if (checkPrevBrightness && settings.getInt(HA_LIGHT_BRIGHTNESS) == newBrightness) return false;
 
-  settings.ha_light_brightness = newBrightness;
+  settings.saveInt(HA_LIGHT_BRIGHTNESS, newBrightness, saveToSettings);
 
   if (saveToSettings) {
-    preferences.begin("storage", false);
-    preferences.putInt("ha_lbri", settings.ha_light_brightness);
-    preferences.end();
-    reportSettingsChange("ha_light_brightness", settings.ha_light_brightness);
-    LOG.print("ha_light_brightness commited to preferences: ");
-    LOG.println(settings.ha_light_brightness);
     ha.setLampBrightness(newBrightness);
   }
 
@@ -1175,14 +1010,14 @@ bool saveLampBrightness(int newBrightness) {
 
 void saveCurrentLampBrightness() {
   LOG.println("Save current lamp brightness");
-  saveLampBrightness(settings.ha_light_brightness, true, false);
+  saveLampBrightness(settings.getInt(HA_LIGHT_BRIGHTNESS), true, false);
 }
 
 char lampBrightnessMsg[4];
 
 void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Action action) {
 #if FW_UPDATE_ENABLED
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
+  if (settings.getInt(NEW_FW_NOTIFICATION) == 1 && fwUpdateAvailable && isButtonActivated() && !isDisplayOff) {
     return;
   }
 #endif
@@ -1191,7 +1026,7 @@ void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Act
       case 8:
         // if lamp mode is active, increase lamp brightness
         if (getCurrentMapMode() == 5) {
-          int newBrightness = settings.ha_light_brightness + 1;
+          int newBrightness = settings.getInt(HA_LIGHT_BRIGHTNESS) + 1;
           if (newBrightness > 100) {
             newBrightness = 100;
           }
@@ -1205,7 +1040,7 @@ void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Act
       case 9:
         // if lamp mode is active, decrease lamp brightness
         if (getCurrentMapMode() == 5) {
-          int newBrightness = settings.ha_light_brightness - 1;
+          int newBrightness = settings.getInt(HA_LIGHT_BRIGHTNESS) - 1;
           if (newBrightness < 0) {
             newBrightness = 0;
           }
@@ -1237,61 +1072,51 @@ void buttonDuringLongClick(const char* buttonName, int modeLong, JaamButton::Act
 
 void button1Click() {
   LOG.println("Button 1 click");
-  buttonClick("Button 1", settings.button_mode);
+  buttonClick("Button 1", settings.getInt(BUTTON_1_MODE));
 }
 
 void button2Click() {
   LOG.println("Button 2 click");
-  buttonClick("Button 2", settings.button2_mode);
+  buttonClick("Button 2", settings.getInt(BUTTON_2_MODE));
 }
 
 void button1LongClick() {
   LOG.println("Button 1 long click");
-  buttonLongClick("Button 1", settings.button_mode_long);
+  buttonLongClick("Button 1", settings.getInt(BUTTON_1_MODE_LONG));
 }
 
 void button2LongClick() {
   LOG.println("Button 2 long click");
-  buttonLongClick("Button 2", settings.button2_mode_long);
+  buttonLongClick("Button 2", settings.getInt(BUTTON_2_MODE_LONG));
 }
 
 void button1DuringLongClick(JaamButton::Action action) {
   LOG.println("Button 1 during long click");
-  buttonDuringLongClick("Button 1", settings.button_mode_long, action);
+  buttonDuringLongClick("Button 1", settings.getInt(BUTTON_1_MODE_LONG), action);
 }
 
 void button2DuringLongClick(JaamButton::Action action) {
   LOG.println("Button 2 during long click");
-  buttonDuringLongClick("Button 2", settings.button2_mode_long, action);
+  buttonDuringLongClick("Button 2", settings.getInt(BUTTON_2_MODE_LONG), action);
 }
 
 void distributeBrightnessLevels() {
-  distributeBrightnessLevelsFor(settings.brightness_day, settings.brightness_night, ledsBrightnessLevels, "Leds");
+  distributeBrightnessLevelsFor(settings.getInt(BRIGHTNESS_DAY), settings.getInt(BRIGHTNESS_NIGHT), ledsBrightnessLevels, "Leds");
 }
 
 bool saveBrightness(int newBrightness) {
-  if (settings.brightness == newBrightness) return false;
-  settings.brightness = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("brightness", settings.brightness);
-  preferences.end();
-  reportSettingsChange("brightness", settings.brightness);
-  LOG.print("brightness commited to preferences");
-  LOG.println(settings.brightness);
+  if (settings.getInt(BRIGHTNESS) == newBrightness) return false;
+  settings.saveInt(BRIGHTNESS, newBrightness);
+  reportSettingsChange("brightness", newBrightness);
   ha.setBrightness(newBrightness);
   autoBrightnessUpdate();
   return true;
 }
 
 bool saveDayBrightness(int newBrightness) {
-  if (settings.brightness_day == newBrightness) return false;
-  settings.brightness_day = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("brd", settings.brightness_day);
-  preferences.end();
-  reportSettingsChange("brightness_day", settings.brightness_day);
-  LOG.print("brightness_day commited to preferences");
-  LOG.println(settings.brightness_day);
+  if (settings.getInt(BRIGHTNESS_DAY) == newBrightness) return false;
+  settings.saveInt(BRIGHTNESS_DAY, newBrightness);
+  reportSettingsChange("brightness_day", newBrightness);
   ha.setDayBrightness(newBrightness);
   autoBrightnessUpdate();
   distributeBrightnessLevels();
@@ -1299,14 +1124,9 @@ bool saveDayBrightness(int newBrightness) {
 }
 
 bool saveNightBrightness(int newBrightness) {
-  if (settings.brightness_night == newBrightness) return false;
-  settings.brightness_night = newBrightness;
-  preferences.begin("storage", false);
-  preferences.putInt("brn", settings.brightness_night);
-  preferences.end();
-  reportSettingsChange("brightness_night", settings.brightness_night);
-  LOG.print("brightness_night commited to preferences");
-  LOG.println(settings.brightness_night);
+  if (settings.getInt(BRIGHTNESS_NIGHT) == newBrightness) return false;
+  settings.saveInt(BRIGHTNESS_NIGHT, newBrightness);
+  reportSettingsChange("brightness_night", newBrightness);
   ha.setNightBrightness(newBrightness);
   autoBrightnessUpdate();
   distributeBrightnessLevels();
@@ -1314,42 +1134,27 @@ bool saveNightBrightness(int newBrightness) {
 }
 
 bool saveAutoBrightnessMode(int autoBrightnessMode) {
-  if (settings.brightness_mode == autoBrightnessMode) return false;
-  settings.brightness_mode = autoBrightnessMode;
-  preferences.begin("storage", false);
-  preferences.putInt("bra", settings.brightness_mode);
-  preferences.end();
-  reportSettingsChange("brightness_mode", settings.brightness_mode);
-  LOG.print("brightness_mode commited to preferences: ");
-  LOG.println(settings.brightness_mode);
+  if (settings.getInt(BRIGHTNESS_MODE) == autoBrightnessMode) return false;
+  settings.saveInt(BRIGHTNESS_MODE, autoBrightnessMode);
+  reportSettingsChange("brightness_mode", autoBrightnessMode);
   ha.setAutoBrightnessMode(autoBrightnessMode);
   autoBrightnessUpdate();
-  showServiceMessage(AUTO_BRIGHTNESS_MODES[settings.brightness_mode], "Авто. яскравість:");
+  showServiceMessage(AUTO_BRIGHTNESS_MODES[autoBrightnessMode], "Авто. яскравість:");
   return true;
 }
 
 bool saveAutoAlarmMode(int newMode) {
-  if (settings.alarms_auto_switch == newMode) return false;
-  settings.alarms_auto_switch = newMode;
-  preferences.begin("storage", false);
-  preferences.putInt("aas", settings.alarms_auto_switch);
-  preferences.end();
-  reportSettingsChange("alarms_auto_switch", settings.alarms_auto_switch);
-  LOG.print("alarms_auto_switch commited to preferences: ");
-  LOG.println(settings.alarms_auto_switch);
+  if (settings.getInt(ALARMS_AUTO_SWITCH) == newMode) return false;
+  settings.saveInt(ALARMS_AUTO_SWITCH, newMode);
+  reportSettingsChange("alarms_auto_switch", newMode);
   ha.setAutoAlarmMode(newMode);
   return true;
 }
 
 bool saveShowHomeAlarmTime(bool newState) {
-  if (settings.home_alert_time == newState) return false;
-  settings.home_alert_time = newState;
-  preferences.begin("storage", false);
-  preferences.putInt("hat", settings.home_alert_time);
-  preferences.end();
-  reportSettingsChange("home_alert_time", settings.home_alert_time ? "true" : "false");
-  LOG.print("home_alert_time commited to preferences: ");
-  LOG.println(settings.home_alert_time ? "true" : "false");
+  if (settings.getBool(HOME_ALERT_TIME) == newState) return false;
+  settings.saveBool(HOME_ALERT_TIME, newState);
+  reportSettingsChange("home_alert_time", newState ? "true" : "false");
   if (display.isDisplayAvailable()) {
     ha.setShowHomeAlarmTime(newState);
   }
@@ -1357,48 +1162,34 @@ bool saveShowHomeAlarmTime(bool newState) {
 }
 
 bool saveLampRgb(int r, int g, int b) {
-  if (settings.ha_light_r == r && settings.ha_light_g == g && settings.ha_light_b == b) return false;
+  if (settings.getInt(HA_LIGHT_R) == r && settings.getInt(HA_LIGHT_G) == g && settings.getInt(HA_LIGHT_B) == b) return false;
 
-  preferences.begin("storage", false);
-  if (settings.ha_light_r != r) {
-    settings.ha_light_r = r;
-    preferences.putInt("ha_lr", settings.ha_light_r);
-    LOG.print("ha_light_red commited to preferences: ");
-    LOG.println(settings.ha_light_r);
+  if (settings.getInt(HA_LIGHT_R) != r) {
+    settings.saveInt(HA_LIGHT_R, r);
   }
-  if (settings.ha_light_g != g) {
-    settings.ha_light_g = g;
-    preferences.putInt("ha_lg", settings.ha_light_g);
-    LOG.print("ha_light_green commited to preferences: ");
-    LOG.println(settings.ha_light_g);
+  if (settings.getInt(HA_LIGHT_G) != g) {
+    settings.saveInt(HA_LIGHT_G, g);
   }
-  if (settings.ha_light_b != b) {
-    settings.ha_light_b = b;
-    preferences.putInt("ha_lb", settings.ha_light_b);
-    LOG.print("ha_light_blue commited to preferences: ");
-    LOG.println(settings.ha_light_b);
+  if (settings.getInt(HA_LIGHT_B) != b) {
+    settings.saveInt(HA_LIGHT_B, b);
   }
-  preferences.end();
   char rgbHex[8];
-  sprintf(rgbHex, "#%02x%02x%02x", settings.ha_light_r, settings.ha_light_g, settings.ha_light_b);
+  sprintf(rgbHex, "#%02x%02x%02x", settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B));
   reportSettingsChange("ha_light_rgb", rgbHex);
-  ha.setLampColor(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b);
+  ha.setLampColor(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B));
   mapCycle();
   return true;
 }
 
 bool saveHomeDistrict(int newHomeDistrict) {
-  if (newHomeDistrict == settings.home_district) return false;
-  settings.home_district = newHomeDistrict;
-  preferences.begin("storage", false);
-  preferences.putInt("hd", settings.home_district);
-  preferences.end();
-  reportSettingsChange("home_district", DISTRICTS[settings.home_district]);
+  if (newHomeDistrict == settings.getInt(HOME_DISTRICT)) return false;
+  settings.saveInt(HOME_DISTRICT, newHomeDistrict);
+  reportSettingsChange("home_district", DISTRICTS[newHomeDistrict]);
   LOG.print("home_district commited to preferences: ");
-  LOG.println(DISTRICTS[settings.home_district]);
-  ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.home_district)]);
+  LOG.println(DISTRICTS[settings.getInt(HOME_DISTRICT)]);
+  ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(newHomeDistrict)]);
   ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
-  showServiceMessage(DISTRICTS[settings.home_district], "Домашній регіон:", 2000);
+  showServiceMessage(DISTRICTS[newHomeDistrict], "Домашній регіон:", 2000);
   return true;
 }
 
@@ -1430,15 +1221,15 @@ void displayMinuteOfSilence() {
 }
 
 void showHomeAlertInfo() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
+  int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 2, timeClient.second());
   char title[50];
   if (periodIndex) {
-    strcpy(title, DISTRICTS[settings.home_district]);
+    strcpy(title, DISTRICTS[settings.getInt(HOME_DISTRICT)]);
   } else {
     strcpy(title, "Тривога триває:");
   }
   char message[15];
-  int position = calculateOffset(settings.home_district, offset);
+  int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
   fillFromTimer(message, timeClient.unixGMT() - alarm_time[position]);
 
   displayMessage(message, title);
@@ -1457,14 +1248,14 @@ void showClock() {
 }
 
 void showTemp() {
-  int position = calculateOffset(settings.home_district, offset);
+  int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
   char message[10];
   sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
-  displayMessage(message, DISTRICTS[settings.home_district]);
+  displayMessage(message, DISTRICTS[settings.getInt(HOME_DISTRICT)]);
 }
 
 void showTechInfo() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 6, timeClient.second());
+  int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 6, timeClient.second());
   char title[35];
   char message[25];
   switch (periodIndex) {
@@ -1514,19 +1305,19 @@ int getClimateInfoSize() {
 
 void showLocalTemp() {
   char message[10];
-  sprintf(message, "%.1f%cC", climate.getTemperature(settings.temp_correction), (char)128);
+  sprintf(message, "%.1f%cC", climate.getTemperature(settings.getFloat(TEMP_CORRECTION)), (char)128);
   displayMessage(message, "Температура");
 }
 
 void showLocalHum() {
   char message[10];
-  sprintf(message, "%.1f%%", climate.getHumidity(settings.hum_correction));
+  sprintf(message, "%.1f%%", climate.getHumidity(settings.getFloat(HUM_CORRECTION)));
   displayMessage(message, "Вологість");
 }
 
 void showLocalPressure() {
   char message[12];
-  sprintf(message, "%.1fmmHg", climate.getPressure(settings.pressure_correction));
+  sprintf(message, "%.1fmmHg", climate.getPressure(settings.getFloat(PRESSURE_CORRECTION)));
   displayMessage(message, "Тиск");
 }
 
@@ -1546,7 +1337,7 @@ void showLocalClimateInfo(int index) {
 }
 
 void showClimate() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, getClimateInfoSize(), timeClient.second());
+  int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), getClimateInfoSize(), timeClient.second());
   showLocalClimateInfo(periodIndex);
 }
 
@@ -1555,25 +1346,25 @@ int getNextToggleMode(int periodIndex) {
   switch (currentDisplayToggleMode) {
   case 0:
     // if weather is enabled or no sensors available
-    if (settings.toggle_mode_weather || !climate.isAnySensorAvailable()) {
+    if (settings.getBool(TOGGLE_MODE_WEATHER) || !climate.isAnySensorAvailable()) {
       // show weather info
       return 1;
     }
   case 1:
     // if local temperature is enabled and available
-    if (settings.toggle_mode_temp && climate.isTemperatureAvailable()) {
+    if (settings.getBool(TOGGLE_MODE_TEMP) && climate.isTemperatureAvailable()) {
       // show local temperature
       return 2;
     }
   case 2:
     // if local humidity is enabled and available
-    if (settings.toggle_mode_hum && climate.isHumidityAvailable()) {
+    if (settings.getBool(TOGGLE_MODE_HUM) && climate.isHumidityAvailable()) {
       // show local humidity
       return 3;
     }
   case 3:
     // if local pressure is enabled and available
-    if (settings.toggle_mode_press && climate.isPressureAvailable()) {
+    if (settings.getBool(TOGGLE_MODE_PRESS) && climate.isPressureAvailable()) {
       // show local pressure
       return 4;
     }
@@ -1585,7 +1376,7 @@ int getNextToggleMode(int periodIndex) {
 }
 
 void showToggleModes() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 5, timeClient.second());
+  int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 5, timeClient.second());
   int nextToggleMode = getNextToggleMode(periodIndex);
   currentDisplayToggleIndex = periodIndex;
   currentDisplayToggleMode = nextToggleMode;
@@ -1649,7 +1440,7 @@ void displayByMode(int mode) {
 
 #if FW_UPDATE_ENABLED
 void showNewFirmwareNotification() {
-  int periodIndex = getCurrentPeriodIndex(settings.display_mode_time, 2, timeClient.second());
+  int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 2, timeClient.second());
   char title[50];
   char message[50];
   if (periodIndex) {
@@ -1690,7 +1481,7 @@ void displayCycle() {
   }
 
   // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
-  if (alarmNow && settings.home_alert_time == 1) {
+  if (alarmNow && settings.getInt(HOME_ALERT_TIME) == 1) {
     showHomeAlertInfo();
     return;
   }
@@ -1703,14 +1494,14 @@ void displayCycle() {
 
 #if FW_UPDATE_ENABLED
   // Show New Firmware Notification if enabled in settings and New firmware available (Priority - 3)
-  if (settings.new_fw_notification == 1 && fwUpdateAvailable) {
+  if (settings.getInt(NEW_FW_NOTIFICATION) == 1 && fwUpdateAvailable) {
     showNewFirmwareNotification();
     return;
   }
 #endif
 
   // Show selected display mode in other cases (Priority - last)
-  displayByMode(settings.display_mode);
+  displayByMode(settings.getInt(DISPLAY_MODE));
 }
 
 void serviceMessageUpdate() {
@@ -1722,19 +1513,19 @@ void serviceMessageUpdate() {
 
 void updateHaTempSensors() {
   if (climate.isTemperatureAvailable()) {
-    ha.setLocalTemperature(climate.getTemperature(settings.temp_correction));
+    ha.setLocalTemperature(climate.getTemperature(settings.getFloat(TEMP_CORRECTION)));
   }
 }
 
 void updateHaHumSensors() {
   if (climate.isHumidityAvailable()) {
-    ha.setLocalHumidity(climate.getHumidity(settings.hum_correction));
+    ha.setLocalHumidity(climate.getHumidity(settings.getFloat(HUM_CORRECTION)));
   }
 }
 
 void updateHaPressureSensors() {
   if (climate.isPressureAvailable()) {
-    ha.setLocalPressure(climate.getPressure(settings.pressure_correction));
+    ha.setLocalPressure(climate.getPressure(settings.getFloat(PRESSURE_CORRECTION)));
   }
 }
 
@@ -1749,28 +1540,28 @@ void climateSensorCycle() {
 void setAlertPin() {
   if (isAlertPinEnabled()) {
     LOG.println("alert pin: HIGH");
-    digitalWrite(settings.alertpin, HIGH);
+    digitalWrite(settings.getInt(ALERT_PIN), HIGH);
   }
 }
 
 void setClearPin() {
   if (isClearPinEnabled()) {
     LOG.println("clear pin: HIGH");
-    digitalWrite(settings.clearpin, HIGH);
+    digitalWrite(settings.getInt(CLEAR_PIN), HIGH);
   }
 }
 
 void disableAlertPin() {
   if (isAlertPinEnabled()) {
     LOG.println("alert pin: LOW");
-    digitalWrite(settings.alertpin, LOW);
+    digitalWrite(settings.getInt(ALERT_PIN), LOW);
   }
 }
 
 void disableClearPin() {
   if (isClearPinEnabled()) {
     LOG.println("clear pin: LOW");
-    digitalWrite(settings.clearpin, LOW);
+    digitalWrite(settings.getInt(CLEAR_PIN), LOW);
   }
 }
 
@@ -1783,74 +1574,6 @@ void disableAlertAndClearPins() {
 
 int getSettingsDisplayMode(int localDisplayMode) {
   return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
-}
-
-void backupSettings(Print* response) {
-  JsonDocument doc;
-  doc["fw_version"] = VERSION;
-  doc["chip_id"] = chipID;
-  doc["time"] = timeClient.unixToString("DD.MM.YYYY hh:mm:ss").c_str();
-  JsonArray settingsArray = doc["settings"].to<JsonArray>();
-  preferences.begin("storage", true);
-  for (const char* key : SETTINGS_KEYS) {
-    // skip id key, we do not need to backup it
-    if (strcmp(key, "id") == 0) continue;
-
-    if (preferences.isKey(key)) {
-      JsonObject setting = settingsArray.add<JsonObject>();
-      setting["key"] = key;
-      PreferenceType type = preferences.getType(key);
-      switch (type) {
-        case PT_I32:
-          setting["value"] = preferences.getInt(key);
-          setting["type"] = PF_INT;
-          break;
-        case PT_STR:
-          setting["value"] = preferences.getString(key);
-          setting["type"] = PF_STRING;
-          break;
-        case PT_BLOB:
-          setting["value"] = preferences.getFloat(key);
-          setting["type"] = PF_FLOAT;
-          break;
-        default:
-          break;
-      }
-    }
-  }
-  preferences.end();
-
-  response->print(doc.as<String>());
-}
-
-bool restoreSettings(JsonObject doc) {
-  JsonArray settingsArray = doc["settings"].as<JsonArray>();
-  preferences.begin("storage", false);
-  bool restored = false;
-  for (JsonObject setting : settingsArray) {
-    const char* key = setting["key"];
-    const char* type = setting["type"];
-
-    // skip id key, we do not need to restore it
-    if (strcmp(key, "id") == 0) continue;
-
-    if (strcmp(type, PF_INT) == 0) {
-      int valueInt = setting["value"].as<int>();
-      preferences.putInt(key, valueInt);
-      LOG.printf("Restored setting: '%s' with value '%d'\n", key, valueInt);
-    } else if (strcmp(type, PF_STRING) == 0) {
-      const char* valueStr = setting["value"].as<const char*>();
-      preferences.putString(key, valueStr);
-      LOG.printf("Restored setting: '%s' with value '%s'\n", key, valueStr);
-    } else if (strcmp(type, PF_FLOAT) == 0) {
-      float valueFloat = setting["value"].as<float>();
-      preferences.putFloat(key, valueFloat);
-      LOG.printf("Restored setting: '%s' with value '%f.2'\n", key, valueFloat);
-    }
-    restored = true;
-  }
-  preferences.end();
-  return restored;
 }
 
 int checkboxIndex = 1;
@@ -2029,26 +1752,26 @@ void addHeader(AsyncResponseStream* response) {
   response->println("<meta charset='UTF-8'>");
   response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
   response->print("<title>");
-  response->print(settings.devicename);
+  response->print(settings.getString(DEVICE_NAME));
   response->println("</title>");
   // To prevent favicon request
   response->println("<link rel='icon' href='data:image/png;base64,iVBORw0KGgo='>");
   response->println("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css' integrity='sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N' crossorigin='anonymous'>");
   response->print("<link rel='stylesheet' href='https://");
-  response->print(settings.serverhost);
+  response->print(settings.getString(WS_SERVER_HOST));
   response->println("/static/jaam_v1.css'>");
   response->println("</head>");
   response->println("<body>");
   response->println("<div class='container mt-3'  id='accordion'>");
   response->print("<h2 class='text-center'>");
-  response->print(settings.devicedescription);
+  response->print(settings.getString(DEVICE_DESCRIPTION));
   response->print(" ");
   response->print(currentFwVersion);
   response->println("</h2>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->print("<img class='full-screen-img' src='https://");
-  response->print(settings.serverhost);
+  response->print(settings.getString(WS_SERVER_HOST));
   response->print("/");
   switch (getCurrentMapMode()) {
     case 0:
@@ -2173,10 +1896,10 @@ void addFooter(AsyncResponseStream* response) {
   }
 #endif
   response->print("<script src='https://");
-  response->print(settings.serverhost);
+  response->print(settings.getString(WS_SERVER_HOST));
   response->println("/static/jaam_v1.js'></script>");
   response->print("<script src='https://");
-  response->print(settings.serverhost);
+  response->print(settings.getString(WS_SERVER_HOST));
   response->println("/static/jaam_v2.js'></script>");
   response->println("</body>");
   response->println("</html>");
@@ -2198,34 +1921,34 @@ void handleBrightness(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->print("<div class='alert alert-success' role='alert'>Поточний рівень яскравості: <b>");
-  response->print(settings.map_mode == 5 ? settings.ha_light_brightness : settings.current_brightness);
+  response->print(settings.getInt(MAP_MODE) == 5 ? settings.getInt(HA_LIGHT_BRIGHTNESS) : settings.getInt(CURRENT_BRIGHTNESS));
   response->println("%</b><br>\"Нічний режим\": <b>");
   int nightModeType = getNightModeType();
   response->print(nightModeType == 0 ? "Вимкнено" : nightModeType == 1 ? "Активовано кнопкою" : nightModeType == 2 ? "Активовано за часом доби" : "Активовано за даними сенсора освітлення");
   response->println("</b></div>");
-  addSlider(response, "brightness", "Загальна", settings.brightness, 0, 100, 1, "%", settings.brightness_mode == 1 || settings.brightness_mode == 2);
-  addSlider(response, "brightness_day", "Денна", settings.brightness_day, 0, 100, 1, "%", settings.brightness_mode == 0);
-  addSlider(response, "brightness_night", "Нічна", settings.brightness_night, 0, 100, 1, "%");
-  addSlider(response, "day_start", "Початок дня", settings.day_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
-  addSlider(response, "night_start", "Початок ночі", settings.night_start, 0, 24, 1, " година", settings.brightness_mode == 0 || settings.brightness_mode == 2);
+  addSlider(response, "brightness", "Загальна", settings.getInt(BRIGHTNESS), 0, 100, 1, "%", settings.getInt(BRIGHTNESS_MODE) == 1 || settings.getInt(BRIGHTNESS_MODE) == 2);
+  addSlider(response, "brightness_day", "Денна", settings.getInt(BRIGHTNESS_DAY), 0, 100, 1, "%", settings.getInt(BRIGHTNESS_MODE) == 0);
+  addSlider(response, "brightness_night", "Нічна", settings.getInt(BRIGHTNESS_NIGHT), 0, 100, 1, "%");
+  addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година", settings.getInt(BRIGHTNESS_MODE) == 0 || settings.getInt(BRIGHTNESS_MODE) == 2);
+  addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година", settings.getInt(BRIGHTNESS_MODE) == 0 || settings.getInt(BRIGHTNESS_MODE) == 2);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "dim_display_on_night", settings.dim_display_on_night, "Знижувати яскравість дисплею у нічний час");
+    addCheckbox(response, "dim_display_on_night", settings.getBool(DIM_DISPLAY_ON_NIGHT), "Знижувати яскравість дисплею у нічний час");
   }
-  addSelectBox(response, "brightness_auto", "Автоматична яскравість", settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT);
-  addSlider(response, "brightness_alert", "Області з тривогами", settings.brightness_alert, 0, 100, 1, "%");
-  addSlider(response, "brightness_clear", "Області без тривог", settings.brightness_clear, 0, 100, 1, "%");
-  addSlider(response, "brightness_new_alert", "Нові тривоги", settings.brightness_new_alert, 0, 100, 1, "%");
-  addSlider(response, "brightness_alert_over", "Відбій тривог", settings.brightness_alert_over, 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи", settings.brightness_explosion, 0, 100, 1, "%");
-  addSlider(response, "brightness_home_district", "Домашній регіон", settings.brightness_home_district, 0, 100, 1, "%");
+  addSelectBox(response, "brightness_auto", "Автоматична яскравість", settings.getInt(BRIGHTNESS_MODE), AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT);
+  addSlider(response, "brightness_alert", "Області з тривогами", settings.getInt(BRIGHTNESS_ALERT), 0, 100, 1, "%");
+  addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
+  addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
+  addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
-    addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.brightness_bg, 0, 100, 1, "%");
+    addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
   }
   if (isServiceStripEnabled()) {
-    addSlider(response, "brightness_service", "Сервісні LED", settings.brightness_service, 0, 100, 1, "%");
+    addSlider(response, "brightness_service", "Сервісні LED", settings.getInt(BRIGHTNESS_SERVICE), 0, 100, 1, "%");
   }
   if (lightSensor.isAnySensorAvailable()) {
-    addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.light_sensor_factor, 0.1f, 30.0f, 0.1f);
+    addSlider(response, "light_sensor_factor", "Коефіцієнт чутливості сенсора освітлення", settings.getFloat(LIGHT_SENSOR_FACTOR), 0.1f, 30.0f, 0.1f);
   }
   response->println("<p class='text-info'>Детальніше про сенсор освітлення на <a href='https://github.com/J-A-A-M/ukraine_alarm_map/wiki/%D0%A1%D0%B5%D0%BD%D1%81%D0%BE%D1%80-%D0%BE%D1%81%D0%B2%D1%96%D1%82%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F'>Wiki</a>.</p>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
@@ -2254,14 +1977,14 @@ void handleColors(AsyncWebServerRequest* request) {
   response->println("<form action='/saveColors' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  addSlider(response, "color_alert", "Області з тривогами", settings.color_alert, 0, 360, 1, "", false, true);
-  addSlider(response, "color_clear", "Області без тривог", settings.color_clear, 0, 360, 1, "", false, true);
-  addSlider(response, "color_new_alert", "Нові тривоги", settings.color_new_alert, 0, 360, 1, "", false, true);
-  addSlider(response, "color_alert_over", "Відбій тривог", settings.color_alert_over, 0, 360, 1, "", false, true);
-  addSlider(response, "color_explosion", "Вибухи", settings.color_explosion, 0, 360, 1, "", false, true);
-  addSlider(response, "color_missiles", "Ракетна небезпека", settings.color_missiles, 0, 360, 1, "", false, true);
-  addSlider(response, "color_drones", "Загроза БПЛА", settings.color_drones, 0, 360, 1, "", false, true);
-  addSlider(response, "color_home_district", "Домашній регіон", settings.color_home_district, 0, 360, 1, "", false, true);
+  addSlider(response, "color_alert", "Області з тривогами", settings.getInt(COLOR_ALERT), 0, 360, 1, "", false, true);
+  addSlider(response, "color_clear", "Області без тривог", settings.getInt(COLOR_CLEAR), 0, 360, 1, "", false, true);
+  addSlider(response, "color_new_alert", "Нові тривоги", settings.getInt(COLOR_NEW_ALERT), 0, 360, 1, "", false, true);
+  addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
+  addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
+  addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
+  addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
+  addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
@@ -2288,62 +2011,62 @@ void handleModes(AsyncWebServerRequest* request) {
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  if (settings.legacy == 1 || settings.legacy == 2) {
-  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.kyiv_district_mode, KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
+  if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
+  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
   }
-  addSelectBox(response, "map_mode", "Режим мапи", settings.map_mode, MAP_MODES, MAP_MODES_COUNT);
-  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b), 0, 360, 1, "", false, true);
-  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.ha_light_brightness, 0, 100, 1, "%");
+  addSelectBox(response, "map_mode", "Режим мапи", settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT);
+  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
+  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
-    addSelectBox(response, "display_mode", "Режим дисплея", settings.display_mode, DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
-    addCheckbox(response, "invert_display", settings.invert_display, "Інвертувати дисплей (темний шрифт на світлому фоні)");
-    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.display_mode_time, 1, 60, 1, " с.");
+    addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
+    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні)");
+    addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
     if (climate.isAnySensorAvailable()) {
       response->println("Відображати в режимі \"Перемикання\":<br><br>");
-      addCheckbox(response, "toggle_mode_weather", settings.toggle_mode_weather, "Погоду у домашньому регіоні");
-      if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.toggle_mode_temp, "Температуру в приміщенні");
-      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.toggle_mode_hum, "Вологість");
-      if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.toggle_mode_press, "Тиск");
+      addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
+      if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.getBool(TOGGLE_MODE_TEMP), "Температуру в приміщенні");
+      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість");
+      if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
   }
 
   if (climate.isTemperatureAvailable()) {
-    addSlider(response, "temp_correction", "Корегування температури", settings.temp_correction, -10.0f, 10.0f, 0.1f, "°C");
+    addSlider(response, "temp_correction", "Корегування температури", settings.getFloat(TEMP_CORRECTION), -10.0f, 10.0f, 0.1f, "°C");
   }
   if (climate.isHumidityAvailable()) {
-    addSlider(response, "hum_correction", "Корегування вологості", settings.hum_correction, -20.0f, 20.0f, 0.5f, "%");
+    addSlider(response, "hum_correction", "Корегування вологості", settings.getFloat(HUM_CORRECTION), -20.0f, 20.0f, 0.5f, "%");
   }
   if (climate.isPressureAvailable()) {
-    addSlider(response, "pressure_correction", "Корегування атмосферного тиску", settings.pressure_correction, -50.0f, 50.0f, 0.5f, " мм.рт.ст.");
+    addSlider(response, "pressure_correction", "Корегування атмосферного тиску", settings.getFloat(PRESSURE_CORRECTION), -50.0f, 50.0f, 0.5f, " мм.рт.ст.");
   }
-  addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.weather_min_temp, -20, 10, 1, "°C");
-  addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.weather_max_temp, 11, 40, 1, "°C");
+  addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MIN_TEMP), -20, 10, 1, "°C");
+  addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MAX_TEMP), 11, 40, 1, "°C");
   if (buttons.isButton1Enabled()) {
-    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.button_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.button_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
   if (buttons.isButton2Enabled()) {
-    addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.button2_mode, SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-    addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.button2_mode_long, LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+    addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
+    addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
-  addSelectBox(response, "home_district", "Домашній регіон", settings.home_district, DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
+  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.home_alert_time, "Показувати тривалість тривоги у домашньому регіоні");
+    addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
   }
-  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.alarms_notify_mode, ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
-  addCheckbox(response, "enable_explosions", settings.enable_explosions, "Показувати сповіщення про вибухи");
-  addCheckbox(response, "enable_missiles", settings.enable_missiles, "Показувати сповіщення про ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.enable_drones, "Показувати сповіщення про загрозу БПЛА");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.alert_on_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.alert_off_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.explosion_time, 1, 10, 1, " хв.", settings.alarms_notify_mode == 0);
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.alert_blink_time, 1, 5, 1, " с.", settings.alarms_notify_mode != 2);
-  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
-  if (settings.legacy == 0 || settings.legacy == 3) {
-    addCheckbox(response, "service_diodes_mode", settings.service_diodes_mode, "Ввімкнути сервісні діоди");
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
+  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
+  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
+  if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
+    addCheckbox(response, "service_diodes_mode", settings.getInt(SERVICE_DIODES_MODE), "Ввімкнути сервісні діоди");
   }
-  addCheckbox(response, "min_of_silence", settings.min_of_silence, "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
-  addSlider(response, "time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.time_zone, -12, 12, 1, " год.");
+  addCheckbox(response, "min_of_silence", settings.getBool(MIN_OF_SILENCE), "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
+  addSlider(response, "time_zone", "Часовий пояс (зсув відносно Ґрінвіча)", settings.getInt(TIME_ZONE), -12, 12, 1, " год.");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
@@ -2371,18 +2094,18 @@ void handleSounds(AsyncWebServerRequest* request) {
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  addCheckbox(response, "sound_on_min_of_sl", settings.sound_on_min_of_sl, "Відтворювати звуки під час \"Xвилини мовчання\"");
-  addCheckbox(response, "sound_on_alert", settings.sound_on_alert, "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
-  addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.melody_on_alert, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert == 0, NULL, "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_alert_end", settings.sound_on_alert_end, "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
-  addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.melody_on_alert_end, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_alert_end == 0, NULL, "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_explosion", settings.sound_on_explosion, "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.melody_on_explosion, MELODY_NAMES, MELODIES_COUNT, NULL, settings.sound_on_explosion == 0, NULL, "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_every_hour", settings.sound_on_every_hour, "Звукове сповіщення щогодини");
-  addCheckbox(response, "sound_on_button_click", settings.sound_on_button_click, "Сигнали при натисканні кнопки");
-  addCheckbox(response, "mute_sound_on_night", settings.mute_sound_on_night, "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
-  addCheckbox(response, "ignore_mute_on_alert", settings.ignore_mute_on_alert, "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, settings.mute_sound_on_night == 0);
-  addSlider(response, "melody_volume", "Гучність мелодії", settings.melody_volume, 0, 100, 1, "%");
+  addCheckbox(response, "sound_on_min_of_sl", settings.getBool(SOUND_ON_MIN_OF_SL), "Відтворювати звуки під час \"Xвилини мовчання\"");
+  addCheckbox(response, "sound_on_alert", settings.getBool(SOUND_ON_ALERT), "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
+  addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_ALERT), NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_alert_end", settings.getBool(SOUND_ON_ALERT_END), "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
+  addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_ALERT_END), NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
+  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_EXPLOSION), NULL, "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
+  addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
+  addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
+  addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
@@ -2417,22 +2140,22 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, DISTRICTS[settings.home_district], weather_leds[calculateOffset(settings.home_district, offset)], "°C");
+  addCard(response, DISTRICTS[settings.getInt(HOME_DISTRICT)], weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)], "°C");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
   addCard(response, "Сервер тривог", client_websocket.available() ? "Підключено" : "Відключено", "", 2);
   if (climate.isTemperatureAvailable()) {
-    addCard(response, "Температура", climate.getTemperature(settings.temp_correction), "°C");
+    addCard(response, "Температура", climate.getTemperature(settings.getFloat(TEMP_CORRECTION)), "°C");
   }
   if (climate.isHumidityAvailable()) {
-    addCard(response, "Вологість", climate.getHumidity(settings.hum_correction), "%");
+    addCard(response, "Вологість", climate.getHumidity(settings.getFloat(HUM_CORRECTION)), "%");
   }
   if (climate.isPressureAvailable()) {
-    addCard(response, "Тиск", climate.getPressure(settings.pressure_correction), "mmHg", 2);
+    addCard(response, "Тиск", climate.getPressure(settings.getFloat(PRESSURE_CORRECTION)), "mmHg", 2);
   }
   if (lightSensor.isLightSensorAvailable()) {
-    addCard(response, "Освітленість", lightSensor.getLightLevel(settings.light_sensor_factor), "lx");
+    addCard(response, "Освітленість", lightSensor.getLightLevel(settings.getFloat(LIGHT_SENSOR_FACTOR)), "lx");
   }
   response->println("</div>");
   response->println("<button type='submit' class='btn btn-info mt-3'>Оновити значення</button>");
@@ -2461,48 +2184,48 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveDev' method='POST'>");
-  addSelectBox(response, "legacy", "Режим прошивки", settings.legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
-  if ((settings.legacy == 1 || settings.legacy == 2) && display.isDisplayEnabled()) {
-    addSelectBox(response, "display_model", "Тип дисплею", settings.display_model, DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
-    addSelectBox(response, "display_height", "Розмір дисплею", settings.display_height, DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
+  addSelectBox(response, "legacy", "Режим прошивки", settings.getInt(LEGACY), LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
+  if ((settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) && display.isDisplayEnabled()) {
+    addSelectBox(response, "display_model", "Тип дисплею", settings.getInt(DISPLAY_MODEL), DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
+    addSelectBox(response, "display_height", "Розмір дисплею", settings.getInt(DISPLAY_HEIGHT), DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
   }
   if (ha.isHaEnabled()) {
-    addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.ha_brokeraddress, 30);
-    addInputText(response, "ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.ha_mqttport).c_str());
-    addInputText(response, "ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.ha_mqttuser, 30);
-    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.ha_mqttpassword, 65);
+    addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.getString(HA_BROKER_ADDRESS), 30);
+    addInputText(response, "ha_mqttport", "Порт mqtt Home Assistant", "number", String(settings.getInt(HA_MQTT_PORT)).c_str());
+    addInputText(response, "ha_mqttuser", "Користувач mqtt Home Assistant", "text", settings.getString(HA_MQTT_USER), 30);
+    addInputText(response, "ha_mqttpassword", "Пароль mqtt Home Assistant", "text", settings.getString(HA_MQTT_PASSWORD), 65);
   }
-  addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.ntphost, 30);
-  addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.serverhost, 30);
-  addInputText(response, "websocket_port", "Порт Websockets", "number", String(settings.websocket_port).c_str());
-  addInputText(response, "updateport", "Порт сервера прошивок", "number", String(settings.updateport).c_str());
-  addInputText(response, "devicename", "Назва пристрою", "text", settings.devicename, 30);
-  addInputText(response, "devicedescription", "Опис пристрою", "text", settings.devicedescription, 50);
-  addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.broadcastname) + ".local)").c_str(), "text", settings.broadcastname, 30);
-  if (settings.legacy == 1 || settings.legacy == 2) {
-    addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.pixelpin).c_str());
-    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.bg_pixelpin).c_str());
-    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.bg_pixelcount).c_str());
-    addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.buttonpin).c_str());
-    addCheckbox(response, "use_touch_button1", settings.use_touch_button1, "Підтримка touch-кнопки TTP223 для кнопки 1");
-    addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.button2pin).c_str());
-    addCheckbox(response, "use_touch_button2", settings.use_touch_button2, "Підтримка touch-кнопки TTP223 для кнопки 2");
+  addInputText(response, "ntphost", "Адреса сервера NTP", "text", settings.getString(NTP_HOST), 30);
+  addInputText(response, "serverhost", "Адреса сервера даних", "text", settings.getString(WS_SERVER_HOST), 30);
+  addInputText(response, "websocket_port", "Порт Websockets", "number", String(settings.getInt(WS_SERVER_PORT)).c_str());
+  addInputText(response, "updateport", "Порт сервера прошивок", "number", String(settings.getInt(UPDATE_SERVER_PORT)).c_str());
+  addInputText(response, "devicename", "Назва пристрою", "text", settings.getString(DEVICE_NAME), 30);
+  addInputText(response, "devicedescription", "Опис пристрою", "text", settings.getString(DEVICE_DESCRIPTION), 50);
+  addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.getString(BROADCAST_NAME)) + ".local)").c_str(), "text", settings.getString(BROADCAST_NAME), 30);
+  if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
+    addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.getInt(MAIN_LED_PIN)).c_str());
+    addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.getInt(BG_LED_PIN)).c_str());
+    addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.getInt(BG_LED_COUNT)).c_str());
+    addInputText(response, "buttonpin", "Керуючий пін кнопки 1 (-1 - вимкнено)", "number", String(settings.getInt(BUTTON_1_PIN)).c_str());
+    addCheckbox(response, "use_touch_button1", settings.getBool(USE_TOUCH_BUTTON_1), "Підтримка touch-кнопки TTP223 для кнопки 1");
+    addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.getInt(BUTTON_2_PIN)).c_str());
+    addCheckbox(response, "use_touch_button2", settings.getBool(USE_TOUCH_BUTTON_2), "Підтримка touch-кнопки TTP223 для кнопки 2");
   }
-  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.alert_clear_pin_mode, ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
-  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.alertpin).c_str());
-  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.clearpin).c_str());
-  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.alert_clear_pin_time, 0.5f, 10.0f, 0.5f, " с.");
+  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.getInt(ALERT_CLEAR_PIN_MODE), ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
+  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.getInt(ALERT_PIN)).c_str());
+  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.getInt(CLEAR_PIN)).c_str());
+  addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.getFloat(ALERT_CLEAR_PIN_TIME), 0.5f, 10.0f, 0.5f, " с.");
 
-  if (settings.legacy != 3) {
-    addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.lightpin).c_str());
+  if (settings.getInt(LEGACY) != 3) {
+    addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.getInt(LIGHT_SENSOR_PIN)).c_str());
 #if BUZZER_ENABLED
-    addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.buzzerpin).c_str());
+    addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.getInt(BUZZER_PIN)).c_str());
 #endif
   }
   response->println("<b>");
   response->println("<p class='text-danger'>УВАГА: будь-яка зміна налаштування в цьому розділі призводить до примусового перезаватаження мапи.</p>");
   response->println("<p class='text-danger'>УВАГА: деякі зміни налаштувань можуть привести до відмови прoшивки, якщо налаштування будуть несумісні. Будьте впевнені, що Ви точно знаєте, що міняється і для чого.</p>");
-  response->println("<p class='text-danger'>У випадку, коли мапа втратить працездатність після змін, перезавантаження i втрати доступу до сторінки керування - необхідно перепрошити мапу з нуля за допомогою скетча updater.ino (або firmware.ino, якщо Ви збирали прошивку самі) з репозіторія JAAM за допомогою Arduino IDE, виставивши примусове стирання памʼяті в меню Tools -> Erase all memory before sketch upload</p>");
+  response->println("<p class='text-danger'>Якщо мапа втратить працездатність після змін та перезавантаження, необхідно перепрошити мапу на сайті <a href='https://flasher.jaam.net.ua/'>flasher.jaam.net.ua</a>. Якщо звичайна прошивка не допомогла, перепрошити ще раз з видаленням всіх даних (під час прошивки треба поставити галочку 'Erase device')</p>");
   response->println("</b>");
   response->println("<button type='submit' class='btn btn-info' aria-expanded='false'>Зберегти налаштування</button>");
   response->print("<a href='http://");
@@ -2544,17 +2267,17 @@ void handleFirmware(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveFirmware' method='POST'>");
-  if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.new_fw_notification, "Сповіщення про нові прошивки на екрані");
-  addSelectBox(response, "fw_update_channel", "Канал оновлення прошивок", settings.fw_update_channel, FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
+  if (display.isDisplayAvailable()) addCheckbox(response, "new_fw_notification", settings.getInt(NEW_FW_NOTIFICATION), "Сповіщення про нові прошивки на екрані");
+  addSelectBox(response, "fw_update_channel", "Канал оновлення прошивок", settings.getInt(FW_UPDATE_CHANNEL), FW_UPDATE_CHANNELS, FW_UPDATE_CHANNELS_COUNT);
   response->println("<b><p class='text-danger'>УВАГА: BETA-прошивки можуть вивести мапу з ладу i містити помилки. Якщо у Вас немає можливості прошити мапу через кабель, будь ласка, залишайтесь на каналі PRODUCTION!</p></b>");
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</form>");
   response->println("<form action='/update' method='POST'>");
   response->println("Файл прошивки");
   response->println("<select name='bin_name' class='form-control' id='sb16'>");
-  const int count = settings.fw_update_channel ? testBinsCount : binsCount;
+  const int count = settings.getInt(FW_UPDATE_CHANNEL) ? testBinsCount : binsCount;
   for (int i = 0; i < count; i++) {
-    String filename = String(settings.fw_update_channel ? test_bin_list[i] : bin_list[i]);
+    String filename = String(settings.getInt(FW_UPDATE_CHANNEL) ? test_bin_list[i] : bin_list[i]);
     response->print("<option value='");
     response->print(filename);
     response->print("'");
@@ -2595,24 +2318,20 @@ void handleRoot(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
-void saveInt(int *setting, const char* settingsKey, int newValue, const char* paramName) {
-  preferences.begin("storage", false);
-  *setting = newValue;
-  preferences.putInt(settingsKey, *setting);
-  preferences.end();
-  reportSettingsChange(paramName, *setting);
-  LOG.printf("%s commited to preferences: %d\n", paramName, *setting);
+void saveInt(Type settingType, int newValue, const char* paramName) {
+  settings.saveInt(settingType, newValue);
+  reportSettingsChange(paramName, newValue);
 }
 
-bool saveInt(const AsyncWebParameter* param, int *setting, const char* settingsKey, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveInt(const AsyncWebParameter* param, Type settingType, bool (*saveFun)(int) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   int newValue = param->value().toInt();
   if (saveFun) {
     return saveFun(newValue);
   }
-  if (newValue != *setting) {
+  if (newValue != settings.getInt(settingType)) {
     const char* paramName = param->name().c_str();
-    saveInt(setting, settingsKey, newValue, paramName);
+    saveInt(settingType, newValue, paramName);
     if (additionalFun) {
       additionalFun();
     }
@@ -2621,20 +2340,16 @@ bool saveInt(const AsyncWebParameter* param, int *setting, const char* settingsK
   return false;
 }
 
-bool saveFloat(const AsyncWebParameter* param, float *setting, const char* settingsKey, bool (*saveFun)(float) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveFloat(const AsyncWebParameter* param, Type settingType, bool (*saveFun)(float) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   float paramValue = param->value().toFloat();
   if (saveFun) {
     return saveFun(paramValue);
   }
-  if (paramValue != *setting) {
-    preferences.begin("storage", false);
+  if (paramValue != settings.getFloat(settingType)) {
     const char* paramName = param->name().c_str();
-    *setting = paramValue;
-    preferences.putFloat(settingsKey, *setting);
-    preferences.end();
-    reportSettingsChange(paramName, *setting);
-    LOG.printf("%s commited to preferences: %.1f\n", paramName, *setting);
+    settings.saveFloat(settingType, paramValue);
+    reportSettingsChange(paramName, paramValue);
     if (additionalFun) {
       additionalFun();
     }
@@ -2643,18 +2358,14 @@ bool saveFloat(const AsyncWebParameter* param, float *setting, const char* setti
   return false;
 }
 
-bool saveBool(const AsyncWebParameter* param, const char* paramName, int *setting, const char* settingsKey, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveBool(const AsyncWebParameter* param, const char* paramName, Type settingType, bool (*saveFun)(bool) = NULL, void (*additionalFun)(void) = NULL) {
   int paramValue = param ? 1 : 0;
   if (saveFun) {
     return saveFun(paramValue);
   }
-  if (paramValue != *setting) {
-    preferences.begin("storage", false);
-    *setting = paramValue;
-    preferences.putInt(settingsKey, *setting);
-    preferences.end();
-    reportSettingsChange(paramName, *setting ? "true" : "false");
-    LOG.printf("%s commited to preferences: %s\n", paramName, *setting ? "true" : "false");
+  if (paramValue != settings.getBool(settingType)) {
+    settings.saveBool(settingType, paramValue);
+    reportSettingsChange(paramName, paramValue ? "true" : "false");
     if (additionalFun) {
       additionalFun();
     }
@@ -2663,20 +2374,16 @@ bool saveBool(const AsyncWebParameter* param, const char* paramName, int *settin
   return false;
 }
 
-bool saveString(const AsyncWebParameter* param, char* setting, const char* settingsKey, bool (*saveFun)(const char*) = NULL, void (*additionalFun)(void) = NULL) {
+bool saveString(const AsyncWebParameter* param, Type settingType, bool (*saveFun)(const char*) = NULL, void (*additionalFun)(void) = NULL) {
   if (!param) return false;
   const char* paramValue = param->value().c_str();
   if (saveFun) {
     return saveFun(paramValue);
   }
-  if (strcmp(paramValue, setting) != 0) {
-    preferences.begin("storage", false);
+  if (strcmp(paramValue, settings.getString(settingType)) != 0) {
     const char* paramName = param->name().c_str();
-    strcpy(setting, paramValue);
-    preferences.putString(settingsKey, setting);
-    preferences.end();
-    reportSettingsChange(paramName, setting);
-    LOG.printf("%s commited to preferences: %s\n", paramName, setting);
+    settings.saveString(settingType, paramValue);
+    reportSettingsChange(paramName, paramValue);
     if (additionalFun) {
       additionalFun();
     }
@@ -2690,8 +2397,8 @@ void handleUpdate(AsyncWebServerRequest* request) {
   LOG.println("do_update triggered");
   initUpdate = true;
   if (request->hasParam("bin_name", true)) {
-    const char* bin_name = request->getParam("bin_name", true)->value().c_str();
-    strcpy(settings.bin_name, bin_name);
+    const char* binName = request->getParam("bin_name", true)->value().c_str();
+    strcpy(bin_name, binName);
   }
   request->redirect("/");
 }
@@ -2709,22 +2416,22 @@ AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const c
 
 void handleSaveBrightness(AsyncWebServerRequest *request) {
   bool saved = false;
-  saved = saveInt(request->getParam("brightness", true), &settings.brightness, "brightness", saveBrightness) || saved;
-  saved = saveInt(request->getParam("brightness_day", true), &settings.brightness_day, "brd", saveDayBrightness) || saved;
-  saved = saveInt(request->getParam("brightness_night", true), &settings.brightness_night, "brn", saveNightBrightness) || saved;
-  saved = saveInt(request->getParam("day_start", true), &settings.day_start, "ds") || saved;
-  saved = saveInt(request->getParam("night_start", true), &settings.night_start, "ns") || saved;
-  saved = saveInt(request->getParam("brightness_auto", true), &settings.brightness_mode, "bra", saveAutoBrightnessMode) || saved;
-  saved = saveInt(request->getParam("brightness_alert", true), &settings.brightness_alert, "ba") || saved;
-  saved = saveInt(request->getParam("brightness_clear", true), &settings.brightness_clear, "bc") || saved;
-  saved = saveInt(request->getParam("brightness_new_alert", true), &settings.brightness_new_alert, "bna") || saved;
-  saved = saveInt(request->getParam("brightness_alert_over", true), &settings.brightness_alert_over, "bao") || saved;
-  saved = saveInt(request->getParam("brightness_explosion", true), &settings.brightness_explosion, "bex") || saved;
-  saved = saveInt(request->getParam("brightness_home_district", true), &settings.brightness_home_district, "bhd") || saved;
-  saved = saveInt(request->getParam("brightness_bg", true), &settings.brightness_bg, "bbg") || saved;
-  saved = saveInt(request->getParam("brightness_service", true), &settings.brightness_service, "bs", NULL, checkServicePins) || saved;
-  saved = saveFloat(request->getParam("light_sensor_factor", true), &settings.light_sensor_factor, "lsf") || saved;
-  saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", &settings.dim_display_on_night, "ddon", NULL, updateDisplayBrightness) || saved;
+  saved = saveInt(request->getParam("brightness", true), BRIGHTNESS, saveBrightness) || saved;
+  saved = saveInt(request->getParam("brightness_day", true), BRIGHTNESS_DAY, saveDayBrightness) || saved;
+  saved = saveInt(request->getParam("brightness_night", true), BRIGHTNESS_NIGHT, saveNightBrightness) || saved;
+  saved = saveInt(request->getParam("day_start", true), DAY_START) || saved;
+  saved = saveInt(request->getParam("night_start", true), NIGHT_START) || saved;
+  saved = saveInt(request->getParam("brightness_auto", true), BRIGHTNESS_MODE, saveAutoBrightnessMode) || saved;
+  saved = saveInt(request->getParam("brightness_alert", true), BRIGHTNESS_ALERT) || saved;
+  saved = saveInt(request->getParam("brightness_clear", true), BRIGHTNESS_CLEAR) || saved;
+  saved = saveInt(request->getParam("brightness_new_alert", true), BRIGHTNESS_NEW_ALERT) || saved;
+  saved = saveInt(request->getParam("brightness_alert_over", true), BRIGHTNESS_ALERT_OVER) || saved;
+  saved = saveInt(request->getParam("brightness_explosion", true), BRIGHTNESS_EXPLOSION) || saved;
+  saved = saveInt(request->getParam("brightness_home_district", true), BRIGHTNESS_HOME_DISTRICT) || saved;
+  saved = saveInt(request->getParam("brightness_bg", true), BRIGHTNESS_BG) || saved;
+  saved = saveInt(request->getParam("brightness_service", true), BRIGHTNESS_SERVICE, NULL, checkServicePins) || saved;
+  saved = saveFloat(request->getParam("light_sensor_factor", true), LIGHT_SENSOR_FACTOR) || saved;
+  saved = saveBool(request->getParam("dim_display_on_night", true), "dim_display_on_night", DIM_DISPLAY_ON_NIGHT, NULL, updateDisplayBrightness) || saved;
 
   if (saved) autoBrightnessUpdate();
 
@@ -2733,54 +2440,54 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
 
 void handleSaveColors(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveInt(request->getParam("color_alert", true), &settings.color_alert, "coloral") || saved;
-  saved = saveInt(request->getParam("color_clear", true), &settings.color_clear, "colorcl") || saved;
-  saved = saveInt(request->getParam("color_new_alert", true), &settings.color_new_alert, "colorna") || saved;
-  saved = saveInt(request->getParam("color_alert_over", true), &settings.color_alert_over, "colorao") || saved;
-  saved = saveInt(request->getParam("color_explosion", true), &settings.color_explosion, "colorex") || saved;
-  saved = saveInt(request->getParam("color_missiles", true), &settings.color_missiles, "colormi") || saved;
-  saved = saveInt(request->getParam("color_drones", true), &settings.color_drones, "colordr") || saved;
-  saved = saveInt(request->getParam("color_home_district", true), &settings.color_home_district, "colorhd") || saved;
+  saved = saveInt(request->getParam("color_alert", true), COLOR_ALERT) || saved;
+  saved = saveInt(request->getParam("color_clear", true), COLOR_CLEAR) || saved;
+  saved = saveInt(request->getParam("color_new_alert", true), COLOR_NEW_ALERT) || saved;
+  saved = saveInt(request->getParam("color_alert_over", true), COLOR_ALERT_OVER) || saved;
+  saved = saveInt(request->getParam("color_explosion", true), COLOR_EXPLOSION) || saved;
+  saved = saveInt(request->getParam("color_missiles", true), COLOR_MISSILES) || saved;
+  saved = saveInt(request->getParam("color_drones", true), COLOR_DRONES) || saved;
+  saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
 
   request->send(redirectResponce(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveInt(request->getParam("map_mode", true), &settings.map_mode, "mapmode", saveMapMode) || saved;
-  saved = saveInt(request->getParam("brightness_lamp", true), &settings.ha_light_brightness, "ha_lbri", saveLampBrightness) || saved;
-  saved = saveInt(request->getParam("display_mode", true), &settings.display_mode, "dm", saveDisplayMode) || saved;
-  saved = saveInt(request->getParam("home_district", true), &settings.home_district, "hd", saveHomeDistrict) || saved;
-  saved = saveInt(request->getParam("display_mode_time", true), &settings.display_mode_time, "dmt") || saved;
-  saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", &settings.toggle_mode_weather, "tmw") || saved;
-  saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", &settings.toggle_mode_temp, "tmt") || saved;
-  saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", &settings.toggle_mode_hum, "tmh") || saved;
-  saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", &settings.toggle_mode_press, "tmp") || saved;
-  saved = saveFloat(request->getParam("temp_correction", true), &settings.temp_correction, "ltc", NULL, climateSensorCycle) || saved;
-  saved = saveFloat(request->getParam("hum_correction", true), &settings.hum_correction, "lhc", NULL, climateSensorCycle) || saved;
-  saved = saveFloat(request->getParam("pressure_correction", true), &settings.pressure_correction, "lpc", NULL, climateSensorCycle) || saved;
-  saved = saveInt(request->getParam("weather_min_temp", true), &settings.weather_min_temp, "mintemp") || saved;
-  saved = saveInt(request->getParam("weather_max_temp", true), &settings.weather_max_temp, "maxtemp") || saved;
-  saved = saveInt(request->getParam("button_mode", true), &settings.button_mode, "bm") || saved;
-  saved = saveInt(request->getParam("button2_mode", true), &settings.button2_mode, "b2m") || saved;
-  saved = saveInt(request->getParam("button_mode_long", true), &settings.button_mode_long, "bml") || saved;
-  saved = saveInt(request->getParam("button2_mode_long", true), &settings.button2_mode_long, "b2ml") || saved;
-  saved = saveInt(request->getParam("kyiv_district_mode", true), &settings.kyiv_district_mode, "kdm") || saved;
-  saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", &settings.home_alert_time, "hat", saveShowHomeAlarmTime) || saved;
-  saved = saveInt(request->getParam("alarms_notify_mode", true), &settings.alarms_notify_mode, "anm") || saved;
-  saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", &settings.enable_explosions, "eex") || saved;
-  saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", &settings.enable_missiles, "emi") || saved;
-  saved = saveBool(request->getParam("enable_drones", true), "enable_drones", &settings.enable_drones, "edr") || saved;
-  saved = saveInt(request->getParam("alert_on_time", true), &settings.alert_on_time, "aont") || saved;
-  saved = saveInt(request->getParam("alert_off_time", true), &settings.alert_off_time, "aoft") || saved;
-  saved = saveInt(request->getParam("explosion_time", true), &settings.explosion_time, "ext") || saved;
-  saved = saveInt(request->getParam("alert_blink_time", true), &settings.alert_blink_time, "abt") || saved;
-  saved = saveInt(request->getParam("alarms_auto_switch", true), &settings.alarms_auto_switch, "aas", saveAutoAlarmMode) || saved;
-  saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", &settings.service_diodes_mode, "sdm", NULL, checkServicePins) || saved;
-  saved = saveBool(request->getParam("min_of_silence", true), "min_of_silence", &settings.min_of_silence, "mos") || saved;
-  saved = saveBool(request->getParam("invert_display", true), "invert_display", &settings.invert_display, "invd", NULL, updateInvertDisplayMode) || saved;
-  saved = saveInt(request->getParam("time_zone", true), &settings.time_zone, "tz", NULL, []() {
-    timeClient.setTimeZone(settings.time_zone);
+  saved = saveInt(request->getParam("map_mode", true), MAP_MODE, saveMapMode) || saved;
+  saved = saveInt(request->getParam("brightness_lamp", true), HA_LIGHT_BRIGHTNESS, saveLampBrightness) || saved;
+  saved = saveInt(request->getParam("display_mode", true), DISPLAY_MODE, saveDisplayMode) || saved;
+  saved = saveInt(request->getParam("home_district", true), HOME_DISTRICT, saveHomeDistrict) || saved;
+  saved = saveInt(request->getParam("display_mode_time", true), DISPLAY_MODE_TIME) || saved;
+  saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", TOGGLE_MODE_WEATHER) || saved;
+  saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", TOGGLE_MODE_TEMP) || saved;
+  saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", TOGGLE_MODE_HUM) || saved;
+  saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", TOGGLE_MODE_PRESS) || saved;
+  saved = saveFloat(request->getParam("temp_correction", true), TEMP_CORRECTION, NULL, climateSensorCycle) || saved;
+  saved = saveFloat(request->getParam("hum_correction", true), HUM_CORRECTION, NULL, climateSensorCycle) || saved;
+  saved = saveFloat(request->getParam("pressure_correction", true), PRESSURE_CORRECTION, NULL, climateSensorCycle) || saved;
+  saved = saveInt(request->getParam("weather_min_temp", true), WEATHER_MIN_TEMP) || saved;
+  saved = saveInt(request->getParam("weather_max_temp", true), WEATHER_MAX_TEMP) || saved;
+  saved = saveInt(request->getParam("button_mode", true), BUTTON_1_MODE) || saved;
+  saved = saveInt(request->getParam("button2_mode", true), BUTTON_2_MODE) || saved;
+  saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
+  saved = saveInt(request->getParam("button2_mode_long", true), BUTTON_2_MODE_LONG) || saved;
+  saved = saveInt(request->getParam("kyiv_district_mode", true), KYIV_DISTRICT_MODE) || saved;
+  saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", HOME_ALERT_TIME, saveShowHomeAlarmTime) || saved;
+  saved = saveInt(request->getParam("alarms_notify_mode", true), ALARMS_NOTIFY_MODE) || saved;
+  saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
+  saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", ENABLE_MISSILES) || saved;
+  saved = saveBool(request->getParam("enable_drones", true), "enable_drones", ENABLE_DRONES) || saved;
+  saved = saveInt(request->getParam("alert_on_time", true), ALERT_ON_TIME) || saved;
+  saved = saveInt(request->getParam("alert_off_time", true), ALERT_OFF_TIME) || saved;
+  saved = saveInt(request->getParam("explosion_time", true), EXPLOSION_TIME) || saved;
+  saved = saveInt(request->getParam("alert_blink_time", true), ALERT_BLINK_TIME) || saved;
+  saved = saveInt(request->getParam("alarms_auto_switch", true), ALARMS_AUTO_SWITCH, saveAutoAlarmMode) || saved;
+  saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", SERVICE_DIODES_MODE, NULL, checkServicePins) || saved;
+  saved = saveBool(request->getParam("min_of_silence", true), "min_of_silence", MIN_OF_SILENCE) || saved;
+  saved = saveBool(request->getParam("invert_display", true), "invert_display", INVERT_DISPLAY, NULL, updateInvertDisplayMode) || saved;
+  saved = saveInt(request->getParam("time_zone", true), TIME_ZONE, NULL, []() {
+    timeClient.setTimeZone(settings.getInt(TIME_ZONE));
   }) || saved;
 
   if (request->hasParam("color_lamp", true)) {
@@ -2794,21 +2501,21 @@ void handleSaveModes(AsyncWebServerRequest* request) {
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveBool(request->getParam("sound_on_min_of_sl", true), "sound_on_min_of_sl", &settings.sound_on_min_of_sl, "somos") || saved;
-  saved = saveBool(request->getParam("sound_on_alert", true), "sound_on_alert", &settings.sound_on_alert, "soa") || saved;
-  saved = saveInt(request->getParam("melody_on_alert", true), &settings.melody_on_alert, "moa") || saved;
-  saved = saveBool(request->getParam("sound_on_alert_end", true), "sound_on_alert_end", &settings.sound_on_alert_end, "soae") || saved;
-  saved = saveInt(request->getParam("melody_on_alert_end", true), &settings.melody_on_alert_end, "moae") || saved;
-  saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", &settings.sound_on_explosion, "soex") || saved;
-  saved = saveInt(request->getParam("melody_on_explosion", true), &settings.melody_on_explosion, "moex") || saved;
-  saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", &settings.sound_on_every_hour, "soeh") || saved;
-  saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", &settings.sound_on_button_click, "sobc") || saved;
-  saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", &settings.mute_sound_on_night, "mson") || saved;
-  saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert", &settings.ignore_mute_on_alert, "imoa") || saved;
-  saved = saveInt(request->getParam("melody_volume", true), &settings.melody_volume, "mv", NULL, []() {
+  saved = saveBool(request->getParam("sound_on_min_of_sl", true), "sound_on_min_of_sl", SOUND_ON_MIN_OF_SL) || saved;
+  saved = saveBool(request->getParam("sound_on_alert", true), "sound_on_alert", SOUND_ON_ALERT) || saved;
+  saved = saveInt(request->getParam("melody_on_alert", true), MELODY_ON_ALERT) || saved;
+  saved = saveBool(request->getParam("sound_on_alert_end", true), "sound_on_alert_end", SOUND_ON_ALERT_END) || saved;
+  saved = saveInt(request->getParam("melody_on_alert_end", true), MELODY_ON_ALERT_END) || saved;
+  saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", SOUND_ON_EXPLOSION) || saved;
+  saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
+  saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
+  saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
+  saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
+  saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert",IGNORE_MUTE_ON_ALERT) || saved;
+  saved = saveInt(request->getParam("melody_volume", true), MELODY_VOLUME, NULL, []() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
-    player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
   }
 #endif
   }) || saved;
@@ -2822,33 +2529,33 @@ void handleRefreshTelemetry(AsyncWebServerRequest* request) {
 
 void handleSaveDev(AsyncWebServerRequest* request) {
   bool reboot = false;
-  reboot = saveInt(request->getParam("legacy", true), &settings.legacy, "legacy") || reboot;
-  reboot = saveInt(request->getParam("display_height", true), &settings.display_height, "dh") || reboot;
-  reboot = saveInt(request->getParam("display_model", true), &settings.display_model, "dsmd") || reboot;
-  reboot = saveString(request->getParam("ha_brokeraddress", true), settings.ha_brokeraddress, "ha_brokeraddr") || reboot;
-  reboot = saveInt(request->getParam("ha_mqttport", true), &settings.ha_mqttport, "ha_mqttport") || reboot;
-  reboot = saveString(request->getParam("ha_mqttuser", true), settings.ha_mqttuser, "ha_mqttuser") || reboot;
-  reboot = saveString(request->getParam("ha_mqttpassword", true), settings.ha_mqttpassword, "ha_mqttpass") || reboot;
-  reboot = saveString(request->getParam("devicename", true), settings.devicename, "dn") || reboot;
-  reboot = saveString(request->getParam("devicedescription", true), settings.devicedescription, "dd") || reboot;
-  reboot = saveString(request->getParam("broadcastname", true), settings.broadcastname, "bn") || reboot;
-  reboot = saveString(request->getParam("serverhost", true), settings.serverhost, "wshost") || reboot;
-  reboot = saveString(request->getParam("ntphost", true), settings.ntphost, "ntph") || reboot;
-  reboot = saveInt(request->getParam("websocket_port", true), &settings.websocket_port, "wsnp") || reboot;
-  reboot = saveInt(request->getParam("updateport", true), &settings.updateport, "upp") || reboot;
-  reboot = saveInt(request->getParam("pixelpin", true), &settings.pixelpin, "pp") || reboot;
-  reboot = saveInt(request->getParam("bg_pixelpin", true), &settings.bg_pixelpin, "bpp") || reboot;
-  reboot = saveInt(request->getParam("bg_pixelcount", true), &settings.bg_pixelcount, "bpc") || reboot;
-  reboot = saveInt(request->getParam("buttonpin", true), &settings.buttonpin, "bp") || reboot;
-  reboot = saveInt(request->getParam("button2pin", true), &settings.button2pin, "b2p") || reboot;
-  reboot = saveBool(request->getParam("use_touch_button1", true), "use_touch_button1", &settings.use_touch_button1, "utb1") || reboot;
-  reboot = saveBool(request->getParam("use_touch_button2", true), "use_touch_button2", &settings.use_touch_button2, "utb2") || reboot;
-  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), &settings.alert_clear_pin_mode, "acpm", NULL, disableAlertAndClearPins) || reboot;
-  reboot = saveInt(request->getParam("alertpin", true), &settings.alertpin, "ap") || reboot;
-  reboot = saveInt(request->getParam("clearpin", true), &settings.clearpin, "cp") || reboot;
-  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), &settings.alert_clear_pin_time, "acpt", NULL, disableAlertAndClearPins) || reboot;
-  reboot = saveInt(request->getParam("lightpin", true), &settings.lightpin, "lp") || reboot;
-  reboot = saveInt(request->getParam("buzzerpin", true), &settings.buzzerpin, "bzp") || reboot;
+  reboot = saveInt(request->getParam("legacy", true), LEGACY) || reboot;
+  reboot = saveInt(request->getParam("display_height", true), DISPLAY_HEIGHT) || reboot;
+  reboot = saveInt(request->getParam("display_model", true), DISPLAY_MODEL) || reboot;
+  reboot = saveString(request->getParam("ha_brokeraddress", true), HA_BROKER_ADDRESS) || reboot;
+  reboot = saveInt(request->getParam("ha_mqttport", true), HA_MQTT_PORT) || reboot;
+  reboot = saveString(request->getParam("ha_mqttuser", true), HA_MQTT_USER) || reboot;
+  reboot = saveString(request->getParam("ha_mqttpassword", true), HA_MQTT_PASSWORD) || reboot;
+  reboot = saveString(request->getParam("devicename", true), DEVICE_NAME) || reboot;
+  reboot = saveString(request->getParam("devicedescription", true), DEVICE_DESCRIPTION) || reboot;
+  reboot = saveString(request->getParam("broadcastname", true), BROADCAST_NAME) || reboot;
+  reboot = saveString(request->getParam("serverhost", true), WS_SERVER_HOST) || reboot;
+  reboot = saveString(request->getParam("ntphost", true), NTP_HOST) || reboot;
+  reboot = saveInt(request->getParam("websocket_port", true), WS_SERVER_PORT) || reboot;
+  reboot = saveInt(request->getParam("updateport", true), UPDATE_SERVER_PORT) || reboot;
+  reboot = saveInt(request->getParam("pixelpin", true), MAIN_LED_PIN) || reboot;
+  reboot = saveInt(request->getParam("bg_pixelpin", true), BG_LED_PIN) || reboot;
+  reboot = saveInt(request->getParam("bg_pixelcount", true), BG_LED_COUNT) || reboot;
+  reboot = saveInt(request->getParam("buttonpin", true), BUTTON_1_PIN) || reboot;
+  reboot = saveInt(request->getParam("button2pin", true), BUTTON_2_PIN) || reboot;
+  reboot = saveBool(request->getParam("use_touch_button1", true), "use_touch_button1", USE_TOUCH_BUTTON_1) || reboot;
+  reboot = saveBool(request->getParam("use_touch_button2", true), "use_touch_button2", USE_TOUCH_BUTTON_2) || reboot;
+  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), ALERT_CLEAR_PIN_MODE, NULL, disableAlertAndClearPins) || reboot;
+  reboot = saveInt(request->getParam("alertpin", true), ALERT_PIN) || reboot;
+  reboot = saveInt(request->getParam("clearpin", true), CLEAR_PIN) || reboot;
+  reboot = saveFloat(request->getParam("alert_clear_pin_time", true), ALERT_CLEAR_PIN_TIME, NULL, disableAlertAndClearPins) || reboot;
+  reboot = saveInt(request->getParam("lightpin", true), LIGHT_SENSOR_PIN) || reboot;
+  reboot = saveInt(request->getParam("buzzerpin", true), BUZZER_PIN) || reboot;
 
   if (reboot) {
     rebootDevice(3000, true);
@@ -2858,7 +2565,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
 
 void handleBackup(AsyncWebServerRequest* request) {
   AsyncResponseStream* response = request->beginResponseStream("application/json");
-  backupSettings(response);
+  settings.getSettingsBackup(response, VERSION, chipID, timeClient.unixToString("DD.MM.YYYY hh:mm:ss").c_str());
   char filenameHeader[65];
   sprintf(filenameHeader, "attachment; filename=\"jaam_backup_%s.json\"", timeClient.unixToString("YYYY.MM.DD_hh-mm-ss").c_str());
   response->addHeader("Content-Disposition", filenameHeader);
@@ -2885,9 +2592,7 @@ void handleRestore(AsyncWebServerRequest *request) {
   LOG.println("Restoring settings...");
   const char* jsonString = jsonBody.c_str();
   LOG.printf("JSON to restore: %s\n", jsonString);
-  JsonDocument json;
-  deserializeJson(json, jsonString);
-  bool restored = restoreSettings(json.as<JsonObject>());
+  bool restored = settings.restoreSettingsBackup(jsonString);
   if (restored) {
     rebootDevice(3000, true);
   }
@@ -2899,8 +2604,8 @@ void handleRestore(AsyncWebServerRequest *request) {
 #if FW_UPDATE_ENABLED
 void handleSaveFirmware(AsyncWebServerRequest* request) {
   bool saved = false;
-  saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", &settings.new_fw_notification, "nfwn") || saved;
-  saved = saveInt(request->getParam("fw_update_channel", true), &settings.fw_update_channel, "fwuc", NULL, saveLatestFirmware) || saved;
+  saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", NEW_FW_NOTIFICATION) || saved;
+  saved = saveInt(request->getParam("fw_update_channel", true), FW_UPDATE_CHANNEL, NULL, saveLatestFirmware) || saved;
 
   request->send(redirectResponce(request, "/firmware", saved));
 }
@@ -3016,41 +2721,41 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 #endif
 
 void alertPinCycle() {
-  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 0) {
-    if (alarmNow && digitalRead(settings.alertpin) == LOW) {
+  if (isAlertPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 0) {
+    if (alarmNow && digitalRead(settings.getInt(ALERT_PIN)) == LOW) {
       setAlertPin();
     }
-    if (!alarmNow && digitalRead(settings.alertpin) == HIGH) {
+    if (!alarmNow && digitalRead(settings.getInt(ALERT_PIN)) == HIGH) {
       disableAlertPin();
     }
   }
-  if (isAlertPinEnabled() && settings.alert_clear_pin_mode == 1 && alarmNow && !pinAlarmNow) {
+  if (isAlertPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1 && alarmNow && !pinAlarmNow) {
     pinAlarmNow = true;
     if (!isFirstDataFetchCompleted) {
       LOG.println("Do not set alert pin on first data fetch");
       return;
     }
     setAlertPin();
-    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    long timeoutMs = settings.getFloat(ALERT_CLEAR_PIN_TIME) * 1000;
     LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
     asyncEngine.setTimeout(disableAlertPin, timeoutMs);
   }
-  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1 && !alarmNow && pinAlarmNow) {
+  if (isClearPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1 && !alarmNow && pinAlarmNow) {
     pinAlarmNow = false;
     if (!isFirstDataFetchCompleted) {
       LOG.println("Do not set clear pin on first data fetch");
       return;
     }
     setClearPin();
-    long timeoutMs = settings.alert_clear_pin_time * 1000;
+    long timeoutMs = settings.getFloat(ALERT_CLEAR_PIN_TIME) * 1000;
     LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
     asyncEngine.setTimeout(disableClearPin, timeoutMs);
   }
 }
 
 void checkHomeDistrictAlerts() {
-  int ledStatus = alarm_leds[calculateOffset(settings.home_district, offset)];
-  int localHomeExplosions = explosions_time[calculateOffset(settings.home_district, offset)];
+  int ledStatus = alarm_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
+  int localHomeExplosions = explosions_time[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
   bool localAlarmNow = ledStatus == 1;
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
@@ -3060,16 +2765,16 @@ void checkHomeDistrictAlerts() {
     alertPinCycle();
 
     if (alarmNow) {
-      showServiceMessage("Тривога!", DISTRICTS[settings.home_district], 5000);
+      showServiceMessage("Тривога!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
     } else {
-      showServiceMessage("Відбій!", DISTRICTS[settings.home_district], 5000);
+      showServiceMessage("Відбій!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
     }
     ha.setAlarmAtHome(alarmNow);
   }
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
-    if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-      showServiceMessage("Вибухи!", DISTRICTS[settings.home_district], 5000);
+    if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      showServiceMessage("Вибухи!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
@@ -3097,7 +2802,7 @@ void onMessageCallback(WebsocketsMessage message) {
         weather_leds[calculateOffset(i, offset)] = data["weather"][i];
       }
       LOG.println("Successfully parsed weather data");
-      ha.setHomeTemperature(weather_leds[calculateOffset(settings.home_district, offset)]);
+      ha.setHomeTemperature(weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)]);
     } else if (payload == "explosions") {
       for (int i = 0; i < 26; ++i) {
         explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
@@ -3158,8 +2863,8 @@ void socketConnect() {
   sprintf(
     webSocketUrl,
     "ws://%s:%d/data_v3",
-    settings.serverhost,
-    settings.websocket_port
+    settings.getString(WS_SERVER_HOST),
+    settings.getInt(WS_SERVER_PORT)
   );
   LOG.println(webSocketUrl);
   client_websocket.connect(webSocketUrl);
@@ -3172,16 +2877,16 @@ void socketConnect() {
     LOG.println(chipIdInfo);
     client_websocket.send(chipIdInfo);
     char firmwareInfo[100];
-    sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.identifier);
+    sprintf(firmwareInfo, "firmware:%s_%s", currentFwVersion, settings.getString(ID));
     LOG.println(firmwareInfo);
     client_websocket.send(firmwareInfo);
 
     char userInfo[250];
     JsonDocument userInfoJson;
-    userInfoJson["legacy"] = settings.legacy;
-    userInfoJson["kyiv_mode"] = settings.kyiv_district_mode;
+    userInfoJson["legacy"] = settings.getInt(LEGACY);
+    userInfoJson["kyiv_mode"] = settings.getInt(KYIV_DISTRICT_MODE);
     userInfoJson["display_model"] = display.getDisplayModel();
-    if (display.isDisplayAvailable()) userInfoJson["display_height"] = settings.display_height;
+    if (display.isDisplayAvailable()) userInfoJson["display_height"] = settings.getInt(DISPLAY_HEIGHT);
     userInfoJson["bh1750"] = lightSensor.isLightSensorAvailable();
     userInfoJson["bme280"] = climate.isBME280Available();
     userInfoJson["bmp280"] = climate.isBMP280Available();
@@ -3200,10 +2905,10 @@ void socketConnect() {
 }
 
 void websocketProcess() {
-  if (millis() - websocketLastPingTime > settings.ws_alert_time) {
+  if (millis() - websocketLastPingTime > settings.getInt(WS_ALERT_TIME)) {
     websocketReconnect = true;
   }
-  if (millis() - websocketLastPingTime > settings.ws_reboot_time) {
+  if (millis() - websocketLastPingTime > settings.getInt(WS_REBOOT_TIME)) {
     rebootDevice(3000, true);
   }
   if (!client_websocket.available() or websocketReconnect) {
@@ -3217,60 +2922,60 @@ void websocketProcess() {
 
 CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
   CRGB hue;
-  float localBrightnessAlert = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_alert / 100.0f;
-  float localBrightnessClear = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_clear / 100.0f;
-  float localBrightnessHomeDistrict = isBgStrip ? settings.brightness_bg / 100.0f : settings.brightness_home_district / 100.0f;
+  float localBrightnessAlert = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_ALERT) / 100.0f;
+  float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
+  float localBrightnessHomeDistrict = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_HOME_DISTRICT) / 100.0f;
 
-  int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+  int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
   int colorSwitch;
 
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
-  if (settings.enable_explosions && expTime > 0 && currentTime - expTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    colorSwitch = settings.color_explosion;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
+  if (settings.getBool(ENABLE_EXPLOSIONS) && expTime > 0 && currentTime - expTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    colorSwitch = settings.getInt(COLOR_EXPLOSION);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
   // missiles has second priority
-  if (settings.enable_missiles && missilesTime > 0 && currentTime - missilesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    colorSwitch = settings.color_missiles;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
+  if (settings.getBool(ENABLE_MISSILES) && missilesTime > 0 && currentTime - missilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    colorSwitch = settings.getInt(COLOR_MISSILES);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
   // drones has third priority
-  if (settings.enable_drones && dronesTime > 0 && currentTime - dronesTime < settings.explosion_time * 60 && settings.alarms_notify_mode > 0) {
-    colorSwitch = settings.color_drones;
-    hue = fromHue(colorSwitch, notificationBrightness * settings.brightness_explosion);
+  if (settings.getBool(ENABLE_DRONES) && dronesTime > 0 && currentTime - dronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    colorSwitch = settings.getInt(COLOR_DRONES);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
   switch (led) {
     case ALERT:
-      if (currentTime - time < settings.alert_on_time * 60 && settings.alarms_notify_mode > 0) {
-        colorSwitch = settings.color_new_alert;
-        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_new_alert);
+      if (currentTime - time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+        colorSwitch = settings.getInt(COLOR_NEW_ALERT);
+        hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
       } else {
-        colorSwitch = settings.color_alert;
-        hue = fromHue(colorSwitch, settings.current_brightness * localBrightnessAlert);
+        colorSwitch = settings.getInt(COLOR_ALERT);
+        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
       }
       break;
     case CLEAR:
-      if (currentTime - time < settings.alert_off_time * 60 && settings.alarms_notify_mode > 0) {
-        colorSwitch = settings.color_alert_over;
-        hue = fromHue(colorSwitch, alertBrightness * settings.brightness_alert_over);
+      if (currentTime - time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+        colorSwitch = settings.getInt(COLOR_ALERT_OVER);
+        hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
         float localBrightness;
         if (position == localDistrict) {
-          colorSwitch = settings.color_home_district;
+          colorSwitch = settings.getInt(COLOR_HOME_DISTRICT);
           localBrightness = localBrightnessHomeDistrict;
         } else {
-          colorSwitch = settings.color_clear;
+          colorSwitch = settings.getInt(COLOR_CLEAR);
           localBrightness = localBrightnessClear;
         }
-        hue = fromHue(colorSwitch, settings.current_brightness * localBrightness);
+        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightness);
       }
       break;
   }
@@ -3296,7 +3001,7 @@ void playMinOfSilenceSound() {
 }
 
 void checkMinuteOfSilence() {
-  bool localMinOfSilence = (settings.min_of_silence == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
+  bool localMinOfSilence = (settings.getBool(MIN_OF_SILENCE) == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
     ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
@@ -3319,8 +3024,8 @@ void checkMinuteOfSilence() {
 }
 
 int processWeather(float temp) {
-  float minTemp = settings.weather_min_temp;
-  float maxTemp = settings.weather_max_temp;
+  float minTemp = settings.getInt(WEATHER_MIN_TEMP);
+  float maxTemp = settings.getInt(WEATHER_MAX_TEMP);
   float normalizedValue = float(temp - minTemp) / float(maxTemp - minTemp);
   if (normalizedValue > 1) {
     normalizedValue = 1;
@@ -3334,47 +3039,48 @@ int processWeather(float temp) {
 }
 
 void mapReconnect() {
-  float localBrightness = getFadeInFadeOutBrightness(settings.current_brightness / 200.0f, settings.alert_blink_time * 1000);
-  CRGB hue = fromHue(64, localBrightness * settings.current_brightness);
+  float localBrightness = getFadeInFadeOutBrightness(settings.getInt(CURRENT_BRIGHTNESS) / 200.0f, settings.getInt(ALERT_BLINK_TIME) * 1000);
+  CRGB hue = fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS));
   for (uint16_t i = 0; i < 26; i++) {
     strip[i] = hue;
   }
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.brightness_bg / 100.0f;
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(64, localBrightness * settings.current_brightness * brightness_factror));
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
 
 void mapOff() {
-  fill_solid(strip, settings.pixelcount, CRGB::Black);
+  fill_solid(strip, settings.getInt(MAIN_LED_COUNT), CRGB::Black);
   if (isBgStripEnabled()) {
-    fill_solid(bg_strip, settings.bg_pixelcount, CRGB::Black);
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
   }
   FastLED.show();
 }
 
 void mapLamp() {
-  fill_solid(strip, settings.pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness));
+  fill_solid(strip, settings.getInt(MAIN_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS)));
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.brightness_bg / 100.0f;
-    fill_solid(bg_strip, settings.bg_pixelcount, fromRgb(settings.ha_light_r, settings.ha_light_g, settings.ha_light_b, settings.ha_light_brightness * brightness_factror));
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
 
 void mapAlarms() {
-  uint8_t adapted_alarm_leds[settings.pixelcount];
-  long adapted_alarm_timers[settings.pixelcount];
-  long adapted_explosion_timers[settings.pixelcount];
-  long adapted_missiles_timers[settings.pixelcount];
-  long adapted_drones_timers[settings.pixelcount];
-  adaptLeds(settings.kyiv_district_mode, alarm_leds, adapted_alarm_leds, settings.pixelcount, offset);
-  adaptLeds(settings.kyiv_district_mode, alarm_time, adapted_alarm_timers, settings.pixelcount, offset);
-  adaptLeds(settings.kyiv_district_mode, explosions_time, adapted_explosion_timers, settings.pixelcount, offset);
-  adaptLeds(settings.kyiv_district_mode, missiles_time, adapted_missiles_timers, settings.pixelcount, offset);
-  adaptLeds(settings.kyiv_district_mode, drones_time, adapted_drones_timers, settings.pixelcount, offset);
-  if (settings.kyiv_district_mode == 4) {
+  int mainLedCount = settings.getInt(MAIN_LED_COUNT);
+  uint8_t adapted_alarm_leds[mainLedCount];
+  long adapted_alarm_timers[mainLedCount];
+  long adapted_explosion_timers[mainLedCount];
+  long adapted_missiles_timers[mainLedCount];
+  long adapted_drones_timers[mainLedCount];
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), alarm_leds, adapted_alarm_leds, mainLedCount, offset);
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), alarm_time, adapted_alarm_timers, mainLedCount, offset);
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), explosions_time, adapted_explosion_timers, mainLedCount, offset);
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), missiles_time, adapted_missiles_timers, mainLedCount, offset);
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), drones_time, adapted_drones_timers, mainLedCount, offset);
+  if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
     if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
       adapted_alarm_leds[7 + offset] = 0;
       adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
@@ -3387,13 +3093,13 @@ void mapAlarms() {
     adapted_missiles_timers[7 + offset] = max(adapted_missiles_timers[25], adapted_missiles_timers[7 + offset]);
     adapted_drones_timers[7 + offset] = max(adapted_drones_timers[25], adapted_drones_timers[7 + offset]);
   }
-  float blinkBrightness = settings.current_brightness / 100.0f;
-  float notificationBrightness = settings.current_brightness / 100.0f;
-  if (settings.alarms_notify_mode == 2) {
-    blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.alert_blink_time * 1000);
-    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.alert_blink_time * 500);
+  float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
+  float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
+  if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
+    blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000);
+    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 500);
   }
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
+  for (uint16_t i = 0; i < mainLedCount; i++) {
     strip[i] = processAlarms(
       adapted_alarm_leds[i],
       adapted_alarm_timers[i],
@@ -3408,10 +3114,10 @@ void mapAlarms() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
+    int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
     fill_solid(
       bg_strip,
-      settings.bg_pixelcount,
+      settings.getInt(BG_LED_COUNT),
       processAlarms(
         adapted_alarm_leds[localDistrict],
         adapted_alarm_timers[localDistrict],
@@ -3429,46 +3135,46 @@ void mapAlarms() {
 }
 
 void mapWeather() {
-  float adapted_weather_leds[settings.pixelcount];
-  adaptLeds(settings.kyiv_district_mode, weather_leds, adapted_weather_leds, settings.pixelcount, offset);
-  if (settings.kyiv_district_mode == 4) {
+  float adapted_weather_leds[settings.getInt(MAIN_LED_COUNT)];
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), weather_leds, adapted_weather_leds, settings.getInt(MAIN_LED_COUNT), offset);
+  if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
     adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
   }
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.current_brightness);
+  for (uint16_t i = 0; i < settings.getInt(MAIN_LED_COUNT); i++) {
+    strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.getInt(CURRENT_BRIGHTNESS));
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrict = calculateOffsetDistrict(settings.kyiv_district_mode, settings.home_district, offset);
-    float brightness_factror = settings.brightness_bg / 100.0f;
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.current_brightness * brightness_factror));
+    int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
 
 void mapFlag() {
-  uint8_t adapted_flag_leds[settings.pixelcount];
-  adaptLeds(settings.kyiv_district_mode, flag_leds, adapted_flag_leds, settings.pixelcount, offset);
-  for (uint16_t i = 0; i < settings.pixelcount; i++) {
-    strip[i] = fromHue(adapted_flag_leds[i], settings.current_brightness);
+  uint8_t adapted_flag_leds[settings.getInt(MAIN_LED_COUNT)];
+  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), flag_leds, adapted_flag_leds, settings.getInt(MAIN_LED_COUNT), offset);
+  for (uint16_t i = 0; i < settings.getInt(MAIN_LED_COUNT); i++) {
+    strip[i] = fromHue(adapted_flag_leds[i], settings.getInt(CURRENT_BRIGHTNESS));
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    float brightness_factror = settings.brightness_bg / 100.0f;
-    fill_solid(bg_strip, settings.bg_pixelcount, fromHue(180, settings.current_brightness * brightness_factror));
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(180, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
 
 void mapRandom() {
-  int randomLed = random(settings.pixelcount);
+  int randomLed = random(settings.getInt(MAIN_LED_COUNT));
   int randomColor = random(360);
-  strip[randomLed] = fromHue(randomColor, settings.current_brightness);
+  strip[randomLed] = fromHue(randomColor, settings.getInt(CURRENT_BRIGHTNESS));
   if (isBgStripEnabled()) {
-    int bgRandomLed = random(settings.bg_pixelcount);
+    int bgRandomLed = random(settings.getInt(BG_LED_COUNT));
     int bgRandomColor = random(360);
-    float brightness_factror = settings.brightness_bg / 100.0f;
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.current_brightness * brightness_factror);
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror);
   }
   FastLED.show();
 }
@@ -3543,7 +3249,7 @@ void calculateStates() {
 
 void updateHaLightSensors() {
   if (lightSensor.isLightSensorAvailable()) {
-    ha.setLightLevel(lightSensor.getLightLevel(settings.light_sensor_factor));
+    ha.setLightLevel(lightSensor.getLightLevel(settings.getFloat(LIGHT_SENSOR_FACTOR)));
   }
 }
 
@@ -3560,118 +3266,7 @@ void initChipID() {
 
 void initSettings() {
   LOG.println("Init settings");
-  preferences.begin("storage", true);
-
-  preferences.getString("dn", settings.devicename, sizeof(settings.devicename));
-  preferences.getString("dd", settings.devicedescription, sizeof(settings.devicedescription));
-  preferences.getString("bn", settings.broadcastname, sizeof(settings.broadcastname));
-  preferences.getString("wshost", settings.serverhost, sizeof(settings.serverhost));
-  preferences.getString("ntph", settings.ntphost, sizeof(settings.ntphost));
-  preferences.getString("id", settings.identifier, sizeof(settings.identifier));
-  settings.websocket_port         = preferences.getInt("wsnp", settings.websocket_port);
-  settings.updateport             = preferences.getInt("upp", settings.updateport);
-  settings.legacy                 = preferences.getInt("legacy", settings.legacy);
-  settings.current_brightness     = preferences.getInt("cbr", settings.current_brightness);
-  settings.brightness             = preferences.getInt("brightness", settings.brightness);
-  settings.brightness_day         = preferences.getInt("brd", settings.brightness_day);
-  settings.brightness_night       = preferences.getInt("brn", settings.brightness_night);
-  settings.brightness_mode        = preferences.getInt("bra", settings.brightness_mode);
-  settings.home_alert_time        = preferences.getInt("hat", settings.home_alert_time);
-  settings.color_alert            = preferences.getInt("coloral", settings.color_alert);
-  settings.color_clear            = preferences.getInt("colorcl", settings.color_clear);
-  settings.color_new_alert        = preferences.getInt("colorna", settings.color_new_alert);
-  settings.color_alert_over       = preferences.getInt("colorao", settings.color_alert_over);
-  settings.color_explosion        = preferences.getInt("colorex", settings.color_explosion);
-  settings.color_missiles         = preferences.getInt("colormi", settings.color_missiles);
-  settings.color_drones           = preferences.getInt("colordr", settings.color_drones);
-  settings.color_home_district    = preferences.getInt("colorhd", settings.color_home_district);
-  settings.brightness_alert       = preferences.getInt("ba", settings.brightness_alert);
-  settings.brightness_clear       = preferences.getInt("bc", settings.brightness_clear);
-  settings.brightness_new_alert   = preferences.getInt("bna", settings.brightness_new_alert);
-  settings.brightness_alert_over  = preferences.getInt("bao", settings.brightness_alert_over);
-  settings.brightness_explosion   = preferences.getInt("bex", settings.brightness_explosion);
-  settings.brightness_home_district = preferences.getInt("bhd", settings.brightness_home_district);
-  settings.brightness_bg          = preferences.getInt("bbg", settings.brightness_bg);
-  settings.brightness_service     = preferences.getInt("bs", settings.alert_on_time);
-  settings.alarms_auto_switch     = preferences.getInt("aas", settings.alarms_auto_switch);
-  settings.home_district          = preferences.getInt("hd", settings.home_district);
-  settings.kyiv_district_mode     = preferences.getInt("kdm", settings.kyiv_district_mode);
-  settings.map_mode               = preferences.getInt("mapmode", settings.map_mode);
-  settings.display_mode           = preferences.getInt("dm", settings.display_mode);
-  settings.display_mode_time      = preferences.getInt("dmt", settings.display_mode_time);
-  settings.toggle_mode_weather    = preferences.getInt("tmw", settings.toggle_mode_weather);
-  settings.toggle_mode_temp       = preferences.getInt("tmt", settings.toggle_mode_temp);
-  settings.toggle_mode_hum        = preferences.getInt("tmh", settings.toggle_mode_hum);
-  settings.toggle_mode_press      = preferences.getInt("tmp", settings.toggle_mode_press);
-  settings.button_mode            = preferences.getInt("bm", settings.button_mode);
-  settings.button2_mode           = preferences.getInt("b2m", settings.button2_mode);
-  settings.button_mode_long       = preferences.getInt("bml", settings.button_mode_long);
-  settings.button2_mode_long      = preferences.getInt("b2ml", settings.button2_mode_long);
-  settings.use_touch_button1      = preferences.getInt("utb1", settings.use_touch_button1);
-  settings.use_touch_button2      = preferences.getInt("utb2", settings.use_touch_button2);
-  settings.alarms_notify_mode     = preferences.getInt("anm", settings.alarms_notify_mode);
-  settings.enable_explosions      = preferences.getInt("eex", settings.enable_explosions);
-  settings.enable_missiles        = preferences.getInt("emi", settings.enable_missiles);
-  settings.enable_drones          = preferences.getInt("edr", settings.enable_drones);
-  settings.weather_min_temp       = preferences.getInt("mintemp", settings.weather_min_temp);
-  settings.weather_max_temp       = preferences.getInt("maxtemp", settings.weather_max_temp);
-  preferences.getString("ha_brokeraddr", settings.ha_brokeraddress, sizeof(settings.ha_brokeraddress));
-  settings.ha_mqttport            = preferences.getInt("ha_mqttport", settings.ha_mqttport);
-  preferences.getString("ha_mqttuser", settings.ha_mqttuser, sizeof(settings.ha_mqttuser));
-  preferences.getString("ha_mqttpass", settings.ha_mqttpassword, sizeof(settings.ha_mqttpassword));
-  settings.display_model          = preferences.getInt("dsmd", settings.display_model);
-  settings.display_width          = preferences.getInt("dw", settings.display_width);
-  settings.display_height         = preferences.getInt("dh", settings.display_height);
-  settings.day_start              = preferences.getInt("ds", settings.day_start);
-  settings.night_start            = preferences.getInt("ns", settings.night_start);
-  settings.pixelpin               = preferences.getInt("pp", settings.pixelpin);
-  settings.bg_pixelpin            = preferences.getInt("bpp", settings.bg_pixelpin);
-  settings.bg_pixelcount          = preferences.getInt("bpc", settings.bg_pixelcount);
-  settings.service_ledpin         = preferences.getInt("slp", settings.service_ledpin);
-  settings.buttonpin              = preferences.getInt("bp", settings.buttonpin);
-  settings.button2pin             = preferences.getInt("b2p", settings.button2pin);
-  settings.alert_clear_pin_mode   = preferences.getInt("acpm", settings.alert_clear_pin_mode);
-  settings.alertpin               = preferences.getInt("ap", settings.alertpin);
-  settings.clearpin               = preferences.getInt("cp", settings.clearpin);
-  settings.alert_clear_pin_time   = preferences.getFloat("acpt", settings.alert_clear_pin_time);
-  settings.buzzerpin              = preferences.getInt("bzp", settings.buzzerpin);
-  settings.lightpin               = preferences.getInt("lp", settings.lightpin);
-  settings.service_diodes_mode    = preferences.getInt("sdm", settings.service_diodes_mode);
-  settings.new_fw_notification    = preferences.getInt("nfwn", settings.new_fw_notification);
-  settings.ws_alert_time          = preferences.getInt("wsat", settings.ws_alert_time);
-  settings.ws_reboot_time         = preferences.getInt("wsrt", settings.ws_reboot_time);
-  settings.ha_light_brightness    = preferences.getInt("ha_lbri", settings.ha_light_brightness);
-  settings.ha_light_r             = preferences.getInt("ha_lr", settings.ha_light_r);
-  settings.ha_light_g             = preferences.getInt("ha_lg", settings.ha_light_g);
-  settings.ha_light_b             = preferences.getInt("ha_lb", settings.ha_light_b);
-  settings.min_of_silence         = preferences.getInt("mos", settings.min_of_silence);
-  settings.fw_update_channel      = preferences.getInt("fwuc", settings.fw_update_channel);
-  settings.temp_correction        = preferences.getFloat("ltc", settings.temp_correction);
-  settings.hum_correction         = preferences.getFloat("lhc", settings.hum_correction);
-  settings.pressure_correction    = preferences.getFloat("lpc", settings.pressure_correction);
-  settings.light_sensor_factor    = preferences.getFloat("lsf", settings.light_sensor_factor);
-  settings.sound_on_min_of_sl     = preferences.getInt("somos", settings.sound_on_min_of_sl);
-  settings.sound_on_alert         = preferences.getInt("soa", settings.sound_on_alert);
-  settings.sound_on_alert_end     = preferences.getInt("soae", settings.sound_on_alert_end);
-  settings.sound_on_every_hour    = preferences.getInt("soeh", settings.sound_on_every_hour);
-  settings.sound_on_button_click  = preferences.getInt("sobc", settings.sound_on_button_click);
-  settings.sound_on_explosion     = preferences.getInt("soex", settings.sound_on_explosion);
-  settings.melody_on_alert        = preferences.getInt("moa", settings.melody_on_alert);
-  settings.melody_on_alert_end    = preferences.getInt("moae", settings.melody_on_alert_end);
-  settings.melody_on_explosion    = preferences.getInt("moex", settings.melody_on_explosion);
-  settings.mute_sound_on_night    = preferences.getInt("mson", settings.mute_sound_on_night);
-  settings.invert_display         = preferences.getInt("invd", settings.invert_display);
-  settings.dim_display_on_night   = preferences.getInt("ddon", settings.dim_display_on_night);
-  settings.time_zone              = preferences.getInt("tz", settings.time_zone);
-  settings.ignore_mute_on_alert   = preferences.getInt("imoa", settings.ignore_mute_on_alert);
-  settings.alert_on_time          = preferences.getInt("aont", settings.alert_on_time);
-  settings.alert_off_time         = preferences.getInt("aoft", settings.alert_off_time);
-  settings.explosion_time         = preferences.getInt("ext", settings.explosion_time);
-  settings.alert_blink_time       = preferences.getInt("abt", settings.alert_blink_time);
-  settings.melody_volume          = preferences.getInt("mv", settings.melody_volume);
-
-  preferences.end();
-
+  settings.init();
   currentFirmware = parseFirmwareVersion(VERSION);
   fillFwVersion(currentFwVersion, currentFirmware);
   LOG.printf("Current firmware version: %s\n", currentFwVersion);
@@ -3680,33 +3275,33 @@ void initSettings() {
 
 void initLegacy() {
 #if TEST_MODE
-  settings.legacy = 3;
+  settings.saveInt(LEGACY, 3, false);
 #endif
-  switch (settings.legacy) {
+  switch (settings.getInt(LEGACY)) {
   case 0:
     LOG.println("Mode: jaam 1");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
 
-    pinMode(settings.powerpin, OUTPUT);
-    pinMode(settings.wifipin, OUTPUT);
-    pinMode(settings.datapin, OUTPUT);
-    pinMode(settings.hapin, OUTPUT);
+    pinMode(settings.getInt(POWER_PIN), OUTPUT);
+    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
+    pinMode(settings.getInt(DATA_PIN), OUTPUT);
+    pinMode(settings.getInt(HA_PIN), OUTPUT);
     //pinMode(settings.reservedpin, OUTPUT);
 
     servicePin(POWER, HIGH, false);
 
-    settings.kyiv_district_mode = 3;
-    settings.pixelpin = 13;
-    settings.bg_pixelpin = -1;
-    settings.bg_pixelcount = 0;
-    settings.service_ledpin = -1;
-    settings.buttonpin = 35;
-    settings.button2pin = -1;
-    settings.display_model = 1;
-    settings.display_height = 64;
-    settings.use_touch_button1 = 0;
+    settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
+    settings.saveInt(MAIN_LED_PIN, 13, false);
+    settings.saveInt(BG_LED_PIN, -1, false);
+    settings.saveInt(BG_LED_COUNT, 0, false);
+    settings.saveInt(SERVICE_LED_PIN, -1, false);
+    settings.saveInt(BUTTON_1_PIN, 35, false);
+    settings.saveInt(BUTTON_2_PIN, -1, false);
+    settings.saveInt(DISPLAY_MODEL, 1, false);
+    settings.saveInt(DISPLAY_HEIGHT, 64, false);
+    settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -3714,14 +3309,14 @@ void initLegacy() {
     for (int i = 0; i < 26; i++) {
       flag_leds[i] = LEGACY_FLAG_LEDS[i];
     }
-    settings.service_diodes_mode = 0;
+    settings.saveInt(SERVICE_DIODES_MODE, 0, false);
     break;
   case 2:
     LOG.println("Mode: odesa");
     for (int i = 0; i < 26; i++) {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
-    settings.service_diodes_mode = 0;
+    settings.saveInt(SERVICE_DIODES_MODE, 0, false);
     break;
   case 3:
     LOG.println("Mode: jaam 2");
@@ -3729,21 +3324,21 @@ void initLegacy() {
       flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
     }
 
-    settings.kyiv_district_mode = 3;
-    settings.pixelpin = 13;
-    settings.bg_pixelpin = 12;
-    settings.bg_pixelcount = 44;
-    settings.service_ledpin = 25;
-    settings.buttonpin = 4;
-    settings.button2pin = 2;
-    settings.buzzerpin = 33;
-    settings.display_model = 2;
-    settings.display_height = 64;
+    settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
+    settings.saveInt(MAIN_LED_PIN, 13, false);
+    settings.saveInt(BG_LED_PIN, 12, false);
+    settings.saveInt(BG_LED_COUNT, 44, false);
+    settings.saveInt(SERVICE_LED_PIN, 25, false);
+    settings.saveInt(BUTTON_1_PIN, 4, false);
+    settings.saveInt(BUTTON_2_PIN, 2, false);
+    settings.saveInt(BUZZER_PIN, 33, false);
+    settings.saveInt(DISPLAY_MODEL, 2, false);
+    settings.saveInt(DISPLAY_HEIGHT, 64, false);
     brightnessFactor = 0.3f;
     minBrightness = 2;
     minBlinkBrightness = 0.07f;
-    settings.use_touch_button1 = 0;
-    settings.use_touch_button2 = 0;
+    settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
+    settings.saveBool(USE_TOUCH_BUTTON_2, 0, false);
     break;
   }
   LOG.printf("Offset: %d\n", offset);
@@ -3752,16 +3347,16 @@ void initLegacy() {
 void initButtons() {
   LOG.println("Init buttons");
 
-  LOG.printf("button1pin: %d\n", settings.buttonpin);
-  LOG.printf("button1 touch: %d\n", settings.use_touch_button1);
-  buttons.setButton1Pin(settings.buttonpin, !settings.use_touch_button1);
+  LOG.printf("button1pin: %d\n", settings.getInt(BUTTON_1_PIN));
+  LOG.printf("button1 touch: %d\n", settings.getBool(USE_TOUCH_BUTTON_1));
+  buttons.setButton1Pin(settings.getInt(BUTTON_1_PIN), !settings.getBool(USE_TOUCH_BUTTON_1));
   buttons.setButton1ClickListener(button1Click);
   buttons.setButton1LongClickListener(button1LongClick);
   buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
-  LOG.printf("button2pin: %d\n", settings.button2pin);
-  LOG.printf("button2 touch: %d\n", settings.use_touch_button2);
-  buttons.setButton2Pin(settings.button2pin, !settings.use_touch_button2);
+  LOG.printf("button2pin: %d\n", settings.getInt(BUTTON_2_PIN));
+  LOG.printf("button2 touch: %d\n", settings.getBool(USE_TOUCH_BUTTON_2));
+  buttons.setButton2Pin(settings.getInt(BUTTON_2_PIN), !settings.getBool(USE_TOUCH_BUTTON_2));
   buttons.setButton2ClickListener(button2Click);
   buttons.setButton2LongClickListener(button2LongClick);
   buttons.setButton2DuringLongClickListener(button2DuringLongClick);
@@ -3770,23 +3365,23 @@ void initButtons() {
 void initBuzzer() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
-    player = new MelodyPlayer(settings.buzzerpin, 0, LOW);
-    player->setVolume(expMap(settings.melody_volume, 0, 100, 0, 255));
+    player = new MelodyPlayer(settings.getInt(BUZZER_PIN), 0, LOW);
+    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
   }
 #endif
 }
 
 void initAlertPin() {
   if (isAlertPinEnabled()) {
-    LOG.printf("alertpin: %d\n", settings.alertpin);
-    pinMode(settings.alertpin, OUTPUT);
+    LOG.printf("alertpin: %d\n", settings.getInt(ALERT_PIN));
+    pinMode(settings.getInt(ALERT_PIN), OUTPUT);
   }
 }
 
 void initClearPin() {
-  if (isClearPinEnabled() && settings.alert_clear_pin_mode == 1) {
-    LOG.printf("clearpin: %d\n", settings.clearpin);
-    pinMode(settings.clearpin, OUTPUT);
+  if (isClearPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1) {
+    LOG.printf("clearpin: %d\n", settings.getInt(CLEAR_PIN));
+    pinMode(settings.getInt(CLEAR_PIN), OUTPUT);
   }
 }
 
@@ -3845,21 +3440,21 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
 void initStrip() {
   LOG.println("Init leds");
   LOG.print("pixelpin: ");
-  LOG.println(settings.pixelpin);
+  LOG.println(settings.getInt(MAIN_LED_PIN));
   LOG.print("pixelcount: ");
-  LOG.println(settings.pixelcount);
-  initFastledStrip(settings.pixelpin, strip, settings.pixelcount);
+  LOG.println(settings.getInt(MAIN_LED_COUNT));
+  initFastledStrip(settings.getInt(MAIN_LED_PIN), strip, settings.getInt(MAIN_LED_COUNT));
   if (isBgStripEnabled()) {
     LOG.print("bg pixelpin: ");
-    LOG.println(settings.bg_pixelpin);
+    LOG.println(settings.getInt(BG_LED_PIN));
     LOG.print("bg pixelcount: ");
-    LOG.println(settings.bg_pixelcount);
-    initFastledStrip(settings.bg_pixelpin, bg_strip, settings.bg_pixelcount);
+    LOG.println(settings.getInt(BG_LED_COUNT));
+    initFastledStrip(settings.getInt(BG_LED_PIN), bg_strip, settings.getInt(BG_LED_COUNT));
   }
   if (isServiceStripEnabled()) {
     LOG.print("service ledpin: ");
-    LOG.println(settings.service_ledpin);
-    initFastledStrip(settings.service_ledpin, service_strip, 5);
+    LOG.println(settings.getInt(SERVICE_LED_PIN));
+    initFastledStrip(settings.getInt(SERVICE_LED_PIN), service_strip, 5);
     checkServicePins();
   }
   FastLED.setDither(DISABLE_DITHER);
@@ -3873,11 +3468,11 @@ void initDisplayOptions() {
     ignoreSingleClickOptions[1] = 4;
     ignoreSingleClickOptions[2] = 5;
     // change single click option to default if it's not available
-    if (isInArray(settings.button_mode, ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button_mode, "bm", 0, "button_mode");
+    if (isInArray(settings.getInt(BUTTON_1_MODE), ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+      saveInt(BUTTON_1_MODE, 0, "button_mode");
     }
-    if (isInArray(settings.button2_mode, ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button2_mode, "b2m", 0, "button2_mode");
+    if (isInArray(settings.getInt(BUTTON_2_MODE), ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+      saveInt(BUTTON_2_MODE, 0, "button2_mode");
     }
 
     // remove display related options from long click optins list
@@ -3885,11 +3480,11 @@ void initDisplayOptions() {
     ignoreLongClickOptions[1] = 4;
     ignoreLongClickOptions[2] = 5;
     // change long click option to default if it's not available
-    if (isInArray(settings.button_mode_long, ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button_mode_long, "bml", 0, "button_mode_long");
+    if (isInArray(settings.getInt(BUTTON_1_MODE_LONG), ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+      saveInt(BUTTON_1_MODE_LONG, 0, "button_mode_long");
     }
-    if (isInArray(settings.button2_mode_long, ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
-      saveInt(&settings.button2_mode_long, "b2ml", 0, "button2_mode_long");
+    if (isInArray(settings.getInt(BUTTON_2_MODE_LONG), ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+      saveInt(BUTTON_2_MODE_LONG, 0, "button2_mode_long");
     }
   }
 }
@@ -3899,14 +3494,14 @@ void initDisplayModes() {
     // remove climate sensor options from display optins list
     ignoreDisplayModeOptions[0] = 4;
     // change display mode to "changing" if it's not available
-    if (isInArray(settings.display_mode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+    if (isInArray(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
       saveDisplayMode(9);
     }
   }
 }
 
 void initDisplay() {
-  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.display_model), settings.display_width, settings.display_height);
+  display.begin(static_cast<JaamDisplay::DisplayModel>(settings.getInt(DISPLAY_MODEL)), settings.getInt(DISPLAY_WIDTH), settings.getInt(DISPLAY_HEIGHT));
 
   if (display.isDisplayAvailable()) {
     display.clearDisplay();
@@ -3920,12 +3515,12 @@ void initDisplay() {
 }
 
 void initSensors() {
-  lightSensor.begin(settings.legacy);
+  lightSensor.begin(settings.getInt(LEGACY));
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
   if (isAnalogLightSensorEnabled()) {
-    lightSensor.setPhotoresistorPin(settings.lightpin);
+    lightSensor.setPhotoresistorPin(settings.getInt(LIGHT_SENSOR_PIN));
   }
 
   // init climate sensor
@@ -3958,7 +3553,7 @@ void initHA() {
 
   LOG.println("Init Home assistant API");
 
-  if (!ha.initDevice(settings.ha_brokeraddress, settings.devicename, currentFwVersion, settings.devicedescription, chipID)) {
+  if (!ha.initDevice(settings.getString(HA_BROKER_ADDRESS), settings.getString(DEVICE_NAME), currentFwVersion, settings.getString(DEVICE_DESCRIPTION), chipID)) {
     LOG.println("Home Assistant is not available!");
     return;
   }
@@ -3968,42 +3563,42 @@ void initHA() {
   ha.initFreeMemorySensor();
   ha.initUsedMemorySensor();
   ha.initCpuTempSensor(temperatureRead());
-  ha.initBrightnessSensor(settings.brightness, saveBrightness);
-  ha.initDayBrightnessSensor(settings.brightness_day, saveDayBrightness);
-  ha.initNightBrightnessSensor(settings.brightness_night, saveNightBrightness);
-  ha.initMapModeSensor(settings.map_mode, MAP_MODES, MAP_MODES_COUNT, saveMapMode);
+  ha.initBrightnessSensor(settings.getInt(BRIGHTNESS), saveBrightness);
+  ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
+  ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
+  ha.initMapModeSensor(settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT, saveMapMode);
   if (display.isDisplayAvailable()) {
-    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.display_mode, ignoreDisplayModeOptions), DISPLAY_MODES,
+    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions), DISPLAY_MODES,
       DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayMode, getSettingsDisplayMode);
     ha.initDisplayModeToggleSensor(nextDisplayMode);
-    ha.initShowHomeAlarmTimeSensor(settings.home_alert_time, saveShowHomeAlarmTime);
+    ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }
-  ha.initAutoAlarmModeSensor(settings.alarms_auto_switch, AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
-  ha.initAutoBrightnessModeSensor(settings.brightness_mode, AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
+  ha.initAutoAlarmModeSensor(settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
+  ha.initAutoBrightnessModeSensor(settings.getInt(BRIGHTNESS_MODE), AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
   ha.initMapModeCurrentSensor();
   ha.initHomeDistrictSensor();
   ha.initMapApiConnectSensor(apiConnected);
   ha.initRebootSensor([] { rebootDevice(); });
   ha.initMapModeToggleSensor(nextMapMode);
-  ha.initLampSensor(settings.map_mode == 5, settings.ha_light_brightness, settings.ha_light_r, settings.ha_light_g, settings.ha_light_b,
+  ha.initLampSensor(settings.getInt(MAP_MODE) == 5, settings.getInt(HA_LIGHT_BRIGHTNESS), settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B),
     onNewLampStateFromHa, saveLampBrightness, saveLampRgb);
   ha.initAlarmAtHomeSensor(alarmNow);
   if (climate.isTemperatureAvailable()) {
-    ha.initLocalTemperatureSensor(climate.getTemperature(settings.temp_correction));
+    ha.initLocalTemperatureSensor(climate.getTemperature(settings.getFloat(TEMP_CORRECTION)));
   }
   if (climate.isHumidityAvailable()) {
-    ha.initLocalHumiditySensor(climate.getHumidity(settings.hum_correction));
+    ha.initLocalHumiditySensor(climate.getHumidity(settings.getFloat(HUM_CORRECTION)));
   }
   if (climate.isPressureAvailable()) {
-    ha.initLocalPressureSensor(climate.getPressure(settings.pressure_correction));
+    ha.initLocalPressureSensor(climate.getPressure(settings.getFloat(PRESSURE_CORRECTION)));
   }
   if (lightSensor.isLightSensorAvailable()) {
-    ha.initLightLevelSensor(lightSensor.getLightLevel(settings.light_sensor_factor));
+    ha.initLightLevelSensor(lightSensor.getLightLevel(settings.getFloat(LIGHT_SENSOR_FACTOR)));
   }
   ha.initHomeTemperatureSensor();
   ha.initNightModeSensor(nightMode, saveNightMode);
 
-  ha.connectToMqtt(settings.ha_mqttport, settings.ha_mqttuser, settings.ha_mqttpassword, onMqttStateChanged);
+  ha.connectToMqtt(settings.getInt(HA_MQTT_PORT), settings.getString(HA_MQTT_USER), settings.getString(HA_MQTT_PASSWORD), onMqttStateChanged);
 }
 
 void initWifi() {
@@ -4012,8 +3607,8 @@ void initWifi() {
   // reset settings - wipe credentials for testing
   // wm.resetSettings();
 
-  wm.setHostname(settings.broadcastname);
-  wm.setTitle(settings.devicename);
+  wm.setHostname(settings.getString(BROADCAST_NAME));
+  wm.setTitle(settings.getString(DEVICE_NAME));
   wm.setConfigPortalBlocking(true);
   wm.setConnectTimeout(3);
   wm.setConnectRetries(10);
@@ -4023,7 +3618,7 @@ void initWifi() {
   servicePin(WIFI, LOW, false);
   showServiceMessage(wm.getWiFiSSID(true).c_str(), "Підключення до:", 5000);
   char apssid[20];
-  sprintf(apssid, "%s_%s", settings.apssid, chipID);
+  sprintf(apssid, "%s_%s", "JAAM", chipID);
   if (!wm.autoConnect(apssid)) {
     LOG.println("Reboot");
     rebootDevice(5000);
@@ -4054,9 +3649,9 @@ void wifiReconnect() {
 
 void initTime() {
   LOG.println("Init time");
-  LOG.printf("NTP host: %s\n", settings.ntphost);
-  timeClient.setHost(settings.ntphost);
-  timeClient.setTimeZone(settings.time_zone);
+  LOG.printf("NTP host: %s\n", settings.getString(NTP_HOST));
+  timeClient.setHost(settings.getString(NTP_HOST));
+  timeClient.setTimeZone(settings.getInt(TIME_ZONE));
   timeClient.setDSTauto(&dst); // auto update on summer/winter time.
   timeClient.setTimeout(5000); // 5 seconds waiting for reply
   timeClient.begin();
@@ -4065,7 +3660,7 @@ void initTime() {
 
 void showLocalLightLevel() {
   char message[10];
-  sprintf(message, "%.1f lx", lightSensor.getLightLevel(settings.light_sensor_factor));
+  sprintf(message, "%.1f lx", lightSensor.getLightLevel(settings.getFloat(LIGHT_SENSOR_FACTOR)));
   displayMessage(message, "Освітлення");
 }
 
@@ -4151,7 +3746,7 @@ void loop() {
 #endif
   ha.loop();
   client_websocket.poll();
-  if (getCurrentMapMode() == 1 && settings.alarms_notify_mode == 2) {
+  if (getCurrentMapMode() == 1 && settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
     mapCycle();
   }
 #endif

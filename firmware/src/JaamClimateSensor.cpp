@@ -1,5 +1,6 @@
 #include "JaamClimateSensor.h"
 #include <Arduino.h>
+#include "Constants.h"
 
 #if BME280_ENABLED
 ForcedBME280Float *bme280;
@@ -31,34 +32,34 @@ bool JaamClimateSensor::begin() {
   switch (bme280->getChipID()) {
     case CHIP_ID_BME280:
       bme280Initialized = true;
-      Serial.println("Found BME280 temp/hum/presure sensor! Success.");
+      LOG.println("Found BME280 temp/hum/presure sensor! Success.");
       break;
     case CHIP_ID_BMP280:
       bmp280Initialized = true;
-      Serial.println("Found BMP280 temp/presure sensor! No Humidity available.");
+      LOG.println("Found BMP280 temp/presure sensor! No Humidity available.");
       break;
     default:
       bme280Initialized = false;
       bmp280Initialized = false;
-      Serial.println("Not found BME280 or BMP280!");
+      LOG.println("Not found BME280 or BMP280!");
   }
 #endif
 #if SHT2X_ENABLED
   sht2x = new SHTSensor(SHTSensor::SHT2X);
   sht2xInitialized = sht2x->init();
   if (sht2xInitialized) {
-    Serial.println("Found HTU2x temp/hum sensor! Success.");
+    LOG.println("Found HTU2x temp/hum sensor! Success.");
   } else {
-    Serial.println("Not found HTU2x temp/hum sensor!");
+    LOG.println("Not found HTU2x temp/hum sensor!");
   }
 #endif
 #if SHT3X_ENABLED
   sht3x = new SHTSensor(SHTSensor::SHT3X);
   sht3xInitialized = sht3x->init();
   if (sht3xInitialized) {
-    Serial.println("Found SHT3x temp/hum sensor! Success.");
+    LOG.println("Found SHT3x temp/hum sensor! Success.");
   } else {
-    Serial.println("Not found SHT3x temp/hum sensor!");
+    LOG.println("Not found SHT3x temp/hum sensor!");
   }
 #endif
 return bme280Initialized || bmp280Initialized || sht2xInitialized || sht3xInitialized;
@@ -76,15 +77,15 @@ void JaamClimateSensor::read() {
       localHum = bme280->getRelativeHumidityAsFloat();
     }
 
-    // Serial.print("BME280! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.print("%");
-    // Serial.print("\tPressure: ");
-    // Serial.print(localPressure);
-    // Serial.println("mmHg");
+    // LOG.print("BME280! Temp: ");
+    // LOG.print(localTemp);
+    // LOG.print("°C");
+    // LOG.print("\tHumidity: ");
+    // LOG.print(localHum);
+    // LOG.print("%");
+    // LOG.print("\tPressure: ");
+    // LOG.print(localPressure);
+    // LOG.println("mmHg");
     return;
   }
 #endif
@@ -93,12 +94,12 @@ void JaamClimateSensor::read() {
     localTemp = sht3x->getTemperature();
     localHum = sht3x->getHumidity();
 
-    // Serial.print("SHT3X! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.println("%");
+    // LOG.print("SHT3X! Temp: ");
+    // LOG.print(localTemp);
+    // LOG.print("°C");
+    // LOG.print("\tHumidity: ");
+    // LOG.print(localHum);
+    // LOG.println("%");
     return;
   }
 #endif
@@ -107,12 +108,12 @@ void JaamClimateSensor::read() {
     localTemp = sht2x->getTemperature();
     localHum = sht2x->getHumidity();
 
-    // Serial.print("SHT2X! Temp: ");
-    // Serial.print(localTemp);
-    // Serial.print("°C");
-    // Serial.print("\tHumidity: ");
-    // Serial.print(localHum);
-    // Serial.println("%");
+    // LOG.print("SHT2X! Temp: ");
+    // LOG.print(localTemp);
+    // LOG.print("°C");
+    // LOG.print("\tHumidity: ");
+    // LOG.print(localHum);
+    // LOG.println("%");
     return;
   }
 #endif

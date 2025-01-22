@@ -337,13 +337,13 @@ static void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness
   int minBrightness = min(dayBrightness, nightBrightness);
   int maxBrightness = max(dayBrightness, nightBrightness);
   float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
-  Serial.printf("%s brightness levels: [", logTitle);
+  LOG.printf("%s brightness levels: [", logTitle);
   for (int i = 0; i < BR_LEVELS_COUNT; i++) {
     brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
-    Serial.print(brightnessLevels[i]);
-    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
+    LOG.print(brightnessLevels[i]);
+    if (i < BR_LEVELS_COUNT - 1) LOG.print(", ");
   }
-  Serial.println("]");
+  LOG.println("]");
 }
 
 static void fillUptime(int uptimeValue, char* uptimeChar) {
