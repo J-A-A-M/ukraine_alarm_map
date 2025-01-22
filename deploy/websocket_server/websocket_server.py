@@ -211,8 +211,8 @@ async def get_geo_ip_data(ip, mc, request):
                     #   "is_hosting": false
                     # }
                     data = await response.json()
-                    await mc.set(key, json.dumps(data).encode("utf-8"), ex=86400) # 24 hours
                     logger.debug(f"{ip}: {data}")
+                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400) # 24 hours
                     return data
         except Exception as e:
             logger.warning(f"Error in get_geo_ip_data: {e}")
@@ -261,7 +261,7 @@ async def get_geo_ip_data(ip, mc, request):
                 "is_satellite": False,
                 "is_hosting": False,
             }
-            await mc.set(key, json.dumps(data).encode("utf-8"), ex=86400) # 24 hours
+            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400) # 24 hours
             return data
 
 
