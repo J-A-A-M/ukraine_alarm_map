@@ -189,6 +189,7 @@ async def get_geo_ip_data(ip, mc, request):
     key = b"geo_{ip}"
     data = await mc.get(key)
     if data:
+        logger.debug(f"{ip} >>> data from MC: {data}")
         return json.loads(data)
     else:
         try:
@@ -211,7 +212,9 @@ async def get_geo_ip_data(ip, mc, request):
                     #   "is_hosting": false
                     # }
                     data = await response.json()
-                    logger.debug(f"{ip}: {data}")
+                    # remove first word from data["org"] if starting with AS
+                    data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                    logger.debug(f"{ip} >>> data from IPINFO: {data}")
                     await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400) # 24 hours
                     return data
         except Exception as e:
@@ -261,7 +264,8 @@ async def get_geo_ip_data(ip, mc, request):
                 "is_satellite": False,
                 "is_hosting": False,
             }
-            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400) # 24 hours
+            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600) # 1 hour
+            logger.debug(f"{ip} >>> data from headers: {data}")
             return data
 
 
