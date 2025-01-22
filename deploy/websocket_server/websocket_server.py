@@ -186,7 +186,7 @@ async def get_client_ip(connection: ServerConnection):
     )
 
 async def get_geo_ip_data(ip, mc, request):
-    key = b"geo_{ip}"
+    key = b"geo_ip_{ip}"
     data = await mc.get(key)
     if data:
         logger.debug(f"{ip} >>> data from MC: {data}")
@@ -204,12 +204,7 @@ async def get_geo_ip_data(ip, mc, request):
                     #   "loc": "48.7305,37.5879",
                     #   "org": "AS15895 \"Kyivstar\" PJSC",
                     #   "postal": "84300",
-                    #   "timezone": "Europe/Kyiv",
-                    #   "is_anycast": false,
-                    #   "is_mobile": false,
-                    #   "is_anonymous": false,
-                    #   "is_satellite": false,
-                    #   "is_hosting": false
+                    #   "timezone": "Europe/Kyiv"
                     # }
                     data = await response.json()
                     # remove first word from data["org"] if starting with AS
@@ -258,11 +253,6 @@ async def get_geo_ip_data(ip, mc, request):
                 "org": "unknown",
                 "postal": postal_code,
                 "timezone": timezone,
-                "is_anycast": False,
-                "is_mobile": False,
-                "is_anonymous": False,
-                "is_satellite": False,
-                "is_hosting": False,
             }
             await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600) # 1 hour
             logger.debug(f"{ip} >>> data from headers: {data}")
