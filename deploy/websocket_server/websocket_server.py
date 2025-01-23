@@ -187,7 +187,7 @@ async def get_client_ip(connection: ServerConnection):
 
 
 async def get_geo_ip_data(ip, mc, request):
-    key = f"geo_ip_{ip}".encode('utf-8')
+    key = f"geo_ip_{ip}".encode("utf-8")
     data = await mc.get(key)
     if data:
         logger.debug(f"{ip} >>> data from MC: {data}")
