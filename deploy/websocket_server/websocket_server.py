@@ -6,6 +6,7 @@ import random
 import secrets
 import string
 import datetime
+import aiohttp
 
 from aiomcache import Client
 from geoip2 import database, errors
@@ -41,6 +42,7 @@ measurement_id = os.environ.get("MEASUREMENT_ID") or ""
 environment = os.environ.get("ENVIRONMENT") or "PROD"
 geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
+ip_info_token = os.environ.get("IP_INFO_TOKEN") or ""
 
 logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -182,6 +184,80 @@ async def get_client_ip(connection: ServerConnection):
     return connection.request.headers.get(
         "CF-Connecting-IP", connection.request.headers.get("X-Real-IP", connection.remote_address[0])
     )
+
+
+async def get_geo_ip_data(ip, mc, request):
+    key = f"geo_ip_{ip}".encode("utf-8")
+    data = await mc.get(key)
+    if data:
+        logger.debug(f"{ip} >>> data from MC: {data}")
+        return json.loads(data)
+    else:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
+                    # example:
+                    # {
+                    #   "hostname": "188-163-48-155.broadband.kyivstar.net",
+                    #   "city": "Kramatorsk",
+                    #   "region": "Donetsk",
+                    #   "country": "UA",
+                    #   "loc": "48.7305,37.5879",
+                    #   "org": "AS15895 \"Kyivstar\" PJSC",
+                    #   "postal": "84300",
+                    #   "timezone": "Europe/Kyiv"
+                    # }
+                    data = await response.json()
+                    # remove first word from data["org"] if starting with AS
+                    data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                    logger.debug(f"{ip} >>> data from IPINFO: {data}")
+                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400)  # 24 hours
+                    return data
+        except Exception as e:
+            logger.warning(f"Error in get_geo_ip_data: {e}")
+            country = request.headers.get("cf-ipcountry", None)
+            region = request.headers.get("cf-region", None)
+            city = request.headers.get("cf-ipcity", None)
+            timezone = request.headers.get("cf-timezone", None)
+            longitude = request.headers.get("cf-iplongitude", None)
+            latitude = request.headers.get("cf-iplatitude", None)
+            postal_code = request.headers.get("cf-postal-code", None)
+
+            if not country or not region or not city or not timezone:
+                try:
+                    response = geo.city(ip)
+                    city = city or response.city.name or "not-in-db"
+                    region = region or response.subdivisions.most_specific.name or "not-in-db"
+                    country = country or response.country.iso_code or "not-in-db"
+                    timezone = timezone or response.location.time_zone or "not-in-db"
+                    latitude = latitude or response.location.latitude or 0
+                    longitude = longitude or response.location.longitude or 0
+                    postal_code = postal_code or response.postal.code or "not-in-db"
+                except errors.AddressNotFoundError:
+                    city = city or "not-found"
+                    region = region or "not-found"
+                    country = country or "not-found"
+                    timezone = timezone or "not-found"
+                    latitude = latitude or 0
+                    longitude = longitude or 0
+                    postal_code = postal_code or "not-found"
+
+            country = country.encode("utf-8", "ignore").decode("utf-8")
+            region = region.encode("utf-8", "ignore").decode("utf-8")
+            city = city.encode("utf-8", "ignore").decode("utf-8")
+            data = {
+                "hostname": "unknown",
+                "city": city,
+                "region": region,
+                "country": country,
+                "loc": f"{latitude},{longitude}",
+                "org": "unknown",
+                "postal": postal_code,
+                "timezone": timezone,
+            }
+            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600)  # 1 hour
+            logger.debug(f"{ip} >>> data from headers: {data}")
+            return data
 
 
 async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
@@ -380,27 +456,7 @@ async def echo(websocket: ServerConnection):
             logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
             return
 
-        country = websocket.request.headers.get("cf-ipcountry", None)
-        region = websocket.request.headers.get("cf-region", None)
-        city = websocket.request.headers.get("cf-ipcity", None)
-        timezone = websocket.request.headers.get("cf-timezone", None)
-
-        if not country or not region or not city or not timezone:
-            try:
-                response = geo.city(client_ip)
-                city = city or response.city.name or "not-in-db"
-                region = region or response.subdivisions.most_specific.name or "not-in-db"
-                country = country or response.country.iso_code or "not-in-db"
-                timezone = timezone or response.location.time_zone or "not-in-db"
-            except errors.AddressNotFoundError:
-                city = city or "not-found"
-                region = region or "not-found"
-                country = country or "not-found"
-                timezone = timezone or "not-found"
-
-        country = country.encode("utf-8", "ignore").decode("utf-8")
-        region = region.encode("utf-8", "ignore").decode("utf-8")
-        city = city.encode("utf-8", "ignore").decode("utf-8")
+        geo_ip_data = await get_geo_ip_data(client_ip, mc, websocket.request)
 
         # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
         #     shared_data.blocked_ips.append(client_ip)
@@ -418,10 +474,12 @@ async def echo(websocket: ServerConnection):
             "firmware": "unknown",
             "chip_id": "unknown",
             "latency": -1,
-            "city": city,
-            "region": region,
-            "country": country,
-            "timezone": timezone,
+            "city": geo_ip_data["city"],
+            "region": geo_ip_data["region"],
+            "country": geo_ip_data["country"],
+            "timezone": geo_ip_data["timezone"],
+            "org": geo_ip_data["org"],
+            "location": geo_ip_data["loc"],
             "secure_connection": secure_connection,
             "connect_time": datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
         }
@@ -453,7 +511,15 @@ async def echo(websocket: ServerConnection):
                 logger.warning(f"{client_ip}:{client_id}: unknown path connection")
                 return
         consumer_task = asyncio.create_task(
-            message_handler(websocket, client, client_id, client_ip, country, region, city),
+            message_handler(
+                websocket,
+                client,
+                client_id,
+                client_ip,
+                geo_ip_data["country"],
+                geo_ip_data["region"],
+                geo_ip_data["city"],
+            ),
             name=f"message_handler_{client_id}",
         )
         ping_pong_task = asyncio.create_task(
