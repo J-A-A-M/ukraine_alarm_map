@@ -1,4 +1,5 @@
 #include "JaamDisplay.h"
+#include "Constants.h"
 
 #if DISPLAY_ENABLED
 Adafruit_SSD1306 *ssd1306;
@@ -32,10 +33,10 @@ bool detectDisplay() {
   Wire.beginTransmission(0x3C);
   uint8_t error = Wire.endTransmission();
   if (error == 0) {
-    Serial.println("Display was FOUND on address 0x3C! Success.");
+    LOG.println("Display was FOUND on address 0x3C! Success.");
     return true;
   } else {
-    Serial.println("Display NOT found! Checked address - 0x3C");
+    LOG.println("Display NOT found! Checked address - 0x3C");
     return false;
   }
 #else

@@ -1,5 +1,6 @@
 #include "JaamLightSensor.h"
 #include <Arduino.h>
+#include "Constants.h"
 
 #if BH1750_ENABLED
 BH1750_WE *bh1750;
@@ -17,7 +18,7 @@ bool JaamLightSensor::begin(int legacy) {
 
   // init BH1750 in jaam 2
   if (legacy == 3) {
-    Serial.println("Init JAAM 2 BH1750.");
+    LOG.println("Init JAAM 2 BH1750.");
     pinMode(19, OUTPUT);
     digitalWrite(19, HIGH); 
     digitalWrite(19, LOW);
@@ -29,9 +30,9 @@ bool JaamLightSensor::begin(int legacy) {
   bh1750Initialized = bh1750->init();
   if (bh1750Initialized) {
     bh1750->setMode(CHM_2);
-    Serial.println("Found BH1750 light sensor! Success.");
+    LOG.println("Found BH1750 light sensor! Success.");
   } else {
-    Serial.println("Not found BH1750 light sensor!");
+    LOG.println("Not found BH1750 light sensor!");
   }
 #endif
 return bh1750Initialized;
@@ -45,9 +46,9 @@ void JaamLightSensor::read() {
 #if BH1750_ENABLED
     if (!bh1750Initialized) return;
     lightLevel = bh1750->getLux();
-    // Serial.print("BH1750!\tLight: ");
-    // Serial.print(lightLevel);
-    // Serial.println(" lx");
+    // LOG.print("BH1750!\tLight: ");
+    // LOG.print(lightLevel);
+    // LOG.println(" lx");
 #endif
 }
 
