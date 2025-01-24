@@ -121,7 +121,7 @@ bool haEnabled = false;
 JaamHomeAssistant::JaamHomeAssistant() {
 }
 
-bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID) {
+bool JaamHomeAssistant::initDevice(const char* localIP, const char* mqttServerIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID) {
 #if HA_ENABLED
   if (strlen(mqttServerIp) > 0) {
     haEnabled = true;
@@ -130,7 +130,7 @@ bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceN
   if (!haEnabled) return false;
   strcpy(deviceUniqueID, chipID);
   WiFi.macAddress(macAddress);
-  sprintf(configUrl, "http://%s:80", WiFi.localIP().toString().c_str());
+  sprintf(configUrl, "http://%s:80", localIP);
   device = new HADevice(macAddress, sizeof(macAddress));
   mqtt = new HAMqtt(netClient, *device, SENSORS_COUNT);
   device->setName(deviceName);
