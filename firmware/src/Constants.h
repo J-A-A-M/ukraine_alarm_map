@@ -66,30 +66,35 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   HELLDIVERS
 };
 
-static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
-  "Гімн України",
-  "Ой у лузі",
-  "Козацький марш",
-  "Гаррі Поттер",
-  "Сирена",
-  "Комунікатор",
-  "Зоряні війни",
-  "Імперський марш",
-  "Зоряний шлях",
-  "Індіана Джонс",
-  "Назад у майбутнє",
-  "Kiss - I Was Made",
-  "Русалонька",
-  "Nokia tune",
-  "Пакмен",
-  "Щедрик",
-  "Люди Х",
-  "Месники",
-  "Сирена 2",
-  "Squid Game",
-  "Батько наш Бандера",
-  "ПТН ХЙЛ",
-  "Helldivers 2 - A cup of Liber-Tea"
+struct SettingListItem {
+  int id;
+  const char* name;
+};
+
+static const SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
+  {0, "Гімн України"},
+  {20, "Батько наш Бандера"},
+  {15, "Щедрик"},
+  {1, "Ой у лузі"},
+  {2, "Козацький марш"},
+  {4, "Сирена"},
+  {18, "Сирена 2"},
+  {5, "Комунікатор"},
+  {3, "Гаррі Поттер"},
+  {6, "Зоряні війни"},
+  {7, "Імперський марш"},
+  {8, "Зоряний шлях"},
+  {9, "Індіана Джонс"},
+  {10, "Назад у майбутнє"},
+  {11, "Kiss - I Was Made"},
+  {12, "Русалонька"},
+  {13, "Nokia tune"},
+  {14, "Пакмен"},
+  {16, "Люди Х"},
+  {17, "Месники"},
+  {19, "Squid Game"},
+  {21, "ПТН ХЙЛ"},
+  {22, "Helldivers 2 - A cup of Liber-Tea"}
 };
 #endif
 

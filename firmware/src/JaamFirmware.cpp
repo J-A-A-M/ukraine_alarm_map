@@ -1657,6 +1657,41 @@ void addSlider(AsyncResponseStream* response, const char* name, const char* labe
   sliderIndex++;
 }
 
+void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, const SettingListItem options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
+  response->print(label);
+  response->print(": <select name='");
+  response->print(name);
+  response->print("' class='form-control' id='sb");
+  response->print(selectIndex);
+  if (onChanges) {
+    response->print("'");
+    response->print(" onchange='");
+    response->print(onChanges);
+  }
+  response->print("'");
+  if (disabled) response->print(" disabled");
+  response->print(">");
+  for (int i = 0; i < optionsCount; i++) {
+    if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
+    int transformedIndex;
+    if (valueTransform) {
+      transformedIndex = valueTransform(options[i].id);
+    } else {
+      transformedIndex = options[i].id;
+    }
+    response->print("<option value='");
+    response->print(transformedIndex);
+    response->print("'");
+    if (setting == transformedIndex) response->print(" selected");
+    response->print(">");
+    response->print(options[i].name);
+    response->print("</option>");
+  }
+  response->print("</select>");
+  response->println("</br>");
+  selectIndex++;
+}
+
 void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, const char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
   response->print(label);
   response->print(": <select name='");
@@ -2616,7 +2651,7 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
   if (isBuzzerEnabled()) {
     int soundId = request->getParam("id", false)->value().toInt();
     playMelody(MELODIES[soundId]);
-    showServiceMessage(MELODY_NAMES[soundId], "Мелодія");
+    showServiceMessage(MELODY_NAMES[soundId].name, "Мелодія");
     request->send(200, "text/plain", "Test sound played!");
   }
 }
