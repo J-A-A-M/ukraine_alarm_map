@@ -9,7 +9,7 @@ class JaamHomeAssistant {
 public:
     JaamHomeAssistant();
     
-    bool initDevice(const char* mqttServeIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID);
+    bool initDevice(const char* localIP, const char* mqttServeIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID);
     void loop();
 
     bool isHaAvailable();

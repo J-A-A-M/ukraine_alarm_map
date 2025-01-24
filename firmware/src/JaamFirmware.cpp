@@ -3553,7 +3553,7 @@ void initHA() {
 
   LOG.println("Init Home assistant API");
 
-  if (!ha.initDevice(settings.getString(HA_BROKER_ADDRESS), settings.getString(DEVICE_NAME), currentFwVersion, settings.getString(DEVICE_DESCRIPTION), chipID)) {
+  if (!ha.initDevice(getLocalIP(), settings.getString(HA_BROKER_ADDRESS), settings.getString(DEVICE_NAME), currentFwVersion, settings.getString(DEVICE_DESCRIPTION), chipID)) {
     LOG.println("Home Assistant is not available!");
     return;
   }
