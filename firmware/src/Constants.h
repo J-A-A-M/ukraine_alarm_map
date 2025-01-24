@@ -208,23 +208,23 @@ static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
 };
 
 #define MAP_MODES_COUNT 6
-static const char* MAP_MODES[MAP_MODES_COUNT] = {
-  "Вимкнено",
-  "Тривога",
-  "Погода",
-  "Прапор",
-  "Випадкові кольори",
-  "Лампа"
+static const SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
+  {0, "Вимкнено"},
+  {1, "Тривога"},
+  {2, "Погода"},
+  {3, "Прапор"},
+  {4, "Випадкові кольори"},
+  {5, "Лампа"},
 };
 
 #define DISPLAY_MODE_OPTIONS_MAX 6
-static const char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Годинник",
-  "Погода",
-  "Технічна інформація",
-  "Мікроклімат",
-  "Перемикання"
+static const SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
+  {0, "Вимкнено"},
+  {1, "Годинник"},
+  {2, "Погода"},
+  {3, "Технічна інформація"},
+  {4, "Мікроклімат"},
+  {5, "Перемикання"},
 };
 
 #define AUTO_ALARM_MODES_COUNT 3

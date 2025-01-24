@@ -199,6 +199,23 @@ CRGB fromHue(int hue, float brightness) {
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
+const char* getNameById(const SettingListItem* list, int id, int size) {
+  for (int i = 0; i < size; i++) {
+    if (list[i].id == id) {
+      return list[i].name;
+    }
+  }
+  return "";
+}
+
+const char** getNames(const SettingListItem* list, int size) {
+  const char** names = new const char*[size];
+  for (int i = 0; i < size; i++) {
+    names[i] = list[i].name;
+  }
+  return names;
+}
+
 // Forward declarations
 void displayCycle();
 
@@ -643,7 +660,7 @@ void onMqttStateChanged(bool haStatus) {
   servicePin(HA, haConnected ? HIGH : LOW, false);
   if (haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
-    ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
+    ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
     ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.getInt(HOME_DISTRICT))]);
   }
 }
@@ -661,11 +678,16 @@ bool saveMapMode(int newMapMode) {
   reportSettingsChange("map_mode", newMapMode);
   ha.setLampState(newMapMode == 5);
   ha.setMapMode(newMapMode);
-  ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
-  showServiceMessage(MAP_MODES[newMapMode], "Режим мапи:");
+  const char* mapModeName = getNameById(MAP_MODES, newMapMode, MAP_MODES_COUNT);
+  ha.setMapModeCurrent(mapModeName);
+  showServiceMessage(mapModeName, "Режим мапи:");
   // update to selected mapMode
   mapCycle();
   return true;
+}
+
+bool saveMapModeFromHa(int newIndex) {
+  return saveMapMode(MAP_MODES[newIndex].id);
 }
 
 bool onNewLampStateFromHa(bool state) {
@@ -851,10 +873,14 @@ bool saveDisplayMode(int newDisplayMode) {
   if (display.isDisplayAvailable()) {
     ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
   }
-  showServiceMessage(DISPLAY_MODES[localDisplayMode], "Режим дисплея:", 1000);
+  showServiceMessage(getNameById(DISPLAY_MODES, localDisplayMode, DISPLAY_MODE_OPTIONS_MAX), "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
   return true;
+}
+
+bool saveDisplayModeFromHa(int newIndex) {
+  return saveDisplayMode(DISPLAY_MODES[newIndex].id);
 }
 
 void nextDisplayMode() {
@@ -1188,7 +1214,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   LOG.print("home_district commited to preferences: ");
   LOG.println(DISTRICTS[settings.getInt(HOME_DISTRICT)]);
   ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(newHomeDistrict)]);
-  ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
+  ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
   showServiceMessage(DISTRICTS[newHomeDistrict], "Домашній регіон:", 2000);
   return true;
 }
@@ -2651,7 +2677,7 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
   if (isBuzzerEnabled()) {
     int soundId = request->getParam("id", false)->value().toInt();
     playMelody(MELODIES[soundId]);
-    showServiceMessage(MELODY_NAMES[soundId].name, "Мелодія");
+    showServiceMessage(getNameById(MELODY_NAMES, soundId, MELODIES_COUNT), "Мелодія");
     request->send(200, "text/plain", "Test sound played!");
   }
 }
@@ -3039,7 +3065,7 @@ void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.getBool(MIN_OF_SILENCE) == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
     minuteOfSilence = localMinOfSilence;
-    ha.setMapModeCurrent(MAP_MODES[getCurrentMapMode()]);
+    ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
     // play mos beep every 2 sec during min of silence
     if (minuteOfSilence && needToPlaySound(MIN_OF_SILINCE)) {
       clockBeepInterval = asyncEngine.setInterval(playMinOfSilenceSound, 2000); // every 2 sec
@@ -3601,10 +3627,12 @@ void initHA() {
   ha.initBrightnessSensor(settings.getInt(BRIGHTNESS), saveBrightness);
   ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
   ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
-  ha.initMapModeSensor(settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT, saveMapMode);
+  const char** mapModes = getNames(MAP_MODES, MAP_MODES_COUNT);
+  ha.initMapModeSensor(settings.getInt(MAP_MODE), mapModes, MAP_MODES_COUNT, saveMapModeFromHa);
   if (display.isDisplayAvailable()) {
-    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions), DISPLAY_MODES,
-      DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayMode, getSettingsDisplayMode);
+    const char** displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX);
+    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions), displayModes,
+      DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayModeFromHa, getSettingsDisplayMode);
     ha.initDisplayModeToggleSensor(nextDisplayMode);
     ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }

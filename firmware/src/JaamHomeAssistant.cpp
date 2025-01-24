@@ -137,7 +137,7 @@ bool JaamHomeAssistant::initDevice(const char* mqttServerIp, const char* deviceN
   device->setSoftwareVersion(currentFwVersion);
   device->setManufacturer("JAAM");
   device->setModel(deviceDescription);
-  LOG.printf("HA Device configurationUrl: '%s'\n", configUrl);
+  Serial.printf("HA Device configurationUrl: '%s'\n", configUrl);
   device->setConfigurationUrl(configUrl);
   device->enableExtendedUniqueIds();
   device->enableSharedAvailability();
