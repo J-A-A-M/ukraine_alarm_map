@@ -72,6 +72,8 @@ async def update_data(mc):
             explosions_data = await mc.get(b"explosions")
             rockets_data = await mc.get(b"rockets")
             drones_data = await mc.get(b"drones")
+            ws_alerts_data = await mc.get(b"ws_alerts")
+            ws_info_data = await mc.get(b"ws_info")
 
             if tcp_cached:
                 tcp_cached_data = json.loads(tcp_cached.decode("utf-8"))

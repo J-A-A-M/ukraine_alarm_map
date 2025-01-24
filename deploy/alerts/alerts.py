@@ -71,7 +71,7 @@ async def get_regions(mc):
             regions_cached_data = {}
             logger.debug("start regions data")
             async with aiohttp.ClientSession() as session:
-                response = await session.get(region_url, headers=headers)  # Replace with your URL
+                response = await session.get(region_url, headers=headers)
                 new_data = await response.text()
                 data = json.loads(new_data)
             for state in data["states"]:
