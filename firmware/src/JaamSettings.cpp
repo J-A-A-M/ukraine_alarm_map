@@ -136,7 +136,7 @@ std::map<Type, SettingItemString> stringSettings = {
     {DEVICE_DESCRIPTION, {"dd", "JAAM Informer"}},
     {BROADCAST_NAME, {"bn", "jaam"}},
     {WS_SERVER_HOST, {"wshost", "ws.jaam.net.ua"}},
-    {NTP_HOST, {"ntph", "pool.ntp.org"}},
+    {NTP_HOST, {"ntph", "time.google.com"}},
     {HA_MQTT_USER, {"ha_mqttuser", ""}},
     {HA_MQTT_PASSWORD, {"ha_mqttpass", ""}},
     {HA_BROKER_ADDRESS, {"ha_brokeraddr", ""}},
