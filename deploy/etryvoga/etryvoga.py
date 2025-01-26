@@ -71,7 +71,7 @@ def get_slug(name, districts_slug):
 
 def format_time(time):
     dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
-    formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_timestamp
 
 
@@ -84,7 +84,7 @@ async def get_etryvoga_data(mc):
             current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             districts_slug_cached = await mc.get(b"etryvoga_districts_struct")
             explosions_cached = await mc.get(b"explosions_etryvoga")
-            rockets_cached = await mc.get(b"rockets_etryvoga")
+            missiles_cached = await mc.get(b"missiles_etryvoga")
             drones_cached = await mc.get(b"drones_etryvoga")
 
             if districts_slug_cached:
@@ -97,10 +97,10 @@ async def get_etryvoga_data(mc):
             else:
                 explosions_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
 
-            if rockets_cached:
-                rockets_cached_data = json.loads(rockets_cached.decode("utf-8"))
+            if missiles_cached:
+                missiles_cached_data = json.loads(missiles_cached.decode("utf-8"))
             else:
-                rockets_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+                missiles_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
 
             if drones_cached:
                 drones_cached_data = json.loads(drones_cached.decode("utf-8"))
@@ -131,7 +131,7 @@ async def get_etryvoga_data(mc):
                             case "EXPLOSION":
                                 explosions_cached_data["states"][state_id] = region_data
                             case "ROCKET" | "ROCKET_FIRE":
-                                rockets_cached_data["states"][state_id] = region_data
+                                missiles_cached_data["states"][state_id] = region_data
                             case "DRONE" | "RECON_DRONE":
                                 drones_cached_data["states"][state_id] = region_data
                             case _:
@@ -144,13 +144,13 @@ async def get_etryvoga_data(mc):
                         pass
                     explosions_cached_data["info"]["last_id"] = last_id
                     explosions_cached_data["info"]["last_update"] = current_datetime
-                    rockets_cached_data["info"]["last_id"] = last_id
-                    rockets_cached_data["info"]["last_update"] = current_datetime
+                    missiles_cached_data["info"]["last_id"] = last_id
+                    missiles_cached_data["info"]["last_update"] = current_datetime
                     drones_cached_data["info"]["last_id"] = last_id
                     drones_cached_data["info"]["last_update"] = current_datetime
                     logger.debug("store etryvoga data")
                     await mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8"))
-                    await mc.set(b"rockets_etryvoga", json.dumps(rockets_cached_data).encode("utf-8"))
+                    await mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8"))
                     await mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8"))
                     await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
                     await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))

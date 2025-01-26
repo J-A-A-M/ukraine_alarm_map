@@ -60,7 +60,7 @@ async def get_alerts(mc, key_b, default_response={}):
 async def get_regions(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
-async def get_drones(mc, key_b, default_response={}):
+async def get_etryvoga(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
 
@@ -223,28 +223,52 @@ async def update_alerts_websocket_v3(mc, run_once=False):
         if run_once:
             break
 
+async def ertyvoga_v1(mc, cache_key, data_key, data_key_text):
+    cache = await get_etryvoga(mc,cache_key, {"states:{}"})
+    websocket = await get_cache_data(mc, data_key, [1645674000] * 26)
+
+    data = [0] * 26
+
+    for state_name, legacy_state_id in regions_legacy.items():
+        legacy_state_id_str = str(legacy_state_id)
+        if legacy_state_id_str in cache["states"]:
+            alert_start_time = cache["states"][legacy_state_id_str]["changed"]
+            alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
+            data[legacy_state_id-1] = alert_start_time
+
+    await check_notifications(data, websocket)
+    await store_websocket_data(mc, data, websocket, data_key_text, data_key)
+
 async def update_drones_etryvoga_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-
-            drones_cache = await get_drones(mc,b"drones_etryvoga", {"states:{}"})
-            drones_websocket_v1 = await get_cache_data(mc, b"drones_websocket_v1", [1645674000] * 26)
-
-            drones = [1645674000] * 26
-
-            for state_name, legacy_state_id in regions_legacy.items():
-                legacy_state_id_str = str(legacy_state_id)
-                if legacy_state_id_str in drones_cache["states"]:
-                    alert_start_time = drones_cache["states"][legacy_state_id_str]["changed"]
-                    alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
-                    drones[legacy_state_id-1] = alert_start_time
-
-            await check_notifications(drones, drones_websocket_v1)
-            await store_websocket_data(mc, drones, drones_websocket_v1, 'drones_websocket_v1', b"drones_websocket_v1")
+            await ertyvoga_v1(mc, b"drones_etryvoga", b"drones_websocket_v1","drones_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_alerts_websocket_v3: {str(e)}")
+            logging.error(f"update_drones_etryvoga_v1: {str(e)}")
+        if run_once:
+            break
+
+async def update_missiles_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, b"missiles_etryvoga", b"missiles_websocket_v1","missiles_websocket_v1")
+
+        except Exception as e:
+            logging.error(f"update_missiles_etryvoga_v1: {str(e)}")
+        if run_once:
+            break
+
+async def update_explosions_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, b"explosions_etryvoga", b"explosions_websocket_v1","explosions_websocket_v1")
+
+        except Exception as e:
+            logging.error(f"update_explosions_etryvoga_v1: {str(e)}")
         if run_once:
             break
 
@@ -252,10 +276,12 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            update_alerts_websocket_v1(mc),
-            update_alerts_websocket_v2(mc),
-            update_alerts_websocket_v3(mc),
-            update_drones_etryvoga_v1(mc)
+            # update_alerts_websocket_v1(mc),
+            # update_alerts_websocket_v2(mc),
+            # update_alerts_websocket_v3(mc),
+            #update_drones_etryvoga_v1(mc),
+            #update_missiles_etryvoga_v1(mc),
+            update_explosions_etryvoga_v1(mc)
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
