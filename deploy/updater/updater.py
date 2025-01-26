@@ -66,6 +66,9 @@ async def get_regions(mc, key_b, default_response={}):
 async def get_etryvoga(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+async def get_weather(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
 
 async def check_states(data, cache):
     index = 0
@@ -275,6 +278,28 @@ async def update_explosions_etryvoga_v1(mc, run_once=False):
         if run_once:
             break
 
+async def update_weather_openweathermap_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            cache = await get_weather(mc,b"weather_openweathermap", {"version": 2,"states": {},"info": {"last_update": None}})
+            websocket = await get_cache_data(mc, b"weather_websocket_v1", [0] * 26)
+
+            data = [0] * 26
+
+            for state_name, legacy_state_id in regions_legacy.items():
+                legacy_state_id_str = str(legacy_state_id)
+                if legacy_state_id_str in cache["states"]:
+                    data[legacy_state_id-1] = int(round(cache["states"][legacy_state_id_str]["temp"], 0))
+
+            await check_notifications(data, websocket)
+            await store_websocket_data(mc, data, websocket, "weather_websocket_v1", b"weather_websocket_v1")
+
+        except Exception as e:
+            logging.error(f"update_explosions_etryvoga_v1: {str(e)}")
+        if run_once:
+            break
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
@@ -284,7 +309,8 @@ async def main():
             # update_alerts_websocket_v3(mc),
             #update_drones_etryvoga_v1(mc),
             #update_missiles_etryvoga_v1(mc),
-            update_explosions_etryvoga_v1(mc)
+            # update_explosions_etryvoga_v1(mc),
+            update_weather_openweathermap_v1(mc)
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

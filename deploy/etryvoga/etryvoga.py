@@ -12,12 +12,21 @@ from functools import partial
 
 version = 2
 
-debug_level = os.environ.get("LOGGING")
-etryvoga_url = os.environ.get("ETRYVOGA_HOST") or "localhost"
-etryvoga_districts_url = os.environ.get("ETRYVOGA_DISTRICTS_HOST") or "localhost"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+debug_level = os.environ.get("LOGGING") or "INFO"
+etryvoga_url = os.environ.get("ETRYVOGA_HOST")
+etryvoga_districts_url = os.environ.get("ETRYVOGA_DISTRICTS_HOST")
+memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
 etryvoga_districts_loop_time = int(os.environ.get("ETRYVOGA_DISTRICTS_PERIOD", 600))
+
+if not etryvoga_url:
+    raise ValueError("ETRYVOGA_HOST environment variable is required")
+if not etryvoga_districts_url:
+    raise ValueError("ETRYVOGA_DISTRICTS_HOST environment variable is required")
+if etryvoga_loop_time < 10:
+    raise ValueError("ETRYVOGA_PERIOD must be >= 10")
+if etryvoga_districts_loop_time < 600:
+    raise ValueError("ETRYVOGA_PERIOD must be >= 600")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
