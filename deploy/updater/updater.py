@@ -115,11 +115,12 @@ async def update_alerts_websocket_v1(mc, run_once=False):
             for alert in alerts_cache:
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
+                    region_type = active_alert["regionType"]
                     state_id = regions_cache[region_id]["stateId"]
                     state_name = regions_cache[state_id]["regionName"]
                     legacy_state_id = regions_legacy[state_name]
                     alert_type = active_alert["type"]
-                    if alert_type in ["AIR"]:
+                    if alert_type in ["AIR"] and region_type in ["State", "District"]:
                         alerts[legacy_state_id-1] = 1     
 
             if alerts_websocket_v1 != alerts:

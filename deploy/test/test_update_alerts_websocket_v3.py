@@ -36,6 +36,12 @@ districts = {
         "regionType": "District",
         "parentId": "1",
         "stateId": "1"
+    },
+    "15":{
+        "regionName": "Громада 1 в районі",
+        "regionType": "Community",
+        "parentId": "6",
+        "stateId": "1"
     }
 }
 
