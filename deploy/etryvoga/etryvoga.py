@@ -5,6 +5,7 @@ import aiohttp
 import logging
 import hashlib
 import datetime
+import contextlib
 from aiomcache import Client
 from functools import partial
 
@@ -138,10 +139,10 @@ async def get_etryvoga_data(mc):
                                 pass
                         last_id = current_hex
 
-                    try:
+                
+                    with contextlib.suppress(KeyError):
                         del explosions_cached_data["states"]["Невідомо"]
-                    except:
-                        pass
+                        
                     explosions_cached_data["info"]["last_id"] = last_id
                     explosions_cached_data["info"]["last_update"] = current_datetime
                     missiles_cached_data["info"]["last_id"] = last_id

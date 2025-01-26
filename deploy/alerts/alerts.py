@@ -14,10 +14,17 @@ alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 
 debug_level = os.environ.get("LOGGING") or "INFO"
-alert_token = os.environ.get("ALERT_TOKEN") or "token"
+alert_token = os.environ.get("ALERT_TOKEN")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 alert_loop_time = int(os.environ.get("ALERT_PERIOD", 3))
 regions_loop_time = int(os.environ.get("REGIONS_PERIOD", 3600))
+
+if not alert_token:
+    raise ValueError("ALERT_TOKEN environment variable is required")
+if alert_loop_time < 1:
+    raise ValueError("ALERT_PERIOD must be >= 1")
+if regions_loop_time < 3600:
+    raise ValueError("REGIONS_PERIOD must be >= 3600")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)

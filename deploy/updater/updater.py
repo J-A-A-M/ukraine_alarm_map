@@ -44,7 +44,10 @@ regions_legacy = {
 }
 
 
-async def get_cache_data(mc, key_b, default_response={}):
+async def get_cache_data(mc, key_b, default_response=None):
+    if default_response is None:
+        default_response = {}
+        
     cache = await mc.get(key_b)
 
     if cache:
