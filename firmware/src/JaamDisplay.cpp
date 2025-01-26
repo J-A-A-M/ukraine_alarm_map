@@ -190,6 +190,24 @@ void JaamDisplay::getTextBounds(const char *string, int16_t x, int16_t y, int16_
 #endif
 }
 
+/**
+ * @brief Prints a string to the display.
+ *
+ * Prints the given string to the display based on the current display model.
+ * The method checks if the display is connected and enabled before rendering.
+ *
+ * @param str Null-terminated string to be printed
+ * @return size_t Number of characters printed, or 0 if display is not connected or disabled
+ *
+ * @note Returns 0 if:
+ * - Display is not connected
+ * - Display is not enabled via DISPLAY_ENABLED macro
+ * - An unsupported display model is selected
+ *
+ * @see println()
+ * @see setTextColor()
+ * @see setCursor()
+ */
 size_t JaamDisplay::print(const char *str) {
 #if DISPLAY_ENABLED
     if (!displayConnected) return 0;
@@ -207,6 +225,21 @@ size_t JaamDisplay::print(const char *str) {
 #endif
 }
 
+/**
+ * @brief Prints a string followed by a newline to the display.
+ *
+ * Prints the given string to the display and adds a newline character. 
+ * The method supports different display models (SSD1306, SH1106G, SH1107) 
+ * and handles cases where the display is not connected or display functionality is disabled.
+ *
+ * @param str The null-terminated string to be printed
+ * @return size_t Number of characters printed, or 0 if display is not connected or display is disabled
+ *
+ * @note Returns 0 if:
+ * - Display is not connected
+ * - Display functionality is disabled via DISPLAY_ENABLED macro
+ * - An unsupported display model is selected
+ */
 size_t JaamDisplay::println(const char *str) {
 #if DISPLAY_ENABLED
     if (!displayConnected) return 0;
@@ -224,6 +257,19 @@ size_t JaamDisplay::println(const char *str) {
 #endif
 }
 
+/**
+ * @brief Sets text wrapping behavior for the display.
+ *
+ * Controls whether text should automatically wrap to the next line when it reaches
+ * the display's width boundary. This method supports different display models
+ * (SSD1306, SH1106G, SH1107) and only operates when the display is connected.
+ *
+ * @param wrap Boolean flag indicating text wrapping state
+ *             - true: Enable text wrapping
+ *             - false: Disable text wrapping
+ *
+ * @note No action is taken if the display is not connected or display functionality is disabled
+ */
 void JaamDisplay::setTextWrap(bool wrap) {
 #if DISPLAY_ENABLED
     if (!displayConnected) return;

@@ -160,6 +160,20 @@ char*  test_bin_list[MAX_BINS_LIST_SIZE];
 char chipID[13];
 char localIP[16];
 
+/**
+ * @brief Checks if the background LED strip is configured and enabled.
+ *
+ * @return bool True if the background LED strip is configured with a valid pin and LED count, 
+ *              false otherwise.
+ *
+ * @details This function verifies that both the background LED strip pin and LED count 
+ *          are set to valid, positive values, indicating the strip is properly configured 
+ *          and ready to be used.
+ *
+ * @note A valid configuration requires:
+ *       - Background LED pin number > -1
+ *       - Number of background LEDs > 0
+ */
 bool isBgStripEnabled() {
   return settings.getInt(BG_LED_PIN) > -1 && settings.getInt(BG_LED_COUNT) > 0;
 }
@@ -190,11 +204,34 @@ CRGB fromRgb(int r, int g, int b, float brightness) {
   return CRGB().setRGB(r, g, b).nscale8_video(scaledBrightness);
 }
 
+/**
+ * @brief Converts a hue value to an RGB color with specified brightness.
+ *
+ * Transforms a hue angle into an RGB color representation, applying a specified brightness level.
+ * Uses an intermediate conversion through the hue2rgb function to generate the base color,
+ * then scales the color's intensity based on the provided brightness parameter.
+ *
+ * @param hue Color hue angle (0-360 degrees)
+ * @param brightness Brightness scaling factor (0.0-1.0)
+ * @return CRGB Color representation suitable for LED control
+ */
 CRGB fromHue(int hue, float brightness) {
   RGBColor rgb = hue2rgb(hue);
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
+/**
+ * @brief Retrieves the name of a setting item by its ID from a given list.
+ *
+ * @param list Array of SettingListItem containing setting configurations
+ * @param id Identifier of the setting to find
+ * @param size Total number of items in the list
+ *
+ * @return const char* Name of the setting if found, or an empty string if no matching ID is found
+ *
+ * @note This function performs a linear search through the list to find a matching ID
+ * @note Time complexity is O(n), where n is the size of the list
+ */
 const char* getNameById(SettingListItem list[], int id, int size) {
   for (int i = 0; i < size; i++) {
     if (list[i].id == id) {
@@ -204,6 +241,17 @@ const char* getNameById(SettingListItem list[], int id, int size) {
   return "";
 }
 
+/**
+ * @brief Retrieves the index of a setting item by its ID.
+ *
+ * Searches through a list of setting items to find the index corresponding to a given ID.
+ * If no matching ID is found, returns 0 as the default index.
+ *
+ * @param list Array of SettingListItem to search through
+ * @param id The ID to search for in the list
+ * @param size Total number of items in the list
+ * @return int Index of the item with the matching ID, or 0 if not found
+ */
 int getIndexById(SettingListItem list[], int id, int size) {
   for (int i = 0; i < size; i++) {
     if (list[i].id == id) {
@@ -213,6 +261,25 @@ int getIndexById(SettingListItem list[], int id, int size) {
   return 0;
 }
 
+/**
+ * @brief Extracts names from a list of settings, with optional filtering.
+ *
+ * This function processes an array of SettingListItem and returns a pair containing
+ * the count of names and an array of name pointers. It can optionally exclude items
+ * marked as ignored.
+ *
+ * @param list Array of SettingListItem to process
+ * @param size Total number of items in the list
+ * @param excludeIgnored Flag to determine whether to filter out ignored items (default: false)
+ *
+ * @return std::pair containing:
+ *         - First element: Number of names extracted
+ *         - Second element: Dynamically allocated array of name pointers
+ *
+ * @note The caller is responsible for deleting the returned name array to prevent memory leaks
+ *
+ * @warning Ensure proper memory management when using this function
+ */
 std::pair<int, const char**> getNames(SettingListItem list[], int size, bool excludeIgnored = false) {
   int count = 0;
   for (int i = 0; i < size; i++) {
@@ -234,6 +301,19 @@ std::pair<int, const char**> getNames(SettingListItem list[], int size, bool exc
 // Forward declarations
 void displayCycle();
 
+/**
+ * @brief Displays a temporary service message on the device screen.
+ *
+ * This function shows a service message with an optional title for a specified duration.
+ * If the display is not available, the message will not be shown.
+ *
+ * @param message The main text of the service message to be displayed.
+ * @param title Optional title for the service message. Defaults to an empty string.
+ * @param duration Time in milliseconds for which the message will be displayed. Defaults to 2000ms (2 seconds).
+ *
+ * @note The function automatically adjusts text size to fit the display.
+ * @note Calls displayCycle() to update the screen immediately.
+ */
 void showServiceMessage(const char* message, const char* title = "", int duration = 2000) {
   if (!display.isDisplayAvailable()) return;
   serviceMessage.title = title;
@@ -668,6 +748,24 @@ int getCurrentMapMode() {
   return currentMapMode;
 }
 
+/**
+ * @brief Handles changes in Home Assistant MQTT connection state.
+ *
+ * This function is called when the MQTT connection status to Home Assistant changes.
+ * It updates the connection status, sets the HA service pin, and refreshes Home Assistant
+ * sensor values when the connection is established.
+ *
+ * @param haStatus Boolean indicating the current Home Assistant MQTT connection status
+ *                 (true for connected, false for disconnected)
+ *
+ * @details When connected:
+ * - Logs the connection status
+ * - Updates the global haConnected flag
+ * - Sets the HA service pin to HIGH
+ * - Updates Home Assistant sensors with current map mode and home district
+ *
+ * @note HASensor does not store previous values, so setValue must be called each time
+ */
 void onMqttStateChanged(bool haStatus) {
   LOG.print("Home Assistant MQTT state changed! State: ");
   LOG.println(haStatus ? "Connected" : "Disconnected");
@@ -683,6 +781,25 @@ void onMqttStateChanged(bool haStatus) {
 // Forward declarations
 void mapCycle();
 
+/**
+ * @brief Save and apply a new map mode setting.
+ *
+ * This function updates the current map mode, saves it to settings, and synchronizes 
+ * the change with Home Assistant. It handles special cases like the "pause" mode 
+ * and provides visual feedback through a service message.
+ *
+ * @param newMapMode The new map mode index to be set
+ * @return bool Indicates whether the map mode was actually changed
+ *
+ * @note If the new map mode is the same as the current mode, no changes are made
+ * @note When setting mode 5 (pause), the previous mode is stored for potential restoration
+ * @note Triggers a map cycle and displays a service message with the new mode name
+ *
+ * @see settings
+ * @see ha
+ * @see mapCycle()
+ * @see showServiceMessage()
+ */
 bool saveMapMode(int newMapMode) {
   if (newMapMode == settings.getInt(MAP_MODE)) return false;
 
@@ -701,28 +818,97 @@ bool saveMapMode(int newMapMode) {
   return true;
 }
 
+/**
+ * @brief Transforms a Home Assistant map mode index to its corresponding internal identifier.
+ *
+ * This function converts a map mode index from the Home Assistant representation
+ * to the internal identifier used by the system. It retrieves the ID from the
+ * predefined MAP_MODES array based on the provided index.
+ *
+ * @param newIndex The index of the map mode in the Home Assistant representation.
+ * @return int The internal identifier for the specified map mode.
+ *
+ * @note This function is part of the mapping between Home Assistant and internal
+ *       display mode representations.
+ */
 int transformFromHaMapMode(int newIndex) {
   return MAP_MODES[newIndex].id;
 }
 
+/**
+ * @brief Transforms a Home Assistant display mode index to the corresponding internal display mode index.
+ *
+ * This function maps the display mode index received from Home Assistant to the internal representation
+ * used by the device. It uses the first map in the `haDisplayModeMap` pair to perform the transformation.
+ *
+ * @param newIndex The display mode index from Home Assistant.
+ * @return int The corresponding internal display mode index.
+ * @note If the provided index is not found in the map, the behavior is undefined.
+ */
 int transformFromHaDisplayMode(int newIndex) {
   return haDisplayModeMap.first[newIndex];
 }
 
+/**
+ * @brief Transforms a Home Assistant auto alarm mode index to its corresponding internal ID.
+ *
+ * @param newIndex The index of the auto alarm mode from Home Assistant.
+ * @return int The internal ID of the auto alarm mode corresponding to the given index.
+ *
+ * @details This function maps the Home Assistant auto alarm mode index to the internal
+ * representation by retrieving the ID from the AUTO_ALARM_MODES array.
+ *
+ * @note Assumes that the provided index is valid and within the bounds of the AUTO_ALARM_MODES array.
+ */
 int transformFromHaAutoAlarmMode(int newIndex) {
   return AUTO_ALARM_MODES[newIndex].id;
 }
 
+/**
+ * @brief Transforms a Home Assistant auto brightness mode index to its corresponding internal ID.
+ *
+ * @param newIndex The index of the auto brightness mode from Home Assistant.
+ * @return int The internal ID of the auto brightness mode.
+ *
+ * @details This function maps the Home Assistant auto brightness mode index to the corresponding
+ * internal auto brightness mode identifier from the AUTO_BRIGHTNESS_MODES array.
+ *
+ * @note Assumes that the provided index is valid and within the range of AUTO_BRIGHTNESS_MODES.
+ */
 int transformFromHaAutoBrMode(int newIndex) {
   return AUTO_BRIGHTNESS_MODES[newIndex].id;
 }
 
+/**
+ * @brief Handles new lamp state received from Home Assistant and updates map mode accordingly.
+ *
+ * This function manages map mode changes based on the lamp state received from Home Assistant.
+ * If the current map mode is already mode 5 and the new state is true, no changes are made.
+ * Otherwise, it sets the map mode to either mode 5 (when state is true) or reverts to the previous mode.
+ *
+ * @param state Boolean representing the new lamp state from Home Assistant
+ * @return bool Indicates whether the map mode was successfully saved
+ *
+ * @note If the current map mode is 5 and the new state is true, the function returns false without changing the mode
+ * @note When state is false, the function reverts to the previously stored map mode
+ */
 bool onNewLampStateFromHa(bool state) {
   if (settings.getInt(MAP_MODE) == 5 && state) return false;
   int newMapMode = state ? 5 : prevMapMode;
   return saveMapMode(newMapMode);
 }
 
+/**
+ * @brief Updates the display's inversion mode based on current settings.
+ *
+ * Toggles the display's orientation by inverting or restoring its default display mode.
+ * Uses the current boolean value of the INVERT_DISPLAY setting to determine whether
+ * the display should be inverted.
+ *
+ * @note This function directly modifies the display's rendering orientation.
+ * @see settings.getBool()
+ * @see display.invertDisplay()
+ */
 void updateInvertDisplayMode() {
   display.invertDisplay(settings.getBool(INVERT_DISPLAY));
 }
@@ -878,7 +1064,22 @@ void checkServicePins() {
   }
 }
 
-//--Service end
+/**
+ * @brief Cycles to the next available map mode.
+ *
+ * This function advances the current map mode to the next valid mode in the MAP_MODES list.
+ * It skips any modes marked as 'ignore' and ensures the mode selection wraps around 
+ * to the beginning of the list if the end is reached.
+ *
+ * @details The function performs the following steps:
+ * 1. Retrieves the current map mode's index using getIndexById()
+ * 2. Increments the index, wrapping to 0 if it exceeds the list length
+ * 3. Skips any modes marked with the 'ignore' flag
+ * 4. Saves the new map mode using saveMapMode()
+ *
+ * @note This function modifies the device's current map mode setting
+ * @note Modes marked with 'ignore' are automatically skipped during selection
+ */
 
 void nextMapMode() {
   int newIndex = getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT);
@@ -893,6 +1094,20 @@ void nextMapMode() {
   saveMapMode(MAP_MODES[newIndex].id);
 }
 
+/**
+ * @brief Save and apply a new display mode for the device.
+ *
+ * This function updates the display mode settings, reports the change to Home Assistant,
+ * and updates the device's display accordingly. It prevents unnecessary updates if the
+ * new mode is the same as the current mode.
+ *
+ * @param newDisplayMode The index of the new display mode to be set
+ * @return bool Indicates whether the display mode was successfully changed
+ *
+ * @note If the display is available, the mode is synchronized with Home Assistant
+ * @note A service message is shown to indicate the new display mode
+ * @note The display cycle is immediately refreshed after changing the mode
+ */
 bool saveDisplayMode(int newDisplayMode) {
   if (newDisplayMode == settings.getInt(DISPLAY_MODE)) return false;
   settings.saveInt(DISPLAY_MODE, newDisplayMode);
@@ -906,10 +1121,38 @@ bool saveDisplayMode(int newDisplayMode) {
   return true;
 }
 
+/**
+ * @brief Saves the display mode received from Home Assistant.
+ *
+ * Converts the Home Assistant display mode index to the corresponding display mode ID
+ * and saves it using the saveDisplayMode function.
+ *
+ * @param newIndex Index of the display mode from Home Assistant
+ * @return bool True if the display mode was successfully saved, false otherwise
+ *
+ * @note This function acts as a bridge between Home Assistant's display mode indexing
+ * and the internal display mode representation.
+ */
 bool saveDisplayModeFromHa(int newIndex) {
   return saveDisplayMode(DISPLAY_MODES[newIndex].id);
 }
 
+/**
+ * @brief Cycles to the next available display mode.
+ *
+ * This function iterates through the display modes, skipping any modes marked as ignored.
+ * It finds the current display mode's index, increments to the next mode, and wraps around
+ * to the beginning of the list if the end is reached. Ignored modes are automatically skipped.
+ *
+ * @details The function performs the following steps:
+ * 1. Retrieve the current display mode's index using getIndexById()
+ * 2. Increment the index, wrapping to 0 if it exceeds the maximum options
+ * 3. Skip any modes marked with the 'ignore' flag
+ * 4. Save the new display mode using saveDisplayMode()
+ *
+ * @note This function modifies the device's current display mode setting
+ * @note Modes marked with 'ignore' are automatically skipped during cycling
+ */
 void nextDisplayMode() {
   int newIndex = getIndexById(DISPLAY_MODES, settings.getInt(DISPLAY_MODE), DISPLAY_MODE_OPTIONS_MAX);
   do {
@@ -923,6 +1166,19 @@ void nextDisplayMode() {
   saveDisplayMode(DISPLAY_MODES[newIndex].id);
 }
 
+/**
+ * @brief Updates the device brightness based on current ambient conditions.
+ *
+ * Calculates the appropriate brightness level by calling getCurrentBrightnes() with current brightness settings,
+ * day and night brightness levels, and predefined brightness levels. If the calculated brightness differs from
+ * the currently saved brightness, it updates the current brightness setting.
+ *
+ * @note Uses settings from BRIGHTNESS, BRIGHTNESS_DAY, BRIGHTNESS_NIGHT, and saves to CURRENT_BRIGHTNESS
+ * @note Relies on external getCurrentBrightnes() function to determine appropriate brightness
+ *
+ * @see getCurrentBrightnes()
+ * @see settings.saveInt()
+ */
 void autoBrightnessUpdate() {
   int tempBrightness = getCurrentBrightnes(settings.getInt(BRIGHTNESS), settings.getInt(BRIGHTNESS_DAY), settings.getInt(BRIGHTNESS_NIGHT), ledsBrightnessLevels);
   if (tempBrightness != settings.getInt(CURRENT_BRIGHTNESS)) {
@@ -1183,6 +1439,18 @@ bool saveNightBrightness(int newBrightness) {
   return true;
 }
 
+/**
+ * @brief Save and apply a new auto-brightness mode setting.
+ *
+ * Updates the device's auto-brightness mode, saves the setting, reports the change
+ * to Home Assistant, and displays a service message to the user.
+ *
+ * @param autoBrightnessMode The new auto-brightness mode index to set
+ * @return bool Indicates whether the brightness mode was actually changed
+ *
+ * @note If the new mode is the same as the current mode, no changes are made
+ * @note Triggers an auto-brightness update and displays a service message with the mode name
+ */
 bool saveAutoBrightnessMode(int autoBrightnessMode) {
   if (settings.getInt(BRIGHTNESS_MODE) == autoBrightnessMode) return false;
   settings.saveInt(BRIGHTNESS_MODE, autoBrightnessMode);
@@ -1193,6 +1461,17 @@ bool saveAutoBrightnessMode(int autoBrightnessMode) {
   return true;
 }
 
+/**
+ * @brief Saves the automatic alarm mode setting.
+ *
+ * Updates the automatic alarm mode in device settings and synchronizes with Home Assistant.
+ * Only saves and reports changes if the new mode differs from the current mode.
+ *
+ * @param newMode The new automatic alarm mode to be set
+ * @return bool Indicates whether the mode was actually changed (true) or was already set (false)
+ *
+ * @note Triggers a settings change report and updates Home Assistant integration
+ */
 bool saveAutoAlarmMode(int newMode) {
   if (settings.getInt(ALARMS_AUTO_SWITCH) == newMode) return false;
   settings.saveInt(ALARMS_AUTO_SWITCH, newMode);
@@ -1231,6 +1510,24 @@ bool saveLampRgb(int r, int g, int b) {
   return true;
 }
 
+/**
+ * @brief Save and update the home district setting.
+ *
+ * Updates the home district in device settings, reports the change, logs the update,
+ * and synchronizes the new district with Home Assistant and the device display.
+ *
+ * @param newHomeDistrict The ID of the new home district to set
+ * @return bool Indicates whether the home district was actually changed
+ *
+ * @details
+ * - Checks if the new home district is different from the current setting
+ * - Saves the new home district to persistent settings
+ * - Reports the change via logging and Home Assistant
+ * - Displays a service message with the new home district name
+ * - Updates the current map mode in Home Assistant
+ *
+ * @note If the new home district is the same as the current one, no changes are made
+ */
 bool saveHomeDistrict(int newHomeDistrict) {
   if (newHomeDistrict == settings.getInt(HOME_DISTRICT)) return false;
   settings.saveInt(HOME_DISTRICT, newHomeDistrict);
@@ -1270,6 +1567,26 @@ void displayMinuteOfSilence() {
   showMinOfSilanceScreen(periodIndex);
 }
 
+/**
+ * @brief Displays home alert information on the device screen.
+ *
+ * This function shows the current alert status for a specific home district, 
+ * including the duration of the ongoing alert. It determines the display 
+ * based on the current time period and selected home district.
+ *
+ * @details The function performs the following steps:
+ * - Determines the current time period using getCurrentPeriodIndex()
+ * - Sets the title based on the time period and home district
+ * - Calculates the alert duration using the alarm time
+ * - Displays the alert message on the screen
+ *
+ * @note The title changes between the district name and a generic "Тривога триває:" 
+ * depending on the time period.
+ *
+ * @see getCurrentPeriodIndex()
+ * @see getNameById()
+ * @see displayMessage()
+ */
 void showHomeAlertInfo() {
   int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 2, timeClient.second());
   char title[50];
@@ -1297,6 +1614,28 @@ void showClock() {
   displayMessage(time, date);
 }
 
+/**
+ * @brief Displays the temperature for the configured home district.
+ *
+ * This function retrieves the temperature for the user's home district and displays
+ * it on the screen along with the district name. The temperature is formatted with
+ * one decimal place and the degree Celsius symbol.
+ *
+ * @details
+ * - Calculates the offset for the current home district
+ * - Formats the temperature with one decimal place
+ * - Uses a special character (ASCII 128) for the degree symbol
+ * - Displays the temperature and district name using displayMessage()
+ *
+ * @note Uses global variables:
+ * - settings: Configuration settings object
+ * - weather_leds: Array containing temperature values
+ * - DISTRICTS: List of district names
+ *
+ * @see calculateOffset()
+ * @see displayMessage()
+ * @see getNameById()
+ */
 void showTemp() {
   int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
   char message[10];
@@ -1304,6 +1643,27 @@ void showTemp() {
   displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
 }
 
+/**
+ * @brief Displays technical information about the device in a cyclic manner.
+ *
+ * This function shows different technical details based on the current time period,
+ * including IP address, WiFi signal strength, uptime, API connection status,
+ * Home Assistant connection status, and firmware version.
+ *
+ * The displayed information cycles through 6 different screens, changing based on
+ * the current second and the display mode time setting.
+ *
+ * @details Information screens include:
+ * - IP address of the device
+ * - WiFi signal strength in dBm
+ * - Device uptime
+ * - Map API connection status
+ * - Home Assistant connection status
+ * - Current firmware version
+ *
+ * @note Uses global variables like wifiSignal, apiConnected, haConnected, and currentFwVersion
+ * @note Utilizes displayMessage() to show the information on the screen
+ */
 void showTechInfo() {
   int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 6, timeClient.second());
   char title[35];
@@ -1649,6 +2009,27 @@ void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked
 
 template <typename V>
 
+/**
+ * @brief Generates an HTML slider input with dynamic value display and optional color visualization.
+ *
+ * Creates a responsive web form slider with configurable parameters including label, value range,
+ * step size, and optional color box representation. Supports both integer and floating-point values.
+ *
+ * @tparam V The numeric type of the slider value (typically int or float)
+ * @param response Pointer to the AsyncResponseStream for writing HTML output
+ * @param name HTML input name attribute for the slider
+ * @param label Text label displayed next to the slider
+ * @param value Current value of the slider
+ * @param min Minimum allowed value for the slider
+ * @param max Maximum allowed value for the slider
+ * @param step Increment/decrement step size (default: 1)
+ * @param unitOfMeasurement Optional unit to display after the value (default: empty string)
+ * @param disabled Flag to disable slider interaction (default: false)
+ * @param needColorBox Flag to generate a color visualization box for hue-based sliders (default: false)
+ *
+ * @note Increments a global `sliderIndex` to ensure unique HTML element IDs
+ * @note Uses JavaScript functions `updateVal()` and `updateColAndVal()` for dynamic value updates
+ */
 void addSlider(AsyncResponseStream* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   response->print(label);
   response->print(": <span id='sv");
@@ -1703,6 +2084,24 @@ void addSlider(AsyncResponseStream* response, const char* name, const char* labe
   sliderIndex++;
 }
 
+/**
+ * @brief Generates an HTML select box for web configuration forms.
+ *
+ * Creates a dropdown select element with customizable options, label, and behavior.
+ * Supports optional change event handling, disabling, and pre-selection of options.
+ *
+ * @param response Pointer to the AsyncResponseStream for writing HTML output
+ * @param name Name attribute for the select element
+ * @param label Text label displayed before the select box
+ * @param setting Current selected setting value
+ * @param options Array of SettingListItem containing dropdown options
+ * @param optionsCount Number of items in the options array
+ * @param disabled Optional flag to disable the select box (default: false)
+ * @param onChanges Optional JavaScript function to call on option change
+ *
+ * @note Increments a global selectIndex to provide unique IDs for select elements
+ * @note Skips options marked with ignore flag in the SettingListItem
+ */
 void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
   response->print(label);
   response->print(": <select name='");
@@ -2037,6 +2436,34 @@ void handleColors(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Generates a web page for configuring device modes and settings.
+ *
+ * This function creates an HTML form that allows users to configure various device modes,
+ * display settings, sensor corrections, alert notifications, and other system parameters.
+ * The form is dynamically generated based on the current device configuration and available sensors.
+ *
+ * @param request Pointer to the AsyncWebServerRequest handling the HTTP request
+ *
+ * @details The function performs the following key actions:
+ * - Resets form element indices
+ * - Creates an HTML response stream
+ * - Adds HTML headers and navigation links
+ * - Generates form elements for:
+ *   - Kyiv district mode (if legacy mode is enabled)
+ *   - Map mode selection
+ *   - Lamp color and brightness
+ *   - Display mode and settings (if display is available)
+ *   - Climate sensor corrections (temperature, humidity, pressure)
+ *   - Weather temperature range
+ *   - Button mode configurations
+ *   - Home district selection
+ *   - Alert and notification settings
+ *   - Time zone configuration
+ *
+ * @note The form is localized in Ukrainian and uses conditional rendering based on sensor availability
+ * @note Submits to '/saveModes' endpoint for processing settings
+ */
 void handleModes(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -2119,6 +2546,31 @@ void handleModes(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Generates a web page for configuring sound settings on the device.
+ *
+ * This function creates an HTML form for managing various sound-related settings,
+ * including alert sounds, volume, and sound behavior in different modes. It is
+ * conditionally compiled only when buzzer functionality is enabled.
+ *
+ * @param request Pointer to the AsyncWebServerRequest handling the HTTP request
+ *
+ * @note The function resets various form element indexes before generating the page
+ * @note Uses predefined settings and melody names from global configuration
+ * @note Supports dynamic JavaScript interactions for enabling/disabling elements
+ *
+ * Configurable sound settings include:
+ * - Sound during "Minute of Silence"
+ * - Alert sounds for home region alerts
+ * - Sounds for alert start/end
+ * - Explosion alert sounds
+ * - Hourly sounds
+ * - Button click sounds
+ * - Night mode sound behavior
+ * - Melody volume control
+ *
+ * @warning Requires BUZZER_ENABLED to be defined for compilation
+ */
 void handleSounds(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -2160,6 +2612,30 @@ void handleSounds(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Generates a telemetry web page with system and sensor information.
+ *
+ * This function creates an HTML response displaying various system metrics and sensor readings,
+ * including uptime, ESP32 temperature, memory usage, WiFi signal strength, weather information,
+ * Home Assistant connection status, and readings from climate and light sensors.
+ *
+ * @param request Pointer to the AsyncWebServerRequest handling the telemetry page request
+ *
+ * @note Resets various form element indexes before generating the page
+ * @note Uses Ukrainian language for display labels
+ * @note Conditionally displays sensor and connection information based on availability
+ *
+ * Displayed information includes:
+ * - System metrics: Uptime, CPU temperature, heap memory usage
+ * - Network information: WiFi signal strength
+ * - Home District weather
+ * - Home Assistant and WebSocket connection status
+ * - Climate sensors: Temperature, Humidity, Pressure (if available)
+ * - Light sensor reading (if available)
+ *
+ * @see addCard() for individual metric display
+ * @see settings for retrieving system configuration
+ */
 void handleTelemetry(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -2210,6 +2686,36 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Generates a web page for device configuration and settings management.
+ *
+ * This function creates an HTML response with a comprehensive form for configuring various device settings,
+ * including firmware mode, display settings, Home Assistant MQTT configuration, network parameters,
+ * device identification, and hardware pin configurations.
+ *
+ * @param request Pointer to the AsyncWebServerRequest handling the HTTP request
+ *
+ * @details The function dynamically generates form elements based on the current device settings and enabled features:
+ * - Firmware mode selection
+ * - Display model and height (if display is enabled)
+ * - Home Assistant MQTT configuration (if HA is enabled)
+ * - NTP and WebSocket server settings
+ * - Device name and description
+ * - Local network broadcast name
+ * - LED strip and button pin configurations
+ * - Alert and clear pin settings
+ * - Sensor and buzzer pin configurations
+ *
+ * The page also includes:
+ * - Warning messages about potential configuration risks
+ * - Save settings button
+ * - WiFi configuration link
+ * - Backup and restore settings functionality
+ *
+ * @warning Changing settings may require device reboot and can potentially cause firmware instability
+ *
+ * @note Uses Ukrainian language for labels and descriptions
+ */
 void handleDev(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -2653,6 +3159,20 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 #endif
 
 #if BUZZER_ENABLED
+/**
+ * @brief Handles a web request to play a test sound through the buzzer.
+ *
+ * This function is triggered via a web server request to play a specific melody.
+ * It checks if the buzzer is enabled before playing the sound and displaying a service message.
+ *
+ * @param request Pointer to the AsyncWebServerRequest containing the sound ID parameter
+ *
+ * @note Requires the buzzer to be enabled via isBuzzerEnabled()
+ * @note Retrieves the sound ID from the 'id' query parameter
+ * @note Displays a service message with the name of the played melody
+ *
+ * @returns HTTP 200 response with a success message if sound is played
+ */
 void handlePlayTestSound(AsyncWebServerRequest* request) {
   if (isBuzzerEnabled()) {
     int soundId = request->getParam("id", false)->value().toInt();
@@ -2794,6 +3314,26 @@ void alertPinCycle() {
   }
 }
 
+/**
+ * @brief Checks and manages alerts for the home district.
+ *
+ * This function performs the following key tasks:
+ * - Determines the current alarm status for the home district
+ * - Manages LED and sound alerts based on alarm state
+ * - Triggers alert pin cycles
+ * - Displays service messages for alarm on/off and explosions
+ * - Updates Home Assistant with alarm status
+ *
+ * @details The function:
+ * - Calculates LED status and explosion time for the home district
+ * - Compares current alarm state with previous state
+ * - Plays alert sounds when alarm state changes
+ * - Shows service messages with district name
+ * - Checks for recent explosions within a configured time window
+ *
+ * @note Uses global settings, time client, and Home Assistant integration
+ * @note Handles both alarm on/off states and explosion notifications
+ */
 void checkHomeDistrictAlerts() {
   int ledStatus = alarm_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
   int localHomeExplosions = explosions_time[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
@@ -3042,6 +3582,24 @@ void playMinOfSilenceSound() {
   playMelody(MIN_OF_SILINCE);
 }
 
+/**
+ * @brief Manages the Minute of Silence (MoS) functionality for commemorative events.
+ *
+ * This function checks and handles the Minute of Silence event, which occurs daily at 9:00.
+ * It performs the following key actions:
+ * - Detects the start and end of the Minute of Silence
+ * - Updates the current map mode when the Minute of Silence state changes
+ * - Plays a specific beep sound every 2 seconds during the Minute of Silence
+ * - Optionally plays the Ukrainian Anthem when the Minute of Silence ends
+ *
+ * @note The function relies on system time and user settings to determine the Minute of Silence state
+ * @note Buzzer-related functionality is conditionally compiled based on BUZZER_ENABLED
+ *
+ * @see settings.getBool()
+ * @see timeClient
+ * @see playMinOfSilenceSound()
+ * @see playMelody()
+ */
 void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.getBool(MIN_OF_SILENCE) == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
@@ -3503,6 +4061,17 @@ void initStrip() {
   mapFlag();
 }
 
+/**
+ * @brief Initialize display-related button options based on display availability.
+ *
+ * This function checks if a display is available and adjusts button click options accordingly.
+ * If no display is present, it:
+ * - Marks display-related options as ignored in single and long click option lists
+ * - Resets button modes to default if the current mode is not available
+ *
+ * @note Modifies global settings for button modes if display is unavailable
+ * @note Affects SINGLE_CLICK_OPTIONS and LONG_CLICK_OPTIONS arrays
+ */
 void initDisplayOptions() {
   if (!display.isDisplayAvailable()) {
     // remove display related options from singl click optins list
@@ -3531,6 +4100,19 @@ void initDisplayOptions() {
   }
 }
 
+/**
+ * @brief Initialize display modes based on sensor availability.
+ *
+ * This function adjusts display mode options when climate sensors are not available.
+ * If no climate sensors are detected, it:
+ * 1. Marks the climate sensor display mode option as ignored
+ * 2. Switches the current display mode to a default "changing" mode if the current mode is no longer valid
+ *
+ * @note Modifies global DISPLAY_MODES array and potentially changes current display mode setting
+ * @see climate.isAnySensorAvailable()
+ * @see saveDisplayMode()
+ * @see isInIgnoreList()
+ */
 void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
     // remove climate sensor options from display optins list
@@ -3573,6 +4155,32 @@ void initSensors() {
   initDisplayModes();
 }
 
+/**
+ * @brief Initialize firmware and OTA (Over-The-Air) update mechanisms for the device.
+ *
+ * This function sets up event handlers for different update scenarios:
+ * - Arduino OTA updates (when ARDUINO_OTA_ENABLED is defined)
+ * - HTTP firmware updates (when FW_UPDATE_ENABLED is defined)
+ *
+ * For Arduino OTA updates, it configures callbacks for:
+ * - Update start
+ * - Update end
+ * - Update progress
+ * - Update error handling
+ *
+ * For HTTP firmware updates, it configures callbacks for:
+ * - Update start
+ * - Update end
+ * - Update progress
+ * - Update error handling
+ *
+ * @note This function requires conditional compilation flags to enable specific update mechanisms
+ * @see showUpdateStart
+ * @see showUpdateEnd
+ * @see showUpdateProgress
+ * @see showOtaUpdateErrorMessage
+ * @see showHttpUpdateErrorMessage
+ */
 void initUpdates() {
 #if ARDUINO_OTA_ENABLED
   ArduinoOTA.onStart(showUpdateStart);
@@ -3590,6 +4198,21 @@ void initUpdates() {
 #endif
 }
 
+/**
+ * @brief Maps display modes between Home Assistant indices and internal IDs.
+ *
+ * This function creates bidirectional mappings between Home Assistant display mode indices
+ * and the corresponding internal display mode IDs. It filters out any display modes marked
+ * as 'ignored' and populates two maps:
+ * 1. A map from Home Assistant index to internal display mode ID
+ * 2. A map from internal display mode ID to Home Assistant index
+ *
+ * @note The resulting maps are stored in the `haDisplayModeMap` global variable
+ * @note Ignored display modes (where `ignore` is true) are skipped during mapping
+ *
+ * @see DISPLAY_MODES
+ * @see haDisplayModeMap
+ */
 void mapHaDisplayModes() {
   std::map<int, int> mapHaToId = {};
   std::map<int, int> mapIdToHa = {};
@@ -3603,6 +4226,27 @@ void mapHaDisplayModes() {
   haDisplayModeMap = std::make_pair(mapHaToId, mapIdToHa);
 }
 
+/**
+ * @brief Initialize Home Assistant integration for the device.
+ *
+ * This function sets up various sensors and configurations for Home Assistant (HA) integration.
+ * It checks WiFi connectivity, initializes device information, and configures multiple sensors
+ * including system metrics, display settings, modes, and environmental sensors.
+ *
+ * @note Skips initialization if WiFi reconnection is required
+ * @note Logs error if Home Assistant device initialization fails
+ *
+ * Sensors initialized include:
+ * - System metrics: Uptime, WiFi signal, memory usage, CPU temperature
+ * - Display settings: Brightness, display modes, map modes
+ * - Environmental sensors: Temperature, humidity, pressure, light level
+ * - Device-specific sensors: Home alarm, lamp state, night mode
+ *
+ * @pre WiFi connection must be established
+ * @pre Settings and device configurations must be loaded
+ *
+ * @post Connects to MQTT broker with Home Assistant
+ */
 void initHA() {
   if (shouldWifiReconnect) return;
 

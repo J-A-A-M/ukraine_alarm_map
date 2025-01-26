@@ -93,6 +93,18 @@ byte macAddress[6];
 
 char deviceUniqueID[15];
 
+/**
+ * @brief Calculates the total length of strings in a character array.
+ *
+ * Computes the sum of the lengths of all strings in the provided array.
+ * This is a utility function for determining the total character count.
+ *
+ * @param array An array of constant character pointers (strings)
+ * @param arraySize The number of elements in the array
+ * @return int Total number of characters across all strings in the array
+ *
+ * @note Time complexity is O(n * m), where n is arraySize and m is the average string length
+ */
 static int sizeOfCharsArray(const char* array[], int arraySize) {
   int result = 0;
   for (int i = 0; i < arraySize; i++) {
@@ -108,6 +120,25 @@ bool haEnabled = false;
 JaamHomeAssistant::JaamHomeAssistant() {
 }
 
+/**
+ * @brief Initialize the Home Assistant device configuration.
+ *
+ * Sets up the device parameters for Home Assistant integration, including MQTT server connection,
+ * device identification, and metadata. The device is configured only if Home Assistant is enabled
+ * and a valid MQTT server IP is provided.
+ *
+ * @param localIP Local IP address of the device
+ * @param mqttServerIp IP address of the MQTT server
+ * @param deviceName Friendly name of the device
+ * @param currentFwVersion Current firmware version of the device
+ * @param deviceDescription Detailed description of the device
+ * @param chipID Unique hardware identifier for the device
+ *
+ * @return bool Indicates whether Home Assistant is successfully enabled and configured
+ *
+ * @note This method is conditionally compiled based on the HA_ENABLED preprocessor directive
+ * @note Device configuration includes MAC address, unique ID, manufacturer, model, and configuration URL
+ */
 bool JaamHomeAssistant::initDevice(const char* localIP, const char* mqttServerIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID) {
 #if HA_ENABLED
   if (strlen(mqttServerIp) > 0) {
@@ -249,6 +280,22 @@ void JaamHomeAssistant::initDayBrightnessSensor(int currentBrightness, bool (*on
 #endif
 }
 
+/**
+ * @brief Initializes the night brightness sensor for Home Assistant integration.
+ *
+ * This method sets up a configurable night brightness sensor that can be controlled
+ * through Home Assistant. It creates a new HANumber sensor with a unique identifier
+ * and configures its properties such as icon, name, and initial state.
+ *
+ * @param currentBrightness The initial brightness level for night mode
+ * @param onChange A callback function that will be invoked when the brightness is changed
+ *
+ * @note This method only executes if Home Assistant is enabled and the home assistant
+ *       functionality is not disabled
+ *
+ * @see HANumber
+ * @see brightnessNightChanged
+ */
 void JaamHomeAssistant::initNightBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness)) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -262,6 +309,22 @@ void JaamHomeAssistant::initNightBrightnessSensor(int currentBrightness, bool (*
 #endif
 }
 
+/**
+ * @brief Initializes a map mode sensor for Home Assistant integration.
+ *
+ * This method sets up a map mode selection sensor with configurable options and a change handler.
+ * It is only executed if Home Assistant is enabled and the device's home assistant functionality is active.
+ *
+ * @param currentMapMode The initial selected map mode index
+ * @param mapModes An array of map mode names/descriptions
+ * @param mapModesSize The number of map modes in the array
+ * @param onChange A callback function triggered when the map mode is changed
+ * @param transform Optional function to transform the Home Assistant map mode value
+ *
+ * @note The function uses preprocessor directive #HA_ENABLED to conditionally compile the code
+ * @note Creates a unique sensor ID based on the device's unique identifier
+ * @note Sets sensor icon to "mdi:map" and name to "Map Mode"
+ */
 void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode), int (*transform)(int haMapMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -278,6 +341,23 @@ void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapMod
 #endif
 }
 
+/**
+ * @brief Initializes a display mode sensor for Home Assistant integration.
+ *
+ * This method sets up a display mode selector in Home Assistant with configurable options
+ * and transformation capabilities. It allows dynamic configuration of display modes
+ * with optional value transformation and change handling.
+ *
+ * @param currentDisplayMode The initial display mode to set
+ * @param displayModes Array of display mode names/descriptions
+ * @param displayModesSize Number of display modes in the array
+ * @param onChange Callback function invoked when display mode changes
+ * @param transform Optional function to transform Home Assistant mode value before processing
+ *
+ * @note Only executed if Home Assistant is enabled
+ * @note Sets a digital clock icon for the display mode selector
+ * @note Generates a unique sensor ID based on the device's unique identifier
+ */
 void JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize,
     bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode)) {
 #if HA_ENABLED
@@ -298,6 +378,23 @@ void JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, const char
 #endif
 }
 
+/**
+ * @brief Initializes a toggle button sensor for map mode in Home Assistant.
+ *
+ * This method creates a button sensor that allows toggling the map mode when pressed.
+ * The button is only initialized if Home Assistant is enabled and the home assistant
+ * functionality is active.
+ *
+ * @param onClick Function pointer to be called when the map mode toggle button is clicked
+ *
+ * @note The button is configured with a unique ID based on the device's unique identifier
+ * @note The button is set with a descriptive name "Toggle Map Mode" and an icon "mdi:map-plus"
+ *
+ * @pre Home Assistant must be enabled via HA_ENABLED preprocessor directive
+ * @pre haEnabled flag must be true
+ *
+ * @see HAButton
+ */
 void JaamHomeAssistant::initMapModeToggleSensor(void (*onClick)(void)) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -322,6 +419,20 @@ void JaamHomeAssistant::initDisplayModeToggleSensor(void (*onClick)(void)) {
 #endif
 }
 
+/**
+ * @brief Initializes a sensor for controlling the visibility of home alarm time.
+ *
+ * This method sets up a Home Assistant switch sensor that allows toggling the display
+ * of home alarm time. The sensor is only initialized if Home Assistant is enabled.
+ *
+ * @param currentState The initial state of the show home alarm time switch
+ * @param onChange A callback function invoked when the switch state changes
+ *
+ * @note The sensor is configured with a timer alert icon and a descriptive name
+ * @note If Home Assistant is disabled, the method returns immediately without action
+ *
+ * @see HASwitch
+ */
 void JaamHomeAssistant::initShowHomeAlarmTimeSensor(bool currentState, bool (*onChange)(bool newState)) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -335,6 +446,25 @@ void JaamHomeAssistant::initShowHomeAlarmTimeSensor(bool currentState, bool (*on
 #endif
 }
 
+/**
+ * @brief Initialize the auto alarm mode sensor for Home Assistant integration.
+ *
+ * This method sets up a sensor for configuring automatic alarm modes in a home automation system.
+ * It creates a selectable sensor with predefined alarm mode options and configures its properties.
+ *
+ * @param currentAutoAlarmMode The initial/current auto alarm mode setting
+ * @param autoAlarms Array of string labels for available auto alarm modes
+ * @param autoAlarmsSize Number of auto alarm modes in the array
+ * @param onChange Callback function triggered when the auto alarm mode is changed
+ * @param transform Optional transformation function to modify the received Home Assistant mode value
+ *
+ * @note This method only executes if Home Assistant is enabled and the home assistant flag is set
+ * @note The sensor is configured with a default icon "mdi:alert-outline" and named "Auto Alarm"
+ *
+ * @see HASelect
+ * @see onHaAutoAlarmModeChanged
+ * @see onHaAutoAlarmModeTransform
+ */
 void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode), int (*transform)(int haAutoAlarmMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -362,6 +492,25 @@ void JaamHomeAssistant::initMapModeCurrentSensor() {
 #endif
 }
 
+/**
+ * @brief Initializes the Map API connectivity sensor for Home Assistant.
+ *
+ * This method sets up a binary sensor representing the connection status of the Map API.
+ * The sensor is only initialized if Home Assistant is enabled.
+ *
+ * @param currentApiState The initial connection state of the Map API (true if connected, false otherwise)
+ *
+ * @note The sensor is configured with:
+ * - A unique identifier based on the device's unique ID
+ * - An icon representing network connectivity
+ * - A descriptive name "Map API Connect"
+ * - A device class of "connectivity"
+ *
+ * @pre Home Assistant functionality must be enabled via HA_ENABLED preprocessor directive
+ * @pre The device's unique ID must be set before calling this method
+ *
+ * @warning If Home Assistant is not enabled, the method will return immediately without creating the sensor
+ */
 void JaamHomeAssistant::initMapApiConnectSensor(bool currentApiState) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -374,6 +523,22 @@ void JaamHomeAssistant::initMapApiConnectSensor(bool currentApiState) {
 #endif
 }
 
+/**
+ * @brief Initialize the auto brightness mode sensor for Home Assistant integration.
+ *
+ * This method sets up a Home Assistant select sensor for controlling the device's auto brightness mode.
+ * It configures the sensor with a unique ID, available options, icon, and name. When a new mode is selected,
+ * it triggers a callback function that can transform and process the selected mode.
+ *
+ * @param currentAutoBrightnessMode The initial auto brightness mode setting
+ * @param autoBrightnessModes Array of available auto brightness mode names
+ * @param autoBrightmesSize Number of auto brightness modes in the array
+ * @param onChange Callback function to handle auto brightness mode changes
+ * @param transform Optional transformation function to modify the selected mode before processing
+ *
+ * @note This method only executes if Home Assistant is enabled and the home assistant functionality is active
+ * @note The sensor is configured with a "mdi:brightness-auto" icon and named "Auto Brightness"
+ */
 void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode), int (*transform)(int haAutoBrightnessMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
