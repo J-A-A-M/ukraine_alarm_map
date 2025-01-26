@@ -148,31 +148,6 @@ static bool isInArray(int value, int* array, int arraySize) {
   return false;
 }
 
-static int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = settingsDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode == 9) return lastModeIndex;
-  // default
-  return 0;
-}
-
-static int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = localDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode >= lastModeIndex) return 9;
-  // default
-  return 0;
-}
-
 static const char* disableRange(bool isDisabled) {
   return isDisabled ? " disabled" : "";
 }
@@ -356,5 +331,18 @@ static void fillUptime(int uptimeValue, char* uptimeChar) {
     sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
   } else {
     sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
+  }
+}
+
+static void getHaOptions(char* result, const char* options[], int optionsSize) {
+  strcpy(result, "");
+  int haIndex = 0;
+  for (int i = 0; i < optionsSize; i++) {
+    const char* option = options[i];
+    if (i > 0) {
+      strcat(result, ";");
+    }
+    strcat(result, option);
+    haIndex++;
   }
 }

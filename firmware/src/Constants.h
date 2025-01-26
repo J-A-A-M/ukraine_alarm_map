@@ -69,32 +69,33 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
 struct SettingListItem {
   int id;
   const char* name;
+  bool ignore;
 };
 
-static const SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
-  {0, "Гімн України"},
-  {20, "Батько наш Бандера"},
-  {15, "Щедрик"},
-  {1, "Ой у лузі"},
-  {2, "Козацький марш"},
-  {4, "Сирена"},
-  {18, "Сирена 2"},
-  {5, "Комунікатор"},
-  {3, "Гаррі Поттер"},
-  {6, "Зоряні війни"},
-  {7, "Імперський марш"},
-  {8, "Зоряний шлях"},
-  {9, "Індіана Джонс"},
-  {10, "Назад у майбутнє"},
-  {11, "Kiss - I Was Made"},
-  {12, "Русалонька"},
-  {13, "Nokia tune"},
-  {14, "Пакмен"},
-  {16, "Люди Х"},
-  {17, "Месники"},
-  {19, "Squid Game"},
-  {21, "ПТН ХЙЛ"},
-  {22, "Helldivers 2 - A cup of Liber-Tea"}
+static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
+  {0, "Гімн України", false},
+  {20, "Батько наш Бандера", false},
+  {15, "Щедрик", false},
+  {1, "Ой у лузі", false},
+  {2, "Козацький марш", false},
+  {4, "Сирена", false},
+  {18, "Сирена 2", false},
+  {5, "Комунікатор", false},
+  {3, "Гаррі Поттер", false},
+  {6, "Зоряні війни", false},
+  {7, "Імперський марш", false},
+  {8, "Зоряний шлях", false},
+  {9, "Індіана Джонс", false},
+  {10, "Назад у майбутнє", false},
+  {11, "Kiss - I Was Made", false},
+  {12, "Русалонька", false},
+  {13, "Nokia tune", false},
+  {14, "Пакмен", false},
+  {16, "Люди Х", false},
+  {17, "Месники", false},
+  {19, "Squid Game", false},
+  {21, "ПТН ХЙЛ", false},
+  {22, "Helldivers 2 - A cup of Liber-Tea", false}
 };
 #endif
 
@@ -208,23 +209,23 @@ static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
 };
 
 #define MAP_MODES_COUNT 6
-static const SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
-  {0, "Вимкнено"},
-  {1, "Тривога"},
-  {2, "Погода"},
-  {3, "Прапор"},
-  {4, "Випадкові кольори"},
-  {5, "Лампа"},
+static SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Тривога", false},
+  {2, "Погода", false},
+  {3, "Прапор", false},
+  {4, "Випадкові кольори", false},
+  {5, "Лампа", false},
 };
 
 #define DISPLAY_MODE_OPTIONS_MAX 6
-static const SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
-  {0, "Вимкнено"},
-  {1, "Годинник"},
-  {2, "Погода"},
-  {3, "Технічна інформація"},
-  {4, "Мікроклімат"},
-  {5, "Перемикання"},
+static SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
+  {0, "Вимкнено", false},
+  {1, "Годинник", false},
+  {2, "Погода", false},
+  {3, "Технічна інформація", false},
+  {4, "Мікроклімат", false},
+  {9, "Перемикання", false},
 };
 
 #define AUTO_ALARM_MODES_COUNT 3

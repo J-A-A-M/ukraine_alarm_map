@@ -51,7 +51,7 @@ JaamDisplay       display;
 JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 JaamHomeAssistant ha;
-std::map<int, int> displayModeHAMap;
+std::pair<std::map<int, int>, std::map<int, int>> haDisplayModeMap;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 #endif
@@ -160,7 +160,6 @@ char*  test_bin_list[MAX_BINS_LIST_SIZE];
 char chipID[13];
 char localIP[16];
 
-int ignoreDisplayModeOptions[DISPLAY_MODE_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1};
 int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
 int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
@@ -199,7 +198,7 @@ CRGB fromHue(int hue, float brightness) {
   return fromRgb(rgb.r, rgb.g, rgb.b, brightness);
 }
 
-const char* getNameById(const SettingListItem* list, int id, int size) {
+const char* getNameById(SettingListItem list[], int id, int size) {
   for (int i = 0; i < size; i++) {
     if (list[i].id == id) {
       return list[i].name;
@@ -208,12 +207,31 @@ const char* getNameById(const SettingListItem* list, int id, int size) {
   return "";
 }
 
-const char** getNames(const SettingListItem* list, int size) {
-  const char** names = new const char*[size];
+int getIndexById(SettingListItem list[], int id, int size) {
   for (int i = 0; i < size; i++) {
-    names[i] = list[i].name;
+    if (list[i].id == id) {
+      return i;
+    }
   }
-  return names;
+  return 0;
+}
+
+std::pair<int, const char**> getNames(SettingListItem list[], int size, bool excludeIgnored = false) {
+  int count = 0;
+  for (int i = 0; i < size; i++) {
+    if (excludeIgnored && !list[i].ignore) {
+      count++;
+    }
+  }
+  const char** names = new const char*[count];
+  int index = 0;
+  for (int i = 0; i < size; i++) {
+    if (excludeIgnored && !list[i].ignore) {
+      names[index] = list[i].name;
+      index++;
+    }
+  }
+  return std::make_pair(count, names);
 }
 
 // Forward declarations
@@ -686,18 +704,14 @@ bool saveMapMode(int newMapMode) {
   return true;
 }
 
-bool saveMapModeFromHa(int newIndex) {
-  return saveMapMode(MAP_MODES[newIndex].id);
+int transformFromHaMapMode(int newIndex) {
+  return MAP_MODES[newIndex].id;
 }
 
 bool onNewLampStateFromHa(bool state) {
   if (settings.getInt(MAP_MODE) == 5 && state) return false;
   int newMapMode = state ? 5 : prevMapMode;
   return saveMapMode(newMapMode);
-}
-
-int getHaDisplayMode(int localDisplayMode) {
-  return displayModeHAMap[localDisplayMode];
 }
 
 void updateInvertDisplayMode() {
@@ -858,22 +872,26 @@ void checkServicePins() {
 //--Service end
 
 void nextMapMode() {
-  int newMapMode = settings.getInt(MAP_MODE) + 1;
-  if (newMapMode > 5) {
-    newMapMode = 0;
-  }
-  saveMapMode(newMapMode);
+  int newIndex = getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT); + 1;
+  do {
+    if (newIndex > MAP_MODES_COUNT - 1) {
+      newIndex = 0;
+    } else {
+      newIndex++;
+    }
+  } while (MAP_MODES[newIndex].ignore);
+
+  saveMapMode(MAP_MODES[newIndex].id);
 }
 
 bool saveDisplayMode(int newDisplayMode) {
   if (newDisplayMode == settings.getInt(DISPLAY_MODE)) return false;
   settings.saveInt(DISPLAY_MODE, newDisplayMode);
   reportSettingsChange("display_mode", newDisplayMode);
-  int localDisplayMode = getLocalDisplayMode(newDisplayMode, ignoreDisplayModeOptions);
   if (display.isDisplayAvailable()) {
-    ha.setDisplayMode(getHaDisplayMode(localDisplayMode));
+    ha.setDisplayMode(haDisplayModeMap.second[newDisplayMode]);
   }
-  showServiceMessage(getNameById(DISPLAY_MODES, localDisplayMode, DISPLAY_MODE_OPTIONS_MAX), "Режим дисплея:", 1000);
+  showServiceMessage(getNameById(DISPLAY_MODES, newDisplayMode, DISPLAY_MODE_OPTIONS_MAX), "Режим дисплея:", 1000);
   // update to selected displayMode
   displayCycle();
   return true;
@@ -884,19 +902,15 @@ bool saveDisplayModeFromHa(int newIndex) {
 }
 
 void nextDisplayMode() {
-  int newDisplayMode = settings.getInt(DISPLAY_MODE) + 1;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX) || newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
-    if (newDisplayMode > DISPLAY_MODE_OPTIONS_MAX - 1) {
-      newDisplayMode = 0;
+  int newIndex = getIndexById(DISPLAY_MODES, settings.getInt(DISPLAY_MODE), DISPLAY_MODE_OPTIONS_MAX); + 1;
+  do {
+    if (newIndex > DISPLAY_MODE_OPTIONS_MAX - 1) {
+      newIndex = 0;
     } else {
-      newDisplayMode++;
+      newIndex++;
     }
-  }
-  if (newDisplayMode == DISPLAY_MODE_OPTIONS_MAX - 1) {
-    newDisplayMode = 9;
-  }
-
-  saveDisplayMode(newDisplayMode);
+  } while (DISPLAY_MODES[newIndex].ignore);
+  saveDisplayMode(DISPLAY_MODES[newIndex].id);
 }
 
 void autoBrightnessUpdate() {
@@ -1598,8 +1612,8 @@ void disableAlertAndClearPins() {
 
 //--Web server start
 
-int getSettingsDisplayMode(int localDisplayMode) {
-  return getSettingsDisplayMode(localDisplayMode, ignoreDisplayModeOptions);
+int transformFromHaDisplayMode(int newIndex) {
+  return haDisplayModeMap.first[newIndex];
 }
 
 int checkboxIndex = 1;
@@ -1683,7 +1697,7 @@ void addSlider(AsyncResponseStream* response, const char* name, const char* labe
   sliderIndex++;
 }
 
-void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, const SettingListItem options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
+void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
   response->print(label);
   response->print(": <select name='");
   response->print(name);
@@ -1698,17 +1712,12 @@ void addSelectBox(AsyncResponseStream* response, const char* name, const char* l
   if (disabled) response->print(" disabled");
   response->print(">");
   for (int i = 0; i < optionsCount; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
-    int transformedIndex;
-    if (valueTransform) {
-      transformedIndex = valueTransform(options[i].id);
-    } else {
-      transformedIndex = options[i].id;
-    }
+    if (options[i].ignore) continue;
+    int index = options[i].id;
     response->print("<option value='");
-    response->print(transformedIndex);
+    response->print(index);
     response->print("'");
-    if (setting == transformedIndex) response->print(" selected");
+    if (setting == index) response->print(" selected");
     response->print(">");
     response->print(options[i].name);
     response->print("</option>");
@@ -2079,7 +2088,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
   addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
-    addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, getSettingsDisplayMode, false, ignoreDisplayModeOptions);
+    addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
     addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні)");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
     if (climate.isAnySensorAvailable()) {
@@ -2157,11 +2166,11 @@ void handleSounds(AsyncWebServerRequest* request) {
   response->println("<div class='by col-md-9 mt-2'>");
   addCheckbox(response, "sound_on_min_of_sl", settings.getBool(SOUND_ON_MIN_OF_SL), "Відтворювати звуки під час \"Xвилини мовчання\"");
   addCheckbox(response, "sound_on_alert", settings.getBool(SOUND_ON_ALERT), "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
-  addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_ALERT), NULL, "window.playTestSound(this.value);");
+  addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_alert_end", settings.getBool(SOUND_ON_ALERT_END), "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
-  addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_ALERT_END), NULL, "window.playTestSound(this.value);");
+  addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, NULL, !settings.getBool(SOUND_ON_EXPLOSION), NULL, "window.playTestSound(this.value);");
+  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -3553,9 +3562,9 @@ void initDisplayOptions() {
 void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
     // remove climate sensor options from display optins list
-    ignoreDisplayModeOptions[0] = 4;
+    DISPLAY_MODES[4].ignore = true;
     // change display mode to "changing" if it's not available
-    if (isInArray(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
+    if (settings.getInt(DISPLAY_MODE) == 4) {
       saveDisplayMode(9);
     }
   }
@@ -3609,6 +3618,19 @@ void initUpdates() {
 #endif
 }
 
+void mapHaDisplayModes() {
+  std::map<int, int> mapHaToId = {};
+  std::map<int, int> mapIdToHa = {};
+  int haIndex = 0;
+  for (int i = 0; i < DISPLAY_MODE_OPTIONS_MAX; i++) {
+    if (DISPLAY_MODES[i].ignore) continue;
+    mapHaToId[haIndex] = DISPLAY_MODES[i].id;
+    mapIdToHa[DISPLAY_MODES[i].id] = haIndex;
+    haIndex++;
+  }
+  haDisplayModeMap = std::make_pair(mapHaToId, mapIdToHa);
+}
+
 void initHA() {
   if (shouldWifiReconnect) return;
 
@@ -3627,12 +3649,12 @@ void initHA() {
   ha.initBrightnessSensor(settings.getInt(BRIGHTNESS), saveBrightness);
   ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
   ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
-  const char** mapModes = getNames(MAP_MODES, MAP_MODES_COUNT);
-  ha.initMapModeSensor(settings.getInt(MAP_MODE), mapModes, MAP_MODES_COUNT, saveMapModeFromHa);
+  auto mapModes = getNames(MAP_MODES, MAP_MODES_COUNT, true);
+  ha.initMapModeSensor( getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT), mapModes.second, mapModes.first, saveMapMode, transformFromHaMapMode);
   if (display.isDisplayAvailable()) {
-    const char** displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX);
-    displayModeHAMap = ha.initDisplayModeSensor(getLocalDisplayMode(settings.getInt(DISPLAY_MODE), ignoreDisplayModeOptions), displayModes,
-      DISPLAY_MODE_OPTIONS_MAX, ignoreDisplayModeOptions, saveDisplayModeFromHa, getSettingsDisplayMode);
+    auto displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, true);
+    mapHaDisplayModes();
+    ha.initDisplayModeSensor(haDisplayModeMap.second[settings.getInt(DISPLAY_MODE)], displayModes.second, displayModes.first, saveDisplayMode, transformFromHaDisplayMode);
     ha.initDisplayModeToggleSensor(nextDisplayMode);
     ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }

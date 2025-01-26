@@ -25,9 +25,9 @@ public:
     void initBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
     void initDayBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
     void initNightBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
-    void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode));
-    std::map<int, int> initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
-        bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
+    void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode), int (*transform)(int haMapMode));
+    void initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize,
+    bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
     void initMapModeToggleSensor(void (*onClick)(void));
     void initDisplayModeToggleSensor(void (*onClick)(void));
     void initShowHomeAlarmTimeSensor(bool currentState, bool (*onChange)(bool newState));

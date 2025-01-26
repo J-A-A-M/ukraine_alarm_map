@@ -69,6 +69,7 @@ bool (*brightnessChanged)(int newBrightness);
 bool (*brightnessDayChanged)(int newBrightness);
 bool (*brightnessNightChanged)(int newBrightness);
 bool (*mapModeChanged)(int newMapMode);
+int (*mapModeTransform)(int haMapMode);
 bool (*displayModeChanged)(int newDisplayMode);
 int (*displayModeTransform)(int haDisplayMode);
 void (*onMapModeToogleClick)(void);
@@ -98,22 +99,6 @@ static int sizeOfCharsArray(const char* array[], int arraySize) {
   return result;
 }
 
-static std::map<int, int> getHaOptions(char* result, const char* options[], int optionsSize, int ignoreOptions[]= NULL) {
-  strcpy(result, "");
-  int haIndex = 0;
-  std::map<int, int> haMap = {};
-  for (int i = 0; i < optionsSize; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsSize)) continue;
-    const char* option = options[i];
-    if (i > 0) {
-      strcat(result, ";");
-    }
-    strcat(result, option);
-    haMap[i] = haIndex;
-    haIndex++;
-  }
-  return haMap;
-}
 #endif
 
 bool haEnabled = false;
@@ -275,7 +260,7 @@ void JaamHomeAssistant::initNightBrightnessSensor(int currentBrightness, bool (*
 #endif
 }
 
-void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode)) {
+void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode), int (*transform)(int haMapMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haMapModeID, "%s_map_mode", deviceUniqueID);
@@ -291,14 +276,14 @@ void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapMod
 #endif
 }
 
-std::map<int, int> JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
+void JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize,
     bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode)) {
 #if HA_ENABLED
-  if (!haEnabled) return {};
+  if (!haEnabled) return;
   sprintf(haDisplayModeID, "%s_display_mode", deviceUniqueID);
   haDisplayMode = new HASelect(haDisplayModeID);
   char displayModeOptions[sizeOfCharsArray(displayModes, displayModesSize) + displayModesSize];
-  std::map<int, int> displayModeHAMap = getHaOptions(displayModeOptions, displayModes, displayModesSize, ignoreOptions);
+  getHaOptions(displayModeOptions, displayModes, displayModesSize);
   haDisplayMode->setOptions(displayModeOptions);
   displayModeChanged = onChange;
   displayModeTransform = transform;
@@ -306,9 +291,8 @@ std::map<int, int> JaamHomeAssistant::initDisplayModeSensor(int currentDisplayMo
   haDisplayMode->setIcon("mdi:clock-digital");
   haDisplayMode->setName("Display Mode");
   haDisplayMode->setCurrentState(currentDisplayMode);
-  return displayModeHAMap;
 #else
-  return {};
+  return;
 #endif
 }
 
