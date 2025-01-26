@@ -9,6 +9,12 @@ TelnetSpy SerialAndTelnet;
 #define LOG Serial
 #endif
 
+struct SettingListItem {
+  int id;
+  const char* name;
+  bool ignore;
+};
+
 #if BUZZER_ENABLED
 static const char UA_ANTHEM[]            PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 static const char OI_U_LUZI[]            PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a4,2d.,4e,2f,2e,2d.";
@@ -64,12 +70,6 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   BANDERA,
   HUILO,
   HELLDIVERS
-};
-
-struct SettingListItem {
-  int id;
-  const char* name;
-  bool ignore;
 };
 
 static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
