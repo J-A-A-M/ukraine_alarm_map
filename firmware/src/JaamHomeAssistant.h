@@ -31,10 +31,10 @@ public:
     void initMapModeToggleSensor(void (*onClick)(void));
     void initDisplayModeToggleSensor(void (*onClick)(void));
     void initShowHomeAlarmTimeSensor(bool currentState, bool (*onChange)(bool newState));
-    void initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode));
+    void initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode), int (*transform)(int haAutoAlarmMode));
     void initMapModeCurrentSensor();
     void initMapApiConnectSensor(bool currentApiState);
-    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode));
+    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode), int (*transform)(int haAutoBrightnessMode));
     void initRebootSensor(void (*onClick)(void));
     void initCpuTempSensor(float currentCpuTemp);
     void initHomeDistrictSensor();

@@ -708,6 +708,18 @@ int transformFromHaMapMode(int newIndex) {
   return MAP_MODES[newIndex].id;
 }
 
+int transformFromHaDisplayMode(int newIndex) {
+  return haDisplayModeMap.first[newIndex];
+}
+
+int transformFromHaAutoAlarmMode(int newIndex) {
+  return AUTO_ALARM_MODES[newIndex].id;
+}
+
+int transformFromHaAutoBrMode(int newIndex) {
+  return AUTO_BRIGHTNESS_MODES[newIndex].id;
+}
+
 bool onNewLampStateFromHa(bool state) {
   if (settings.getInt(MAP_MODE) == 5 && state) return false;
   int newMapMode = state ? 5 : prevMapMode;
@@ -1179,7 +1191,7 @@ bool saveAutoBrightnessMode(int autoBrightnessMode) {
   reportSettingsChange("brightness_mode", autoBrightnessMode);
   ha.setAutoBrightnessMode(autoBrightnessMode);
   autoBrightnessUpdate();
-  showServiceMessage(AUTO_BRIGHTNESS_MODES[autoBrightnessMode], "Авто. яскравість:");
+  showServiceMessage(getNameById(AUTO_BRIGHTNESS_MODES, autoBrightnessMode, AUTO_BRIGHTNESS_OPTIONS_COUNT), "Авто. яскравість:");
   return true;
 }
 
@@ -1611,10 +1623,6 @@ void disableAlertAndClearPins() {
 }
 
 //--Web server start
-
-int transformFromHaDisplayMode(int newIndex) {
-  return haDisplayModeMap.first[newIndex];
-}
 
 int checkboxIndex = 1;
 int sliderIndex = 1;
@@ -2257,7 +2265,7 @@ void handleDev(AsyncWebServerRequest* request) {
   addSelectBox(response, "legacy", "Режим прошивки", settings.getInt(LEGACY), LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
   if ((settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) && display.isDisplayEnabled()) {
     addSelectBox(response, "display_model", "Тип дисплею", settings.getInt(DISPLAY_MODEL), DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
-    addSelectBox(response, "display_height", "Розмір дисплею", settings.getInt(DISPLAY_HEIGHT), DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT, [](int i) -> int {return i == 0 ? 32 : 64;});
+    addSelectBox(response, "display_height", "Розмір дисплею", settings.getInt(DISPLAY_HEIGHT), DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT);
   }
   if (ha.isHaEnabled()) {
     addInputText(response, "ha_brokeraddress", "Адреса mqtt Home Assistant", "text", settings.getString(HA_BROKER_ADDRESS), 30);
@@ -3651,7 +3659,7 @@ void initHA() {
   ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
   ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
   auto mapModes = getNames(MAP_MODES, MAP_MODES_COUNT, true);
-  ha.initMapModeSensor( getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT), mapModes.second, mapModes.first, saveMapMode, transformFromHaMapMode);
+  ha.initMapModeSensor(getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT), mapModes.second, mapModes.first, saveMapMode, transformFromHaMapMode);
   if (display.isDisplayAvailable()) {
     auto displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, true);
     mapHaDisplayModes();
@@ -3659,8 +3667,10 @@ void initHA() {
     ha.initDisplayModeToggleSensor(nextDisplayMode);
     ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }
-  ha.initAutoAlarmModeSensor(settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, saveAutoAlarmMode);
-  ha.initAutoBrightnessModeSensor(settings.getInt(BRIGHTNESS_MODE), AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, saveAutoBrightnessMode);
+  auto alarmModes = getNames(AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, true);
+  ha.initAutoAlarmModeSensor(getIndexById(AUTO_ALARM_MODES, settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES_COUNT), alarmModes.second, alarmModes.first, saveAutoAlarmMode, transformFromHaAutoAlarmMode);
+  auto autoBrightnessModes = getNames(AUTO_BRIGHTNESS_MODES, AUTO_BRIGHTNESS_OPTIONS_COUNT, true);
+  ha.initAutoBrightnessModeSensor(getIndexById(AUTO_BRIGHTNESS_MODES, settings.getInt(BRIGHTNESS_MODE), AUTO_BRIGHTNESS_OPTIONS_COUNT), autoBrightnessModes.second, autoBrightnessModes.first, saveAutoBrightnessMode, transformFromHaAutoBrMode);
   ha.initMapModeCurrentSensor();
   ha.initHomeDistrictSensor();
   ha.initMapApiConnectSensor(apiConnected);

@@ -200,10 +200,10 @@ static SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
 };
 
 #define AUTO_ALARM_MODES_COUNT 3
-static const char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
-  "Вимкнено",
-  "Домашній та суміжні",
-  "Лише домашній"
+static SettingListItem AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Домашній та суміжні", false},
+  {2, "Лише домашній", false},
 };
 
 #define SINGLE_CLICK_OPTIONS_MAX 8
@@ -233,61 +233,61 @@ static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
 };
 
 #define ALERT_PIN_MODES_COUNT 2
-static const char* ALERT_PIN_MODES_OPTIONS[ALERT_PIN_MODES_COUNT] = {
-  "Бістабільний",
-  "Імпульсний"
+static SettingListItem ALERT_PIN_MODES_OPTIONS[ALERT_PIN_MODES_COUNT] = {
+  {0, "Бістабільний", false},
+  {1, "Імпульсний", false}
 };
 
 #if FW_UPDATE_ENABLED
 #define FW_UPDATE_CHANNELS_COUNT 2
-static const char* FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
-  "Production",
-  "Beta"
+static SettingListItem FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
+  {0, "Production", false},
+  {1, "Beta", false}
 };
 #endif
 
 #define AUTO_BRIGHTNESS_OPTIONS_COUNT 3
-static const char* AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "День/Ніч",
-  "Сенсор освітлення"
+static SettingListItem AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "День/Ніч", false},
+  {2, "Сенсор освітлення", false}
 };
 
 #define KYIV_LED_MODE_COUNT 4
-static const char* KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
-  "Київська область",
-  "Київ",
-  "Київська область + Київ (2 діода)",
-  "Київська область + Київ (1 діод)"
+static SettingListItem KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
+  {0, "Київська область", false},
+  {1, "Київ", false},
+  {2, "Київська область + Київ (2 діода)", false},
+  {3, "Київська область + Київ (1 діод)", false}
 };
 
 #define ALERT_NOTIFY_OPTIONS_COUNT 3
-static const char* ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "Колір",
-  "Колір + зміна яскравості"
+static SettingListItem ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Колір", false},
+  {2, "Колір + зміна яскравості", false}
 };
 
 #define DISPLAY_MODEL_OPTIONS_COUNT 4
-static const char* DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
-  "Без дисплея",
-  "SSD1306",
-  "SH1106G",
-  "SH1107"
+static SettingListItem DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
+  {0, "Без дисплея", false},
+  {1, "SSD1306", false},
+  {2, "SH1106G", false},
+  {3, "SH1107", false}
 };
 
 #define DISPLAY_HEIGHT_OPTIONS_COUNT 2
-static const char* DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
-  "128x32",
-  "128x64"
+static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
+  {32, "128x32", false},
+  {64, "128x64", false}
 };
 
 #define LEGACY_OPTIONS_COUNT 4
-static const char* LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
-  "Плата JAAM 1.3",
-  "Початок на Закарпатті",
-  "Початок на Одещині",
-  "Плата JAAM 2.x",
+static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+  {0, "Плата JAAM 1.3", false},
+  {1, "Початок на Закарпатті", false},
+  {2, "Початок на Одещині", false},
+  {3, "Плата JAAM 2.x", false}
 };
 
 static const size_t MAX_JSON_SIZE = 6000; // 6KB

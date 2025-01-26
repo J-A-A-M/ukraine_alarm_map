@@ -76,7 +76,9 @@ void (*onMapModeToogleClick)(void);
 void (*onDisplayModeToogleClick)(void);
 bool (*onShowHomeAlarmChanged)(bool newState);
 bool (*onHaAutoAlarmModeChanged)(int newAutoAlarmMode);
+int (*onHaAutoAlarmModeTransform)(int haAutoAlarmMode);
 bool (*onHaAutoBrightnessModeChanged)(int newAutoBrightnessMode);
+int (*onHaAutoBrightnessModeTransform)(int haAutoBrightnessMode);
 void (*onRebootClick)(void);
 bool (*onLampStateChanged)(bool newState);
 bool (*onLampBrightnessChanged)(int newBrightness);
@@ -333,7 +335,7 @@ void JaamHomeAssistant::initShowHomeAlarmTimeSensor(bool currentState, bool (*on
 #endif
 }
 
-void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode)) {
+void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode), int (*transform)(int haAutoAlarmMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haAutoAlarmModeID, "%s_alarms_auto", deviceUniqueID);
@@ -342,7 +344,8 @@ void JaamHomeAssistant::initAutoAlarmModeSensor(int currentAutoAlarmMode, const 
   getHaOptions(autoAlarmsModeOptions, autoAlarms, autoAlarmsSize);
   haAutoAlarmMode->setOptions(autoAlarmsModeOptions);
   onHaAutoAlarmModeChanged = onChange;
-  haAutoAlarmMode->onCommand([](int8_t index, HASelect* sender) { onHaAutoAlarmModeChanged(index); });
+  onHaAutoAlarmModeTransform = transform;
+  haAutoAlarmMode->onCommand([](int8_t index, HASelect* sender) { onHaAutoAlarmModeChanged(onHaAutoAlarmModeTransform(index)); });
   haAutoAlarmMode->setIcon("mdi:alert-outline");
   haAutoAlarmMode->setName("Auto Alarm");
   haAutoAlarmMode->setCurrentState(currentAutoAlarmMode);  
@@ -371,7 +374,7 @@ void JaamHomeAssistant::initMapApiConnectSensor(bool currentApiState) {
 #endif
 }
 
-void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode)) {
+void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode), int (*transform)(int haAutoBrightnessMode)) {
 #if HA_ENABLED
   if (!haEnabled) return;
   sprintf(haBrightnessAutoID, "%s_brightness_auto", deviceUniqueID);
@@ -380,7 +383,8 @@ void JaamHomeAssistant::initAutoBrightnessModeSensor(int currentAutoBrightnessMo
   getHaOptions(autoBrightnessOptions, autoBrightnessModes, autoBrightmesSize);
   haAutoBrightnessMode->setOptions(autoBrightnessOptions);
   onHaAutoBrightnessModeChanged = onChange;
-  haAutoBrightnessMode->onCommand([](int8_t index, HASelect* sender) { onHaAutoBrightnessModeChanged(index); });
+  onHaAutoBrightnessModeTransform = transform;
+  haAutoBrightnessMode->onCommand([](int8_t index, HASelect* sender) { onHaAutoBrightnessModeChanged(onHaAutoBrightnessModeTransform(index)); });
   haAutoBrightnessMode->setIcon("mdi:brightness-auto");
   haAutoBrightnessMode->setName("Auto Brightness");
   haAutoBrightnessMode->setCurrentState(currentAutoBrightnessMode);
