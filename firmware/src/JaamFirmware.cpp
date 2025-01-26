@@ -160,9 +160,6 @@ char*  test_bin_list[MAX_BINS_LIST_SIZE];
 char chipID[13];
 char localIP[16];
 
-int ignoreSingleClickOptions[SINGLE_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1};
-int ignoreLongClickOptions[LONG_CLICK_OPTIONS_MAX] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-
 bool isBgStripEnabled() {
   return settings.getInt(BG_LED_PIN) > -1 && settings.getInt(BG_LED_COUNT) > 0;
 }
@@ -884,9 +881,9 @@ void checkServicePins() {
 //--Service end
 
 void nextMapMode() {
-  int newIndex = getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT); + 1;
+  int newIndex = getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT);
   do {
-    if (newIndex > MAP_MODES_COUNT - 1) {
+    if (newIndex >= MAP_MODES_COUNT - 1) {
       newIndex = 0;
     } else {
       newIndex++;
@@ -914,14 +911,15 @@ bool saveDisplayModeFromHa(int newIndex) {
 }
 
 void nextDisplayMode() {
-  int newIndex = getIndexById(DISPLAY_MODES, settings.getInt(DISPLAY_MODE), DISPLAY_MODE_OPTIONS_MAX); + 1;
+  int newIndex = getIndexById(DISPLAY_MODES, settings.getInt(DISPLAY_MODE), DISPLAY_MODE_OPTIONS_MAX);
   do {
-    if (newIndex > DISPLAY_MODE_OPTIONS_MAX - 1) {
+    if (newIndex >= DISPLAY_MODE_OPTIONS_MAX - 1) {
       newIndex = 0;
     } else {
       newIndex++;
     }
   } while (DISPLAY_MODES[newIndex].ignore);
+
   saveDisplayMode(DISPLAY_MODES[newIndex].id);
 }
 
@@ -1735,41 +1733,6 @@ void addSelectBox(AsyncResponseStream* response, const char* name, const char* l
   selectIndex++;
 }
 
-void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, const char* options[], int optionsCount, int (*valueTransform)(int) = NULL, bool disabled = false, int ignoreOptions[] = NULL, const char* onChanges = NULL) {
-  response->print(label);
-  response->print(": <select name='");
-  response->print(name);
-  response->print("' class='form-control' id='sb");
-  response->print(selectIndex);
-  if (onChanges) {
-    response->print("'");
-    response->print(" onchange='");
-    response->print(onChanges);
-  }
-  response->print("'");
-  if (disabled) response->print(" disabled");
-  response->print(">");
-  for (int i = 0; i < optionsCount; i++) {
-    if (ignoreOptions && isInArray(i, ignoreOptions, optionsCount)) continue;
-    int transformedIndex;
-    if (valueTransform) {
-      transformedIndex = valueTransform(i);
-    } else {
-      transformedIndex = i;
-    }
-    response->print("<option value='");
-    response->print(transformedIndex);
-    response->print("'");
-    if (setting == transformedIndex) response->print(" selected");
-    response->print(">");
-    response->print(options[i]);
-    response->print("</option>");
-  }
-  response->print("</select>");
-  response->println("</br>");
-  selectIndex++;
-}
-
 void addInputText(AsyncResponseStream* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
   response->print(label);
   response->print(": <input type='");
@@ -2120,12 +2083,12 @@ void handleModes(AsyncWebServerRequest* request) {
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MIN_TEMP), -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MAX_TEMP), 11, 40, 1, "°C");
   if (buttons.isButton1Enabled()) {
-    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+    addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
+    addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
   }
   if (buttons.isButton2Enabled()) {
-    addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
-    addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
+    addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
+    addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
   }
   addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   if (display.isDisplayAvailable()) {
@@ -3543,26 +3506,26 @@ void initStrip() {
 void initDisplayOptions() {
   if (!display.isDisplayAvailable()) {
     // remove display related options from singl click optins list
-    ignoreSingleClickOptions[0] = 2;
-    ignoreSingleClickOptions[1] = 4;
-    ignoreSingleClickOptions[2] = 5;
+    SINGLE_CLICK_OPTIONS[2].ignore = true;
+    SINGLE_CLICK_OPTIONS[4].ignore = true;
+    SINGLE_CLICK_OPTIONS[5].ignore = true;
     // change single click option to default if it's not available
-    if (isInArray(settings.getInt(BUTTON_1_MODE), ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+    if (isInIgnoreList(settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX)) {
       saveInt(BUTTON_1_MODE, 0, "button_mode");
     }
-    if (isInArray(settings.getInt(BUTTON_2_MODE), ignoreSingleClickOptions, SINGLE_CLICK_OPTIONS_MAX)) {
+    if (isInIgnoreList(settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX)) {
       saveInt(BUTTON_2_MODE, 0, "button2_mode");
     }
 
     // remove display related options from long click optins list
-    ignoreLongClickOptions[0] = 2;
-    ignoreLongClickOptions[1] = 4;
-    ignoreLongClickOptions[2] = 5;
+    LONG_CLICK_OPTIONS[2].ignore = true;
+    LONG_CLICK_OPTIONS[4].ignore = true;
+    LONG_CLICK_OPTIONS[5].ignore = true;
     // change long click option to default if it's not available
-    if (isInArray(settings.getInt(BUTTON_1_MODE_LONG), ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+    if (isInIgnoreList(settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX)) {
       saveInt(BUTTON_1_MODE_LONG, 0, "button_mode_long");
     }
-    if (isInArray(settings.getInt(BUTTON_2_MODE_LONG), ignoreLongClickOptions, LONG_CLICK_OPTIONS_MAX)) {
+    if (isInIgnoreList(settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX)) {
       saveInt(BUTTON_2_MODE_LONG, 0, "button2_mode_long");
     }
   }
@@ -3573,7 +3536,7 @@ void initDisplayModes() {
     // remove climate sensor options from display optins list
     DISPLAY_MODES[4].ignore = true;
     // change display mode to "changing" if it's not available
-    if (settings.getInt(DISPLAY_MODE) == 4) {
+    if (isInIgnoreList(settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX)) {
       saveDisplayMode(9);
     }
   }

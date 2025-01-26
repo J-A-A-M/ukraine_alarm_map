@@ -75,9 +75,9 @@ static bool firstIsNewer(Firmware first, Firmware second) {
 }
 #endif
 
-static bool isInArray(int value, int* array, int arraySize) {
+static bool isInIgnoreList(int value, SettingListItem array[], int arraySize) {
   for (int i = 0; i < arraySize; i++) {
-    if (array[i] == value) return true;
+    if (array[i].ignore && array[i].id == value) return true;
   }
   return false;
 }
