@@ -138,6 +138,7 @@ async def update_alerts_websocket_v1(mc, run_once=False):
             
         except Exception as e:
             logging.error(f"update_alerts_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -182,6 +183,7 @@ async def update_alerts_websocket_v2(mc, run_once=False):
 
         except Exception as e:
             logging.error(f"update_alerts_websocket_v2: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -226,6 +228,7 @@ async def update_alerts_websocket_v3(mc, run_once=False):
             await store_websocket_data(mc, alerts, alerts_websocket_v3, 'alerts_websocket_v3', b"alerts_websocket_v3")
         except Exception as e:
             logging.error(f"update_alerts_websocket_v3: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -253,6 +256,7 @@ async def update_drones_etryvoga_v1(mc, run_once=False):
 
         except Exception as e:
             logging.error(f"update_drones_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -264,6 +268,7 @@ async def update_missiles_etryvoga_v1(mc, run_once=False):
 
         except Exception as e:
             logging.error(f"update_missiles_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -275,6 +280,7 @@ async def update_explosions_etryvoga_v1(mc, run_once=False):
 
         except Exception as e:
             logging.error(f"update_explosions_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -292,11 +298,12 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
                 if legacy_state_id_str in cache["states"]:
                     data[legacy_state_id-1] = int(round(cache["states"][legacy_state_id_str]["temp"], 0))
 
-            await check_notifications(data, websocket)
+
             await store_websocket_data(mc, data, websocket, "weather_websocket_v1", b"weather_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_explosions_etryvoga_v1: {str(e)}")
+            logging.error(f"update_weather_openweathermap_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
 
@@ -304,12 +311,12 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            # update_alerts_websocket_v1(mc),
-            # update_alerts_websocket_v2(mc),
-            # update_alerts_websocket_v3(mc),
-            #update_drones_etryvoga_v1(mc),
-            #update_missiles_etryvoga_v1(mc),
-            # update_explosions_etryvoga_v1(mc),
+            update_alerts_websocket_v1(mc),
+            update_alerts_websocket_v2(mc),
+            update_alerts_websocket_v3(mc),
+            update_drones_etryvoga_v1(mc),
+            update_missiles_etryvoga_v1(mc),
+            update_explosions_etryvoga_v1(mc),
             update_weather_openweathermap_v1(mc)
         )
     except asyncio.exceptions.CancelledError:
