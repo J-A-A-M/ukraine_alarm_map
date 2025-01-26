@@ -679,7 +679,7 @@ void onMqttStateChanged(bool haStatus) {
   if (haConnected) {
     // Update HASensors values (Unlike the other device types, the HASensor doesn't store the previous value that was set. It means that the MQTT message is produced each time the setValue method is called.)
     ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
-    ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(settings.getInt(HOME_DISTRICT))]);
+    ha.setHomeDistrict(getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
   }
 }
 
@@ -1224,12 +1224,12 @@ bool saveLampRgb(int r, int g, int b) {
 bool saveHomeDistrict(int newHomeDistrict) {
   if (newHomeDistrict == settings.getInt(HOME_DISTRICT)) return false;
   settings.saveInt(HOME_DISTRICT, newHomeDistrict);
-  reportSettingsChange("home_district", DISTRICTS[newHomeDistrict]);
-  LOG.print("home_district commited to preferences: ");
-  LOG.println(DISTRICTS[settings.getInt(HOME_DISTRICT)]);
-  ha.setHomeDistrict(DISTRICTS_ALPHABETICAL[numDistrictToAlphabet(newHomeDistrict)]);
+  const char* homeDistrictName = getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT);
+  reportSettingsChange("home_district", getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT));
+  LOG.printf("home_district commited to preferences: $s\n", homeDistrictName);
+  ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
-  showServiceMessage(DISTRICTS[newHomeDistrict], "Домашній регіон:", 2000);
+  showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
   return true;
 }
 
@@ -1264,7 +1264,7 @@ void showHomeAlertInfo() {
   int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 2, timeClient.second());
   char title[50];
   if (periodIndex) {
-    strcpy(title, DISTRICTS[settings.getInt(HOME_DISTRICT)]);
+    strcpy(title, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
   } else {
     strcpy(title, "Тривога триває:");
   }
@@ -1291,7 +1291,7 @@ void showTemp() {
   int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
   char message[10];
   sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
-  displayMessage(message, DISTRICTS[settings.getInt(HOME_DISTRICT)]);
+  displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
 }
 
 void showTechInfo() {
@@ -2119,7 +2119,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL, false, ignoreSingleClickOptions);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL, false, ignoreLongClickOptions);
   }
-  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS_ALPHABETICAL, DISTRICTS_COUNT, alphabetDistrictToNum);
+  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   if (display.isDisplayAvailable()) {
     addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
   }
@@ -2210,7 +2210,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, DISTRICTS[settings.getInt(HOME_DISTRICT)], weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)], "°C");
+  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)], "°C");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2827,6 +2827,7 @@ void checkHomeDistrictAlerts() {
   int ledStatus = alarm_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
   int localHomeExplosions = explosions_time[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
   bool localAlarmNow = ledStatus == 1;
+  const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
     if (alarmNow && needToPlaySound(ALERT_ON)) playMelody(ALERT_ON);
@@ -2835,16 +2836,16 @@ void checkHomeDistrictAlerts() {
     alertPinCycle();
 
     if (alarmNow) {
-      showServiceMessage("Тривога!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
+      showServiceMessage("Тривога!", districtName, 5000);
     } else {
-      showServiceMessage("Відбій!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
+      showServiceMessage("Відбій!", districtName, 5000);
     }
     ha.setAlarmAtHome(alarmNow);
   }
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
     if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
-      showServiceMessage("Вибухи!", DISTRICTS[settings.getInt(HOME_DISTRICT)], 5000);
+      showServiceMessage("Вибухи!", districtName, 5000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
