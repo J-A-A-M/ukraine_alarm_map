@@ -83,10 +83,16 @@ async def get_etryvoga_data(mc):
             await asyncio.sleep(etryvoga_loop_time)
 
             current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-            districts_slug_cached = await mc.get(b"etryvoga_districts_struct")
-            explosions_cached = await mc.get(b"explosions_etryvoga")
-            missiles_cached = await mc.get(b"missiles_etryvoga")
-            drones_cached = await mc.get(b"drones_etryvoga")
+
+            cache_keys = [
+                b"etryvoga_districts_struct",
+                b"explosions_etryvoga",
+                b"missiles_etryvoga",
+                b"drones_etryvoga"
+            ]
+            cached_data = await asyncio.gather(*(mc.get(key) for key in cache_keys))
+            
+            districts_slug_cached, explosions_cached, missiles_cached, drones_cached = cached_data
 
             if districts_slug_cached:
                 districts_slug_cached = json.loads(districts_slug_cached)
@@ -142,7 +148,7 @@ async def get_etryvoga_data(mc):
                 
                     with contextlib.suppress(KeyError):
                         del explosions_cached_data["states"]["Невідомо"]
-                        
+
                     explosions_cached_data["info"]["last_id"] = last_id
                     explosions_cached_data["info"]["last_update"] = current_datetime
                     missiles_cached_data["info"]["last_id"] = last_id
@@ -160,10 +166,17 @@ async def get_etryvoga_data(mc):
                 else:
                     logger.error(f"get_etryvoga_data: Request failed with status code {response.status}")
         except KeyError as e:
-            logger.error(f"get_etryvoga_data: Request failed with key {e.args[0]}")
+            logger.error(f"get_etryvoga_data: Помилка доступу до ключа {e.args[0]}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        except aiohttp.ClientError as e:
+            logger.error(f"get_etryvoga_data: Помилка мережі: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        except json.JSONDecodeError as e:
+            logger.error(f"get_etryvoga_data: Помилка парсингу JSON: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
         except Exception as e:
-            logger.error(f"get_etryvoga_data: {e.args[0]}")
-            await asyncio.sleep(etryvoga_loop_time)
+            logger.error(f"get_etryvoga_data: Неочікувана помилка: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
 async def get_etryvoga_districts(mc):
