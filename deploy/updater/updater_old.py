@@ -308,7 +308,7 @@ async def update_data(mc):
             else:
                 logger.debug("drones_v1 not changed")
         except Exception as e:
-            logging.error(f"Error fetching data: {str(e)}")
+            logger.error(f"Error fetching data: {str(e)}")
             raise
 
 
@@ -327,8 +327,8 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        logging.info("Start")
+        logger.info("Start")
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.error("KeyboardInterrupt")
+        logger.error("KeyboardInterrupt")
         pass

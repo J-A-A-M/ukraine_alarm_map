@@ -11,7 +11,7 @@ from aiomcache import Client
 version = 1
 
 debug_level = os.environ.get("LOGGING")
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 source_url = os.environ.get("SOURCE_URL") or "localhost"
 token_id = os.environ.get("TOKEN_ID") or "token"
 url_id = os.environ.get("URL_ID") or "local"

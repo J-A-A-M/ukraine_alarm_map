@@ -80,7 +80,7 @@ async def get_weather_openweathermap(mc):
                     data = json.loads(new_data)
                     weather_cached_data["states"][weather_region_data["id"]] = data["current"]
                 else:
-                    logging.error(f"Request failed with status code: {response.status_code}")
+                    logger.error(f"Request failed with status code: {response.status_code}")
 
         weather_cached_data["info"]["last_update"] = current_datetime
         logger.debug("store weather data: %s" % current_datetime)

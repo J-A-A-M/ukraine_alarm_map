@@ -137,7 +137,7 @@ async def update_alerts_websocket_v1(mc, run_once=False):
                 logger.debug("alerts_websocket_v1 not changed")     
             
         except Exception as e:
-            logging.error(f"update_alerts_websocket_v1: {str(e)}")
+            logger.error(f"update_alerts_websocket_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -182,7 +182,7 @@ async def update_alerts_websocket_v2(mc, run_once=False):
             await store_websocket_data(mc, alerts, alerts_websocket_v2, 'alerts_websocket_v2', b"alerts_websocket_v2")
 
         except Exception as e:
-            logging.error(f"update_alerts_websocket_v2: {str(e)}")
+            logger.error(f"update_alerts_websocket_v2: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -227,7 +227,7 @@ async def update_alerts_websocket_v3(mc, run_once=False):
             await check_states(alerts, alerts_websocket_v3)
             await store_websocket_data(mc, alerts, alerts_websocket_v3, 'alerts_websocket_v3', b"alerts_websocket_v3")
         except Exception as e:
-            logging.error(f"update_alerts_websocket_v3: {str(e)}")
+            logger.error(f"update_alerts_websocket_v3: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -255,7 +255,7 @@ async def update_drones_etryvoga_v1(mc, run_once=False):
             await ertyvoga_v1(mc, b"drones_etryvoga", b"drones_websocket_v1","drones_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_drones_etryvoga_v1: {str(e)}")
+            logger.error(f"update_drones_etryvoga_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -267,7 +267,7 @@ async def update_missiles_etryvoga_v1(mc, run_once=False):
             await ertyvoga_v1(mc, b"missiles_etryvoga", b"missiles_websocket_v1","missiles_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_missiles_etryvoga_v1: {str(e)}")
+            logger.error(f"update_missiles_etryvoga_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -279,7 +279,7 @@ async def update_explosions_etryvoga_v1(mc, run_once=False):
             await ertyvoga_v1(mc, b"explosions_etryvoga", b"explosions_websocket_v1","explosions_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_explosions_etryvoga_v1: {str(e)}")
+            logger.error(f"update_explosions_etryvoga_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -302,7 +302,7 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
             await store_websocket_data(mc, data, websocket, "weather_websocket_v1", b"weather_websocket_v1")
 
         except Exception as e:
-            logging.error(f"update_weather_openweathermap_v1: {str(e)}")
+            logger.error(f"update_weather_openweathermap_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
