@@ -92,7 +92,8 @@ int service_strip_update_index = 0;
 
 std::map<int, std::pair<uint8_t, long>>   id_to_alerts; //regionId to alert state and time
 std::map<int, std::pair<uint8_t, long>>   led_to_alerts; // ledPosition to alert state and time
-float     weather_leds[26];
+std::map<int, float>   id_to_weather; //regionId to temperature
+std::map<int, float>   led_to_weather; // ledPosition to temperature
 long      explosions_time[26];
 long      missiles_time[26];
 long      drones_time[26];
@@ -1300,9 +1301,9 @@ void showClock() {
 }
 
 void showTemp() {
-  int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
+  int regionId = settings.getInt(HOME_DISTRICT) + 1;
   char message[10];
-  sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
+  sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
   displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
 }
 
@@ -1630,6 +1631,10 @@ void remapAlerts() {
   led_to_alerts = mapLeds(ledMapping, id_to_alerts);
 }
 
+void remapWeather() {
+  led_to_weather = mapLeds(ledMapping, id_to_weather);
+}
+
 void initLedMapping() {
   if (settings.getInt(LEGACY) == 1) {
     switch (settings.getInt(KYIV_DISTRICT_MODE)) {
@@ -1678,6 +1683,7 @@ void initLedMapping() {
   }
   remapFlag();
   remapAlerts();
+  remapWeather();
 }
 
 //--Web server start
@@ -2241,7 +2247,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)], "°C");
+  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) + 1], "°C");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2901,10 +2907,11 @@ void onMessageCallback(WebsocketsMessage message) {
       remapAlerts();
     } else if (payload == "weather") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        weather_leds[calculateOffset(i, offset)] = data["weather"][i];
+        id_to_weather[i + 1] = data["weather"][i];
       }
       LOG.println("Successfully parsed weather data");
-      ha.setHomeTemperature(weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)]);
+      remapWeather();
+      ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]);
     } else if (payload == "explosions") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
@@ -3234,19 +3241,16 @@ void mapAlarms() {
 }
 
 void mapWeather() {
-  float adapted_weather_leds[MAIN_LEDS_COUNT];
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), weather_leds, adapted_weather_leds, MAIN_LEDS_COUNT, offset);
-  if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
-    adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
-  }
+  // if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
+  //   adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
+  // }
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
-    strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.getInt(CURRENT_BRIGHTNESS));
+    strip[i] = fromHue(processWeather(led_to_weather[i]), settings.getInt(CURRENT_BRIGHTNESS));
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
     float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
