@@ -15,13 +15,16 @@ from starlette.requests import Request
 
 from aiomcache import Client
 
-debug_level = os.environ.get("LOGGING")
-debug = os.environ.get("DEBUG", False)
-port = int(os.environ.get("PORT", 8080))
-memcached_host = os.environ.get("MEMCACHED_HOST", "localhost")
-memcached_port = int(os.environ.get("MEMCACHED_PORT", 11211))
+debug_level = os.environ.get("LOGGING") or "INFO"
+debug = os.environ.get("DEBUG") or False
+port = int(os.environ.get("PORT")) or 8080
+memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+memcached_port = int(os.environ.get("MEMCACHED_PORT")) or 11211
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
-data_token = os.environ.get("DATA_TOKEN") or None
+data_token = os.environ.get("DATA_TOKEN")
+
+if not data_token:
+    raise ValueError("DATA_TOKEN environment variable is required")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)

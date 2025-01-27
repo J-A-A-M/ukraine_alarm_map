@@ -7,8 +7,8 @@ from aiomcache import Client
 
 version = 3
 
-debug_level = os.environ.get("LOGGING")
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
+debug_level = os.environ.get("LOGGING") or "INFO"
+memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 update_period = int(os.environ.get("UPDATE_PERIOD", 1))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")

@@ -10,17 +10,37 @@ from aiomcache import Client
 
 version = 1
 
-debug_level = os.environ.get("LOGGING")
+debug_level = os.environ.get("LOGGING") or "INFO"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-source_url = os.environ.get("SOURCE_URL") or "localhost"
-token_id = os.environ.get("TOKEN_ID") or "token"
-url_id = os.environ.get("URL_ID") or "local"
-ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP") or "[]"
-ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER") or "[]"
-ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS") or "key"
-ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO") or "key"
-ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS") or "key"
-ws_response_loop_key_info = os.environ.get("WS_RESPONSE_LOOP_KEY_INFO") or "key"
+source_url = os.environ.get("SOURCE_URL")
+token_id = os.environ.get("TOKEN_ID")
+url_id = os.environ.get("URL_ID")
+ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  #"[]"
+ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER") #"[]"
+ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
+ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
+ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
+ws_response_loop_key_info = os.environ.get("WS_RESPONSE_LOOP_KEY_INFO")
+
+if not source_url:
+    raise ValueError("SOURCE_URL environment variable is required")
+if not token_id:
+    raise ValueError("TOKEN_ID environment variable is required")
+if not url_id:
+    raise ValueError("URL_ID environment variable is required")
+if not ws_request_follow_up:
+    raise ValueError("WS_REQUEST_FOLLOW_UP environment variable is required")
+if not ws_request_data_trigger:
+    raise ValueError("WS_REQUEST_DATA_TRIGGER environment variable is required")
+if not ws_response_initial_key_alerts:
+    raise ValueError("WS_RESPONSE_INITIAL_KEY_ALERTS environment variable is required")
+if not ws_response_initial_key_info:
+    raise ValueError("WS_RESPONSE_INITIAL_KEY_INFO environment variable is required")
+if not ws_response_loop_key_alerts:
+    raise ValueError("WS_RESPONSE_LOOP_KEY_ALERTS environment variable is required")
+if not ws_response_loop_key_info:
+    raise ValueError("WS_RESPONSE_LOOP_KEY_INFO environment variable is required")
+
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)

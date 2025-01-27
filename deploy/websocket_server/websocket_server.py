@@ -31,10 +31,10 @@ server_timezone = ZoneInfo("Europe/Kyiv")
 
 log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
-ping_interval = int(os.environ.get("PING_INTERVAL", 20))
-ping_timeout = int(os.environ.get("PING_TIMEOUT", 20))
-ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT", 1))
-memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL", 1))
+ping_interval = int(os.environ.get("PING_INTERVAL")) or 20
+ping_timeout = int(os.environ.get("PING_TIMEOUT") or 20)
+ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT")) or 1
+memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL")) or 1
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
 api_secret = os.environ.get("API_SECRET") or ""
