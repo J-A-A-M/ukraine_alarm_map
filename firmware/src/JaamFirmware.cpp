@@ -117,7 +117,6 @@ bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
-int     offset = 9;
 bool    initUpdate = false;
 #if FW_UPDATE_ENABLED
 bool    fwUpdateAvailable = false;
@@ -3427,7 +3426,6 @@ void initLegacy() {
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
-    offset = 0;
 
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
     break;
@@ -3456,7 +3454,6 @@ void initLegacy() {
     settings.saveBool(USE_TOUCH_BUTTON_2, 0, false);
     break;
   }
-  LOG.printf("Offset: %d\n", offset);
 }
 
 void initButtons() {

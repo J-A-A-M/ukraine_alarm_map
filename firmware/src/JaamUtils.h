@@ -175,82 +175,33 @@ static int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
   return round(h);
 }
 
-template <typename T>
-
-static void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, int offset) {
-  T lastValue = leds[size - 1];
-  for (uint16_t i = 0; i < size; i++) {
-    adaptedLeds[i] = leds[i];
-  }
-  if (kyivDistrictMode == 2) {
-    adaptedLeds[7 + offset] = leds[25];
-  }
-  if (kyivDistrictMode == 3) {
-    for (int i = 24; i >= 8 + offset; i--) {
-      adaptedLeds[i + 1] = leds[i];
-    }
-    adaptedLeds[8 + offset] = lastValue;
-  }
-}
-
+/**
+* Maps LED sequences to values.
+* @tparam V Type of the value to map to LEDs
+* @param ledsSequence Function that returns LED sequence for a given key
+* @param values Map of district IDs to values
+* @return Mapped LED values
+*/
 template <typename V>
 static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), std::map<int, V> values) {
+  if (!ledsSequence) {
+    return {};
+  }
   std::map<int, V> remaped = {};
   for (int regId = 1; regId <= DISTRICTS_COUNT; regId++) {
     auto sequence = ledsSequence(regId);
     int ledCount = sequence.first;
-    int* ledList = sequence.second;
+    int *ledList = sequence.second;
+    if (!ledList) {
+      continue;
+    }
     V valueForKey = values[regId];
     for (int i = 0; i < ledCount; i++) {
       remaped[ledList[i]] = valueForKey;
     }
+    delete[] ledList; // Free the allocated array
   }
   return remaped;
-}
-
-static int calculateOffset(int initial_position, int offset) {
-  int position;
-  if (initial_position == 25) {
-    position = 25;
-  } else {
-    position = initial_position + offset;
-    if (position >= 25) {
-      position -= 25;
-    }
-  }
-  return position;
-}
-
-static int calculateOffsetDistrict(int kyivDistrictMode, int initialPosition, int offset) {
-  int position;
-  if (initialPosition == 25) {
-    position = 25;
-  } else {
-    position = initialPosition + offset;
-    if (position >= 25) {
-      position -= 25;
-    }
-  }
-  if (kyivDistrictMode == 2) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  if (kyivDistrictMode == 3) {
-
-    if (position == 25) {
-      return 8 + offset;
-    }
-    if (position > 7 + offset) {
-      return position + 1;
-    }
-  }
-  if (kyivDistrictMode == 4) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  return position;
 }
 
 static float mapf(float value, float istart, float istop, float ostart, float ostop) {
