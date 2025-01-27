@@ -13,6 +13,7 @@ unix 1736935200 - 2025-01-15T10:00:00Z
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_etryvoga", new_callable=AsyncMock)
 async def test_1(mock_get_etryvoga, mock_get_cache_data):
@@ -45,6 +46,7 @@ async def test_1(mock_get_etryvoga, mock_get_cache_data):
     mock_mc.set.assert_awaited_with(b"explosions_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_etryvoga", new_callable=AsyncMock)
 async def test_2(mock_get_etryvoga, mock_get_cache_data):

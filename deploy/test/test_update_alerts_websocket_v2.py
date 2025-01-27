@@ -47,6 +47,7 @@ districts = {
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -94,6 +95,7 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -142,6 +144,7 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -195,6 +198,7 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -241,6 +245,7 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -308,6 +313,7 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch.object(datetime, "datetime") 
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
@@ -344,6 +350,7 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data, mock_da
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -372,6 +379,7 @@ async def test_7(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -424,6 +432,7 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -476,6 +485,7 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -527,6 +537,7 @@ async def test_10(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_mc.set.assert_not_called()
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -561,6 +572,68 @@ async def test_11(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_regions.return_value = (districts)
 
     mock_get_cache_data.return_value = [[0,1645674000]] * 26
+
+    await update_alerts_websocket_v2(mock_mc, run_once=True)
+
+    mock_mc.set.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
+@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
+@patch("updater.updater.get_regions", new_callable=AsyncMock)
+@patch("updater.updater.get_alerts", new_callable=AsyncMock)
+async def test_12(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+    """
+    e дані в memcache
+    спроба переписати тривогу в State додатковим District
+    """
+
+    mock_mc = AsyncMock(spec=Client)
+    mock_mc.set.return_value = True
+
+    mock_get_alerts.return_value = (
+        [
+            {
+                "regionId": "1",
+                "regionType": "State",
+                "regionName": "Закарпатська область",
+                "regionEngName": "Luhanska region",
+                "lastUpdate": "2025-01-15T10:00:00Z",
+                "activeAlerts": [
+                {
+                    "regionId": "1",
+                    "regionType": "State",
+                    "type": "AIR",
+                    "lastUpdate": "2025-01-15T10:00:00Z"
+                }
+                ]
+            },
+            {
+                "regionId": "6",
+                "regionType": "District",
+                "regionName": "Район в області",
+                "regionEngName": "Luhanska region",
+                "lastUpdate": "2025-01-15T11:00:00Z",
+                "activeAlerts": [
+                {
+                    "regionId": "6",
+                    "regionType": "State",
+                    "type": "AIR",
+                    "lastUpdate": "2025-01-15T11:00:00Z"
+                }
+                ]
+            }
+        ]
+    )
+    mock_get_regions.return_value = (districts)
+
+    mock_get_cache_data.return_value = [[1, 1736935200], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000]
+                        ]
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 

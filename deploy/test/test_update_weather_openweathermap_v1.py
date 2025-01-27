@@ -43,6 +43,7 @@ def get_weather_mock(**kwargs):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_weather", new_callable=AsyncMock)
 async def test_1(mock_get_weather, mock_get_cache_data):
@@ -83,12 +84,13 @@ async def test_1(mock_get_weather, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_weather", new_callable=AsyncMock)
 async def test_2(mock_get_weather, mock_get_cache_data):
     """
     є дані в memcache
-    зберігання перших даних
+    зберігання наступних даних
     """
 
     mock_mc = AsyncMock(spec=Client)

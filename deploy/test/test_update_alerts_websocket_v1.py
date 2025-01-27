@@ -43,6 +43,7 @@ districts = {
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -84,6 +85,7 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -125,6 +127,7 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -172,6 +175,7 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -213,6 +217,7 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -254,6 +259,7 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
@@ -300,6 +306,7 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 @pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
 @patch("updater.updater.get_regions", new_callable=AsyncMock)
 @patch("updater.updater.get_alerts", new_callable=AsyncMock)
