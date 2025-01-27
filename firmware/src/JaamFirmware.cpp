@@ -2053,7 +2053,7 @@ void handleModes(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
-  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT, [](int i) -> int {return i + 1;});
+  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT);
   }
   addSelectBox(response, "map_mode", "Режим мапи", settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT);
   addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);

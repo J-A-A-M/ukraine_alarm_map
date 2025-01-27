@@ -255,10 +255,10 @@ static SettingListItem AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
 
 #define KYIV_LED_MODE_COUNT 4
 static SettingListItem KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
-  {0, "Київська область", false},
-  {1, "Київ", false},
-  {2, "Київська область + Київ (2 діода)", false},
-  {3, "Київська область + Київ (1 діод)", false}
+  {1, "Київська область", false},
+  {2, "Київ", false},
+  {3, "Київська область + Київ (2 діода)", false},
+  {4, "Київська область + Київ (1 діод)", false}
 };
 
 #define ALERT_NOTIFY_OPTIONS_COUNT 3
