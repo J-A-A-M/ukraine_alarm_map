@@ -547,3 +547,10 @@ static std::pair<int, int*> mapOdessaStart4(int key) {
     default: return std::make_pair(0, new int[0]{});
   }
 }
+
+static bool isInArray(int value, int* array, int arraySize) {
+  for (int i = 0; i < arraySize; i++) {
+    if (array[i] == value) return true;
+  }
+  return false;
+}
