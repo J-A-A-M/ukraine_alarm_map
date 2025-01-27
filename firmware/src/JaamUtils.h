@@ -8,72 +8,6 @@ struct Firmware {
   bool isBeta = false;
 };
 
-static int alphabetDistrictToNum(int alphabet) {
-  switch (alphabet) {
-    case 0: return 15;
-    case 1: return 22;
-    case 2: return 4;
-    case 3: return 18;
-    case 4: return 12;
-    case 5: return 6;
-    case 6: return 0;
-    case 7: return 13;
-    case 8: return 1;
-    case 9: return 7;
-    case 10: return 25;
-    case 11: return 21;
-    case 12: return 11;
-    case 13: return 3;
-    case 14: return 17;
-    case 15: return 16;
-    case 16: return 19;
-    case 17: return 5;
-    case 18: return 9;
-    case 19: return 2;
-    case 20: return 10;
-    case 21: return 14;
-    case 22: return 23;
-    case 23: return 20;
-    case 24: return 24;
-    case 25: return 8;
-      // return Київ by default
-    default: return 25;
-  }
-}
-
-static int numDistrictToAlphabet(int num) {
-  switch (num) {
-    case 0: return 6;
-    case 1: return 8;
-    case 2: return 19;
-    case 3: return 13;
-    case 4: return 2;
-    case 5: return 17;
-    case 6: return 5;
-    case 7: return 9;
-    case 8: return 25;
-    case 9: return 18;
-    case 10: return 20;
-    case 11: return 12;
-    case 12: return 4;
-    case 13: return 7;
-    case 14: return 21;
-    case 15: return 0;
-    case 16: return 15;
-    case 17: return 14;
-    case 18: return 3;
-    case 19: return 16;
-    case 20: return 23;
-    case 21: return 11;
-    case 22: return 1;
-    case 23: return 22;
-    case 24: return 24;
-    case 25: return 10;
-      // return Київ by default
-    default: return 10;
-  }
-}
-
 static Firmware parseFirmwareVersion(const char* version) {
 
   Firmware firmware;
@@ -141,36 +75,11 @@ static bool firstIsNewer(Firmware first, Firmware second) {
 }
 #endif
 
-static bool isInArray(int value, int* array, int arraySize) {
+static bool isInIgnoreList(int value, SettingListItem array[], int arraySize) {
   for (int i = 0; i < arraySize; i++) {
-    if (array[i] == value) return true;
+    if (array[i].ignore && array[i].id == value) return true;
   }
   return false;
-}
-
-static int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = settingsDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode == 9) return lastModeIndex;
-  // default
-  return 0;
-}
-
-static int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = localDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode >= lastModeIndex) return 9;
-  // default
-  return 0;
 }
 
 static const char* disableRange(bool isDisabled) {
@@ -356,5 +265,18 @@ static void fillUptime(int uptimeValue, char* uptimeChar) {
     sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
   } else {
     sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
+  }
+}
+
+static void getHaOptions(char* result, const char* options[], int optionsSize) {
+  strcpy(result, "");
+  int haIndex = 0;
+  for (int i = 0; i < optionsSize; i++) {
+    const char* option = options[i];
+    if (i > 0) {
+      strcat(result, ";");
+    }
+    strcat(result, option);
+    haIndex++;
   }
 }

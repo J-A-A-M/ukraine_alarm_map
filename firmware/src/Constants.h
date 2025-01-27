@@ -9,6 +9,12 @@ TelnetSpy SerialAndTelnet;
 #define LOG Serial
 #endif
 
+struct SettingListItem {
+  int id;
+  const char* name;
+  bool ignore;
+};
+
 #if BUZZER_ENABLED
 static const char UA_ANTHEM[]            PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 static const char OI_U_LUZI[]            PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a4,2d.,4e,2f,2e,2d.";
@@ -66,30 +72,30 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   HELLDIVERS
 };
 
-static const char* MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
-  "Гімн України",
-  "Ой у лузі",
-  "Козацький марш",
-  "Гаррі Поттер",
-  "Сирена",
-  "Комунікатор",
-  "Зоряні війни",
-  "Імперський марш",
-  "Зоряний шлях",
-  "Індіана Джонс",
-  "Назад у майбутнє",
-  "Kiss - I Was Made",
-  "Русалонька",
-  "Nokia tune",
-  "Пакмен",
-  "Щедрик",
-  "Люди Х",
-  "Месники",
-  "Сирена 2",
-  "Squid Game",
-  "Батько наш Бандера",
-  "ПТН ХЙЛ",
-  "Helldivers 2 - A cup of Liber-Tea"
+static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
+  {0, "Гімн України", false},
+  {20, "Батько наш Бандера", false},
+  {15, "Щедрик", false},
+  {1, "Ой у лузі", false},
+  {2, "Козацький марш", false},
+  {4, "Сирена", false},
+  {18, "Сирена 2", false},
+  {5, "Комунікатор", false},
+  {3, "Гаррі Поттер", false},
+  {6, "Зоряні війни", false},
+  {7, "Імперський марш", false},
+  {8, "Зоряний шлях", false},
+  {9, "Індіана Джонс", false},
+  {10, "Назад у майбутнє", false},
+  {11, "Kiss - I Was Made", false},
+  {12, "Русалонька", false},
+  {13, "Nokia tune", false},
+  {14, "Пакмен", false},
+  {16, "Люди Х", false},
+  {17, "Месники", false},
+  {19, "Squid Game", false},
+  {21, "ПТН ХЙЛ", false},
+  {22, "Helldivers 2 - A cup of Liber-Tea", false}
 };
 #endif
 
@@ -138,62 +144,33 @@ static const uint8_t COUNTERS[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 
 
 #define DISTRICTS_COUNT 26
 
-static const char* DISTRICTS[DISTRICTS_COUNT] = {
-  "Закарпатська обл.",
-  "Ів.-Франківська обл.",
-  "Тернопільська обл.",
-  "Львівська обл.",
-  "Волинська обл.",
-  "Рівненська обл.",
-  "Житомирська обл.",
-  "Київська обл.",
-  "Чернігівська обл.",
-  "Сумська обл.",
-  "Харківська обл.",
-  "Луганська обл.",
-  "Донецька обл.",
-  "Запорізька обл.",
-  "Херсонська обл.",
-  "АР Крим",
-  "Одеська обл.",
-  "Миколаївська обл.",
-  "Дніпропетровська обл.",
-  "Полтавська обл.",
-  "Черкаська обл.",
-  "Кіровоградська обл.",
-  "Вінницька обл.",
-  "Хмельницька обл.",
-  "Чернівецька обл.",
-  "Київ"
-};
-
-static const char* DISTRICTS_ALPHABETICAL[DISTRICTS_COUNT] = {
-  "АР Крим",
-  "Вінницька область",
-  "Волинська область",
-  "Дніпропетровська область",
-  "Донецька область",
-  "Житомирська область",
-  "Закарпатська область",
-  "Запорізька область",
-  "Івано-Франківська область",
-  "Київська область",
-  "Київ",
-  "Кіровоградська область",
-  "Луганська область",
-  "Львівська область",
-  "Миколаївська область",
-  "Одеська область",
-  "Полтавська область",
-  "Рівненська область",
-  "Сумська область",
-  "Тернопільська область",
-  "Харківська область",
-  "Херсонська область",
-  "Хмельницька область",
-  "Черкаська область",
-  "Чернівецька область",
-  "Чернігівська область"
+static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
+  {15, "АР Крим", false},
+  {22, "Вінницька обл.", false},
+  {4, "Волинська обл.", false},
+  {18, "Дніпропетровська обл.", false},
+  {12, "Донецька обл.", false},
+  {6, "Житомирська обл.", false},
+  {0, "Закарпатська обл.", false},
+  {13, "Запорізька обл.", false},
+  {1, "Ів.-Франківська обл.", false},
+  {7, "Київська обл.", false},
+  {25, "Київ", false},
+  {21, "Кіровоградська обл.", false},
+  {11, "Луганська обл.", false},
+  {3, "Львівська обл.", false},
+  {17, "Миколаївська обл.", false},
+  {16, "Одеська обл.", false},
+  {19, "Полтавська обл.", false},
+  {5, "Рівненська обл.", false},
+  {9, "Сумська обл.", false},
+  {2, "Тернопільська обл.", false},
+  {10, "Харківська обл.", false},
+  {14, "Херсонська обл.", false},
+  {23, "Хмельницька обл.", false},
+  {20, "Черкаська обл.", false},
+  {24, "Чернівецька обл.", false},
+  {8, "Чернігівська обл.", false},
 };
 
 static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
@@ -203,114 +180,114 @@ static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
 };
 
 #define MAP_MODES_COUNT 6
-static const char* MAP_MODES[MAP_MODES_COUNT] = {
-  "Вимкнено",
-  "Тривога",
-  "Погода",
-  "Прапор",
-  "Випадкові кольори",
-  "Лампа"
+static SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Тривога", false},
+  {2, "Погода", false},
+  {3, "Прапор", false},
+  {4, "Випадкові кольори", false},
+  {5, "Лампа", false},
 };
 
 #define DISPLAY_MODE_OPTIONS_MAX 6
-static const char* DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Годинник",
-  "Погода",
-  "Технічна інформація",
-  "Мікроклімат",
-  "Перемикання"
+static SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
+  {0, "Вимкнено", false},
+  {1, "Годинник", false},
+  {2, "Погода", false},
+  {3, "Технічна інформація", false},
+  {4, "Мікроклімат", false},
+  {9, "Перемикання", false},
 };
 
 #define AUTO_ALARM_MODES_COUNT 3
-static const char* AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
-  "Вимкнено",
-  "Домашній та суміжні",
-  "Лише домашній"
+static SettingListItem AUTO_ALARM_MODES[AUTO_ALARM_MODES_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Домашній та суміжні", false},
+  {2, "Лише домашній", false},
 };
 
 #define SINGLE_CLICK_OPTIONS_MAX 8
-static const char* SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Перемикання режимів мапи",
-  "Перемикання режимів дисплея",
-  "Увімк./Вимк. мапу",
-  "Увімк./Вимк. дисплей",
-  "Увімк./Вимк. мапу та дисплей",
-  "Увімк./Вимк. нічний режим",
-  "Увімк./Вимк. режим лампи"
+static SettingListItem SINGLE_CLICK_OPTIONS[SINGLE_CLICK_OPTIONS_MAX] = {
+  {0, "Вимкнено", false},
+  {1, "Перемикання режимів мапи", false},
+  {2, "Перемикання режимів дисплея", false},
+  {3, "Увімк./Вимк. мапу", false},
+  {4, "Увімк./Вимк. дисплей", false},
+  {5, "Увімк./Вимк. мапу та дисплей", false},
+  {6, "Увімк./Вимк. нічний режим", false},
+  {7, "Увімк./Вимк. режим лампи", false},
 };
 
 #define LONG_CLICK_OPTIONS_MAX 10
-static const char* LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
-  "Вимкнено",
-  "Перемикання режимів мапи",
-  "Перемикання режимів дисплея",
-  "Увімк./Вимк. мапу",
-  "Увімк./Вимк. дисплей",
-  "Увімк./Вимк. мапу та дисплей",
-  "Увімк./Вимк. нічний режим",
-  "Перезавантаження пристрою",
-  "Збільшити яскравість лампи",
-  "Зменшити яскравість лампи"
+static SettingListItem LONG_CLICK_OPTIONS[LONG_CLICK_OPTIONS_MAX] = {
+  {0, "Вимкнено", false},
+  {1, "Перемикання режимів мапи", false},
+  {2, "Перемикання режимів дисплея", false},
+  {3, "Увімк./Вимк. мапу", false},
+  {4, "Увімк./Вимк. дисплей", false},
+  {5, "Увімк./Вимк. мапу та дисплей", false},
+  {6, "Увімк./Вимк. нічний режим", false},
+  {8, "Збільшити яскравість лампи", false},
+  {9, "Зменшити яскравість лампи", false},
+  {7, "Перезавантаження пристрою", false},
 };
 
 #define ALERT_PIN_MODES_COUNT 2
-static const char* ALERT_PIN_MODES_OPTIONS[ALERT_PIN_MODES_COUNT] = {
-  "Бістабільний",
-  "Імпульсний"
+static SettingListItem ALERT_PIN_MODES_OPTIONS[ALERT_PIN_MODES_COUNT] = {
+  {0, "Бістабільний", false},
+  {1, "Імпульсний", false}
 };
 
 #if FW_UPDATE_ENABLED
 #define FW_UPDATE_CHANNELS_COUNT 2
-static const char* FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
-  "Production",
-  "Beta"
+static SettingListItem FW_UPDATE_CHANNELS[FW_UPDATE_CHANNELS_COUNT] = {
+  {0, "Production", false},
+  {1, "Beta", false}
 };
 #endif
 
 #define AUTO_BRIGHTNESS_OPTIONS_COUNT 3
-static const char* AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "День/Ніч",
-  "Сенсор освітлення"
+static SettingListItem AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "День/Ніч", false},
+  {2, "Сенсор освітлення", false}
 };
 
 #define KYIV_LED_MODE_COUNT 4
-static const char* KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
-  "Київська область",
-  "Київ",
-  "Київська область + Київ (2 діода)",
-  "Київська область + Київ (1 діод)"
+static SettingListItem KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
+  {0, "Київська область", false},
+  {1, "Київ", false},
+  {2, "Київська область + Київ (2 діода)", false},
+  {3, "Київська область + Київ (1 діод)", false}
 };
 
 #define ALERT_NOTIFY_OPTIONS_COUNT 3
-static const char* ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
-  "Вимкнено",
-  "Колір",
-  "Колір + зміна яскравості"
+static SettingListItem ALERT_NOTIFY_OPTIONS[ALERT_NOTIFY_OPTIONS_COUNT] = {
+  {0, "Вимкнено", false},
+  {1, "Колір", false},
+  {2, "Колір + зміна яскравості", false}
 };
 
 #define DISPLAY_MODEL_OPTIONS_COUNT 4
-static const char* DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
-  "Без дисплея",
-  "SSD1306",
-  "SH1106G",
-  "SH1107"
+static SettingListItem DISPLAY_MODEL_OPTIONS[DISPLAY_MODEL_OPTIONS_COUNT] = {
+  {0, "Без дисплея", false},
+  {1, "SSD1306", false},
+  {2, "SH1106G", false},
+  {3, "SH1107", false}
 };
 
 #define DISPLAY_HEIGHT_OPTIONS_COUNT 2
-static const char* DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
-  "128x32",
-  "128x64"
+static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
+  {32, "128x32", false},
+  {64, "128x64", false}
 };
 
 #define LEGACY_OPTIONS_COUNT 4
-static const char* LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
-  "Плата JAAM 1.3",
-  "Початок на Закарпатті",
-  "Початок на Одещині",
-  "Плата JAAM 2.x",
+static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+  {0, "Плата JAAM 1.3", false},
+  {1, "Початок на Закарпатті", false},
+  {2, "Початок на Одещині", false},
+  {3, "Плата JAAM 2.x", false}
 };
 
 static const size_t MAX_JSON_SIZE = 6000; // 6KB

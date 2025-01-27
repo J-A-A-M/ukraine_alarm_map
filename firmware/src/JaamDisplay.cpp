@@ -202,6 +202,8 @@ size_t JaamDisplay::print(const char *str) {
     default:
         return 0;
     }
+#else
+    return 0;
 #endif
 }
 
@@ -217,6 +219,8 @@ size_t JaamDisplay::println(const char *str) {
     default:
         return 0;
     }
+#else
+    return 0;
 #endif
 }
 
