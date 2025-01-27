@@ -318,7 +318,6 @@ static std::pair<int, int*> mapTranscarpatiaStart2(int key) {
     case 5: return std::make_pair(1, new int[1]{4});
     case 6: return std::make_pair(1, new int[1]{5});
     case 7: return std::make_pair(1, new int[1]{6});
-    case 26: return std::make_pair(1, new int[1]{7});
     case 9: return std::make_pair(1, new int[1]{8});
     case 10: return std::make_pair(1, new int[1]{9});
     case 11: return std::make_pair(1, new int[1]{10});
@@ -336,6 +335,7 @@ static std::pair<int, int*> mapTranscarpatiaStart2(int key) {
     case 23: return std::make_pair(1, new int[1]{22});
     case 24: return std::make_pair(1, new int[1]{23});
     case 25: return std::make_pair(1, new int[1]{24});
+    case 26: return std::make_pair(1, new int[1]{7});
     default: return std::make_pair(0, new int[0]{});
   }
 }
@@ -349,7 +349,6 @@ static std::pair<int, int*> mapOdessaStart2(int key) {
     case 5: return std::make_pair(1, new int[1]{13});
     case 6: return std::make_pair(1, new int[1]{14});
     case 7: return std::make_pair(1, new int[1]{15});
-    case 26: return std::make_pair(1, new int[1]{16});
     case 9: return std::make_pair(1, new int[1]{17});
     case 10: return std::make_pair(1, new int[1]{18});
     case 11: return std::make_pair(1, new int[1]{19});
@@ -367,6 +366,7 @@ static std::pair<int, int*> mapOdessaStart2(int key) {
     case 23: return std::make_pair(1, new int[1]{6});
     case 24: return std::make_pair(1, new int[1]{7});
     case 25: return std::make_pair(1, new int[1]{8});
+    case 26: return std::make_pair(1, new int[1]{16});
     default: return std::make_pair(0, new int[0]{});
   }
 }
@@ -381,7 +381,6 @@ static std::pair<int, int*> mapTranscarpatiaStart3(int key) {
     case 6: return std::make_pair(1, new int[1]{5});
     case 7: return std::make_pair(1, new int[1]{6});
     case 8: return std::make_pair(1, new int[1]{7});
-    case 26: return std::make_pair(1, new int[1]{8});
     case 9: return std::make_pair(1, new int[1]{9});
     case 10: return std::make_pair(1, new int[1]{10});
     case 11: return std::make_pair(1, new int[1]{11});
@@ -399,6 +398,7 @@ static std::pair<int, int*> mapTranscarpatiaStart3(int key) {
     case 23: return std::make_pair(1, new int[1]{23});
     case 24: return std::make_pair(1, new int[1]{24});
     case 25: return std::make_pair(1, new int[1]{25});
+    case 26: return std::make_pair(1, new int[1]{8});
     default: return std::make_pair(0, new int[0]{});
   }
 }
@@ -413,7 +413,6 @@ static std::pair<int, int*> mapOdessaStart3(int key) {
     case 6: return std::make_pair(1, new int[1]{14});
     case 7: return std::make_pair(1, new int[1]{15});
     case 8: return std::make_pair(1, new int[1]{16});
-    case 26: return std::make_pair(1, new int[1]{17});
     case 9: return std::make_pair(1, new int[1]{18});
     case 10: return std::make_pair(1, new int[1]{19});
     case 11: return std::make_pair(1, new int[1]{20});
@@ -431,6 +430,7 @@ static std::pair<int, int*> mapOdessaStart3(int key) {
     case 23: return std::make_pair(1, new int[1]{6});
     case 24: return std::make_pair(1, new int[1]{7});
     case 25: return std::make_pair(1, new int[1]{8});
+    case 26: return std::make_pair(1, new int[1]{17});
     default: return std::make_pair(0, new int[0]{});
   }
 }
@@ -445,7 +445,6 @@ static std::pair<int, int*> mapTranscarpatiaStart4(int key) {
     case 6: return std::make_pair(1, new int[1]{5});
     case 7: return std::make_pair(1, new int[1]{6});
     case 8: return std::make_pair(1, new int[1]{7});
-    case 26: return std::make_pair(1, new int[1]{7});
     case 9: return std::make_pair(1, new int[1]{8});
     case 10: return std::make_pair(1, new int[1]{9});
     case 11: return std::make_pair(1, new int[1]{10});
@@ -463,6 +462,7 @@ static std::pair<int, int*> mapTranscarpatiaStart4(int key) {
     case 23: return std::make_pair(1, new int[1]{22});
     case 24: return std::make_pair(1, new int[1]{23});
     case 25: return std::make_pair(1, new int[1]{24});
+    case 26: return std::make_pair(1, new int[1]{7});
     default: return std::make_pair(0, new int[0]{});
   }
 }
@@ -477,7 +477,6 @@ static std::pair<int, int*> mapOdessaStart4(int key) {
     case 6: return std::make_pair(1, new int[1]{14});
     case 7: return std::make_pair(1, new int[1]{15});
     case 8: return std::make_pair(1, new int[1]{16});
-    case 26: return std::make_pair(1, new int[1]{16});
     case 9: return std::make_pair(1, new int[1]{17});
     case 10: return std::make_pair(1, new int[1]{18});
     case 11: return std::make_pair(1, new int[1]{19});
@@ -495,6 +494,7 @@ static std::pair<int, int*> mapOdessaStart4(int key) {
     case 23: return std::make_pair(1, new int[1]{6});
     case 24: return std::make_pair(1, new int[1]{7});
     case 25: return std::make_pair(1, new int[1]{8});
+    case 26: return std::make_pair(1, new int[1]{16});
     default: return std::make_pair(0, new int[0]{});
   }
 }
