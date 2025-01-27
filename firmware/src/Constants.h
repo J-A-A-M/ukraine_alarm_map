@@ -1,5 +1,6 @@
 #include "Definitions.h"
 #include <Arduino.h>
+#include <map>
 #if TELNET_ENABLED
 #include <TelnetSpy.h>
 
@@ -8,6 +9,9 @@ TelnetSpy SerialAndTelnet;
 #else
 #define LOG Serial
 #endif
+
+#define MAIN_LEDS_COUNT 26
+#define DISTRICTS_COUNT 26
 
 struct SettingListItem {
   int id;
@@ -107,10 +111,33 @@ static const int ALERT = 1;
 #define BR_LEVELS_COUNT 20
 #define MAX_BINS_LIST_SIZE 10
 
-static const uint8_t LEGACY_FLAG_LEDS[26] PROGMEM = {
-  60, 60, 60, 180, 180, 180, 180, 180, 180,
-  180, 180, 180, 60, 60, 60, 60, 60, 60, 60,
-  180, 180, 60, 60, 60, 60, 180
+static const std::map<int, uint8_t> FLAG_COLORS = {
+  {1, 60},
+  {2, 60},
+  {3, 60},
+  {4, 180},
+  {5, 180},
+  {6, 180},
+  {7, 180},
+  {8, 180},
+  {9, 180},
+  {10, 180},
+  {11, 180},
+  {12, 180},
+  {13, 60},
+  {14, 60},
+  {15, 60},
+  {16, 60},
+  {17, 60},
+  {18, 60},
+  {19, 60},
+  {20, 180},
+  {21, 180},
+  {22, 60},
+  {23, 60},
+  {24, 60},
+  {25, 60},
+  {26, 180},
 };
 
 static const uint8_t D0[] PROGMEM = { 0, 1, 3 };
@@ -141,8 +168,6 @@ static const uint8_t D24[] PROGMEM = { 24, 1, 2, 22, 23 };
 static const uint8_t D25[] PROGMEM = { 25, 7 };
 
 static const uint8_t COUNTERS[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
-
-#define DISTRICTS_COUNT 26
 
 static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
   {15, "АР Крим", false},

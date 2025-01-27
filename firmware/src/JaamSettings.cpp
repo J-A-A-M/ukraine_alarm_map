@@ -32,7 +32,6 @@ std::map<Type, SettingItemInt> intSettings = {
     {UPDATE_SERVER_PORT, {"upp", 80}},
     {LEGACY, {"legacy", 1}},
     {MAIN_LED_PIN, {"pp", 13}},
-    {MAIN_LED_COUNT, {"mlc", 26}},
     {BG_LED_PIN, {"bpp", -1}},
     {BG_LED_COUNT, {"bpc", 0}},
     {SERVICE_LED_PIN, {"slp", -1}},
