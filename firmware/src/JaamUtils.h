@@ -442,6 +442,9 @@ static std::pair<int, int*> mapOdessaStart3(int key) {
 }
 
 static bool isInArray(int value, int* array, int arraySize) {
+  if (!array || arraySize <= 0) {
+    return false;
+  }
   for (int i = 0; i < arraySize; i++) {
     if (array[i] == value) return true;
   }
