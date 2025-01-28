@@ -1167,8 +1167,10 @@ void remapFlag() {
 }
 
 std::pair<uint8_t, long> alertsCombiModeHandler(std::pair<uint8_t, long> kyiv, std::pair<uint8_t, long> kyivObl) {
-  // if state of Kyiv and Kyiv Oblast is the same, return nearest by time
-  if (kyiv.first == kyivObl.first) return kyiv.second >= kyivObl.second ? kyiv : kyivObl;
+  // if state of Kyiv and Kyiv Oblast are 'alert', return oldest by time
+  if (kyiv.first == 1 && kyivObl.first == 1) return kyiv.second <= kyivObl.second ? kyiv : kyivObl;
+  // if states of Kyiv and Kyiv Oblast are 'clear', return nearest by time
+  if (kyiv.first == 0 && kyivObl.first == 0) return kyiv.second >= kyivObl.second ? kyiv : kyivObl;
   // if one of the states is 0, return another
   return kyiv.first == 0 ? kyivObl : kyiv;
 }
@@ -1683,7 +1685,7 @@ void initLedMapping() {
   if (settings.getInt(LEGACY) == 1) {
     switch (settings.getInt(KYIV_DISTRICT_MODE)) {
     case 1:
-      ledMapping = mapTranscarpatiaStart1And4;
+      ledMapping = mapTranscarpatiaStart1;
       LOG.println("Transcarpatia district mode 1");
       break;
     case 2:
@@ -1695,7 +1697,7 @@ void initLedMapping() {
       LOG.println("Transcarpatia district mode 3");
       break;
     case 4:
-      ledMapping = mapTranscarpatiaStart1And4;
+      ledMapping = mapTranscarpatiaStart4;
       LOG.println("Transcarpatia district mode 4");
       break;
     default:
@@ -1705,7 +1707,7 @@ void initLedMapping() {
   } else {
     switch (settings.getInt(KYIV_DISTRICT_MODE)) {
     case 1:
-      ledMapping = mapOdessaStart1And4;
+      ledMapping = mapOdessaStart1;
       LOG.println("Odessa district mode 1");
       break;
     case 2:
@@ -1717,7 +1719,7 @@ void initLedMapping() {
       LOG.println("Odessa district mode 3");
       break;
     case 4:
-      ledMapping = mapOdessaStart1And4;
+      ledMapping = mapOdessaStart4;
       LOG.println("Odessa district mode 4");
       break;
     default:
