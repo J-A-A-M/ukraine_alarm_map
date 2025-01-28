@@ -11,7 +11,6 @@ enum Type {
     NTP_HOST,
     LEGACY,
     MAIN_LED_PIN,
-    MAIN_LED_COUNT,
     BG_LED_PIN,
     BG_LED_COUNT,
     SERVICE_LED_PIN,

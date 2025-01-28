@@ -85,18 +85,27 @@ struct ServiceMessage {
 
 ServiceMessage serviceMessage;
 
-CRGB strip[26];
+CRGB strip[MAIN_LEDS_COUNT];
 CRGB bg_strip[100];
 CRGB service_strip[5];
 int service_strip_update_index = 0;
 
-uint8_t   alarm_leds[26];
-long      alarm_time[26];
-float     weather_leds[26];
-long      explosions_time[26];
-long      missiles_time[26];
-long      drones_time[26];
-uint8_t   flag_leds[26];
+std::map<int, std::pair<uint8_t, long>>   id_to_alerts; //regionId to alert state and time
+std::map<int, std::pair<uint8_t, long>>   led_to_alerts; // ledPosition to alert state and time
+std::map<int, float>                      id_to_weather; //regionId to temperature
+std::map<int, float>                      led_to_weather; // ledPosition to temperature
+std::map<int, long>                       id_to_explosions; //regionId to explosion time
+std::map<int, long>                       led_to_explosions; // ledPosition to explosion time
+std::map<int, long>                       id_to_missiles; //regionId to missiles time
+std::map<int, long>                       led_to_missiles; // ledPosition to missils time
+std::map<int, long>                       id_to_drones; //regionId to missiles time
+std::map<int, long>                       led_to_drones; // ledPosition to missils time
+std::map<int, uint8_t>                    led_to_flag_color; // ledPosition to flag color
+
+std::pair<int, int*>                      homeDistrictMapping; // id to ledPosition home district mapping
+
+
+std::pair<int, int*> (*ledMapping)(int key);
 
 bool      isFirstDataFetchCompleted = false;
 
@@ -108,7 +117,6 @@ bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
 bool    isDaylightSaving = false;
 time_t  websocketLastPingTime = 0;
-int     offset = 9;
 bool    initUpdate = false;
 #if FW_UPDATE_ENABLED
 bool    fwUpdateAvailable = false;
@@ -557,10 +565,9 @@ void showOtaUpdateErrorMessage(ota_error_t error) {
 
 void mapUpdate(float percents) {
   int currentBrightness = settings.getInt(CURRENT_BRIGHTNESS);
-  int pixelsCount = settings.getInt(MAIN_LED_COUNT);
   CRGB hue = fromHue(86, currentBrightness);
-  int ledsCount = round(pixelsCount * percents);
-  for (uint16_t i = 0; i < pixelsCount; i++) {
+  int ledsCount = round(MAIN_LEDS_COUNT * percents);
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     if (i < ledsCount) {
       strip[i] = hue;
     } else {
@@ -654,14 +661,15 @@ int getCurrentMapMode() {
   switch (settings.getInt(ALARMS_AUTO_SWITCH)) {
     case 1:
       for (int j = 0; j < COUNTERS[position]; j++) {
-        int alarm_led_id = calculateOffset(NEIGHBORING_DISTRICS[position][j], offset);
-        if (alarm_leds[alarm_led_id] != 0) {
+        int alarm_led_id = NEIGHBORING_DISTRICS[position][j] + 1;
+        if (id_to_alerts[alarm_led_id].first != 0) {
           currentMapMode = 1;
+          break;
         }
       }
       break;
     case 2:
-      if (alarm_leds[calculateOffset(position, offset)] != 0) {
+      if (id_to_alerts[position + 1].first != 0) {
         currentMapMode = 1;
       }
   }
@@ -1154,6 +1162,58 @@ void distributeBrightnessLevels() {
   distributeBrightnessLevelsFor(settings.getInt(BRIGHTNESS_DAY), settings.getInt(BRIGHTNESS_NIGHT), ledsBrightnessLevels, "Leds");
 }
 
+void remapFlag() {
+  led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS);
+}
+
+std::pair<uint8_t, long> alertsCombiModeHandler(std::pair<uint8_t, long> kyiv, std::pair<uint8_t, long> kyivObl) {
+  // if state of Kyiv and Kyiv Oblast are 'alert', return oldest by time
+  if (kyiv.first == 1 && kyivObl.first == 1) return kyiv.second <= kyivObl.second ? kyiv : kyivObl;
+  // if states of Kyiv and Kyiv Oblast are 'clear', return nearest by time
+  if (kyiv.first == 0 && kyivObl.first == 0) return kyiv.second >= kyivObl.second ? kyiv : kyivObl;
+  // if one of the states is 0, return another
+  return kyiv.first == 0 ? kyivObl : kyiv;
+}
+
+void remapAlerts() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
+}
+
+float weatherCombiModeHandler(float kyiv, float kyivObl) {
+  // return avaerage value of Kyiv and Kyiv Oblast
+  return (kyiv + kyivObl) / 2.0f;
+}
+
+void remapWeather() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? weatherCombiModeHandler : NULL;
+  led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
+}
+
+long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
+  // return nearest by time
+  return max(kyiv, kyivObl);
+}
+
+void remapExplosions() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_explosions = mapLeds(ledMapping, id_to_explosions, combiHandler);
+}
+
+void remapMissiles() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
+}
+
+void remapDrones() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+}
+
+void remapHomeDistrict() {
+  homeDistrictMapping = ledMapping(settings.getInt(HOME_DISTRICT) + 1);
+}
+
 bool saveBrightness(int newBrightness) {
   if (settings.getInt(BRIGHTNESS) == newBrightness) return false;
   settings.saveInt(BRIGHTNESS, newBrightness);
@@ -1240,6 +1300,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
+  remapHomeDistrict();
   return true;
 }
 
@@ -1279,8 +1340,8 @@ void showHomeAlertInfo() {
     strcpy(title, "Тривога триває:");
   }
   char message[15];
-  int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
-  fillFromTimer(message, timeClient.unixGMT() - alarm_time[position]);
+  int regionId = settings.getInt(HOME_DISTRICT) + 1;
+  fillFromTimer(message, timeClient.unixGMT() - id_to_alerts[regionId].second);
 
   displayMessage(message, title);
 }
@@ -1298,9 +1359,9 @@ void showClock() {
 }
 
 void showTemp() {
-  int position = calculateOffset(settings.getInt(HOME_DISTRICT), offset);
+  int regionId = settings.getInt(HOME_DISTRICT) + 1;
   char message[10];
-  sprintf(message, "%.1f%cC", weather_leds[position], (char)128);
+  sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
   displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
 }
 
@@ -1618,6 +1679,61 @@ void disableClearPin() {
 void disableAlertAndClearPins() {
   disableAlertPin();
   disableClearPin();
+}
+
+void initLedMapping() {
+  if (settings.getInt(LEGACY) == 1) {
+    switch (settings.getInt(KYIV_DISTRICT_MODE)) {
+    case 1:
+      ledMapping = mapTranscarpatiaStart1;
+      LOG.println("Transcarpatia district mode 1");
+      break;
+    case 2:
+      ledMapping = mapTranscarpatiaStart2;
+      LOG.println("Transcarpatia district mode 2");
+      break;
+    case 3:
+      ledMapping = mapTranscarpatiaStart3;
+      LOG.println("Transcarpatia district mode 3");
+      break;
+    case 4:
+      ledMapping = mapTranscarpatiaStart4;
+      LOG.println("Transcarpatia district mode 4");
+      break;
+    default:
+      LOG.printf("Unknown Kyiv district mode: %d\n", settings.getInt(KYIV_DISTRICT_MODE));
+      throw std::runtime_error("Unknown Kyiv district mode");
+    }
+  } else {
+    switch (settings.getInt(KYIV_DISTRICT_MODE)) {
+    case 1:
+      ledMapping = mapOdessaStart1;
+      LOG.println("Odessa district mode 1");
+      break;
+    case 2:
+      ledMapping = mapOdessaStart2;
+      LOG.println("Odessa district mode 2");
+      break;
+    case 3:
+      ledMapping = mapOdessaStart3;
+      LOG.println("Odessa district mode 3");
+      break;
+    case 4:
+      ledMapping = mapOdessaStart4;
+      LOG.println("Odessa district mode 4");
+      break;
+    default:
+      LOG.printf("Unknown Kyiv district mode: %d\n", settings.getInt(KYIV_DISTRICT_MODE));
+      throw std::runtime_error("Unknown Kyiv district mode");
+    }
+  }
+  remapFlag();
+  remapAlerts();
+  remapWeather();
+  remapExplosions();
+  remapMissiles();
+  remapDrones();
+  remapHomeDistrict();
 }
 
 //--Web server start
@@ -2181,7 +2297,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)], "°C");
+  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) + 1], "°C");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2513,7 +2629,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("button2_mode", true), BUTTON_2_MODE) || saved;
   saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
   saved = saveInt(request->getParam("button2_mode_long", true), BUTTON_2_MODE_LONG) || saved;
-  saved = saveInt(request->getParam("kyiv_district_mode", true), KYIV_DISTRICT_MODE) || saved;
+  saved = saveInt(request->getParam("kyiv_district_mode", true), KYIV_DISTRICT_MODE, NULL, initLedMapping) || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", HOME_ALERT_TIME, saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), ALARMS_NOTIFY_MODE) || saved;
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
@@ -2795,8 +2911,8 @@ void alertPinCycle() {
 }
 
 void checkHomeDistrictAlerts() {
-  int ledStatus = alarm_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
-  int localHomeExplosions = explosions_time[calculateOffset(settings.getInt(HOME_DISTRICT), offset)];
+  int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT) + 1].first;
+  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT) + 1];
   bool localAlarmNow = ledStatus == 1;
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
@@ -2834,32 +2950,36 @@ void onMessageCallback(WebsocketsMessage message) {
       LOG.println("Heartbeat from server");
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
-      for (int i = 0; i < 26; ++i) {
-        alarm_leds[calculateOffset(i, offset)] = data["alerts"][i][0];
-        alarm_time[calculateOffset(i, offset)] = data["alerts"][i][1];
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_alerts[i + 1] = std::make_pair((uint8_t) data["alerts"][i][0], (long) data["alerts"][i][1]);
       }
       LOG.println("Successfully parsed alerts data");
+      remapAlerts();
     } else if (payload == "weather") {
-      for (int i = 0; i < 26; ++i) {
-        weather_leds[calculateOffset(i, offset)] = data["weather"][i];
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_weather[i + 1] = data["weather"][i];
       }
       LOG.println("Successfully parsed weather data");
-      ha.setHomeTemperature(weather_leds[calculateOffset(settings.getInt(HOME_DISTRICT), offset)]);
+      remapWeather();
+      ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]);
     } else if (payload == "explosions") {
-      for (int i = 0; i < 26; ++i) {
-        explosions_time[calculateOffset(i, offset)] = data["explosions"][i];
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_explosions[i + 1] = data["explosions"][i];
       }
       LOG.println("Successfully parsed explosions data");
+      remapExplosions();
     } else if (payload == "missiles") {
-      for (int i = 0; i < 26; ++i) {
-        missiles_time[calculateOffset(i, offset)] = data["missiles"][i];
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_missiles[i + 1] = data["missiles"][i];
       }
       LOG.println("Successfully parsed missiles data");
+      remapMissiles();
     } else if (payload == "drones") {
-      for (int i = 0; i < 26; ++i) {
-        drones_time[calculateOffset(i, offset)] = data["drones"][i];
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_drones[i + 1] = data["drones"][i];
       }
       LOG.println("Successfully parsed drones data");
+      remapDrones();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -2968,7 +3088,8 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
   float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
   float localBrightnessHomeDistrict = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_HOME_DISTRICT) / 100.0f;
 
-  int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
+  int localDistrictLedsCount = homeDistrictMapping.first;
+  int* localDistrictLed = homeDistrictMapping.second;
   int colorSwitch;
 
   unix_t currentTime = timeClient.unixGMT();
@@ -3010,7 +3131,7 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
         float localBrightness;
-        if (position == localDistrict) {
+        if (isInArray(position, localDistrictLed, localDistrictLedsCount)) {
           colorSwitch = settings.getInt(COLOR_HOME_DISTRICT);
           localBrightness = localBrightnessHomeDistrict;
         } else {
@@ -3094,7 +3215,7 @@ void mapReconnect() {
 }
 
 void mapOff() {
-  fill_solid(strip, settings.getInt(MAIN_LED_COUNT), CRGB::Black);
+  fill_solid(strip, MAIN_LEDS_COUNT, CRGB::Black);
   if (isBgStripEnabled()) {
     fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
   }
@@ -3102,7 +3223,7 @@ void mapOff() {
 }
 
 void mapLamp() {
-  fill_solid(strip, settings.getInt(MAIN_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS)));
+  fill_solid(strip, MAIN_LEDS_COUNT, fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS)));
   if (isBgStripEnabled()) {
     float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
     fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factror));
@@ -3111,43 +3232,19 @@ void mapLamp() {
 }
 
 void mapAlarms() {
-  int mainLedCount = settings.getInt(MAIN_LED_COUNT);
-  uint8_t adapted_alarm_leds[mainLedCount];
-  long adapted_alarm_timers[mainLedCount];
-  long adapted_explosion_timers[mainLedCount];
-  long adapted_missiles_timers[mainLedCount];
-  long adapted_drones_timers[mainLedCount];
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), alarm_leds, adapted_alarm_leds, mainLedCount, offset);
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), alarm_time, adapted_alarm_timers, mainLedCount, offset);
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), explosions_time, adapted_explosion_timers, mainLedCount, offset);
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), missiles_time, adapted_missiles_timers, mainLedCount, offset);
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), drones_time, adapted_drones_timers, mainLedCount, offset);
-  if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
-    if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
-      adapted_alarm_leds[7 + offset] = 0;
-      adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
-    }
-    if (adapted_alarm_leds[25] == 1 or adapted_alarm_leds[7 + offset] == 1) {
-      adapted_alarm_leds[7 + offset] = 1;
-      adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
-    }
-    adapted_explosion_timers[7 + offset] = max(adapted_explosion_timers[25], adapted_explosion_timers[7 + offset]);
-    adapted_missiles_timers[7 + offset] = max(adapted_missiles_timers[25], adapted_missiles_timers[7 + offset]);
-    adapted_drones_timers[7 + offset] = max(adapted_drones_timers[25], adapted_drones_timers[7 + offset]);
-  }
   float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000);
     notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 500);
   }
-  for (uint16_t i = 0; i < mainLedCount; i++) {
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     strip[i] = processAlarms(
-      adapted_alarm_leds[i],
-      adapted_alarm_timers[i],
-      adapted_explosion_timers[i],
-      adapted_missiles_timers[i],
-      adapted_drones_timers[i],
+      led_to_alerts[i].first,
+      led_to_alerts[i].second,
+      led_to_explosions[i],
+      led_to_missiles[i],
+      led_to_drones[i],
       i,
       blinkBrightness,
       notificationBrightness,
@@ -3156,17 +3253,18 @@ void mapAlarms() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
+    int localDistrictLedCount = homeDistrictMapping.first; // get count of leds in local district
+    int localDistrictId = settings.getInt(HOME_DISTRICT) + 1;
     fill_solid(
       bg_strip,
       settings.getInt(BG_LED_COUNT),
       processAlarms(
-        adapted_alarm_leds[localDistrict],
-        adapted_alarm_timers[localDistrict],
-        adapted_explosion_timers[localDistrict],
-        adapted_missiles_timers[localDistrict],
-        adapted_drones_timers[localDistrict],
-        localDistrict,
+        id_to_alerts[localDistrictId].first,
+        id_to_alerts[localDistrictId].second,
+        id_to_explosions[localDistrictId],
+        id_to_missiles[localDistrictId],
+        id_to_drones[localDistrictId],
+        localDistrictLedCount > 0 ? homeDistrictMapping.second[0] : -1,
         blinkBrightness,
         notificationBrightness,
         true
@@ -3177,28 +3275,20 @@ void mapAlarms() {
 }
 
 void mapWeather() {
-  float adapted_weather_leds[settings.getInt(MAIN_LED_COUNT)];
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), weather_leds, adapted_weather_leds, settings.getInt(MAIN_LED_COUNT), offset);
-  if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
-    adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
-  }
-  for (uint16_t i = 0; i < settings.getInt(MAIN_LED_COUNT); i++) {
-    strip[i] = fromHue(processWeather(adapted_weather_leds[i]), settings.getInt(CURRENT_BRIGHTNESS));
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    strip[i] = fromHue(processWeather(led_to_weather[i]), settings.getInt(CURRENT_BRIGHTNESS));
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrict = calculateOffsetDistrict(settings.getInt(KYIV_DISTRICT_MODE), settings.getInt(HOME_DISTRICT), offset);
     float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(adapted_weather_leds[localDistrict]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }
 
 void mapFlag() {
-  uint8_t adapted_flag_leds[settings.getInt(MAIN_LED_COUNT)];
-  adaptLeds(settings.getInt(KYIV_DISTRICT_MODE), flag_leds, adapted_flag_leds, settings.getInt(MAIN_LED_COUNT), offset);
-  for (uint16_t i = 0; i < settings.getInt(MAIN_LED_COUNT); i++) {
-    strip[i] = fromHue(adapted_flag_leds[i], settings.getInt(CURRENT_BRIGHTNESS));
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    strip[i] = fromHue(led_to_flag_color[i], settings.getInt(CURRENT_BRIGHTNESS));
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
@@ -3209,7 +3299,7 @@ void mapFlag() {
 }
 
 void mapRandom() {
-  int randomLed = random(settings.getInt(MAIN_LED_COUNT));
+  int randomLed = random(MAIN_LEDS_COUNT);
   int randomColor = random(360);
   strip[randomLed] = fromHue(randomColor, settings.getInt(CURRENT_BRIGHTNESS));
   if (isBgStripEnabled()) {
@@ -3322,9 +3412,6 @@ void initLegacy() {
   switch (settings.getInt(LEGACY)) {
   case 0:
     LOG.println("Mode: jaam 1");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
 
     pinMode(settings.getInt(POWER_PIN), OUTPUT);
     pinMode(settings.getInt(WIFI_PIN), OUTPUT);
@@ -3347,24 +3434,16 @@ void initLegacy() {
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
-    offset = 0;
-    for (int i = 0; i < 26; i++) {
-      flag_leds[i] = LEGACY_FLAG_LEDS[i];
-    }
+
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
     break;
   case 2:
     LOG.println("Mode: odesa");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
+
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
     break;
   case 3:
     LOG.println("Mode: jaam 2");
-    for (int i = 0; i < 26; i++) {
-      flag_leds[calculateOffset(i, offset)] = LEGACY_FLAG_LEDS[i];
-    }
 
     settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
@@ -3383,7 +3462,6 @@ void initLegacy() {
     settings.saveBool(USE_TOUCH_BUTTON_2, 0, false);
     break;
   }
-  LOG.printf("Offset: %d\n", offset);
 }
 
 void initButtons() {
@@ -3484,8 +3562,8 @@ void initStrip() {
   LOG.print("pixelpin: ");
   LOG.println(settings.getInt(MAIN_LED_PIN));
   LOG.print("pixelcount: ");
-  LOG.println(settings.getInt(MAIN_LED_COUNT));
-  initFastledStrip(settings.getInt(MAIN_LED_PIN), strip, settings.getInt(MAIN_LED_COUNT));
+  LOG.println(MAIN_LEDS_COUNT);
+  initFastledStrip(settings.getInt(MAIN_LED_PIN), strip, MAIN_LEDS_COUNT);
   if (isBgStripEnabled()) {
     LOG.print("bg pixelpin: ");
     LOG.println(settings.getInt(BG_LED_PIN));
@@ -3754,6 +3832,7 @@ void setup() {
   initChipID();
   initSettings();
   initLegacy();
+  initLedMapping();
   initButtons();
   initBuzzer();
   initAlertPin();

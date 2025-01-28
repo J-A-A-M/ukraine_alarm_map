@@ -32,7 +32,6 @@ std::map<Type, SettingItemInt> intSettings = {
     {UPDATE_SERVER_PORT, {"upp", 80}},
     {LEGACY, {"legacy", 1}},
     {MAIN_LED_PIN, {"pp", 13}},
-    {MAIN_LED_COUNT, {"mlc", 26}},
     {BG_LED_PIN, {"bpp", -1}},
     {BG_LED_COUNT, {"bpc", 0}},
     {SERVICE_LED_PIN, {"slp", -1}},
@@ -159,21 +158,18 @@ void JaamSettings::init() {
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
         SettingItemString setting = it->second;
         setting.value = preferences.getString(setting.key, setting.value);
-        LOG.printf("Loaded setting %s: %s\n", setting.key, setting.value.c_str());
         it->second = setting;
     }
 
     for (auto it = intSettings.begin(); it != intSettings.end(); ++it) {
         SettingItemInt setting = it->second;
         setting.value = preferences.getInt(setting.key, setting.value);
-        LOG.printf("Loaded setting %s: %d\n", setting.key, setting.value);
         it->second = setting;
     }
 
     for (auto it = floatSettings.begin(); it != floatSettings.end(); ++it) {
         SettingItemFloat setting = it->second;
         setting.value = preferences.getFloat(setting.key, setting.value);
-        LOG.printf("Loaded setting %s: %f\n", setting.key, setting.value);
         it->second = setting;
     }
 
