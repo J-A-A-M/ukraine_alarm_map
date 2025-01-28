@@ -13,6 +13,8 @@ public:
     void setButton2Pin(int pin, bool activeLow);
     void setButton1ClickListener(void (*listener)(void));
     void setButton2ClickListener(void (*listener)(void));
+    void setButton1DoubleClickListener(void (*listener)(void));
+    void setButton2DoubleClickListener(void (*listener)(void));
     void setButton1LongClickListener(void (*listener)(void));
     void setButton2LongClickListener(void (*listener)(void));
     void setButton1DuringLongClickListener(void (*listener)(Action action));

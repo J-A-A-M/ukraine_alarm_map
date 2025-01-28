@@ -1138,6 +1138,16 @@ void button2Click() {
   buttonClick("Button 2", settings.getInt(BUTTON_2_MODE));
 }
 
+void button1DoubleClick() {
+  LOG.println("Button 1 double click");
+  // buttonClick("Button 1", settings.getInt(BUTTON_1_MODE));
+}
+
+void button2DoubleClick() {
+  LOG.println("Button 2 double click");
+  // buttonClick("Button 2", settings.getInt(BUTTON_2_MODE));
+}
+
 void button1LongClick() {
   LOG.println("Button 1 long click");
   buttonLongClick("Button 1", settings.getInt(BUTTON_1_MODE_LONG));
@@ -3471,6 +3481,7 @@ void initButtons() {
   LOG.printf("button1 touch: %d\n", settings.getBool(USE_TOUCH_BUTTON_1));
   buttons.setButton1Pin(settings.getInt(BUTTON_1_PIN), !settings.getBool(USE_TOUCH_BUTTON_1));
   buttons.setButton1ClickListener(button1Click);
+  buttons.setButton1DoubleClickListener(button1DoubleClick);
   buttons.setButton1LongClickListener(button1LongClick);
   buttons.setButton1DuringLongClickListener(button1DuringLongClick);
 
@@ -3478,6 +3489,7 @@ void initButtons() {
   LOG.printf("button2 touch: %d\n", settings.getBool(USE_TOUCH_BUTTON_2));
   buttons.setButton2Pin(settings.getInt(BUTTON_2_PIN), !settings.getBool(USE_TOUCH_BUTTON_2));
   buttons.setButton2ClickListener(button2Click);
+  buttons.setButton2DoubleClickListener(button2DoubleClick);
   buttons.setButton2LongClickListener(button2LongClick);
   buttons.setButton2DuringLongClickListener(button2DuringLongClick);
 }

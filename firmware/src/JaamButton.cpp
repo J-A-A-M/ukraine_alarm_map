@@ -47,6 +47,18 @@ void JaamButton::setButton2ClickListener(void (*listener)(void)) {
     }
 }
 
+void JaamButton::setButton1DoubleClickListener(void (*listener)(void)) {
+    if (isButton1Enabled()) {
+        button1.attachDoubleClick(listener);
+    }
+}
+
+void JaamButton::setButton2DoubleClickListener(void (*listener)(void)) {
+    if (isButton2Enabled()) {
+        button2.attachDoubleClick(listener);
+    }
+}
+
 void JaamButton::setButton1LongClickListener(void (*listener)(void)) {
     if (isButton1Enabled()) {
         button1.attachLongPressStart(listener);
