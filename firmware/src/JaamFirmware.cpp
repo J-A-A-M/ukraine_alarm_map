@@ -3251,7 +3251,7 @@ void mapAlarms() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    int localDistrictLed = homeDistrictMapping.second[0]; // get first led of local district
+    int localDistrictLedCount = homeDistrictMapping.first; // get count of leds in local district
     int localDistrictId = settings.getInt(HOME_DISTRICT) + 1;
     fill_solid(
       bg_strip,
@@ -3262,7 +3262,7 @@ void mapAlarms() {
         id_to_explosions[localDistrictId],
         id_to_missiles[localDistrictId],
         id_to_drones[localDistrictId],
-        localDistrictLed,
+        localDistrictLedCount > 0 ? homeDistrictMapping.second[0] : -1,
         blinkBrightness,
         notificationBrightness,
         true
