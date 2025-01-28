@@ -12,6 +12,8 @@ TelnetSpy SerialAndTelnet;
 
 #define MAIN_LEDS_COUNT 26
 #define DISTRICTS_COUNT 26
+#define KYIV_REGION_ID 26
+#define KYIV_OBL_REGION_ID 8
 
 struct SettingListItem {
   int id;

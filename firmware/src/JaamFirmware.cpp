@@ -1166,24 +1166,46 @@ void remapFlag() {
   led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS);
 }
 
+std::pair<uint8_t, long> alertsCombiModeHandler(std::pair<uint8_t, long> kyiv, std::pair<uint8_t, long> kyivObl) {
+  // if state of Kyiv and Kyiv Oblast is the same, return nearest by time
+  if (kyiv.first == kyivObl.first) return kyiv.second >= kyivObl.second ? kyiv : kyivObl;
+  // if one of the states is 0, return another
+  return kyiv.first == 0 ? kyivObl : kyiv;
+}
+
 void remapAlerts() {
-  led_to_alerts = mapLeds(ledMapping, id_to_alerts);
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
+}
+
+float weatherCombiModeHandler(float kyiv, float kyivObl) {
+  // return avaerage value of Kyiv and Kyiv Oblast
+  return (kyiv + kyivObl) / 2.0f;
 }
 
 void remapWeather() {
-  led_to_weather = mapLeds(ledMapping, id_to_weather);
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? weatherCombiModeHandler : NULL;
+  led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
+}
+
+long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
+  // return nearest by time
+  return max(kyiv, kyivObl);
 }
 
 void remapExplosions() {
-  led_to_explosions = mapLeds(ledMapping, id_to_explosions);
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_explosions = mapLeds(ledMapping, id_to_explosions, combiHandler);
 }
 
 void remapMissiles() {
-  led_to_missiles = mapLeds(ledMapping, id_to_missiles);
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
 }
 
 void remapDrones() {
-  led_to_drones = mapLeds(ledMapping, id_to_drones);
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
 }
 
 void remapHomeDistrict() {
@@ -1661,7 +1683,7 @@ void initLedMapping() {
   if (settings.getInt(LEGACY) == 1) {
     switch (settings.getInt(KYIV_DISTRICT_MODE)) {
     case 1:
-      ledMapping = mapTranscarpatiaStart1;
+      ledMapping = mapTranscarpatiaStart1And4;
       LOG.println("Transcarpatia district mode 1");
       break;
     case 2:
@@ -1673,7 +1695,7 @@ void initLedMapping() {
       LOG.println("Transcarpatia district mode 3");
       break;
     case 4:
-      ledMapping = mapTranscarpatiaStart4;
+      ledMapping = mapTranscarpatiaStart1And4;
       LOG.println("Transcarpatia district mode 4");
       break;
     default:
@@ -1683,7 +1705,7 @@ void initLedMapping() {
   } else {
     switch (settings.getInt(KYIV_DISTRICT_MODE)) {
     case 1:
-      ledMapping = mapOdessaStart1;
+      ledMapping = mapOdessaStart1And4;
       LOG.println("Odessa district mode 1");
       break;
     case 2:
@@ -1695,7 +1717,7 @@ void initLedMapping() {
       LOG.println("Odessa district mode 3");
       break;
     case 4:
-      ledMapping = mapOdessaStart4;
+      ledMapping = mapOdessaStart1And4;
       LOG.println("Odessa district mode 4");
       break;
     default:
@@ -3208,19 +3230,6 @@ void mapLamp() {
 }
 
 void mapAlarms() {
-  // if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
-    // if (adapted_alarm_leds[25] == 0 and adapted_alarm_leds[7 + offset] == 0) {
-    //   adapted_alarm_leds[7 + offset] = 0;
-    //   adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
-    // }
-    // if (adapted_alarm_leds[25] == 1 or adapted_alarm_leds[7 + offset] == 1) {
-    //   adapted_alarm_leds[7 + offset] = 1;
-    //   adapted_alarm_timers[7 + offset] = max(adapted_alarm_timers[25], adapted_alarm_timers[7 + offset]);
-    // }
-    // adapted_explosion_timers[7 + offset] = max(adapted_explosion_timers[25], adapted_explosion_timers[7 + offset]);
-    // adapted_missiles_timers[7 + offset] = max(adapted_missiles_timers[25], adapted_missiles_timers[7 + offset]);
-    // adapted_drones_timers[7 + offset] = max(adapted_drones_timers[25], adapted_drones_timers[7 + offset]);
-  // }
   float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
@@ -3264,9 +3273,6 @@ void mapAlarms() {
 }
 
 void mapWeather() {
-  // if (settings.getInt(KYIV_DISTRICT_MODE) == 4) {
-  //   adapted_weather_leds[7 + offset] = (weather_leds[25] + weather_leds[7]) / 2.0f;
-  // }
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     strip[i] = fromHue(processWeather(led_to_weather[i]), settings.getInt(CURRENT_BRIGHTNESS));
   }
