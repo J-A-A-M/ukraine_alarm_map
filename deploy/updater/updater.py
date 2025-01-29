@@ -16,33 +16,34 @@ update_period = int(os.environ.get("UPDATE_PERIOD", 1))
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
-regions_legacy = {
-    "Закарпатська область": 1,
-    "Івано-Франківська область": 2,
-    "Тернопільська область": 3,
-    "Львівська область": 4,
-    "Волинська область": 5,
-    "Рівненська область": 6,
-    "Житомирська область": 7,
-    "Київська область": 8,
-    "Чернігівська область": 9,
-    "Сумська область": 10,
-    "Харківська область": 11,
-    "Луганська область": 12,
-    "Донецька область": 13,
-    "Запорізька область": 14,
-    "Херсонська область": 15,
-    "Автономна Республіка Крим": 16,
-    "Одеська область": 17,
-    "Миколаївська область": 18,
-    "Дніпропетровська область": 19,
-    "Полтавська область": 20,
-    "Черкаська область": 21,
-    "Кіровоградська область": 22,
-    "Вінницька область": 23,
-    "Хмельницька область": 24,
-    "Чернівецька область": 25,
-    "м. Київ": 26,
+
+regions = {
+    "Закарпатська область": {"id": 11, "legacy_id": 1},
+    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
+    "Тернопільська область": {"id": 21, "legacy_id": 3},
+    "Львівська область": {"id": 27, "legacy_id": 4},
+    "Волинська область": {"id": 8, "legacy_id": 5},
+    "Рівненська область": {"id": 5, "legacy_id": 6},
+    "Житомирська область": {"id": 10, "legacy_id": 7},
+    "Київська область": {"id": 14, "legacy_id": 8},
+    "Чернігівська область": {"id": 25, "legacy_id": 9},
+    "Сумська область": {"id": 20, "legacy_id": 10},
+    "Харківська область": {"id": 22, "legacy_id": 11},
+    "Луганська область": {"id": 16, "legacy_id": 12},
+    "Донецька область": {"id": 28, "legacy_id": 13},
+    "Запорізька область": {"id": 12, "legacy_id": 14},
+    "Херсонська область": {"id": 23, "legacy_id": 15},
+    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
+    "Одеська область": {"id": 18, "legacy_id": 17},
+    "Миколаївська область": {"id": 17, "legacy_id": 18},
+    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
+    "Полтавська область": {"id": 19, "legacy_id": 20},
+    "Черкаська область": {"id": 24, "legacy_id": 21},
+    "Кіровоградська область": {"id": 15, "legacy_id": 22},
+    "Вінницька область": {"id": 4, "legacy_id": 23},
+    "Хмельницька область": {"id": 3, "legacy_id": 24},
+    "Чернівецька область": {"id": 26, "legacy_id": 25},
+    "м. Київ": {"id": 31, "legacy_id": 26},
 }
 
 
@@ -129,7 +130,7 @@ async def update_alerts_websocket_v1(mc, run_once=False):
                     region_type = active_alert["regionType"]
                     state_id = regions_cache[region_id]["stateId"]
                     state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions_legacy[state_name]
+                    legacy_state_id = regions[state_name]["legacy_id"]
                     alert_type = active_alert["type"]
                     if alert_type in ["AIR"] and region_type in ["State", "District"]:
                         alerts[legacy_state_id-1] = 1     
@@ -165,7 +166,7 @@ async def update_alerts_websocket_v2(mc, run_once=False):
                     region_type = active_alert["regionType"]
                     state_id = regions_cache[region_id]["stateId"]
                     state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions_legacy[state_name]
+                    legacy_state_id = regions[state_name]["legacy_id"]
                     alert_type = active_alert["type"]
                     alert_start_time = active_alert["lastUpdate"]
                     alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
@@ -210,7 +211,7 @@ async def update_alerts_websocket_v3(mc, run_once=False):
                     region_type = active_alert["regionType"]
                     state_id = regions_cache[region_id]["stateId"]
                     state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions_legacy[state_name]
+                    legacy_state_id = regions[state_name]["legacy_id"]
                     alert_type = active_alert["type"]
                     alert_start_time = active_alert["lastUpdate"]
                     alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
@@ -243,7 +244,8 @@ async def ertyvoga_v1(mc, cache_key, data_key, data_key_text):
 
     data = [0] * 26
 
-    for state_name, legacy_state_id in regions_legacy.items():
+    for state_id, state_data in regions.items():
+        legacy_state_id = state_data["legacy_id"]
         legacy_state_id_str = str(legacy_state_id)
         if legacy_state_id_str in cache["states"]:
             alert_start_time = cache["states"][legacy_state_id_str]["changed"]
@@ -293,15 +295,18 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            cache = await get_weather(mc,b"weather_openweathermap", {"version": 2,"states": {},"info": {"last_update": None}})
+            cache = await get_weather(mc,b"weather_openweathermap", {"states": {},"info": {"last_update": None}})
             websocket = await get_cache_data(mc, b"weather_websocket_v1", [0] * 26)
 
             data = [0] * 26
 
-            for state_name, legacy_state_id in regions_legacy.items():
+            for state_name, state_data in regions.items():
+                legacy_state_id = state_data["legacy_id"]
                 legacy_state_id_str = str(legacy_state_id)
-                if legacy_state_id_str in cache["states"]:
-                    data[legacy_state_id-1] = int(round(cache["states"][legacy_state_id_str]["temp"], 0))
+                state_id = state_data["id"]
+                state_id_str = str(state_id)
+                if state_id_str in cache["states"]:
+                    data[legacy_state_id-1] = int(round(cache["states"][state_id_str]["temp"], 0))
 
 
             await store_websocket_data(mc, data, websocket, "weather_websocket_v1", b"weather_websocket_v1")
@@ -340,7 +345,6 @@ async def update_alerts_historical_v1(mc, run_once=False):
                     data[region_id]["lastUpdate"] = current_datetime
 
             await store_websocket_data(mc, data, websocket, "alerts_historical_v1", b"alerts_historical_v1")
-
         except Exception as e:
             logger.error(f"update_alerts_historical: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)

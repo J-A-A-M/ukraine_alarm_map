@@ -53,32 +53,32 @@ async def server_error(request: Request, exc: HTTPException):
 exception_handlers = {404: not_found, 500: server_error}
 
 regions = {
-    "Закарпатська область": {"id": 11},
-    "Івано-Франківська область": {"id": 13},
-    "Тернопільська область": {"id": 21},
-    "Львівська область": {"id": 27},
-    "Волинська область": {"id": 8},
-    "Рівненська область": {"id": 5},
-    "Житомирська область": {"id": 10},
-    "Київська область": {"id": 14},
-    "Чернігівська область": {"id": 25},
-    "Сумська область": {"id": 20},
-    "Харківська область": {"id": 22},
-    "Луганська область": {"id": 16},
-    "Донецька область": {"id": 28},
-    "Запорізька область": {"id": 12},
-    "Херсонська область": {"id": 23},
-    "Автономна Республіка Крим": {"id": 9999},
-    "Одеська область": {"id": 18},
-    "Миколаївська область": {"id": 17},
-    "Дніпропетровська область": {"id": 9},
-    "Полтавська область": {"id": 19},
-    "Черкаська область": {"id": 24},
-    "Кіровоградська область": {"id": 15},
-    "Вінницька область": {"id": 4},
-    "Хмельницька область": {"id": 3},
-    "Чернівецька область": {"id": 26},
-    "м. Київ": {"id": 31},
+    "Закарпатська область": {"id": 11, "legacy_id": 1},
+    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
+    "Тернопільська область": {"id": 21, "legacy_id": 3},
+    "Львівська область": {"id": 27, "legacy_id": 4},
+    "Волинська область": {"id": 8, "legacy_id": 5},
+    "Рівненська область": {"id": 5, "legacy_id": 6},
+    "Житомирська область": {"id": 10, "legacy_id": 7},
+    "Київська область": {"id": 14, "legacy_id": 8},
+    "Чернігівська область": {"id": 25, "legacy_id": 9},
+    "Сумська область": {"id": 20, "legacy_id": 10},
+    "Харківська область": {"id": 22, "legacy_id": 11},
+    "Луганська область": {"id": 16, "legacy_id": 12},
+    "Донецька область": {"id": 28, "legacy_id": 13},
+    "Запорізька область": {"id": 12, "legacy_id": 14},
+    "Херсонська область": {"id": 23, "legacy_id": 15},
+    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
+    "Одеська область": {"id": 18, "legacy_id": 17},
+    "Миколаївська область": {"id": 17, "legacy_id": 18},
+    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
+    "Полтавська область": {"id": 19, "legacy_id": 20},
+    "Черкаська область": {"id": 24, "legacy_id": 21},
+    "Кіровоградська область": {"id": 15, "legacy_id": 22},
+    "Вінницька область": {"id": 4, "legacy_id": 23},
+    "Хмельницька область": {"id": 3, "legacy_id": 24},
+    "Чернівецька область": {"id": 26, "legacy_id": 25},
+    "м. Київ": {"id": 31, "legacy_id": 26},
 }
 
 
@@ -99,6 +99,8 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case "/weather_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
+            case "/weather_statuses_v2.json":
+                api_clients[client_ip] = [start_time, client_path]
             case "/explosives_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
             case "/explosives_statuses_v2.json":
@@ -107,7 +109,15 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case "/rockets_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
+            case "/rockets_statuses_v2.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/rockets_statuses_v3.json":
+                api_clients[client_ip] = [start_time, client_path]
             case "/drones_statuses_v1.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/drones_statuses_v2.json":
+                api_clients[client_ip] = [start_time, client_path]
+            case "/drones_statuses_v3.json":
                 api_clients[client_ip] = [start_time, client_path]
             case "/tcp_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
@@ -165,7 +175,7 @@ async def main(request):
                     <p>Доступні API:</p>
                     <ul>
                         <li>Тривоги: [<a href="/alerts_statuses_v1.json">v1</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
-                        <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>]</li>
+                        <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>], [<a href="/weather_statuses_v2.json">v2</a>]</li>
                         <li>Вибухи: (інформація зі ЗМІ) [<a href="/explosives_statuses_v1.json">v1</a>], [<a href="/explosives_statuses_v2.json">v2</a>], [<a href="/explosives_statuses_v3.json">v3</a>]</li>
 
                         <li><a href="/api_status.json">API healthcheck</a></li>
@@ -216,6 +226,11 @@ async def get_historical_alerts(mc, key_b, default_response={}):
 async def get_regions(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+def get_region_name(search_key, region_id):
+    return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
+
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 async def alerts_v1(request):
     try:
@@ -224,8 +239,7 @@ async def alerts_v1(request):
 
         data = {
             "version": 1,
-            "states": {},
-            "info": {"last_update": None},
+            "states": {}
         }
 
         for region_id, region_data in alerts_cache.items():
@@ -260,52 +274,115 @@ async def alerts_v1(request):
 
 async def alerts_v2(request):
     try:
-        cached = await mc.get(b"alerts")
-        if cached:
-            cached_data = json.loads(cached.decode("utf-8"))
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {"error": "Failed to decode cached data"}
+        alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
+        regions_cache = await get_regions(mc, b"regions_api", {})
 
-    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
+        data = {
+            "version": 2,
+            "states": {}
+        }
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "State":
+                region = {
+                    "alertnow": True if region_data["activeAlerts"] else False,
+                    "district": False,
+                    "changes": region_data["lastUpdate"],
+                    }
+                data["states"][region_data["regionName"]] = region
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "District" and region_data["activeAlerts"]:
+                    state_id = regions_cache[region_data["regionId"]]["stateId"]
+                    state = regions_cache[state_id]
+
+                    if not data["states"][state["regionName"]]["alertnow"]:
+                        data["states"][state["regionName"]] = {
+                            "alertnow": True,
+                            "district": True,
+                            "enabled_at": region_data["lastUpdate"],
+                        }
+    except json.JSONDecodeError:
+        data = {"error": "Failed to decode cached data"}
+
+    return JSONResponse(data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v3(request):
     try:
-        cached = await mc.get(b"alerts")
-        if cached:
-            cached_data = json.loads(cached.decode("utf-8"))
-            cached_data["version"] = 3
-            new_data = {}
-            for state, data in cached_data["states"].items():
-                new_data[state] = data["alertnow"]
-            cached_data["states"] = new_data
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {"error": "Failed to decode cached data"}
+        alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
+        regions_cache = await get_regions(mc, b"regions_api", {})
 
-    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
+        data = {
+            "version": 3,
+            "states": {}
+        }
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "State":
+                data["states"][region_data["regionName"]] = True if region_data["activeAlerts"] else False
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "District" and region_data["activeAlerts"]:
+                    state_id = regions_cache[region_data["regionId"]]["stateId"]
+                    state = regions_cache[state_id]
+
+                    if not data["states"][state["regionName"]]:
+                        data["states"][state["regionName"]] = True
+    except json.JSONDecodeError:
+        data = {"error": "Failed to decode cached data"}
+
+    return JSONResponse(data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def weather_v1(request):
     try:
-        cached = await mc.get(b"weather")
-        if cached:
-            cached_data = json.loads(cached.decode("utf-8"))
-        else:
-            cached_data = {}
+        weather_cache = await get_cache_data(mc, b"weather_openweathermap", {})
+
+        data = {
+            "version": 1,
+            "states": {},
+            "info": {}
+        }
+
+        for region_id, region_data in weather_cache["states"].items():
+            data["states"][region_data["region"]["name"]]={
+                "temp": region_data["temp"],
+                "desc": region_data["weather"][0]["description"],
+                "pressure": region_data["pressure"],
+                "humidity": region_data["humidity"],
+                "wind": region_data["wind_speed"]
+            }
+        data["info"]["last_update"] = weather_cache["info"]["last_update"]
+
+    except json.JSONDecodeError:
+        data = {"error": "Failed to decode cached data"}
+
+    return JSONResponse(data, headers={"Content-Type": "application/json; charset=utf-8"})
+
+
+async def weather_v2(request):
+    try:
+        weather_cache = await get_cache_data(mc, b"weather_openweathermap", {})
+        weather_cache["version"] = 2
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
 
-    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
+    return JSONResponse(weather_cache, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def etryvoga_v1(cached):
     try:
         if cached:
             cached_data = json.loads(cached.decode("utf-8"))
+            cached_data["version"] = 1
+            new_data = {}
+            for state, data in cached_data["states"].items():
+                state_name = get_region_name("id", int(state))
+                new_data[state_name] = {
+                    "changed": data["changed"]
+                }
+            cached_data["states"] = new_data
             cached_data["info"][
                 "description"
             ] = "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
@@ -324,7 +401,8 @@ def etryvoga_v2(cached):
             cached_data["version"] = 2
             new_data = {}
             for state, data in cached_data["states"].items():
-                new_data[state] = data["changed"]
+                state_name = get_region_name("id", int(state))
+                new_data[state_name] = data["changed"]
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -345,7 +423,8 @@ def etryvoga_v3(cached):
             cached_data["version"] = 3
             new_data = {}
             for state, data in cached_data["states"].items():
-                new_data[state] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
+                state_name = get_region_name("id", int(state))
+                new_data[state_name] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -359,47 +438,47 @@ def etryvoga_v3(cached):
 
 
 async def explosives_v1(request):
-    cached = await mc.get(b"explosions")
+    cached = await mc.get(b"explosions_etryvoga")
     return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v2(request):
-    cached = await mc.get(b"explosions")
+    cached = await mc.get(b"explosions_etryvoga")
     return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def explosives_v3(request):
-    cached = await mc.get(b"explosions")
+    cached = await mc.get(b"explosions_etryvoga")
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v1(request):
-    cached = await mc.get(b"rockets")
+    cached = await mc.get(b"rockets_etryvoga")
     return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v2(request):
-    cached = await mc.get(b"rockets")
+    cached = await mc.get(b"rockets_etryvoga")
     return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def rockets_v3(request):
-    cached = await mc.get(b"rockets")
+    cached = await mc.get(b"rockets_etryvoga")
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v1(request):
-    cached = await mc.get(b"drones")
+    cached = await mc.get(b"drones_etryvoga")
     return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v2(request):
-    cached = await mc.get(b"drones")
+    cached = await mc.get(b"drones_etryvoga")
     return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def drones_v3(request):
-    cached = await mc.get(b"drones")
+    cached = await mc.get(b"drones_etryvoga")
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
@@ -415,15 +494,15 @@ async def etryvoga_full(request):
 
 async def tcp_v1(request):
     try:
-        cached = await mc.get(b"tcp")
-        if cached:
-            cached_data = json.loads(cached.decode("utf-8"))
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {"error": "Failed to decode cached data"}
+        alerts_cache = await get_alerts(mc, b"alerts_websocket_v1", [])
+        weather_cache = await get_cache_data(mc, b"weather_websocket_v1", [])
 
-    return JSONResponse({"tcp_stored_data": cached_data}, headers={"Content-Type": "application/json; charset=utf-8"})
+        tcp_data = "%s:%s" % (",".join(map(str, alerts_cache)), ",".join(map(str, weather_cache)))
+
+    except json.JSONDecodeError:
+        tcp_data = {"error": "Failed to decode cached data"}
+
+    return JSONResponse({"tcp_stored_data": tcp_data}, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 def get_local_time_formatted():
@@ -468,7 +547,7 @@ async def api_status(request):
     )
 
 
-async def map(request):
+async def map_v1(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
 
@@ -558,6 +637,7 @@ app = Starlette(
         Route("/alerts_statuses_v2.json", alerts_v2),
         Route("/alerts_statuses_v3.json", alerts_v3),
         Route("/weather_statuses_v1.json", weather_v1),
+        Route("/weather_statuses_v2.json", weather_v2),
         Route("/explosives_statuses_v1.json", explosives_v1),
         Route("/explosives_statuses_v2.json", explosives_v2),
         Route("/explosives_statuses_v3.json", explosives_v3),
@@ -570,7 +650,7 @@ app = Starlette(
         Route("/etryvoga_{token}.json", etryvoga_full),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/api_status.json", api_status),
-        Route("/{filename}.png", map),
+        Route("/{filename}.png", map_v1),
         Route("/t{token}", stats),
         Route("/static/jaam_v{version}.{extention}", get_static),
     ],

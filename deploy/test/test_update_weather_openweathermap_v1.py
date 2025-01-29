@@ -13,7 +13,7 @@ def get_weather_mock(**kwargs):
     data = {
             "version": 2, 
             "states": {
-                "1": {
+                "31": {
                     "dt": 1737926434, 
                     "sunrise": 1737871666, 
                     "sunset": 1737904718, 
@@ -62,7 +62,7 @@ async def test_1(mock_get_weather, mock_get_cache_data):
         get_weather_mock(temp=2.8)
     )
     await update_weather_openweathermap_v1(mock_mc, run_once=True)
-    expected_result = [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    expected_result = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3]
     mock_mc.set.assert_awaited_with(b"weather_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -71,7 +71,7 @@ async def test_1(mock_get_weather, mock_get_cache_data):
         get_weather_mock(temp=4)
     )
     await update_weather_openweathermap_v1(mock_mc, run_once=True)
-    expected_result = [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    expected_result = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4]
     mock_mc.set.assert_awaited_with(b"weather_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
     """перевірка round down"""
@@ -79,7 +79,7 @@ async def test_1(mock_get_weather, mock_get_cache_data):
         get_weather_mock(temp=5.1)
     )
     await update_weather_openweathermap_v1(mock_mc, run_once=True)
-    expected_result = [5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    expected_result = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5]
     mock_mc.set.assert_awaited_with(b"weather_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -96,11 +96,11 @@ async def test_2(mock_get_weather, mock_get_cache_data):
     mock_mc = AsyncMock(spec=Client)
     mock_mc.set.return_value = True
 
-    mock_get_cache_data.return_value = [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    mock_get_cache_data.return_value = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3]
 
     mock_get_weather.return_value = (
         get_weather_mock(temp=7.5)
     )
     await update_weather_openweathermap_v1(mock_mc, run_once=True)
-    expected_result = [8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    expected_result = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8]
     mock_mc.set.assert_awaited_with(b"weather_websocket_v1", json.dumps(expected_result).encode("utf-8"))
