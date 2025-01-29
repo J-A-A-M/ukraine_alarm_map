@@ -4,6 +4,8 @@ import asyncio
 import logging
 import datetime
 from aiomcache import Client
+from deepdiff import DeepDiff
+from copy import deepcopy
 
 version = 3
 
@@ -58,6 +60,9 @@ async def get_cache_data(mc, key_b, default_response=None):
     return cache
 
 async def get_alerts(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+async def get_historical_alerts(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
 async def get_regions(mc, key_b, default_response={}):
@@ -307,6 +312,42 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
         if run_once:
             break
 
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+async def update_alerts_historical_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            alerts_historical_cache = await get_historical_alerts(mc, b"alerts_historical_api", [])
+
+            websocket = await get_cache_data(mc, b"alerts_historical_v1", {})
+
+            alerts_data = {alert["regionId"]: alert for alert in alerts_cache if alert["regionType"] in ["State", "District"]}
+            if websocket:
+                data = deepcopy(websocket)
+            else:
+                data = {alert["regionId"]: alert for alert in alerts_historical_cache if alert["regionType"] in ["State", "District"]}
+
+            data.update(alerts_data)
+
+            current_datetime = get_current_datetime()
+
+            for region_id, region_data in data.items():
+                if region_id not in alerts_data and data[region_id]["activeAlerts"] != []:
+                    data[region_id]["activeAlerts"] = []
+                    data[region_id]["lastUpdate"] = current_datetime
+
+            await store_websocket_data(mc, data, websocket, "alerts_historical_v1", b"alerts_historical_v1")
+
+        except Exception as e:
+            logger.error(f"update_alerts_historical: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
@@ -317,7 +358,8 @@ async def main():
             update_drones_etryvoga_v1(mc),
             update_missiles_etryvoga_v1(mc),
             update_explosions_etryvoga_v1(mc),
-            update_weather_openweathermap_v1(mc)
+            update_weather_openweathermap_v1(mc),
+            update_alerts_historical_v1(mc)
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

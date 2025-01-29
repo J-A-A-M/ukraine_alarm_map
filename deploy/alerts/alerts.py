@@ -32,6 +32,20 @@ logger = logging.getLogger(__name__)
 headers = {"Authorization": "%s" % alert_token}
 
 
+async def get_cache_data(mc, key_b, default_response=None):
+    if default_response is None:
+        default_response = {}
+        
+    cache = await mc.get(key_b)
+
+    if cache:
+        cache = json.loads(cache.decode("utf-8"))
+    else:
+        cache = default_response
+
+    return cache
+
+
 async def get_regions(mc):
     while True:
         try:
@@ -42,26 +56,27 @@ async def get_regions(mc):
                 new_data = await response.text()
                 data = json.loads(new_data)
             for state in data["states"]:
-                regions[state["regionId"]] = {
-                    "regionName": state["regionName"],
-                    "regionType": state["regionType"],
-                    "parentId": None,
-                    "stateId": state["regionId"],
-                }
-                for district in state["regionChildIds"]:
-                    regions[district["regionId"]] = {
-                        "regionName": district["regionName"],
-                        "regionType": district["regionType"],
-                        "parentId": state["regionId"],
+                if int(state["regionId"]) > 0:
+                    regions[state["regionId"]] = {
+                        "regionName": state["regionName"],
+                        "regionType": state["regionType"],
+                        "parentId": None,
                         "stateId": state["regionId"],
                     }
-                    for community in district["regionChildIds"]:
-                        regions[community["regionId"]] = {
-                            "regionName": community["regionName"],
-                            "regionType": community["regionType"],
-                            "parentId": district["regionId"],
+                    for district in state["regionChildIds"]:
+                        regions[district["regionId"]] = {
+                            "regionName": district["regionName"],
+                            "regionType": district["regionType"],
+                            "parentId": state["regionId"],
                             "stateId": state["regionId"],
-                        }         
+                        }
+                        for community in district["regionChildIds"]:
+                            regions[community["regionId"]] = {
+                                "regionName": community["regionName"],
+                                "regionType": community["regionType"],
+                                "parentId": district["regionId"],
+                                "stateId": state["regionId"],
+                            }         
             await mc.set(b"regions_api", json.dumps(regions).encode("utf-8"))
             logger.info("regions data stored")
             logger.debug("end get_regions")
@@ -80,6 +95,24 @@ async def get_alerts(mc):
     while True:
         try:
             logger.debug("start get_alerts")
+
+            # get historic startup data
+
+            alerts_historical_cache = await get_cache_data(mc, b"alerts_historical_api", [])
+            regions_cache = await get_cache_data(mc, b"regions_api", {})
+
+            if not alerts_historical_cache:
+                for state_id, state_data in regions_cache.items():
+                    if state_data["regionType"] == "State":
+                        region_alert_url = "%s/%s" % (alarm_url, state_id)
+                        async with aiohttp.ClientSession() as session:
+                            response = await session.get(region_alert_url, headers=headers)  # Replace with your URL
+                            new_data = await response.text()
+                            region_data = json.loads(new_data)[0]
+                        alerts_historical_cache.append(region_data)
+                await mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
+
+
             async with aiohttp.ClientSession() as session:
                 response = await session.get(alarm_url, headers=headers)
                 new_data = await response.text()

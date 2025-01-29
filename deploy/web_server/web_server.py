@@ -17,9 +17,9 @@ from aiomcache import Client
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
-port = int(os.environ.get("PORT")) or 8080
+port = int(os.environ.get("PORT") or 8080) 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-memcached_port = int(os.environ.get("MEMCACHED_PORT")) or 11211
+memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211) 
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 data_token = os.environ.get("DATA_TOKEN")
 
@@ -53,32 +53,32 @@ async def server_error(request: Request, exc: HTTPException):
 exception_handlers = {404: not_found, 500: server_error}
 
 regions = {
-    "Закарпатська область": {"id": 0},
-    "Івано-Франківська область": {"id": 1},
-    "Тернопільська область": {"id": 2},
-    "Львівська область": {"id": 3},
-    "Волинська область": {"id": 4},
+    "Закарпатська область": {"id": 11},
+    "Івано-Франківська область": {"id": 13},
+    "Тернопільська область": {"id": 21},
+    "Львівська область": {"id": 27},
+    "Волинська область": {"id": 8},
     "Рівненська область": {"id": 5},
-    "Житомирська область": {"id": 6},
-    "Київська область": {"id": 7},
-    "Чернігівська область": {"id": 8},
-    "Сумська область": {"id": 9},
-    "Харківська область": {"id": 10},
-    "Луганська область": {"id": 11},
-    "Донецька область": {"id": 12},
+    "Житомирська область": {"id": 10},
+    "Київська область": {"id": 14},
+    "Чернігівська область": {"id": 25},
+    "Сумська область": {"id": 20},
+    "Харківська область": {"id": 22},
+    "Луганська область": {"id": 16},
+    "Донецька область": {"id": 28},
     "Запорізька область": {"id": 12},
-    "Херсонська область": {"id": 14},
-    "Автономна Республіка Крим": {"id": 15},
-    "Одеська область": {"id": 16},
+    "Херсонська область": {"id": 23},
+    "Автономна Республіка Крим": {"id": 9999},
+    "Одеська область": {"id": 18},
     "Миколаївська область": {"id": 17},
-    "Дніпропетровська область": {"id": 18},
+    "Дніпропетровська область": {"id": 9},
     "Полтавська область": {"id": 19},
-    "Черкаська область": {"id": 20},
-    "Кіровоградська область": {"id": 21},
-    "Вінницька область": {"id": 22},
-    "Хмельницька область": {"id": 23},
-    "Чернівецька область": {"id": 24},
-    "м. Київ": {"id": 25},
+    "Черкаська область": {"id": 24},
+    "Кіровоградська область": {"id": 15},
+    "Вінницька область": {"id": 4},
+    "Хмельницька область": {"id": 3},
+    "Чернівецька область": {"id": 26},
+    "м. Київ": {"id": 31},
 }
 
 
@@ -194,31 +194,68 @@ async def main(request):
     """
     return HTMLResponse(response)
 
+async def get_cache_data(mc, key_b, default_response=None):
+    if default_response is None:
+        default_response = {}
+        
+    cache = await mc.get(key_b)
+
+    if cache:
+        cache = json.loads(cache.decode("utf-8"))
+    else:
+        cache = default_response
+
+    return cache
+
+async def get_alerts(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+async def get_historical_alerts(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+async def get_regions(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
 
 async def alerts_v1(request):
     try:
-        cached = await mc.get(b"alerts")
-        if cached:
-            cached_data = json.loads(cached.decode("utf-8"))
-            cached_data["version"] = 1
-            for state, data in cached_data["states"].items():
-                data["enabled"] = data["alertnow"]
-                data["type"] = "state"
-                match data["alertnow"]:
-                    case True:
-                        data["enabled_at"] = data["changed"]
-                        data["disabled_at"] = None
-                    case False:
-                        data["disabled_at"] = data["changed"]
-                        data["enabled_at"] = None
-                data.pop("changed")
-                data.pop("alertnow")
-        else:
-            cached_data = {}
-    except json.JSONDecodeError:
-        cached_data = {"error": "Failed to decode cached data"}
+        alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
+        regions_cache = await get_regions(mc, b"regions_api", {})
 
-    return JSONResponse(cached_data, headers={"Content-Type": "application/json; charset=utf-8"})
+        data = {
+            "version": 1,
+            "states": {},
+            "info": {"last_update": None},
+        }
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "State":
+                region = {
+                    "district": False,
+                    "enabled": True if region_data["activeAlerts"] else False,
+                    "type": "state",
+                    "disabled_at": region_data["lastUpdate"] if not region_data["activeAlerts"] else None,
+                    "enabled_at": region_data["lastUpdate"] if region_data["activeAlerts"] else None,
+                    }
+                data["states"][region_data["regionName"]] = region
+
+        for region_id, region_data in alerts_cache.items():
+            if region_data["regionType"] == "District" and region_data["activeAlerts"]:
+                    state_id = regions_cache[region_data["regionId"]]["stateId"]
+                    state = regions_cache[state_id]
+
+                    if not data["states"][state["regionName"]]["enabled"]:
+                        data["states"][state["regionName"]] = {
+                            "district": True,
+                            "enabled": True,
+                            "type": "state",
+                            "disabled_at": None,
+                            "enabled_at": region_data["lastUpdate"],
+                        }
+    except json.JSONDecodeError:
+        data = {"error": "Failed to decode cached data"}
+
+    return JSONResponse(data, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 async def alerts_v2(request):
@@ -431,39 +468,6 @@ async def api_status(request):
     )
 
 
-async def region_data_v1(request):
-    cached = await mc.get(b"alerts")
-    alerts_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
-    cached = await mc.get(b"weather")
-    weather_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
-
-    region_id = False
-
-    for region, data in regions.items():
-        if data["id"] == int(request.path_params["region"]):
-            region_id = int(request.path_params["region"])
-            break
-
-    if region_id:
-        iso_datetime_str = alerts_cached_data["states"][region]["changed"]
-        datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-        datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
-        alerts_cached_data["states"][region]["changed"] = int(datetime_obj_utc.timestamp())
-
-        return JSONResponse(
-            {
-                "version": 1,
-                "data": {
-                    **{"name": region},
-                    **alerts_cached_data["states"][region],
-                    **weather_cached_data["states"][region],
-                },
-            }
-        )
-    else:
-        return JSONResponse({"version": 1, "data": {}})
-
-
 async def map(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.png')
 
@@ -513,19 +517,17 @@ async def dataparcer(clients, connection_type):
 
 async def stats(request):
     if request.path_params["token"] == data_token:
-        tcp_clients = await mc.get(b"tcp_clients")
-        tcp_clients_data = json.loads(tcp_clients) if tcp_clients else {}
 
         websocket_clients = await mc.get(b"websocket_clients")
         websocket_clients_data = json.loads(websocket_clients) if websocket_clients else {}
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
         websocket_clients_dev_data = json.loads(websocket_clients_dev) if websocket_clients_dev else {}
 
-        tcp_clients = await dataparcer(tcp_clients_data, "tcp")
+
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
         websocket_clients_dev = await dataparcer(websocket_clients_dev_data, "websockets_dev")
 
-        map_clients_data = tcp_clients + websocket_clients + websocket_clients_dev
+        map_clients_data = websocket_clients + websocket_clients_dev
 
         response = {
             "map": {
@@ -568,7 +570,6 @@ app = Starlette(
         Route("/etryvoga_{token}.json", etryvoga_full),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/api_status.json", api_status),
-        Route("/map/region/v1/{region}", region_data_v1),
         Route("/{filename}.png", map),
         Route("/t{token}", stats),
         Route("/static/jaam_v{version}.{extention}", get_static),
