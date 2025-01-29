@@ -1,7 +1,7 @@
 #include "JaamSettings.h"
-#include "Constants.h"
 #include <Preferences.h>
 #include <ArduinoJson.h>
+#include <JaamUtils.h>
 #include <stdexcept>
 #include <map>
 
@@ -76,7 +76,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {WEATHER_MIN_TEMP, {"mintemp", -10}},
     {WEATHER_MAX_TEMP, {"maxtemp", 30}},
     {ALARMS_AUTO_SWITCH, {"aas", 1}},
-    {HOME_DISTRICT, {"hd", 7}},
+    {HOME_DISTRICT, {"hmd", 31}},
     {KYIV_DISTRICT_MODE, {"kdm", 1}},
     {SERVICE_DIODES_MODE, {"sdm", 0}},
     {NEW_FW_NOTIFICATION, {"nfwn", 1}},
@@ -154,6 +154,13 @@ const char* PREFS_NAME = "storage";
 
 void JaamSettings::init() {
     preferences.begin(PREFS_NAME, true);
+
+    // home district migration to regionID
+    if (preferences.isKey("hd")) {
+        int homeDistrict = preferences.getInt("hd", KYIV_REGION_ID);
+        preferences.remove("hd");
+        preferences.putInt("hmd", mapIndexToRegionId(homeDistrict));
+    }
 
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
         SettingItemString setting = it->second;
