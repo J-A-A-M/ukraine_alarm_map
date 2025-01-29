@@ -196,9 +196,9 @@ static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), s
       continue;
     }
     V valueForKey = values[regId];
-    if (combiModeHandler && regId == KYIV_OBL_REGION_ID) {
-        V kyivValue = values[KYIV_REGION_ID];
-        valueForKey = combiModeHandler(kyivValue, valueForKey);
+    if (combiModeHandler && regId == KYIV_REGION_ID) {
+        V kyivOblValue = values[KYIV_OBL_REGION_ID];
+        valueForKey = combiModeHandler(valueForKey, kyivOblValue);
     }
     for (int i = 0; i < ledCount; i++) {
       remaped[ledList[i]] = valueForKey;
@@ -468,7 +468,7 @@ static std::pair<int, int*> mapTranscarpatiaStart4(int key) {
     case 23: return std::make_pair(1, new int[1]{22});
     case 24: return std::make_pair(1, new int[1]{23});
     case 25: return std::make_pair(1, new int[1]{24});
-    case 26: return std::make_pair(1, new int[1]{8});
+    case 26: return std::make_pair(1, new int[1]{7});
     default: return std::make_pair(0, nullptr);
   }
 }
