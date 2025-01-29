@@ -158,8 +158,13 @@ void JaamSettings::init() {
     // home district migration to regionID
     if (preferences.isKey("hd")) {
         int homeDistrict = preferences.getInt("hd", KYIV_REGION_ID);
+        int newRegionId = mapIndexToRegionId(homeDistrict);
+        if (newRegionId == -1) {
+            LOG.printf("Failed to map old home district %d to new region ID\n", homeDistrict);
+            newRegionId = KYIV_REGION_ID;
+        }
         preferences.remove("hd");
-        preferences.putInt("hmd", mapIndexToRegionId(homeDistrict));
+        preferences.putInt("hmd", newRegionId);
     }
 
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
