@@ -84,14 +84,15 @@ def format_time(time):
     formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_timestamp
 
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 async def get_etryvoga_data(mc):
     while True:
         try:
-            logger.debug("start get_etryvoga_data")
             await asyncio.sleep(etryvoga_loop_time)
-
-            current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            logger.debug("start get_etryvoga_data")
 
             cache_keys = [
                 b"etryvoga_districts_struct",
@@ -136,7 +137,12 @@ async def get_etryvoga_data(mc):
                         state_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
                         state_id = regions[get_slug(message["region"], districts_slug_cached)]["id"]
                         logger.debug(
-                            "data : %s (%s), %s, %s" % (state_name, message["region"], message["type"], message["body"])
+                            "data : {type:<10} {region:<20} {state:<25} {body}".format(
+                                type=message["type"], 
+                                state=state_name,
+                                region=message["region"],
+                                body=message["body"]
+                            )
                         )
                         if state_name == "Невідомо":
                             continue
@@ -159,11 +165,11 @@ async def get_etryvoga_data(mc):
                         del explosions_cached_data["states"]["Невідомо"]
 
                     explosions_cached_data["info"]["last_id"] = last_id
-                    explosions_cached_data["info"]["last_update"] = current_datetime
+                    explosions_cached_data["info"]["last_update"] = get_current_datetime()
                     missiles_cached_data["info"]["last_id"] = last_id
-                    missiles_cached_data["info"]["last_update"] = current_datetime
+                    missiles_cached_data["info"]["last_update"] = get_current_datetime()
                     drones_cached_data["info"]["last_id"] = last_id
-                    drones_cached_data["info"]["last_update"] = current_datetime
+                    drones_cached_data["info"]["last_update"] = get_current_datetime()
                     logger.debug("store etryvoga data")
                     await mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8"))
                     await mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8"))
@@ -191,8 +197,6 @@ async def get_etryvoga_data(mc):
 async def get_etryvoga_districts(mc):
     while True:
         try:
-            current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
             async with aiohttp.ClientSession() as session:
                 response = await session.get(etryvoga_districts_url)
                 if response.status == 200:

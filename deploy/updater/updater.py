@@ -337,12 +337,10 @@ async def update_alerts_historical_v1(mc, run_once=False):
 
             data.update(alerts_data)
 
-            current_datetime = get_current_datetime()
-
             for region_id, region_data in data.items():
                 if region_id not in alerts_data and data[region_id]["activeAlerts"] != []:
                     data[region_id]["activeAlerts"] = []
-                    data[region_id]["lastUpdate"] = current_datetime
+                    data[region_id]["lastUpdate"] = get_current_datetime()
 
             await store_websocket_data(mc, data, websocket, "alerts_historical_v1", b"alerts_historical_v1")
         except Exception as e:

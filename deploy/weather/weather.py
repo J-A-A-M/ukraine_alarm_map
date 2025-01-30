@@ -52,10 +52,12 @@ weather_states = {
     703447: {"name": "м. Київ", "lat": 50.4500336, "lon": 30.5241361, "id": 31, "legacy_id": 26}, 
 }
 
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 async def get_weather_openweathermap(mc):
     try:
-        current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         weather_cached_data = {
             "states": {},
             "info": {
@@ -82,8 +84,8 @@ async def get_weather_openweathermap(mc):
                 else:
                     logger.error(f"Request failed with status code: {response.status_code}")
 
-        weather_cached_data["info"]["last_update"] = current_datetime
-        logger.debug("store weather data: %s" % current_datetime)
+        weather_cached_data["info"]["last_update"] = get_current_datetime()
+        logger.debug("store weather data: %s" % get_current_datetime())
         await mc.set(b"weather_openweathermap", json.dumps(weather_cached_data).encode("utf-8"))
         logger.info("weather data stored")
         await asyncio.sleep(weather_loop_time)
