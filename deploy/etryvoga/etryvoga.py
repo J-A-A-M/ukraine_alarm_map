@@ -87,6 +87,15 @@ def format_time(time):
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+def calculate_time_difference(timestamp1, timestamp2):
+    format_str = "%Y-%m-%dT%H:%M:%SZ"
+
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
+
+    time_difference = (time2 - time1).total_seconds()
+    return int(abs(time_difference))
+
 async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
 
@@ -134,17 +143,28 @@ async def get_etryvoga_data(mc):
                 if response.status == 200:
                     etryvoga_full = await response.text()
                     data = json.loads(etryvoga_full)
+                    logger.debug(
+                            "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
+                                type="type", 
+                                state="state_name",
+                                region="region",
+                                body="body",
+                                time="diff"
+                            )
+                        )
+                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
                     for message in data[::-1]:
                         current_hex = make_hex(message)
 
                         state_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
                         state_id = regions[get_slug(message["region"], districts_slug_cached)]["id"]
                         logger.debug(
-                            "data : {type:<10} {region:<20} {state:<25} {body}".format(
+                            "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
                                 type=message["type"], 
                                 state=state_name,
                                 region=message["region"],
-                                body=message["body"]
+                                body=message["body"],
+                                time=calculate_time_difference(format_time(message["createdAt"]), get_current_datetime())
                             )
                         )
                         if state_name == "Невідомо":
@@ -162,7 +182,7 @@ async def get_etryvoga_data(mc):
                             case _:
                                 pass
                         last_id = current_hex
-
+                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
                 
                     with contextlib.suppress(KeyError):
                         del explosions_cached_data["states"]["Невідомо"]
