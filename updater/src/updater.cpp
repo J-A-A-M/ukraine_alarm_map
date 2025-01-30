@@ -14,38 +14,40 @@ const char* userSsid = ""; // WIFI-мережа замовника
 const char* userPassword = ""; // Пароль до WIFI мережі замовника
 
 
-const char* firmwareUrl = "http://jaam.net.ua:2095/jaam.bin";
+const char* firmwareUrl = "http://ws.jaam.net.ua/jaam.bin"; // production
+// const char* firmwareUrl = "http://ws.jaam.net.ua/beta/jaam_beta.bin"; // beta
 
 String identifier = "github";
 
 // Домашні регіони
-// "Закарпатська обл." = 0
-// "Ів.-Франківська обл." = 1
-// "Тернопільська обл." = 2
-// "Львівська обл." = 3
-// "Волинська обл." = 4
+// "Закарпатська обл." = 11
+// "Івано-Франківська обл." = 13
+// "Тернопільська обл." = 21
+// "Львівська обл." = 27
+// "Волинська обл." = 8
 // "Рівненська обл." = 5
-// "Житомирська обл." = 6
-// "Київська обл." = 7
-// "Чернігівська обл." = 8
-// "Сумська обл." = 9
-// "Харківська обл." = 10
-// "Луганська обл." = 11
-// "Донецька обл." = 12
-// "Запорізька обл." = 13
-// "Херсонська обл." = 14
-// "АР Крим" = 15
-// "Одеська обл." = 16
+// "Житомирська обл." = 10
+// "Київська обл." = 14
+// "Чернігівська обл." = 25
+// "Сумська обл." = 20
+// "Харківська обл." = 22
+// "Луганська обл." = 16
+// "Донецька обл." = 28
+// "Запорізька обл." = 12
+// "Херсонська обл." = 23
+// "Автономна Республіка Крим" = 9999
+// "Одеська обл." = 18
 // "Миколаївська обл." = 17
-// "Дніпропетровська обл." = 18
+// "Дніпропетровська обл." = 9
 // "Полтавська обл." = 19
-// "Черкаська обл." = 20
-// "Кіровоградська обл." = 21
-// "Вінницька обл." = 22
-// "Хмельницька обл." = 23
-// "Чернівецька обл." = 24
-// "Київ" = 25
-const int home_district = 25; // Київ (за замовчуванням)
+// "Черкаська обл." = 24
+// "Кіровоградська обл." = 15
+// "Вінницька обл." = 4
+// "Хмельницька обл." = 3
+// "Чернівецька обл." = 26
+// "м. Київ" = 31
+
+const int home_district = 31; // Київ (за замовчуванням)
 
 void updateUserWifiCreds() {
   Serial.println("Disconnecting from WiFi...");
@@ -67,7 +69,7 @@ void updateFirmware() {
   // Default value for JAAM 1
   preferences.putString("id", "JAAM");
   preferences.putInt("legacy", 0); // JAAM 1
-  preferences.putInt("hd", home_district); // home district
+  preferences.putInt("hmd", home_district); // home district
 
   Serial.println("Default JAAM 1 settings applied...");
 
@@ -76,7 +78,7 @@ void updateFirmware() {
   // Default value for JAAM 2
   preferences.putString("id", "JAAM2");
   preferences.putInt("legacy", 3); // JAAM 2
-  preferences.putInt("hd", home_district); // home district
+  preferences.putInt("hmd", home_district); // home district
   preferences.putInt("brightness", 50); // global brightness in %
   preferences.putInt("brd", 50); // day brightness in %
   preferences.putInt("brn", 7); // night brightness in %
@@ -112,6 +114,10 @@ void updateFirmware() {
   preferences.remove("dd"); // clear device description
   preferences.remove("bn"); // clear broadcaat name
   preferences.remove("ntph"); // clear ntp server host
+  preferences.remove("ha_brokeraddr"); // clear home assistant broker address
+  preferences.remove("ha_mqttport"); // clear home assistant mqtt port
+  preferences.remove("ha_mqttuser"); // clear home assistant mqtt user
+  preferences.remove("ha_mqttpass"); // clear home assistant mqtt password
 
   preferences.end();
 
