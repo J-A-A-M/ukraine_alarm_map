@@ -204,14 +204,17 @@ async def main(request):
     """
     return HTMLResponse(response)
 
-async def get_cache_data(mc, key_b, default_response=None):
+async def get_cache_data(mc, key_b, default_response=None, json=True):
     if default_response is None:
         default_response = {}
         
     cache = await mc.get(key_b)
 
     if cache:
-        cache = json.loads(cache.decode("utf-8"))
+        cache = cache.decode("utf-8")
+        if json:
+            cache = json.loads(cache)
+        
     else:
         cache = default_response
 
@@ -231,6 +234,17 @@ def get_region_name(search_key, region_id):
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def calculate_time_difference(timestamp1, timestamp2):
+    format_str = "%Y-%m-%dT%H:%M:%SZ"
+
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
+
+    time_difference = (time2 - time1).total_seconds()
+    return int(abs(time_difference))
+
 
 async def alerts_v1(request):
     try:
@@ -417,14 +431,13 @@ def etryvoga_v2(cached):
 
 def etryvoga_v3(cached):
     try:
-        local_time = get_local_time_formatted()
         if cached:
             cached_data = json.loads(cached.decode("utf-8"))
             cached_data["version"] = 3
             new_data = {}
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
-                new_data[state_name] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), local_time)
+                new_data[state_name] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), get_current_datetime())
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -482,16 +495,6 @@ async def drones_v3(request):
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
-async def etryvoga_full(request):
-    if request.path_params["token"] == data_token:
-        etryvoga_full = await mc.get(b"etryvoga_full")
-        return JSONResponse(
-            json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"}
-        )
-    else:
-        return JSONResponse({})
-
-
 async def tcp_v1(request):
     try:
         alerts_cache = await get_alerts(mc, b"alerts_websocket_v1", [])
@@ -505,34 +508,15 @@ async def tcp_v1(request):
     return JSONResponse({"tcp_stored_data": tcp_data}, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
-def get_local_time_formatted():
-    local_time = datetime.datetime.now(datetime.UTC)
-    formatted_local_time = local_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return formatted_local_time
-
-
-def calculate_time_difference(timestamp1, timestamp2):
-    format_str = "%Y-%m-%dT%H:%M:%SZ"
-
-    time1 = datetime.datetime.strptime(timestamp1, format_str)
-    time2 = datetime.datetime.strptime(timestamp2, format_str)
-
-    time_difference = (time2 - time1).total_seconds()
-    return int(abs(time_difference))
-
-
 async def api_status(request):
-    local_time = get_local_time_formatted()
-    cached = await mc.get(b"alerts")
-    alerts_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
-    cached = await mc.get(b"weather")
-    weather_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
-    cached = await mc.get(b"explosions")
-    etryvoga_cached_data = json.loads(cached.decode("utf-8")) if cached else ""
+    local_time = get_current_datetime()
+    alerts_api_last_call = await get_cache_data(mc, b"alerts_api_last_call", json=False)
+    weather_api_last_call = await get_cache_data(mc, b"weather_api_last_call", json=False)
+    etryvoga_api_last_call = await get_cache_data(mc, b"etryvoga_api_last_call", json=False)
 
-    alert_time_diff = calculate_time_difference(alerts_cached_data["info"]["last_update"], local_time)
-    weather_time_diff = calculate_time_difference(weather_cached_data["info"]["last_update"], local_time)
-    etryvoga_time_diff = calculate_time_difference(etryvoga_cached_data["info"]["last_update"], local_time)
+    alert_time_diff = calculate_time_difference(alerts_api_last_call, get_current_datetime())
+    weather_time_diff = calculate_time_difference(weather_api_last_call, get_current_datetime())
+    etryvoga_time_diff = calculate_time_difference(etryvoga_api_last_call, get_current_datetime())
 
     return JSONResponse(
         {
@@ -647,7 +631,6 @@ app = Starlette(
         Route("/drones_statuses_v1.json", drones_v1),
         Route("/drones_statuses_v2.json", drones_v2),
         Route("/drones_statuses_v3.json", drones_v3),
-        Route("/etryvoga_{token}.json", etryvoga_full),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/api_status.json", api_status),
         Route("/{filename}.png", map_v1),

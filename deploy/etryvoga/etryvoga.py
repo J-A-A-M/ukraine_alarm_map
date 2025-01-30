@@ -87,6 +87,9 @@ def format_time(time):
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+async def service_is_fine(mc, key_b):
+    await mc.set(key_b, get_current_datetime().encode("utf-8"))
+
 
 async def get_etryvoga_data(mc):
     while True:
@@ -177,6 +180,7 @@ async def get_etryvoga_data(mc):
                     await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
                     await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))
                     logger.info("etryvoga data stored")
+                    await service_is_fine(mc, b"etryvoga_api_last_call")
                     logger.debug("end get_etryvoga_data")
                 else:
                     logger.error(f"get_etryvoga_data: Request failed with status code {response.status}")
@@ -206,6 +210,7 @@ async def get_etryvoga_districts(mc):
                     logger.debug("store etryvoga_districts")
                     await mc.set(b"etryvoga_districts", json.dumps(data).encode("utf-8"))
                     await mc.set(b"etryvoga_districts_struct", json.dumps(data_struct).encode("utf-8"))
+                    await service_is_fine(mc, b"etryvoga_districts_api_last_call")
                     logger.info("etryvoga_districts stored")
                 else:
                     logger.error(f"get_etryvoga_districts: Request failed with status code {response.status_code}")

@@ -45,6 +45,12 @@ async def get_cache_data(mc, key_b, default_response=None):
 
     return cache
 
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+async def service_is_fine(mc, key_b):
+    await mc.set(key_b, get_current_datetime().encode("utf-8"))
+
 
 async def get_regions(mc):
     while True:
@@ -80,6 +86,7 @@ async def get_regions(mc):
             await mc.set(b"regions_api", json.dumps(regions).encode("utf-8"))
             logger.info("regions data stored")
             logger.debug("end get_regions")
+            await service_is_fine(mc, b"regions_api_last_call")
             await asyncio.sleep(regions_loop_time)
         except asyncio.CancelledError:
             logger.error("get_regions: task canceled. Shutting down...")
@@ -121,6 +128,7 @@ async def get_alerts(mc):
             logger.debug("storing alerts data")
             await mc.set(b"alerts_api", json.dumps(data).encode("utf-8"))
             logger.info("alerts data stored")
+            await service_is_fine(mc, b"alerts_api_last_call")
             logger.debug("end get_alerts")
             await asyncio.sleep(alert_loop_time)
 
