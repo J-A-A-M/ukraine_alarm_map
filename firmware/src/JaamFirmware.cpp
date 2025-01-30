@@ -90,19 +90,18 @@ CRGB bg_strip[100];
 CRGB service_strip[5];
 int service_strip_update_index = 0;
 
-std::map<int, std::pair<int, long>>   id_to_alerts; //regionId to alert state and time
-std::map<int, std::pair<int, long>>   led_to_alerts; // ledPosition to alert state and time
-std::map<int, float>                      id_to_weather; //regionId to temperature
-std::map<int, float>                      led_to_weather; // ledPosition to temperature
-std::map<int, long>                       id_to_explosions; //regionId to explosion time
-std::map<int, long>                       led_to_explosions; // ledPosition to explosion time
-std::map<int, long>                       id_to_missiles; //regionId to missiles time
-std::map<int, long>                       led_to_missiles; // ledPosition to missils time
-std::map<int, long>                       id_to_drones; //regionId to missiles time
-std::map<int, long>                       led_to_drones; // ledPosition to missils time
-std::map<int, int>                        led_to_flag_color; // ledPosition to flag color
-
-std::pair<int, int*>                      homeDistrictMapping; // id to ledPosition home district mapping
+std::map<int, std::pair<int, long>> id_to_alerts; //regionId to alert state and time
+std::map<int, std::pair<int, long>> led_to_alerts; // ledPosition to alert state and time
+std::map<int, float>                id_to_weather; //regionId to temperature
+std::map<int, float>                led_to_weather; // ledPosition to temperature
+std::map<int, long>                 id_to_explosions; //regionId to explosion time
+std::map<int, long>                 led_to_explosions; // ledPosition to explosion time
+std::map<int, long>                 id_to_missiles; //regionId to missiles time
+std::map<int, long>                 led_to_missiles; // ledPosition to missils time
+std::map<int, long>                 id_to_drones; //regionId to missiles time
+std::map<int, long>                 led_to_drones; // ledPosition to missils time
+std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
+std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
 
 std::pair<int, int*> (*ledMapping)(int key);
@@ -1296,7 +1295,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   settings.saveInt(HOME_DISTRICT, newHomeDistrict);
   const char* homeDistrictName = getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT);
   reportSettingsChange("home_district", getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT));
-  LOG.printf("home_district commited to preferences: $s\n", homeDistrictName);
+  LOG.printf("home_district commited to preferences: %s\n", homeDistrictName);
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
@@ -3254,22 +3253,27 @@ void mapAlarms() {
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrictLedCount = homeDistrictMapping.first; // get count of leds in local district
-    int localDistrictId = settings.getInt(HOME_DISTRICT);
-    fill_solid(
-      bg_strip,
-      settings.getInt(BG_LED_COUNT),
-      processAlarms(
-        id_to_alerts[localDistrictId].first,
-        id_to_alerts[localDistrictId].second,
-        id_to_explosions[localDistrictId],
-        id_to_missiles[localDistrictId],
-        id_to_drones[localDistrictId],
-        localDistrictLedCount > 0 ? homeDistrictMapping.second[0] : -1,
-        blinkBrightness,
-        notificationBrightness,
-        true
-      )
-    );
+    if (localDistrictLedCount <= 0) {
+      // if local district led is missing, fill bg strip with black color
+      fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
+    } else {
+      int localDistrictLed = homeDistrictMapping.second[0]; // get first led in local district
+      fill_solid(
+        bg_strip,
+        settings.getInt(BG_LED_COUNT),
+        processAlarms(
+          led_to_alerts[localDistrictLed].first,
+          led_to_alerts[localDistrictLed].second,
+          led_to_explosions[localDistrictLed],
+          led_to_missiles[localDistrictLed],
+          led_to_drones[localDistrictLed],
+          localDistrictLed,
+          blinkBrightness,
+          notificationBrightness,
+          true
+        )
+      );
+    }
   }
   FastLED.show();
 }
