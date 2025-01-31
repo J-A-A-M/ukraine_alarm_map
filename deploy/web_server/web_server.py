@@ -260,7 +260,7 @@ async def alerts_v1(request):
             if region_data["regionType"] == "State":
                 region = {
                     "district": False,
-                    "enabled": True if region_data["activeAlerts"] else False,
+                    "enabled": True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False,
                     "type": "state",
                     "disabled_at": region_data["lastUpdate"] if not region_data["activeAlerts"] else None,
                     "enabled_at": region_data["lastUpdate"] if region_data["activeAlerts"] else None,
@@ -299,14 +299,14 @@ async def alerts_v2(request):
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "State":
                 region = {
-                    "alertnow": True if region_data["activeAlerts"] else False,
+                    "alertnow": True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False,
                     "district": False,
                     "changes": region_data["lastUpdate"],
                     }
                 data["states"][region_data["regionName"]] = region
 
         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "District" and region_data["activeAlerts"]:
+            if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
                     state_id = regions_cache[region_data["regionId"]]["stateId"]
                     state = regions_cache[state_id]
 
@@ -334,10 +334,10 @@ async def alerts_v3(request):
 
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "State":
-                data["states"][region_data["regionName"]] = True if region_data["activeAlerts"] else False
+                data["states"][region_data["regionName"]] = True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False
 
         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "District" and region_data["activeAlerts"]:
+            if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
                     state_id = regions_cache[region_data["regionId"]]["stateId"]
                     state = regions_cache[state_id]
 

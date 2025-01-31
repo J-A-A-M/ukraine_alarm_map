@@ -103,8 +103,6 @@ async def get_alerts(mc):
         try:
             logger.debug("start get_alerts")
 
-            # get historic startup data
-
             alerts_historical_cache = await get_cache_data(mc, b"alerts_historical_api", [])
             regions_cache = await get_cache_data(mc, b"regions_api", {})
 

@@ -150,7 +150,7 @@ async def get_etryvoga_data(mc):
                                 region="region",
                                 body="body",
                                 time="diff"
-                            )
+                            ) 
                         )
                     logger.debug("------------ ----- ------------------------- ------------------------- -----------")
                     for message in data[::-1]:
