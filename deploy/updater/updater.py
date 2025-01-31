@@ -248,7 +248,7 @@ async def ertyvoga_v1(mc, cache_key, data_key, data_key_text):
         legacy_state_id = state_data["legacy_id"]
         legacy_state_id_str = str(legacy_state_id)
         if legacy_state_id_str in cache["states"]:
-            alert_start_time = cache["states"][legacy_state_id_str]["changed"]
+            alert_start_time = cache["states"][legacy_state_id_str]["lastUpdate"]
             alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
             data[legacy_state_id-1] = alert_start_time
 

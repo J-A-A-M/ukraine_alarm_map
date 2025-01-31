@@ -29,8 +29,8 @@ async def test_1(mock_get_etryvoga, mock_get_cache_data):
         {
             "version": 1, 
             "states": {
-                "1": {"changed": "2022-02-24T03:40:00Z"},
-                "2": {"changed": "2025-01-15T10:00:00Z"}
+                "1": {"lastUpdate": "2022-02-24T03:40:00Z"},
+                "2": {"lastUpdate": "2025-01-15T10:00:00Z"}
             }, 
             "info": {
                 "last_update": "2025-01-26T19:18:55Z", 
@@ -62,7 +62,7 @@ async def test_2(mock_get_etryvoga, mock_get_cache_data):
         {
             "version": 1, 
             "states": {
-                "1": {"changed": "2025-01-15T10:00:00Z"}
+                "1": {"lastUpdate": "2025-01-15T10:00:00Z"}
             }, 
             "info": {
                 "last_update": "2025-01-26T19:18:55Z", 

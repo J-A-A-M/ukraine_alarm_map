@@ -170,7 +170,7 @@ async def get_etryvoga_data(mc):
                         if state_name == "Невідомо":
                             continue
                         region_data = {
-                            "changed": format_time(message["createdAt"]),
+                            "lastUpdate": format_time(message["createdAt"]),
                         }
                         match message["type"]:
                             case "EXPLOSION":

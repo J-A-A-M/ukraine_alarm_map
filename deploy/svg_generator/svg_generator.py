@@ -61,6 +61,9 @@ COLOR_ALERT = "#FF5733"
 COLOR_SAFE = "#32CD32"
 COLOR_ALERT_BEGIN = "#FFA533"
 COLOR_SAFE_BEGIN = "#BBFF33"
+COLOR_MISSILES = "#9D00FF"
+COLOR_DRONES = "#FF00FF"
+COLOR_EXPLOSIVES = "#00FFFF"
 
 legacy_flag_leds = [
     60,
@@ -138,7 +141,7 @@ def calculate_time_difference(timestamp1, timestamp2):
     return int(abs(time_difference))
 
 
-async def svg_generator(mc):
+async def svg_generator_alerts(mc):
     stored_data = {}
     while True:
       try:
@@ -146,9 +149,11 @@ async def svg_generator(mc):
          local_time = get_current_datetime_formatted()
 
          alerts_svg_data = {}
-         weather_svg_data = {}
 
          alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", [])
+         drones_cache = await get_etryvoga(mc,b"drones_etryvoga", {"states:{}"})
+         missiles_cache = await get_etryvoga(mc,b"missiles_etryvoga", {"states:{}"})
+         explosions_cache = await get_etryvoga(mc,b"explosions_etryvoga", {"states:{}"})
          regions_cache = await get_regions(mc, b"regions_api", {})
 
          for region_id, region_data in alerts_cache.items():
@@ -165,6 +170,27 @@ async def svg_generator(mc):
                   time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                   alerts_svg_data[state_name] = COLOR_ALERT if time_diff>300 else COLOR_ALERT_BEGIN
 
+         for region_id, region_data in drones_cache["states"].items():
+            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+            state_id = int(region_id)
+            state_name = get_region_name("id", state_id)
+            if time_diff < 180:
+                alerts_svg_data[state_name] = COLOR_DRONES
+
+         for region_id, region_data in missiles_cache["states"].items():
+            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+            state_id = int(region_id)
+            state_name = get_region_name("id", state_id)
+            if time_diff < 180:
+                alerts_svg_data[state_name] = COLOR_MISSILES
+
+         for region_id, region_data in explosions_cache["states"].items():
+            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+            state_id = int(region_id)
+            state_name = get_region_name("id", state_id)
+            if time_diff < 180:
+                alerts_svg_data[state_name] = COLOR_MISSILES
+                
          if alerts_svg_data == stored_data:
              continue
 
@@ -228,8 +254,40 @@ async def svg_generator(mc):
                stored_data = cached_data
                logger.info(f"map generated")
       except Exception as e:
-         logger.error(f"Request failed with status code: {e}")
-         raise ""
+         logger.error(f"svg_generator_alerts: {e}")
+         logger.debug(f"Повний стек помилки:", exc_info=True)
+      
+async def svg_generator_weather(mc):
+    stored_data = {}
+    while True:
+      try:
+         await asyncio.sleep(loop_time)
+         local_time = get_current_datetime_formatted()
+
+         weather_svg_data = {}
+
+         weather_cache = await get_weather(mc, b"weather_openweathermap", [])
+         for region_id, region_data in weather_cache["states"].items():
+            state_id = int(region_id)
+            state_name = get_region_name("id", state_id)
+            weather_svg_data[state_name] = calculate_html_color_from_temp(int(round(region_data["temp"], 0)))
+
+         if weather_svg_data == stored_data:
+             continue
+
+         file_path = os.path.join(shared_path, "weather_map.png")
+         await generate_map(
+            time=local_time,
+            output_file=file_path,
+            show_weather_info=True,
+            **weather_svg_data,
+         )
+         stored_data = weather_svg_data     
+         continue 
+
+      except Exception as e:
+         logger.error(f"svg_generator_weather: {e}")
+         logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
 async def generate_flag():
@@ -1062,7 +1120,8 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            svg_generator(mc)
+            svg_generator_alerts(mc),
+            svg_generator_weather(mc)
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

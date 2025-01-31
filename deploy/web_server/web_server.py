@@ -107,11 +107,11 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
                 api_clients[client_ip] = [start_time, client_path]
             case "/explosives_statuses_v3.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case "/rockets_statuses_v1.json":
+            case "/missiles_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case "/rockets_statuses_v2.json":
+            case "/missiles_statuses_v2.json":
                 api_clients[client_ip] = [start_time, client_path]
-            case "/rockets_statuses_v3.json":
+            case "/missiles_statuses_v3.json":
                 api_clients[client_ip] = [start_time, client_path]
             case "/drones_statuses_v1.json":
                 api_clients[client_ip] = [start_time, client_path]
@@ -394,7 +394,7 @@ def etryvoga_v1(cached):
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
                 new_data[state_name] = {
-                    "changed": data["changed"]
+                    "changed": data["lastUpdate"]
                 }
             cached_data["states"] = new_data
             cached_data["info"][
@@ -416,7 +416,7 @@ def etryvoga_v2(cached):
             new_data = {}
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
-                new_data[state_name] = data["changed"]
+                new_data[state_name] = data["lastUpdate"]
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -437,7 +437,7 @@ def etryvoga_v3(cached):
             new_data = {}
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
-                new_data[state_name] = calculate_time_difference(data["changed"].replace("+00:00", "Z"), get_current_datetime())
+                new_data[state_name] = calculate_time_difference(data["lastUpdate"].replace("+00:00", "Z"), get_current_datetime())
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -465,18 +465,18 @@ async def explosives_v3(request):
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
-async def rockets_v1(request):
-    cached = await mc.get(b"rockets_etryvoga")
+async def missiles_v1(request):
+    cached = await mc.get(b"missiles_etryvoga")
     return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
-async def rockets_v2(request):
-    cached = await mc.get(b"rockets_etryvoga")
+async def missiles_v2(request):
+    cached = await mc.get(b"missiles_etryvoga")
     return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
-async def rockets_v3(request):
-    cached = await mc.get(b"rockets_etryvoga")
+async def missiles_v3(request):
+    cached = await mc.get(b"missiles_etryvoga")
     return JSONResponse(etryvoga_v3(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
 
@@ -625,9 +625,9 @@ app = Starlette(
         Route("/explosives_statuses_v1.json", explosives_v1),
         Route("/explosives_statuses_v2.json", explosives_v2),
         Route("/explosives_statuses_v3.json", explosives_v3),
-        Route("/rockets_statuses_v1.json", rockets_v1),
-        Route("/rockets_statuses_v2.json", rockets_v2),
-        Route("/rockets_statuses_v3.json", rockets_v3),
+        Route("/missiles_statuses_v1.json", missiles_v1),
+        Route("/missiles_statuses_v2.json", missiles_v2),
+        Route("/missiles_statuses_v3.json", missiles_v3),
         Route("/drones_statuses_v1.json", drones_v1),
         Route("/drones_statuses_v2.json", drones_v2),
         Route("/drones_statuses_v3.json", drones_v3),
