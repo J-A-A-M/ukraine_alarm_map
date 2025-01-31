@@ -31,10 +31,10 @@ server_timezone = ZoneInfo("Europe/Kyiv")
 
 log_level = os.environ.get("LOGGING") or "DEBUG"
 websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
-ping_interval = int(os.environ.get("PING_INTERVAL")) or 20
+ping_interval = int(os.environ.get("PING_INTERVAL") or 20)
 ping_timeout = int(os.environ.get("PING_TIMEOUT") or 20)
-ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT")) or 1
-memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL")) or 1
+ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT") or 1)
+memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL") or 1)
 random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
 test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
 api_secret = os.environ.get("API_SECRET") or ""
@@ -73,11 +73,8 @@ class SharedData:
         self.weather_v1 = "[]"
         self.weather_full = {}
         self.explosions_v1 = "[]"
-        self.explosions_full = {}
-        self.rockets_v1 = "[]"
-        self.rockets_full = {}
+        self.missiles_v1 = "[]"
         self.drones_v1 = "[]"
-        self.drones_full = {}
         self.bins = "[]"
         self.test_bins = "[]"
         self.clients = {}
@@ -96,32 +93,32 @@ class AlertVersion:
 
 
 regions = {
-    "Закарпатська область": {"id": 0},
-    "Івано-Франківська область": {"id": 1},
-    "Тернопільська область": {"id": 2},
-    "Львівська область": {"id": 3},
-    "Волинська область": {"id": 4},
-    "Рівненська область": {"id": 5},
-    "Житомирська область": {"id": 6},
-    "Київська область": {"id": 7},
-    "Чернігівська область": {"id": 8},
-    "Сумська область": {"id": 9},
-    "Харківська область": {"id": 10},
-    "Луганська область": {"id": 11},
-    "Донецька область": {"id": 12},
-    "Запорізька область": {"id": 13},
-    "Херсонська область": {"id": 14},
-    "Автономна Республіка Крим": {"id": 15},
-    "Одеська область": {"id": 16},
-    "Миколаївська область": {"id": 17},
-    "Дніпропетровська область": {"id": 18},
-    "Полтавська область": {"id": 19},
-    "Черкаська область": {"id": 20},
-    "Кіровоградська область": {"id": 21},
-    "Вінницька область": {"id": 22},
-    "Хмельницька область": {"id": 23},
-    "Чернівецька область": {"id": 24},
-    "м. Київ": {"id": 25},
+    "Закарпатська область": {"id": 11, "legacy_id": 1},
+    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
+    "Тернопільська область": {"id": 21, "legacy_id": 3},
+    "Львівська область": {"id": 27, "legacy_id": 4},
+    "Волинська область": {"id": 8, "legacy_id": 5},
+    "Рівненська область": {"id": 5, "legacy_id": 6},
+    "Житомирська область": {"id": 10, "legacy_id": 7},
+    "Київська область": {"id": 14, "legacy_id": 8},
+    "Чернігівська область": {"id": 25, "legacy_id": 9},
+    "Сумська область": {"id": 20, "legacy_id": 10},
+    "Харківська область": {"id": 22, "legacy_id": 11},
+    "Луганська область": {"id": 16, "legacy_id": 12},
+    "Донецька область": {"id": 28, "legacy_id": 13},
+    "Запорізька область": {"id": 12, "legacy_id": 14},
+    "Херсонська область": {"id": 23, "legacy_id": 15},
+    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
+    "Одеська область": {"id": 18, "legacy_id": 17},
+    "Миколаївська область": {"id": 17, "legacy_id": 18},
+    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
+    "Полтавська область": {"id": 19, "legacy_id": 20},
+    "Черкаська область": {"id": 24, "legacy_id": 21},
+    "Кіровоградська область": {"id": 15, "legacy_id": 22},
+    "Вінницька область": {"id": 4, "legacy_id": 23},
+    "Хмельницька область": {"id": 3, "legacy_id": 24},
+    "Чернівецька область": {"id": 26, "legacy_id": 25},
+    "м. Київ": {"id": 31, "legacy_id": 26},
 }
 
 
@@ -276,11 +273,11 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
 
         header, data = split_message(message)
         match header:
-            case "district":
-                district_data = await district_data_v1(int(data))
-                payload = json.dumps(district_data).encode("utf-8")
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
+            # case "district":
+            #     district_data = await district_data_v1(int(data))
+            #     payload = json.dumps(district_data).encode("utf-8")
+            #     await websocket.send(payload)
+            #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
             case "firmware":
                 client["firmware"] = data
                 parts = data.split("_", 1)
@@ -330,41 +327,28 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
             match alert_version:
                 case AlertVersion.v1:
                     if client["alerts"] != shared_data.alerts_v1:
-                        alerts = json.dumps([int(alert) for alert in json.loads(shared_data.alerts_v1)])
-                        payload = '{"payload":"alerts","alerts":%s}' % alerts
+                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v1
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
                     if client["alerts"] != shared_data.alerts_v2:
-                        alerts = []
-                        for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
-                            alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
-                        alerts = json.dumps(alerts)
-                        payload = '{"payload":"alerts","alerts":%s}' % alerts
+                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                 case AlertVersion.v3:
                     if client["alerts"] != shared_data.alerts_v2:
-                        alerts = []
-                        for alert in json.loads(shared_data.alerts_v2):
-                            datetime_obj = datetime.datetime.fromisoformat(alert[1].replace("Z", "+00:00"))
-                            datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
-                            alerts.append([int(alert[0]), int(datetime_obj_utc.timestamp())])
-                        alerts = json.dumps(alerts)
-                        payload = '{"payload":"alerts","alerts":%s}' % alerts
+                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
-                    if client["rockets"] != shared_data.rockets_v1:
-                        rockets = json.dumps([int(rocket) for rocket in json.loads(shared_data.rockets_v1)])
-                        payload = '{"payload": "missiles", "missiles": %s}' % rockets
+                    if client["missiles"] != shared_data.missiles_v1:
+                        missiles = json.dumps([int(rocket) for rocket in json.loads(shared_data.missiles_v1)])
+                        payload = '{"payload": "missiles", "missiles": %s}' % missiles
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
-                        client["rockets"] = shared_data.rockets_v1
+                        client["missiles"] = shared_data.missiles_v1
                     if client["drones"] != shared_data.drones_v1:
                         drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
                         payload = '{"payload": "drones", "drones": %s}' % drones
@@ -467,7 +451,7 @@ async def echo(websocket: ServerConnection):
             "alerts": "[]",
             "weather": "[]",
             "explosions": "[]",
-            "rockets": "[]",
+            "missiles": "[]",
             "drones": "[]",
             "bins": "[]",
             "test_bins": "[]",
@@ -558,23 +542,21 @@ async def echo(websocket: ServerConnection):
         logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
-async def district_data_v1(district_id):
-    alerts_cached_data = shared_data.alerts_full
-    weather_cached_data = shared_data.weather_full
+# async def district_data_v1(district_id):
+#     alerts_cached_data = shared_data.alerts_full
+#     weather_cached_data = shared_data.weather_full
 
-    for region, data in regions.items():
-        if data["id"] == district_id:
-            break
+#     for region, data in regions.items():
+#         if data["legacy_id"] == district_id:
+#             region_id = data["legacy_id"]
 
-    iso_datetime_str = alerts_cached_data[region]["changed"]
-    datetime_obj = datetime.datetime.fromisoformat(iso_datetime_str.replace("Z", "+00:00"))
-    datetime_obj_utc = datetime_obj.replace(tzinfo=datetime.UTC)
-    alerts_cached_data[region]["changed"] = int(datetime_obj_utc.timestamp())
+#     datetime = alerts_cached_data[region_id]["lastUpdate"]
+#     alerts_cached_data[region]["changed"] = int(datetime.timestamp())
 
-    return {
-        "payload": "district",
-        "district": {**{"name": region}, **alerts_cached_data[region], **weather_cached_data[region]},
-    }
+#     return {
+#         "payload": "district",
+#         "district": {**{"name": region}, **alerts_cached_data[region], **weather_cached_data[region]},
+#     }
 
 
 async def update_shared_data(shared_data, mc):
@@ -585,15 +567,12 @@ async def update_shared_data(shared_data, mc):
             alerts_v2,
             weather_v1,
             explosions_v1,
-            rockets_v1,
+            missiles_v1,
             drones_v1,
             bins,
             test_bins,
             alerts_full,
             weather_full,
-            explosions_full,
-            rockets_full,
-            drones_full,
         ) = (
             await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
@@ -627,11 +606,11 @@ async def update_shared_data(shared_data, mc):
             logger.error(f"error in explosions_v1: {e}")
 
         try:
-            if rockets_v1 != shared_data.rockets_v1:
-                shared_data.rockets_v1 = rockets_v1
-                logger.debug(f"rockets_v1 updated: {rockets_v1}")
+            if missiles_v1 != shared_data.missiles_v1:
+                shared_data.missiles_v1 = missiles_v1
+                logger.debug(f"missiles_v1 updated: {missiles_v1}")
         except Exception as e:
-            logger.error(f"error in rockets_v1: {e}")
+            logger.error(f"error in missiles_v1: {e}")
 
         try:
             if drones_v1 != shared_data.drones_v1:
@@ -666,28 +645,7 @@ async def update_shared_data(shared_data, mc):
                 shared_data.weather_full = weather_full
                 logger.debug(f"weather_full updated")
         except Exception as e:
-            logger.error(f"error in weather_full: {e}")
-
-        try:
-            if explosions_full != shared_data.explosions_full:
-                shared_data.explosions_full = explosions_full
-                logger.debug(f"explosions_full updated")
-        except Exception as e:
-            logger.error(f"error in explosions_full: {e}")
-
-        try:
-            if rockets_full != shared_data.rockets_full:
-                shared_data.rockets_full = rockets_full
-                logger.debug(f"rockets_full updated")
-        except Exception as e:
-            logger.error(f"error in rockets_full: {e}")
-
-        try:
-            if drones_full != shared_data.drones_full:
-                shared_data.drones_full = drones_full
-                logger.debug(f"drones_full updated")
-        except Exception as e:
-            logger.error(f"error in drones_full: {e}")
+            logger.error(f"error in weather_full: {e}") 
 
         await asyncio.sleep(memcache_fetch_interval)
 
@@ -758,21 +716,18 @@ async def get_data_from_memcached(mc):
     alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
     weather_cached_v1 = await mc.get(b"weather_websocket_v1")
     explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
-    rockets_cached_v1 = await mc.get(b"rockets_websocket_v1")
+    missiles_cached_v1 = await mc.get(b"missiles_websocket_v1")
     drones_cached_v1 = await mc.get(b"drones_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
-    alerts_full_cached = await mc.get(b"alerts")
-    weather_full_cached = await mc.get(b"weather")
-    explosions_full_cashed = await mc.get(b"explosions")
-    rockets_full_cashed = await mc.get(b"rockets")
-    drones_full_cashed = await mc.get(b"drones")
+    alerts_full_cached = await mc.get(b"alerts_historical_v1")
+    weather_full_cached = await mc.get(b"weather_openweathermap")
 
     if random_mode:
         values_v1 = []
         values_v2 = []
         explosions_v1 = [0] * 26
-        rockets_v1 = [0] * 26
+        missiles_v1 = [0] * 26
         drones_v1 = [0] * 26
         for i in range(26):
             values_v1.append(random.randint(0, 3))
@@ -785,18 +740,15 @@ async def get_data_from_memcached(mc):
             )
         explosion_index = random.randint(0, 25)
         explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
-        rocket_index = random.randint(0, 25)
-        rockets_v1[rocket_index] = int(datetime.datetime.now().timestamp())
+        missile_index = random.randint(0, 25)
+        missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
         drone_index = random.randint(0, 25)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(values_v1[:26])
         alerts_cached_data_v2 = json.dumps(values_v2[:26])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
-        explosions_cashed_data_full = {}
-        rockets_cashed_data_v1 = json.dumps(rockets_v1[:26])
-        rockets_cashed_data_full = {}
+        missiles_cashed_data_v1 = json.dumps(missiles_v1[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
-        drones_cashed_data_full = {}
     else:
         if alerts_cached_v1:
             alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8")
@@ -812,10 +764,10 @@ async def get_data_from_memcached(mc):
         else:
             explosions_cashed_data_v1 = "[]"
 
-        if rockets_cached_v1:
-            rockets_cashed_data_v1 = rockets_cached_v1.decode("utf-8")
+        if missiles_cached_v1:
+            missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8")
         else:
-            rockets_cashed_data_v1 = "[]"
+            missiles_cashed_data_v1 = "[]"
 
         if drones_cached_v1:
             drones_cashed_data_v1 = drones_cached_v1.decode("utf-8")
@@ -838,44 +790,25 @@ async def get_data_from_memcached(mc):
         test_bins_cached_data = "[]"
 
     if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))["states"]
+        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))
     else:
         alerts_full_cached_data = {}
 
     if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))["states"]
+        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))
     else:
         weather_full_cached_data = {}
-
-    if explosions_full_cashed:
-        explosions_cashed_data_full = json.loads(explosions_full_cashed.decode("utf-8"))["states"]
-    else:
-        explosions_cashed_data_full = {}
-
-    if rockets_full_cashed:
-        rockets_cashed_data_full = json.loads(rockets_full_cashed.decode("utf-8"))["states"]
-    else:
-        rockets_cashed_data_full = {}
-
-    if drones_full_cashed:
-        drones_cashed_data_full = json.loads(drones_full_cashed.decode("utf-8"))["states"]
-    else:
-        drones_cashed_data_full = {}
-
     return (
         alerts_cached_data_v1,
         alerts_cached_data_v2,
         weather_cached_data_v1,
         explosions_cashed_data_v1,
-        rockets_cashed_data_v1,
+        missiles_cashed_data_v1,
         drones_cashed_data_v1,
         bins_cached_data,
         test_bins_cached_data,
         alerts_full_cached_data,
         weather_full_cached_data,
-        explosions_cashed_data_full,
-        rockets_cashed_data_full,
-        drones_cashed_data_full,
     )
 
 
