@@ -12,8 +12,8 @@ TelnetSpy SerialAndTelnet;
 
 #define MAIN_LEDS_COUNT 26
 #define DISTRICTS_COUNT 26
-#define KYIV_REGION_ID 26
-#define KYIV_OBL_REGION_ID 8
+#define KYIV_REGION_ID 31
+#define KYIV_OBL_REGION_ID 14
 
 struct SettingListItem {
   int id;
@@ -113,97 +113,118 @@ static const int ALERT = 1;
 #define BR_LEVELS_COUNT 20
 #define MAX_BINS_LIST_SIZE 10
 
-static const std::map<int, uint8_t> FLAG_COLORS = {
-  {1, 60},
-  {2, 60},
-  {3, 60},
-  {4, 180},
-  {5, 180},
-  {6, 180},
-  {7, 180},
-  {8, 180},
-  {9, 180},
-  {10, 180},
-  {11, 180},
-  {12, 180},
+static const std::map<int, int> FLAG_COLORS = {
+  {11, 60},
   {13, 60},
-  {14, 60},
-  {15, 60},
-  {16, 60},
-  {17, 60},
-  {18, 60},
-  {19, 60},
+  {21, 60},
+  {27, 180},
+  {8, 180},
+  {5, 180},
+  {10, 180},
+  {14, 180},
+  {25, 180},
   {20, 180},
-  {21, 180},
-  {22, 60},
+  {22, 180},
+  {16, 180},
+  {28, 60},
+  {12, 60},
   {23, 60},
-  {24, 60},
-  {25, 60},
-  {26, 180},
+  {9999, 60},
+  {18, 60},
+  {17, 60},
+  {9, 60},
+  {19, 180},
+  {24, 180},
+  {15, 60},
+  {4, 60},
+  {3, 60},
+  {26, 60},
+  {31, 180},
 };
 
-static const uint8_t D0[] PROGMEM = { 0, 1, 3 };
-static const uint8_t D1[] PROGMEM = { 1, 0, 2, 3, 24 };
-static const uint8_t D2[] PROGMEM = { 2, 1, 3, 4, 5, 23, 24 };
-static const uint8_t D3[] PROGMEM = { 3, 0, 1, 2, 4 };
-static const uint8_t D4[] PROGMEM = { 4, 2, 3, 5 };
-static const uint8_t D5[] PROGMEM = { 5, 2, 3, 4, 6, 23 };
-static const uint8_t D6[] PROGMEM = { 6, 5, 7, 22, 23, 25 };
-static const uint8_t D7[] PROGMEM = { 7, 6, 8, 19, 20, 22, 25 };
-static const uint8_t D8[] PROGMEM = { 8, 7, 9, 19, 20 };
-static const uint8_t D9[] PROGMEM = { 9, 8, 10, 19 };
-static const uint8_t D10[] PROGMEM = { 10, 9, 12, 18, 19 };
-static const uint8_t D11[] PROGMEM = { 11, 10, 12 };
-static const uint8_t D12[] PROGMEM = { 12, 10, 13, 18 };
-static const uint8_t D13[] PROGMEM = { 13, 12, 14, 18 };
-static const uint8_t D14[] PROGMEM = { 14, 13, 17, 18 };
-static const uint8_t D15[] PROGMEM = { 15, 14 };
-static const uint8_t D16[] PROGMEM = { 16, 17, 20, 21, 22 };
-static const uint8_t D17[] PROGMEM = { 17, 14, 16, 18, 21 };
-static const uint8_t D18[] PROGMEM = { 18, 10, 12, 13, 14, 17, 19, 21 };
-static const uint8_t D19[] PROGMEM = { 19, 7, 8, 9, 10, 18, 20, 21, 25 };
-static const uint8_t D20[] PROGMEM = { 20, 7, 8, 19, 21, 22, 25 };
-static const uint8_t D21[] PROGMEM = { 21, 16, 17, 18, 19, 20, 22 };
-static const uint8_t D22[] PROGMEM = { 22, 6, 7, 16, 20, 21, 23, 24, 25 };
-static const uint8_t D23[] PROGMEM = { 23, 2, 5, 6, 22, 24 };
-static const uint8_t D24[] PROGMEM = { 24, 1, 2, 22, 23 };
-static const uint8_t D25[] PROGMEM = { 25, 7 };
-
-static const uint8_t COUNTERS[] PROGMEM = { 3, 5, 7, 5, 4, 6, 6, 6, 5, 4, 5, 3, 4, 4, 4, 2, 5, 5, 8, 8, 7, 7, 9, 6, 5, 2 };
+static const int D11[] PROGMEM = {13, 27}; // Закарпатська обл.
+static const int D13[] PROGMEM = {11, 21, 27, 26 }; // Івано-Франківська обл.
+static const int D21[] PROGMEM = {13, 27, 5, 3, 26}; // Тернопільська обл.
+static const int D27[] PROGMEM = {11, 13, 21, 8}; // Львівська обл.
+static const int D8[] PROGMEM = {27, 5}; // Волинська обл.
+static const int D5[] PROGMEM = {21, 27, 8, 10, 3 }; // Рівненська обл.
+static const int D10[] PROGMEM = {5, 14, 4, 3}; // Житомирська обл.
+static const int D14[] PROGMEM = {10, 25, 19, 24, 4, 31 }; // Київська обл.
+static const int D25[] PROGMEM = {14, 20, 19}; // Чернігівська обл.
+static const int D20[] PROGMEM = {8, 22, 19}; // Сумська обл.
+static const int D22[] PROGMEM = {20, 28, 9, 19}; // Харківська обл.
+static const int D16[] PROGMEM = {22, 28}; // Луганська обл.
+static const int D28[] PROGMEM = {22, 12, 9}; // Донецька обл.
+static const int D12[] PROGMEM = {28, 23, 9}; // Запорізька обл.
+static const int D23[] PROGMEM = {12, 17, 9}; // Херсонська обл.
+static const int D9999[] PROGMEM = {23}; // Автономна Республіка Крим
+static const int D18[] PROGMEM = {17, 15, 4}; // Одеська обл.
+static const int D17[] PROGMEM = {23, 18, 9, 15}; // Миколаївська обл.
+static const int D9[] PROGMEM = {22, 28, 12, 23, 17, 19, 15}; // Дніпропетровська обл.
+static const int D19[] PROGMEM = {14, 25, 20, 22, 9, 24, 15}; // Полтавська обл.
+static const int D24[] PROGMEM = {14, 19, 15, 4}; // Черкаська обл.
+static const int D15[] PROGMEM = {9, 17, 18, 19, 24, 4}; // Кіровоградська обл.
+static const int D4[] PROGMEM = {10, 14, 18, 24, 15, 3, 26}; // Вінницька обл.
+static const int D3[] PROGMEM = {21, 5, 10, 4, 26}; // Хмельницька обл.
+static const int D26[] PROGMEM = {13, 21, 4, 3}; // Чернівецька обл.
+static const int D31[] PROGMEM = {14}; // Київ
 
 static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
-  {15, "АР Крим", false},
-  {22, "Вінницька обл.", false},
-  {4, "Волинська обл.", false},
-  {18, "Дніпропетровська обл.", false},
-  {12, "Донецька обл.", false},
-  {6, "Житомирська обл.", false},
-  {0, "Закарпатська обл.", false},
-  {13, "Запорізька обл.", false},
-  {1, "Ів.-Франківська обл.", false},
-  {7, "Київська обл.", false},
-  {25, "Київ", false},
-  {21, "Кіровоградська обл.", false},
-  {11, "Луганська обл.", false},
-  {3, "Львівська обл.", false},
+  {9999, "АР Крим", false},
+  {4, "Вінницька обл.", false},
+  {8, "Волинська обл.", false},
+  {9, "Дніпропетровська обл.", false},
+  {28, "Донецька обл.", false},
+  {10, "Житомирська обл.", false},
+  {11, "Закарпатська обл.", false},
+  {12, "Запорізька обл.", false},
+  {13, "Ів.-Франківська обл.", false},
+  {14, "Київська обл.", false},
+  {31, "Київ", false},
+  {15, "Кіровоградська обл.", false},
+  {16, "Луганська обл.", false},
+  {27, "Львівська обл.", false},
   {17, "Миколаївська обл.", false},
-  {16, "Одеська обл.", false},
+  {18, "Одеська обл.", false},
   {19, "Полтавська обл.", false},
   {5, "Рівненська обл.", false},
-  {9, "Сумська обл.", false},
-  {2, "Тернопільська обл.", false},
-  {10, "Харківська обл.", false},
-  {14, "Херсонська обл.", false},
-  {23, "Хмельницька обл.", false},
-  {20, "Черкаська обл.", false},
-  {24, "Чернівецька обл.", false},
-  {8, "Чернігівська обл.", false},
+  {20, "Сумська обл.", false},
+  {21, "Тернопільська обл.", false},
+  {22, "Харківська обл.", false},
+  {23, "Херсонська обл.", false},
+  {3, "Хмельницька обл.", false},
+  {24, "Черкаська обл.", false},
+  {26, "Чернівецька обл.", false},
+  {25, "Чернігівська обл.", false},
 };
 
-static const uint8_t* NEIGHBORING_DISTRICS[DISTRICTS_COUNT] PROGMEM = {
-  D0, D1, D2, D3, D4, D5, D6, D7, D8, D9,
-  D10, D11, D12, D13, D14, D15, D16, D17, D18, D19,
-  D20, D21, D22, D23, D24, D25
+static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
+  {11, std::make_pair(2, (int*)D11)},
+  {13, std::make_pair(4, (int*)D13)},
+  {21, std::make_pair(5, (int*)D21)},
+  {27, std::make_pair(4, (int*)D27)},
+  {8, std::make_pair(2, (int*)D8)},
+  {5, std::make_pair(5, (int*)D5)},
+  {10, std::make_pair(4, (int*)D10)},
+  {14, std::make_pair(6, (int*)D14)},
+  {25, std::make_pair(1, (int*)D25)},
+  {20, std::make_pair(3, (int*)D20)},
+  {22, std::make_pair(4, (int*)D22)},
+  {16, std::make_pair(2, (int*)D16)},
+  {28, std::make_pair(3, (int*)D28)},
+  {12, std::make_pair(3, (int*)D12)},
+  {23, std::make_pair(3, (int*)D23)},
+  {9999, std::make_pair(1, (int*)D9999)},
+  {18, std::make_pair(3, (int*)D18)},
+  {17, std::make_pair(4, (int*)D17)},
+  {9, std::make_pair(7, (int*)D9)},
+  {19, std::make_pair(7, (int*)D19)},
+  {24, std::make_pair(4, (int*)D24)},
+  {15, std::make_pair(6, (int*)D15)},
+  {4, std::make_pair(7, (int*)D4)},
+  {3, std::make_pair(5, (int*)D3)},
+  {26, std::make_pair(4, (int*)D26)},
+  {31, std::make_pair(1, (int*)D31)},
 };
 
 #define MAP_MODES_COUNT 6

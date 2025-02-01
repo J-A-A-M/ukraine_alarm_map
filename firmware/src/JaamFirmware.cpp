@@ -90,19 +90,18 @@ CRGB bg_strip[100];
 CRGB service_strip[5];
 int service_strip_update_index = 0;
 
-std::map<int, std::pair<uint8_t, long>>   id_to_alerts; //regionId to alert state and time
-std::map<int, std::pair<uint8_t, long>>   led_to_alerts; // ledPosition to alert state and time
-std::map<int, float>                      id_to_weather; //regionId to temperature
-std::map<int, float>                      led_to_weather; // ledPosition to temperature
-std::map<int, long>                       id_to_explosions; //regionId to explosion time
-std::map<int, long>                       led_to_explosions; // ledPosition to explosion time
-std::map<int, long>                       id_to_missiles; //regionId to missiles time
-std::map<int, long>                       led_to_missiles; // ledPosition to missils time
-std::map<int, long>                       id_to_drones; //regionId to missiles time
-std::map<int, long>                       led_to_drones; // ledPosition to missils time
-std::map<int, uint8_t>                    led_to_flag_color; // ledPosition to flag color
-
-std::pair<int, int*>                      homeDistrictMapping; // id to ledPosition home district mapping
+std::map<int, std::pair<int, long>> id_to_alerts; //regionId to alert state and time
+std::map<int, std::pair<int, long>> led_to_alerts; // ledPosition to alert state and time
+std::map<int, float>                id_to_weather; //regionId to temperature
+std::map<int, float>                led_to_weather; // ledPosition to temperature
+std::map<int, long>                 id_to_explosions; //regionId to explosion time
+std::map<int, long>                 led_to_explosions; // ledPosition to explosion time
+std::map<int, long>                 id_to_missiles; //regionId to missiles time
+std::map<int, long>                 led_to_missiles; // ledPosition to missils time
+std::map<int, long>                 id_to_drones; //regionId to missiles time
+std::map<int, long>                 led_to_drones; // ledPosition to missils time
+std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
+std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
 
 std::pair<int, int*> (*ledMapping)(int key);
@@ -656,24 +655,24 @@ void initBroadcast() {
 int getCurrentMapMode() {
   if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
 
-  int currentMapMode = isMapOff ? 0 : settings.getInt(MAP_MODE);
-  int position = settings.getInt(HOME_DISTRICT);
-  switch (settings.getInt(ALARMS_AUTO_SWITCH)) {
-    case 1:
-      for (int j = 0; j < COUNTERS[position]; j++) {
-        int alarm_led_id = NEIGHBORING_DISTRICS[position][j] + 1;
-        if (id_to_alerts[alarm_led_id].first != 0) {
-          currentMapMode = 1;
-          break;
-        }
+  int homeRegionId = settings.getInt(HOME_DISTRICT);
+  int alarmMode = settings.getInt(ALARMS_AUTO_SWITCH);
+  if (alarmMode == 1) {
+    auto neighborsPair = NEIGHBORING_DISTRICS[homeRegionId];
+    int count = neighborsPair.first;
+    int* neighbors = neighborsPair.second;
+    for (int i = 0; i < count; i++) {
+      if (id_to_alerts[neighbors[i]].first != 0) {
+        return 1; // alerts mode
       }
-      break;
-    case 2:
-      if (id_to_alerts[position + 1].first != 0) {
-        currentMapMode = 1;
-      }
+    }
   }
-  return currentMapMode;
+  if (alarmMode >= 1) {
+    if (id_to_alerts[homeRegionId].first != 0) {
+      return 1; // alerts mode
+    }
+  }
+  return isMapOff ? 0 : settings.getInt(MAP_MODE);
 }
 
 void onMqttStateChanged(bool haStatus) {
@@ -1166,7 +1165,7 @@ void remapFlag() {
   led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS);
 }
 
-std::pair<uint8_t, long> alertsCombiModeHandler(std::pair<uint8_t, long> kyiv, std::pair<uint8_t, long> kyivObl) {
+std::pair<int, long> alertsCombiModeHandler(std::pair<int, long> kyiv, std::pair<int, long> kyivObl) {
   // if state of Kyiv and Kyiv Oblast are 'alert', return oldest by time
   if (kyiv.first == 1 && kyivObl.first == 1) return kyiv.second <= kyivObl.second ? kyiv : kyivObl;
   // if states of Kyiv and Kyiv Oblast are 'clear', return nearest by time
@@ -1181,7 +1180,7 @@ void remapAlerts() {
 }
 
 float weatherCombiModeHandler(float kyiv, float kyivObl) {
-  // return avaerage value of Kyiv and Kyiv Oblast
+  // return average value of Kyiv and Kyiv Oblast
   return (kyiv + kyivObl) / 2.0f;
 }
 
@@ -1211,7 +1210,7 @@ void remapDrones() {
 }
 
 void remapHomeDistrict() {
-  homeDistrictMapping = ledMapping(settings.getInt(HOME_DISTRICT) + 1);
+  homeDistrictMapping = ledMapping(settings.getInt(HOME_DISTRICT));
 }
 
 bool saveBrightness(int newBrightness) {
@@ -1296,7 +1295,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   settings.saveInt(HOME_DISTRICT, newHomeDistrict);
   const char* homeDistrictName = getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT);
   reportSettingsChange("home_district", getNameById(DISTRICTS, newHomeDistrict, DISTRICTS_COUNT));
-  LOG.printf("home_district commited to preferences: $s\n", homeDistrictName);
+  LOG.printf("home_district commited to preferences: %s\n", homeDistrictName);
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
@@ -1340,7 +1339,7 @@ void showHomeAlertInfo() {
     strcpy(title, "Тривога триває:");
   }
   char message[15];
-  int regionId = settings.getInt(HOME_DISTRICT) + 1;
+  int regionId = settings.getInt(HOME_DISTRICT);
   fillFromTimer(message, timeClient.unixGMT() - id_to_alerts[regionId].second);
 
   displayMessage(message, title);
@@ -1359,7 +1358,7 @@ void showClock() {
 }
 
 void showTemp() {
-  int regionId = settings.getInt(HOME_DISTRICT) + 1;
+  int regionId = settings.getInt(HOME_DISTRICT);
   char message[10];
   sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
   displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
@@ -2297,7 +2296,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) + 1], "°C");
+  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) ], "°C");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2911,8 +2910,8 @@ void alertPinCycle() {
 }
 
 void checkHomeDistrictAlerts() {
-  int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT) + 1].first;
-  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT) + 1];
+  int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
+  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT)];
   bool localAlarmNow = ledStatus == 1;
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
@@ -2951,32 +2950,32 @@ void onMessageCallback(WebsocketsMessage message) {
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_alerts[i + 1] = std::make_pair((uint8_t) data["alerts"][i][0], (long) data["alerts"][i][1]);
+        id_to_alerts[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["alerts"][i][0], (long) data["alerts"][i][1]);
       }
       LOG.println("Successfully parsed alerts data");
       remapAlerts();
     } else if (payload == "weather") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_weather[i + 1] = data["weather"][i];
+        id_to_weather[mapIndexToRegionId(i)] = data["weather"][i];
       }
       LOG.println("Successfully parsed weather data");
       remapWeather();
-      ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]);
+      ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) ]);
     } else if (payload == "explosions") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_explosions[i + 1] = data["explosions"][i];
+        id_to_explosions[mapIndexToRegionId(i)] = data["explosions"][i];
       }
       LOG.println("Successfully parsed explosions data");
       remapExplosions();
     } else if (payload == "missiles") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_missiles[i + 1] = data["missiles"][i];
+        id_to_missiles[mapIndexToRegionId(i)] = data["missiles"][i];
       }
       LOG.println("Successfully parsed missiles data");
       remapMissiles();
     } else if (payload == "drones") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_drones[i + 1] = data["drones"][i];
+        id_to_drones[mapIndexToRegionId(i)] = data["drones"][i];
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
@@ -3254,22 +3253,27 @@ void mapAlarms() {
   if (isBgStripEnabled()) {
     // same as for local district
     int localDistrictLedCount = homeDistrictMapping.first; // get count of leds in local district
-    int localDistrictId = settings.getInt(HOME_DISTRICT) + 1;
-    fill_solid(
-      bg_strip,
-      settings.getInt(BG_LED_COUNT),
-      processAlarms(
-        id_to_alerts[localDistrictId].first,
-        id_to_alerts[localDistrictId].second,
-        id_to_explosions[localDistrictId],
-        id_to_missiles[localDistrictId],
-        id_to_drones[localDistrictId],
-        localDistrictLedCount > 0 ? homeDistrictMapping.second[0] : -1,
-        blinkBrightness,
-        notificationBrightness,
-        true
-      )
-    );
+    if (localDistrictLedCount <= 0) {
+      // if local district led is missing, fill bg strip with black color
+      fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
+    } else {
+      int localDistrictLed = homeDistrictMapping.second[0]; // get first led in local district
+      fill_solid(
+        bg_strip,
+        settings.getInt(BG_LED_COUNT),
+        processAlarms(
+          led_to_alerts[localDistrictLed].first,
+          led_to_alerts[localDistrictLed].second,
+          led_to_explosions[localDistrictLed],
+          led_to_missiles[localDistrictLed],
+          led_to_drones[localDistrictLed],
+          localDistrictLed,
+          blinkBrightness,
+          notificationBrightness,
+          true
+        )
+      );
+    }
   }
   FastLED.show();
 }
@@ -3281,7 +3285,7 @@ void mapWeather() {
   if (isBgStripEnabled()) {
     // same as for local district
     float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) + 1]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) ]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
   }
   FastLED.show();
 }

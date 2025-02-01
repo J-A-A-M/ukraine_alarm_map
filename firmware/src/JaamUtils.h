@@ -188,7 +188,8 @@ static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), s
     return {};
   }
   std::map<int, V> remaped = {};
-  for (int regId = 1; regId <= DISTRICTS_COUNT; regId++) {
+  for (int i = 0; i < DISTRICTS_COUNT; i++) {
+    int regId = DISTRICTS[i].id;
     auto sequence = ledsSequence(regId);
     int ledCount = sequence.first;
     int *ledList = sequence.second;
@@ -253,255 +254,255 @@ static void getHaOptions(char* result, const char* options[], int optionsSize) {
 
 static std::pair<int, int*> mapTranscarpatiaStart1(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{0});
-    case 2: return std::make_pair(1, new int[1]{1});
-    case 3: return std::make_pair(1, new int[1]{2});
-    case 4: return std::make_pair(1, new int[1]{3});
-    case 5: return std::make_pair(1, new int[1]{4});
-    case 6: return std::make_pair(1, new int[1]{5});
-    case 7: return std::make_pair(1, new int[1]{6});
-    case 8: return std::make_pair(1, new int[1]{7});
-    case 9: return std::make_pair(1, new int[1]{8});
-    case 10: return std::make_pair(1, new int[1]{9});
-    case 11: return std::make_pair(1, new int[1]{10});
-    case 12: return std::make_pair(1, new int[1]{11});
-    case 13: return std::make_pair(1, new int[1]{12});
-    case 14: return std::make_pair(1, new int[1]{13});
-    case 15: return std::make_pair(1, new int[1]{14});
-    case 16: return std::make_pair(1, new int[1]{15});
-    case 17: return std::make_pair(1, new int[1]{16});
-    case 18: return std::make_pair(1, new int[1]{17});
-    case 19: return std::make_pair(1, new int[1]{18});
-    case 20: return std::make_pair(1, new int[1]{19});
-    case 21: return std::make_pair(1, new int[1]{20});
-    case 22: return std::make_pair(1, new int[1]{21});
-    case 23: return std::make_pair(1, new int[1]{22});
-    case 24: return std::make_pair(1, new int[1]{23});
-    case 25: return std::make_pair(1, new int[1]{24});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9: return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4: return std::make_pair(1, new int[1]{22});
+    case 3: return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapOdessaStart1(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{9});
-    case 2: return std::make_pair(1, new int[1]{10});
-    case 3: return std::make_pair(1, new int[1]{11});
-    case 4: return std::make_pair(1, new int[1]{12});
-    case 5: return std::make_pair(1, new int[1]{13});
-    case 6: return std::make_pair(1, new int[1]{14});
-    case 7: return std::make_pair(1, new int[1]{15});
-    case 8: return std::make_pair(1, new int[1]{16});
-    case 9: return std::make_pair(1, new int[1]{17});
-    case 10: return std::make_pair(1, new int[1]{18});
-    case 11: return std::make_pair(1, new int[1]{19});
-    case 12: return std::make_pair(1, new int[1]{20});
-    case 13: return std::make_pair(1, new int[1]{21});
-    case 14: return std::make_pair(1, new int[1]{22});
-    case 15: return std::make_pair(1, new int[1]{23});
-    case 16: return std::make_pair(1, new int[1]{24});
-    case 17: return std::make_pair(1, new int[1]{0});
-    case 18: return std::make_pair(1, new int[1]{1});
-    case 19: return std::make_pair(1, new int[1]{2});
-    case 20: return std::make_pair(1, new int[1]{3});
-    case 21: return std::make_pair(1, new int[1]{4});
-    case 22: return std::make_pair(1, new int[1]{5});
-    case 23: return std::make_pair(1, new int[1]{6});
-    case 24: return std::make_pair(1, new int[1]{7});
-    case 25: return std::make_pair(1, new int[1]{8});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapTranscarpatiaStart2(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{0});
-    case 2: return std::make_pair(1, new int[1]{1});
-    case 3: return std::make_pair(1, new int[1]{2});
-    case 4: return std::make_pair(1, new int[1]{3});
-    case 5: return std::make_pair(1, new int[1]{4});
-    case 6: return std::make_pair(1, new int[1]{5});
-    case 7: return std::make_pair(1, new int[1]{6});
-    case 8: return std::make_pair(0, nullptr);
-    case 9: return std::make_pair(1, new int[1]{8});
-    case 10: return std::make_pair(1, new int[1]{9});
-    case 11: return std::make_pair(1, new int[1]{10});
-    case 12: return std::make_pair(1, new int[1]{11});
-    case 13: return std::make_pair(1, new int[1]{12});
-    case 14: return std::make_pair(1, new int[1]{13});
-    case 15: return std::make_pair(1, new int[1]{14});
-    case 16: return std::make_pair(1, new int[1]{15});
-    case 17: return std::make_pair(1, new int[1]{16});
-    case 18: return std::make_pair(1, new int[1]{17});
-    case 19: return std::make_pair(1, new int[1]{18});
-    case 20: return std::make_pair(1, new int[1]{19});
-    case 21: return std::make_pair(1, new int[1]{20});
-    case 22: return std::make_pair(1, new int[1]{21});
-    case 23: return std::make_pair(1, new int[1]{22});
-    case 24: return std::make_pair(1, new int[1]{23});
-    case 25: return std::make_pair(1, new int[1]{24});
-    case 26: return std::make_pair(1, new int[1]{7});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(0, new int[0]{});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9:  return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4:  return std::make_pair(1, new int[1]{22});
+    case 3:  return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    case 31: return std::make_pair(1, new int[1]{7});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapOdessaStart2(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{9});
-    case 2: return std::make_pair(1, new int[1]{10});
-    case 3: return std::make_pair(1, new int[1]{11});
-    case 4: return std::make_pair(1, new int[1]{12});
-    case 5: return std::make_pair(1, new int[1]{13});
-    case 6: return std::make_pair(1, new int[1]{14});
-    case 7: return std::make_pair(1, new int[1]{15});
-    case 8: return std::make_pair(0, nullptr);
-    case 9: return std::make_pair(1, new int[1]{17});
-    case 10: return std::make_pair(1, new int[1]{18});
-    case 11: return std::make_pair(1, new int[1]{19});
-    case 12: return std::make_pair(1, new int[1]{20});
-    case 13: return std::make_pair(1, new int[1]{21});
-    case 14: return std::make_pair(1, new int[1]{22});
-    case 15: return std::make_pair(1, new int[1]{23});
-    case 16: return std::make_pair(1, new int[1]{24});
-    case 17: return std::make_pair(1, new int[1]{0});
-    case 18: return std::make_pair(1, new int[1]{1});
-    case 19: return std::make_pair(1, new int[1]{2});
-    case 20: return std::make_pair(1, new int[1]{3});
-    case 21: return std::make_pair(1, new int[1]{4});
-    case 22: return std::make_pair(1, new int[1]{5});
-    case 23: return std::make_pair(1, new int[1]{6});
-    case 24: return std::make_pair(1, new int[1]{7});
-    case 25: return std::make_pair(1, new int[1]{8});
-    case 26: return std::make_pair(1, new int[1]{16});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(0, new int[0]{});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{16});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapTranscarpatiaStart3(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{0});
-    case 2: return std::make_pair(1, new int[1]{1});
-    case 3: return std::make_pair(1, new int[1]{2});
-    case 4: return std::make_pair(1, new int[1]{3});
-    case 5: return std::make_pair(1, new int[1]{4});
-    case 6: return std::make_pair(1, new int[1]{5});
-    case 7: return std::make_pair(1, new int[1]{6});
-    case 8: return std::make_pair(1, new int[1]{7});
-    case 9: return std::make_pair(1, new int[1]{9});
-    case 10: return std::make_pair(1, new int[1]{10});
-    case 11: return std::make_pair(1, new int[1]{11});
-    case 12: return std::make_pair(1, new int[1]{12});
-    case 13: return std::make_pair(1, new int[1]{13});
-    case 14: return std::make_pair(1, new int[1]{14});
-    case 15: return std::make_pair(1, new int[1]{15});
-    case 16: return std::make_pair(1, new int[1]{16});
-    case 17: return std::make_pair(1, new int[1]{17});
-    case 18: return std::make_pair(1, new int[1]{18});
-    case 19: return std::make_pair(1, new int[1]{19});
-    case 20: return std::make_pair(1, new int[1]{20});
-    case 21: return std::make_pair(1, new int[1]{21});
-    case 22: return std::make_pair(1, new int[1]{22});
-    case 23: return std::make_pair(1, new int[1]{23});
-    case 24: return std::make_pair(1, new int[1]{24});
-    case 25: return std::make_pair(1, new int[1]{25});
-    case 26: return std::make_pair(1, new int[1]{8});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{9});
+    case 20: return std::make_pair(1, new int[1]{10});
+    case 22: return std::make_pair(1, new int[1]{11});
+    case 16: return std::make_pair(1, new int[1]{12});
+    case 28: return std::make_pair(1, new int[1]{13});
+    case 12: return std::make_pair(1, new int[1]{14});
+    case 23: return std::make_pair(1, new int[1]{15});
+    case 9999: return std::make_pair(1, new int[1]{16});
+    case 18: return std::make_pair(1, new int[1]{17});
+    case 17: return std::make_pair(1, new int[1]{18});
+    case 9: return std::make_pair(1, new int[1]{19});
+    case 19: return std::make_pair(1, new int[1]{20});
+    case 24: return std::make_pair(1, new int[1]{21});
+    case 15: return std::make_pair(1, new int[1]{22});
+    case 4: return std::make_pair(1, new int[1]{23});
+    case 3: return std::make_pair(1, new int[1]{24});
+    case 26: return std::make_pair(1, new int[1]{25});
+    case 31: return std::make_pair(1, new int[1]{8});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapOdessaStart3(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{9});
-    case 2: return std::make_pair(1, new int[1]{10});
-    case 3: return std::make_pair(1, new int[1]{11});
-    case 4: return std::make_pair(1, new int[1]{12});
-    case 5: return std::make_pair(1, new int[1]{13});
-    case 6: return std::make_pair(1, new int[1]{14});
-    case 7: return std::make_pair(1, new int[1]{15});
-    case 8: return std::make_pair(1, new int[1]{16});
-    case 9: return std::make_pair(1, new int[1]{18});
-    case 10: return std::make_pair(1, new int[1]{19});
-    case 11: return std::make_pair(1, new int[1]{20});
-    case 12: return std::make_pair(1, new int[1]{21});
-    case 13: return std::make_pair(1, new int[1]{22});
-    case 14: return std::make_pair(1, new int[1]{23});
-    case 15: return std::make_pair(1, new int[1]{24});
-    case 16: return std::make_pair(1, new int[1]{25});
-    case 17: return std::make_pair(1, new int[1]{0});
-    case 18: return std::make_pair(1, new int[1]{1});
-    case 19: return std::make_pair(1, new int[1]{2});
-    case 20: return std::make_pair(1, new int[1]{3});
-    case 21: return std::make_pair(1, new int[1]{4});
-    case 22: return std::make_pair(1, new int[1]{5});
-    case 23: return std::make_pair(1, new int[1]{6});
-    case 24: return std::make_pair(1, new int[1]{7});
-    case 25: return std::make_pair(1, new int[1]{8});
-    case 26: return std::make_pair(1, new int[1]{17});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{18});
+    case 20: return std::make_pair(1, new int[1]{19});
+    case 22: return std::make_pair(1, new int[1]{20});
+    case 16: return std::make_pair(1, new int[1]{21});
+    case 28: return std::make_pair(1, new int[1]{22});
+    case 12: return std::make_pair(1, new int[1]{23});
+    case 23: return std::make_pair(1, new int[1]{24});
+    case 9999: return std::make_pair(1, new int[1]{25});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{17});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapTranscarpatiaStart4(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{0});
-    case 2: return std::make_pair(1, new int[1]{1});
-    case 3: return std::make_pair(1, new int[1]{2});
-    case 4: return std::make_pair(1, new int[1]{3});
-    case 5: return std::make_pair(1, new int[1]{4});
-    case 6: return std::make_pair(1, new int[1]{5});
-    case 7: return std::make_pair(1, new int[1]{6});
-    case 8: return std::make_pair(1, new int[1]{7});
-    case 9: return std::make_pair(1, new int[1]{8});
-    case 10: return std::make_pair(1, new int[1]{9});
-    case 11: return std::make_pair(1, new int[1]{10});
-    case 12: return std::make_pair(1, new int[1]{11});
-    case 13: return std::make_pair(1, new int[1]{12});
-    case 14: return std::make_pair(1, new int[1]{13});
-    case 15: return std::make_pair(1, new int[1]{14});
-    case 16: return std::make_pair(1, new int[1]{15});
-    case 17: return std::make_pair(1, new int[1]{16});
-    case 18: return std::make_pair(1, new int[1]{17});
-    case 19: return std::make_pair(1, new int[1]{18});
-    case 20: return std::make_pair(1, new int[1]{19});
-    case 21: return std::make_pair(1, new int[1]{20});
-    case 22: return std::make_pair(1, new int[1]{21});
-    case 23: return std::make_pair(1, new int[1]{22});
-    case 24: return std::make_pair(1, new int[1]{23});
-    case 25: return std::make_pair(1, new int[1]{24});
-    case 26: return std::make_pair(1, new int[1]{7});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9:  return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4:  return std::make_pair(1, new int[1]{22});
+    case 3:  return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    case 31: return std::make_pair(1, new int[1]{7});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
 static std::pair<int, int*> mapOdessaStart4(int key) {
   switch (key) {
-    case 1: return std::make_pair(1, new int[1]{9});
-    case 2: return std::make_pair(1, new int[1]{10});
-    case 3: return std::make_pair(1, new int[1]{11});
-    case 4: return std::make_pair(1, new int[1]{12});
-    case 5: return std::make_pair(1, new int[1]{13});
-    case 6: return std::make_pair(1, new int[1]{14});
-    case 7: return std::make_pair(1, new int[1]{15});
-    case 8: return std::make_pair(1, new int[1]{16});
-    case 9: return std::make_pair(1, new int[1]{17});
-    case 10: return std::make_pair(1, new int[1]{18});
-    case 11: return std::make_pair(1, new int[1]{19});
-    case 12: return std::make_pair(1, new int[1]{20});
-    case 13: return std::make_pair(1, new int[1]{21});
-    case 14: return std::make_pair(1, new int[1]{22});
-    case 15: return std::make_pair(1, new int[1]{23});
-    case 16: return std::make_pair(1, new int[1]{24});
-    case 17: return std::make_pair(1, new int[1]{0});
-    case 18: return std::make_pair(1, new int[1]{1});
-    case 19: return std::make_pair(1, new int[1]{2});
-    case 20: return std::make_pair(1, new int[1]{3});
-    case 21: return std::make_pair(1, new int[1]{4});
-    case 22: return std::make_pair(1, new int[1]{5});
-    case 23: return std::make_pair(1, new int[1]{6});
-    case 24: return std::make_pair(1, new int[1]{7});
-    case 25: return std::make_pair(1, new int[1]{8});
-    case 26: return std::make_pair(1, new int[1]{16});
-    default: return std::make_pair(0, nullptr);
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{16});
+    default: return std::make_pair(0, new int[0]{});
   }
 }
 
@@ -513,4 +514,36 @@ static bool isInArray(int value, int* array, int arraySize) {
     if (array[i] == value) return true;
   }
   return false;
+}
+
+static int mapIndexToRegionId(int index) {
+  switch (index) {
+    case 0: return 11; // Закарпатська обл.
+    case 1: return 13; // Івано-Франківська обл.
+    case 2: return 21; // Тернопільська обл.
+    case 3: return 27; // Львівська обл.
+    case 4: return 8; // Волинська обл.
+    case 5: return 5; // Рівненська обл.
+    case 6: return 10; // Житомирська обл.
+    case 7: return 14; // Київська обл.
+    case 8: return 25; // Чернігівська обл.
+    case 9: return 20; // Сумська обл.
+    case 10: return 22; // Харківська обл.
+    case 11: return 16; // Луганська обл.
+    case 12: return 28; // Донецька обл.
+    case 13: return 12; // Запорізька обл.
+    case 14: return 23; // Херсонська обл.
+    case 15: return 9999; // Автономна Республіка Крим
+    case 16: return 18; // Одеська обл.
+    case 17: return 17; // Миколаївська обл.
+    case 18: return 9; // Дніпропетровська обл.
+    case 19: return 19; // Полтавська обл.
+    case 20: return 24; // Черкаська обл.
+    case 21: return 15; // Кіровоградська обл.
+    case 22: return 4; // Вінницька обл.
+    case 23: return 3; // Хмельницька обл.
+    case 24: return 26; // Чернівецька обл.
+    case 25: return 31; // м. Київ
+    default: return -1;
+  }
 }
