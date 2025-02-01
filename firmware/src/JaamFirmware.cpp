@@ -652,25 +652,29 @@ void initBroadcast() {
   LOG.println();
 }
 
+bool isAlertInNeighboringDistricts() {
+  int regionId = settings.getInt(HOME_DISTRICT);
+  auto neighborsPair = NEIGHBORING_DISTRICS[regionId];
+  int count = neighborsPair.first;
+  int* neighbors = neighborsPair.second;
+  for (int i = 0; i < count; i++) {
+    if (id_to_alerts[neighbors[i]].first != 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 int getCurrentMapMode() {
   if (minuteOfSilence || uaAnthemPlaying) return 3; // ua flag
 
   int homeRegionId = settings.getInt(HOME_DISTRICT);
   int alarmMode = settings.getInt(ALARMS_AUTO_SWITCH);
-  if (alarmMode == 1) {
-    auto neighborsPair = NEIGHBORING_DISTRICS[homeRegionId];
-    int count = neighborsPair.first;
-    int* neighbors = neighborsPair.second;
-    for (int i = 0; i < count; i++) {
-      if (id_to_alerts[neighbors[i]].first != 0) {
-        return 1; // alerts mode
-      }
-    }
+  if (alarmMode == 1 && isAlertInNeighboringDistricts()) {
+    return 1; // alerts mode
   }
-  if (alarmMode >= 1) {
-    if (id_to_alerts[homeRegionId].first != 0) {
-      return 1; // alerts mode
-    }
+  if (alarmMode >= 1 && id_to_alerts[homeRegionId].first != 0) {
+    return 1; // alerts mode
   }
   return isMapOff ? 0 : settings.getInt(MAP_MODE);
 }
@@ -2141,6 +2145,9 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
+  if (isBgStripEnabled()) {
+    addSlider(response, "color_bg_neighbor_alert", "Колір фонової LED-стрічки при тривозі у сусідніх регіонах", settings.getInt(COLOR_BG_NEIGHBOR_ALERT), 0, 360, 1, "", false, true);
+  }
   response->println("<button type='submit' class='btn btn-info'>Зберегти налаштування</button>");
   response->println("</div>");
   response->println("</div>");
@@ -2604,6 +2611,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_missiles", true), COLOR_MISSILES) || saved;
   saved = saveInt(request->getParam("color_drones", true), COLOR_DRONES) || saved;
   saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
+  saved = saveInt(request->getParam("color_bg_neighbor_alert", true), COLOR_BG_NEIGHBOR_ALERT) || saved;
 
   request->send(redirectResponce(request, "/colors", saved));
 }
@@ -3130,7 +3138,10 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
         float localBrightness;
-        if (isInArray(position, localDistrictLed, localDistrictLedsCount)) {
+        if (isBgStrip && isAlertInNeighboringDistricts()) {
+          colorSwitch = settings.getInt(COLOR_BG_NEIGHBOR_ALERT);
+          localBrightness = localBrightnessAlert;
+        } else if (isInArray(position, localDistrictLed, localDistrictLedsCount)) {
           colorSwitch = settings.getInt(COLOR_HOME_DISTRICT);
           localBrightness = localBrightnessHomeDistrict;
         } else {
