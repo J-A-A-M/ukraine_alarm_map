@@ -161,7 +161,7 @@ async def svg_generator_alerts(mc):
                region_id = int(region_id)
                region_name = get_region_name("id", region_id)
                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-               alerts_svg_data[region_name] = (COLOR_ALERT if time_diff>300 else COLOR_ALERT_BEGIN)  if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else COLOR_SAFE
+               alerts_svg_data[region_name] = (COLOR_ALERT if time_diff>300 else COLOR_ALERT_BEGIN)  if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else (COLOR_SAFE if time_diff>300 else COLOR_SAFE_BEGIN) 
 
          for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
@@ -201,58 +201,8 @@ async def svg_generator_alerts(mc):
             show_alert_info=True,
             **alerts_svg_data,
          )
-         stored_data = alerts_svg_data     
-         continue 
+         stored_data = alerts_svg_data
 
-         if alerts_data != stored_data:
-               # weathers = [float(weather) for weather in weather_data.split(",")]
-               # explosions = [int(explosion) for explosion in explosions_data.split(",")]
-               # rockets = [int(rocket) for rocket in rockets_data.split(",")]
-               # drones = [int(drone) for drone in drones_data.split(",")]
-
-               position = 0
-               for alert in alerts:
-                  match alert:
-                     case 0:
-                           alerts_svg_data[regions[position]] = "#32CD32"
-                     case 1:
-                           alerts_svg_data[regions[position]] = "#FF5733"
-                     case 2:
-                           alerts_svg_data[regions[position]] = "#BBFF33"
-                     case 3:
-                           alerts_svg_data[regions[position]] = "#FFA533"
-
-                  # if drones[position] == 1:
-                  #    alerts_svg_data[regions[position]] = "#FF00FF"
-
-                  # if rockets[position] == 1:
-                  #    alerts_svg_data[regions[position]] = "#9D00FF"
-
-                  # if explosions[position] == 1:
-                  #    alerts_svg_data[regions[position]] = "#00FFFF"
-
-                  position += 1
-               file_path = os.path.join(shared_path, "alerts_map.png")
-               await generate_map(
-                  time=local_time,
-                  output_file=file_path,
-                  show_alert_info=True,
-                  **alerts_svg_data,
-               )
-               # position = 0
-               # for weather in weathers:
-               #    logger.debug(f"{regions[position]} {weather} -> {calculate_html_color_from_temp(weather)}")
-               #    weather_svg_data[regions[position]] = calculate_html_color_from_temp(weather)
-               #    position += 1
-               # file_path = os.path.join(shared_path, "weather_map.png")
-               # await generate_map(
-               #    time=local_time,
-               #    output_file=file_path,
-               #    show_weather_info=True,
-               #    **weather_svg_data,
-               # )
-               stored_data = cached_data
-               logger.info(f"map generated")
       except Exception as e:
          logger.error(f"svg_generator_alerts: {e}")
          logger.debug(f"Повний стек помилки:", exc_info=True)
@@ -283,7 +233,6 @@ async def svg_generator_weather(mc):
             **weather_svg_data,
          )
          stored_data = weather_svg_data     
-         continue 
 
       except Exception as e:
          logger.error(f"svg_generator_weather: {e}")
