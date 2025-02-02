@@ -171,6 +171,8 @@ async def update_alerts_websocket_v2(mc, run_once=False):
             alerts = [[0, 1645674000]] * 26
 
             for alert in alerts_cache:
+                if alert["regionType"] not in ["State", "District"]:
+                    continue
                 state_alert = any(item["regionType"] == "State" for item in alert["activeAlerts"])
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
@@ -219,6 +221,8 @@ async def update_alerts_websocket_v3(mc, run_once=False):
             alerts = [[0, 1645674000]] * 26
 
             for alert in alerts_cache:
+                if alert["regionType"] not in ["State", "District"]:
+                    continue
                 state_alert = any(item["regionType"] == "State" for item in alert["activeAlerts"])
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
