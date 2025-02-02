@@ -1,6 +1,4 @@
 name: 'Server PyTests'
-description: 'Run server pytest'
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -12,7 +10,6 @@ on:
     paths:
       - "deploy/**"
   workflow_dispatch:
-
 jobs:
   pytests:
     runs-on: ubuntu-latest
@@ -21,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12.2'
 
