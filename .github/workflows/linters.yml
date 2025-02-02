@@ -48,6 +48,9 @@ jobs:
             echo "Installing dependencies from $req_file"
             pip install -r "$req_file"
           done
+      - name: Add deploy to PYTHONPATH
+        run: |
+          echo "export PYTHONPATH=${PYTHONPATH}:$(pwd)/deploy" >> $GITHUB_ENV
       - name: Run PyTest in deploy/tests
         run: |
           cd deploy/tests
