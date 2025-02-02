@@ -50,7 +50,15 @@ jobs:
           done
       - name: Add deploy to PYTHONPATH
         run: |
-          echo "export PYTHONPATH=${PYTHONPATH}:$(pwd)/deploy" >> $GITHUB_ENV
+          DEPLOY_PATH=$(pwd)/deploy
+          if [ -z "$PYTHONPATH" ]; then
+            echo "PYTHONPATH=$DEPLOY_PATH" >> $GITHUB_ENV
+          else
+            echo "PYTHONPATH=${PYTHONPATH}:$DEPLOY_PATH" >> $GITHUB_ENV
+          fi
+      - name: Debug PYTHONPATH
+        run: |
+          echo "Current PYTHONPATH: $PYTHONPATH"
       - name: Run PyTest in deploy/tests
         run: |
           cd deploy/tests
