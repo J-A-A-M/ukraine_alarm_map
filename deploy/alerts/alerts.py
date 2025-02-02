@@ -85,10 +85,13 @@ async def get_regions(mc):
                                 "parentId": district["regionId"],
                                 "stateId": state["regionId"],
                             }
-            await mc.set(b"regions_api", json.dumps(regions).encode("utf-8"))
+
+            await asyncio.gather(
+                mc.set(b"regions_api", json.dumps(regions).encode("utf-8")),
+                service_is_fine(mc, b"regions_api_last_call"),
+            )
             logger.info("regions data stored")
             logger.debug("end get_regions")
-            await service_is_fine(mc, b"regions_api_last_call")
             await asyncio.sleep(regions_loop_time)
         except asyncio.CancelledError:
             logger.error("get_regions: task canceled. Shutting down...")
@@ -100,7 +103,12 @@ async def get_regions(mc):
 
 
 async def get_alerts(mc):
-    await asyncio.sleep(5)
+    while True:
+        if await get_cache_data(mc, b"regions_api"):
+            break
+        else:
+            logger.warning("get_alerts: wait for region cache")
+        await asyncio.sleep(1)
     while True:
         try:
             logger.debug("start get_alerts")
@@ -137,9 +145,10 @@ async def get_alerts(mc):
                 data = json.loads(new_data)
 
             logger.debug("storing alerts data")
-            await mc.set(b"alerts_api", json.dumps(data).encode("utf-8"))
+            await asyncio.gather(
+                mc.set(b"alerts_api", json.dumps(data).encode("utf-8")), service_is_fine(mc, b"alerts_api_last_call")
+            )
             logger.info("alerts data stored")
-            await service_is_fine(mc, b"alerts_api_last_call")
             logger.debug("end get_alerts")
             await asyncio.sleep(alert_loop_time)
 
