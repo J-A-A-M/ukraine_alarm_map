@@ -32,3 +32,24 @@ jobs:
           options: "--check --verbose --line-length 120 --diff --color --target-version py312"
           src: ${{ github.workspace }}/deploy
           version: "~= 24.0"
+  run_pytest:
+    runs-on: ubuntu-latest 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.2'
+      - name: Install dependencies from deploy subfolders
+        run: |
+          cd deploy
+          for req_file in $(find . -name "requirements.txt"); do
+            echo "Installing dependencies from $req_file"
+            pip install -r "$req_file"
+          done
+      - name: Run PyTest in deploy/tests
+        run: |
+          cd deploy/tests
+          pip install pytest  # Ensure pytest is installed
+          pytest --tb=short -v --capture=tee-sys
