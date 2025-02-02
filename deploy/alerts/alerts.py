@@ -124,6 +124,12 @@ async def get_alerts(mc):
                             region_data = json.loads(new_data)[0]
                         alerts_historical_cache.append(region_data)
                 await mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
+                cache_tasks.append(
+                    mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
+                )
+
+            if cache_tasks:
+                await asyncio.gather(*cache_tasks)
 
             async with aiohttp.ClientSession() as session:
                 response = await session.get(alarm_url, headers=headers)
