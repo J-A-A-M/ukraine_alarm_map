@@ -35,7 +35,7 @@ headers = {"Authorization": "%s" % alert_token}
 async def get_cache_data(mc, key_b, default_response=None):
     if default_response is None:
         default_response = {}
-        
+
     cache = await mc.get(key_b)
 
     if cache:
@@ -45,8 +45,10 @@ async def get_cache_data(mc, key_b, default_response=None):
 
     return cache
 
+
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
@@ -82,7 +84,7 @@ async def get_regions(mc):
                                 "regionType": community["regionType"],
                                 "parentId": district["regionId"],
                                 "stateId": state["regionId"],
-                            }         
+                            }
             await mc.set(b"regions_api", json.dumps(regions).encode("utf-8"))
             logger.info("regions data stored")
             logger.debug("end get_regions")
@@ -116,7 +118,6 @@ async def get_alerts(mc):
                             region_data = json.loads(new_data)[0]
                         alerts_historical_cache.append(region_data)
                 await mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
-
 
             async with aiohttp.ClientSession() as session:
                 response = await session.get(alarm_url, headers=headers)

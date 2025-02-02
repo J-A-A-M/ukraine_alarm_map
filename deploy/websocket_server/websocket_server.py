@@ -645,7 +645,7 @@ async def update_shared_data(shared_data, mc):
                 shared_data.weather_full = weather_full
                 logger.debug(f"weather_full updated")
         except Exception as e:
-            logger.error(f"error in weather_full: {e}") 
+            logger.error(f"error in weather_full: {e}")
 
         await asyncio.sleep(memcache_fetch_interval)
 

@@ -17,9 +17,9 @@ from aiomcache import Client
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
-port = int(os.environ.get("PORT") or 8080) 
+port = int(os.environ.get("PORT") or 8080)
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211) 
+memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 data_token = os.environ.get("DATA_TOKEN")
 
@@ -204,33 +204,39 @@ async def main(request):
     """
     return HTMLResponse(response)
 
+
 async def get_cache_data(mc, key_b, default_response=None, json=True):
     if default_response is None:
         default_response = {}
-        
+
     cache = await mc.get(key_b)
 
     if cache:
         cache = cache.decode("utf-8")
         if json:
             cache = json.loads(cache)
-        
+
     else:
         cache = default_response
 
     return cache
 
+
 async def get_alerts(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
+
 
 async def get_historical_alerts(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+
 async def get_regions(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+
 def get_region_name(search_key, region_id):
     return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
+
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -251,10 +257,7 @@ async def alerts_v1(request):
         alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
         regions_cache = await get_regions(mc, b"regions_api", {})
 
-        data = {
-            "version": 1,
-            "states": {}
-        }
+        data = {"version": 1, "states": {}}
 
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "State":
@@ -264,22 +267,22 @@ async def alerts_v1(request):
                     "type": "state",
                     "disabled_at": region_data["lastUpdate"] if not region_data["activeAlerts"] else None,
                     "enabled_at": region_data["lastUpdate"] if region_data["activeAlerts"] else None,
-                    }
+                }
                 data["states"][region_data["regionName"]] = region
 
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "District" and region_data["activeAlerts"]:
-                    state_id = regions_cache[region_data["regionId"]]["stateId"]
-                    state = regions_cache[state_id]
+                state_id = regions_cache[region_data["regionId"]]["stateId"]
+                state = regions_cache[state_id]
 
-                    if not data["states"][state["regionName"]]["enabled"]:
-                        data["states"][state["regionName"]] = {
-                            "district": True,
-                            "enabled": True,
-                            "type": "state",
-                            "disabled_at": None,
-                            "enabled_at": region_data["lastUpdate"],
-                        }
+                if not data["states"][state["regionName"]]["enabled"]:
+                    data["states"][state["regionName"]] = {
+                        "district": True,
+                        "enabled": True,
+                        "type": "state",
+                        "disabled_at": None,
+                        "enabled_at": region_data["lastUpdate"],
+                    }
     except json.JSONDecodeError:
         data = {"error": "Failed to decode cached data"}
 
@@ -291,10 +294,7 @@ async def alerts_v2(request):
         alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
         regions_cache = await get_regions(mc, b"regions_api", {})
 
-        data = {
-            "version": 2,
-            "states": {}
-        }
+        data = {"version": 2, "states": {}}
 
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "State":
@@ -302,20 +302,22 @@ async def alerts_v2(request):
                     "alertnow": True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False,
                     "district": False,
                     "changes": region_data["lastUpdate"],
-                    }
+                }
                 data["states"][region_data["regionName"]] = region
 
         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
-                    state_id = regions_cache[region_data["regionId"]]["stateId"]
-                    state = regions_cache[state_id]
+            if region_data["regionType"] == "District" and any(
+                alert["type"] == "AIR" for alert in region_data["activeAlerts"]
+            ):
+                state_id = regions_cache[region_data["regionId"]]["stateId"]
+                state = regions_cache[state_id]
 
-                    if not data["states"][state["regionName"]]["alertnow"]:
-                        data["states"][state["regionName"]] = {
-                            "alertnow": True,
-                            "district": True,
-                            "enabled_at": region_data["lastUpdate"],
-                        }
+                if not data["states"][state["regionName"]]["alertnow"]:
+                    data["states"][state["regionName"]] = {
+                        "alertnow": True,
+                        "district": True,
+                        "enabled_at": region_data["lastUpdate"],
+                    }
     except json.JSONDecodeError:
         data = {"error": "Failed to decode cached data"}
 
@@ -327,22 +329,23 @@ async def alerts_v3(request):
         alerts_cache = await get_alerts(mc, b"alerts_historical_v1", [])
         regions_cache = await get_regions(mc, b"regions_api", {})
 
-        data = {
-            "version": 3,
-            "states": {}
-        }
+        data = {"version": 3, "states": {}}
 
         for region_id, region_data in alerts_cache.items():
             if region_data["regionType"] == "State":
-                data["states"][region_data["regionName"]] = True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False
+                data["states"][region_data["regionName"]] = (
+                    True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False
+                )
 
         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
-                    state_id = regions_cache[region_data["regionId"]]["stateId"]
-                    state = regions_cache[state_id]
+            if region_data["regionType"] == "District" and any(
+                alert["type"] == "AIR" for alert in region_data["activeAlerts"]
+            ):
+                state_id = regions_cache[region_data["regionId"]]["stateId"]
+                state = regions_cache[state_id]
 
-                    if not data["states"][state["regionName"]]:
-                        data["states"][state["regionName"]] = True
+                if not data["states"][state["regionName"]]:
+                    data["states"][state["regionName"]] = True
     except json.JSONDecodeError:
         data = {"error": "Failed to decode cached data"}
 
@@ -353,19 +356,15 @@ async def weather_v1(request):
     try:
         weather_cache = await get_cache_data(mc, b"weather_openweathermap", {})
 
-        data = {
-            "version": 1,
-            "states": {},
-            "info": {}
-        }
+        data = {"version": 1, "states": {}, "info": {}}
 
         for region_id, region_data in weather_cache["states"].items():
-            data["states"][region_data["region"]["name"]]={
+            data["states"][region_data["region"]["name"]] = {
                 "temp": region_data["temp"],
                 "desc": region_data["weather"][0]["description"],
                 "pressure": region_data["pressure"],
                 "humidity": region_data["humidity"],
-                "wind": region_data["wind_speed"]
+                "wind": region_data["wind_speed"],
             }
         data["info"]["last_update"] = weather_cache["info"]["last_update"]
 
@@ -393,9 +392,7 @@ def etryvoga_v1(cached):
             new_data = {}
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
-                new_data[state_name] = {
-                    "changed": data["lastUpdate"]
-                }
+                new_data[state_name] = {"changed": data["lastUpdate"]}
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -437,7 +434,9 @@ def etryvoga_v3(cached):
             new_data = {}
             for state, data in cached_data["states"].items():
                 state_name = get_region_name("id", int(state))
-                new_data[state_name] = calculate_time_difference(data["lastUpdate"].replace("+00:00", "Z"), get_current_datetime())
+                new_data[state_name] = calculate_time_difference(
+                    data["lastUpdate"].replace("+00:00", "Z"), get_current_datetime()
+                )
             cached_data["states"] = new_data
             cached_data["info"][
                 "description"
@@ -585,7 +584,6 @@ async def stats(request):
         websocket_clients_data = json.loads(websocket_clients) if websocket_clients else {}
         websocket_clients_dev = await mc.get(b"websocket_clients_dev")
         websocket_clients_dev_data = json.loads(websocket_clients_dev) if websocket_clients_dev else {}
-
 
         websocket_clients = await dataparcer(websocket_clients_data, "websockets")
         websocket_clients_dev = await dataparcer(websocket_clients_dev_data, "websockets_dev")

@@ -36,7 +36,7 @@ regions = {
     "ZAKARPATSKA": {"name": "Закарпатська область", "id": 11, "legacy_id": 1},
     "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "id": 13, "legacy_id": 2},
     "TERNOPILSKA": {"name": "Тернопільська область", "id": 21, "legacy_id": 3},
-    "LVIVKA": {"name": "Львівська область", "id":27, "legacy_id": 4},
+    "LVIVKA": {"name": "Львівська область", "id": 27, "legacy_id": 4},
     "VOLYNSKA": {"name": "Волинська область", "id": 8, "legacy_id": 5},
     "RIVENSKA": {"name": "Рівненська область", "id": 5, "legacy_id": 6},
     "ZHYTOMYRSKA": {"name": "Житомирська область", "id": 10, "legacy_id": 7},
@@ -84,8 +84,10 @@ def format_time(time):
     formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_timestamp
 
+
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 def calculate_time_difference(timestamp1, timestamp2):
     format_str = "%Y-%m-%dT%H:%M:%SZ"
@@ -95,6 +97,7 @@ def calculate_time_difference(timestamp1, timestamp2):
 
     time_difference = (time2 - time1).total_seconds()
     return int(abs(time_difference))
+
 
 async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
@@ -110,10 +113,10 @@ async def get_etryvoga_data(mc):
                 b"etryvoga_districts_struct",
                 b"explosions_etryvoga",
                 b"missiles_etryvoga",
-                b"drones_etryvoga"
+                b"drones_etryvoga",
             ]
             cached_data = await asyncio.gather(*(mc.get(key) for key in cache_keys))
-            
+
             districts_slug_cached, explosions_cached, missiles_cached, drones_cached = cached_data
 
             if districts_slug_cached:
@@ -144,14 +147,10 @@ async def get_etryvoga_data(mc):
                     etryvoga_full = await response.text()
                     data = json.loads(etryvoga_full)
                     logger.debug(
-                            "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
-                                type="type", 
-                                state="state_name",
-                                region="region",
-                                body="body",
-                                time="diff"
-                            ) 
+                        "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
+                            type="type", state="state_name", region="region", body="body", time="diff"
                         )
+                    )
                     logger.debug("------------ ----- ------------------------- ------------------------- -----------")
                     for message in data[::-1]:
                         current_hex = make_hex(message)
@@ -160,11 +159,13 @@ async def get_etryvoga_data(mc):
                         state_id = regions[get_slug(message["region"], districts_slug_cached)]["id"]
                         logger.debug(
                             "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
-                                type=message["type"], 
+                                type=message["type"],
                                 state=state_name,
                                 region=message["region"],
                                 body=message["body"],
-                                time=calculate_time_difference(format_time(message["createdAt"]), get_current_datetime())
+                                time=calculate_time_difference(
+                                    format_time(message["createdAt"]), get_current_datetime()
+                                ),
                             )
                         )
                         if state_name == "Невідомо":
@@ -183,7 +184,7 @@ async def get_etryvoga_data(mc):
                                 pass
                         last_id = current_hex
                     logger.debug("------------ ----- ------------------------- ------------------------- -----------")
-                
+
                     with contextlib.suppress(KeyError):
                         del explosions_cached_data["states"]["Невідомо"]
 
@@ -255,10 +256,7 @@ def make_districts_struct(data):
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(
-            get_etryvoga_data(mc),
-            get_etryvoga_districts(mc)
-        )
+        await asyncio.gather(get_etryvoga_data(mc), get_etryvoga_districts(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 

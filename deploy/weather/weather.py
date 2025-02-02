@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 weather_states = {
     690548: {"name": "Закарпатська область", "lat": 48.6223732, "lon": 22.3022569, "id": 11, "legacy_id": 1},
-    707471: {"name": "Івано-Франківська область", "lat": 48.9225224, "lon": 24.7103188, "id": 13, "legacy_id": 2}, 
+    707471: {"name": "Івано-Франківська область", "lat": 48.9225224, "lon": 24.7103188, "id": 13, "legacy_id": 2},
     691650: {"name": "Тернопільська область", "lat": 49.5557716, "lon": 25.591886, "id": 21, "legacy_id": 3},
     702550: {"name": "Львівська область", "lat": 49.841952, "lon": 24.0315921, "id": 27, "legacy_id": 4},
     702569: {"name": "Волинська область", "lat": 50.7450733, "lon": 25.320078, "id": 8, "legacy_id": 5},
@@ -49,14 +49,17 @@ weather_states = {
     689558: {"name": "Вінницька область", "lat": 49.2320162, "lon": 28.467975, "id": 4, "legacy_id": 23},
     706369: {"name": "Хмельницька область", "lat": 49.4196404, "lon": 26.9793793, "id": 3, "legacy_id": 24},
     710719: {"name": "Чернівецька область", "lat": 48.2864702, "lon": 25.9376532, "id": 26, "legacy_id": 25},
-    703447: {"name": "м. Київ", "lat": 50.4500336, "lon": 30.5241361, "id": 31, "legacy_id": 26}, 
+    703447: {"name": "м. Київ", "lat": 50.4500336, "lon": 30.5241361, "id": 31, "legacy_id": 26},
 }
+
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
 async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
+
 
 async def get_weather_openweathermap(mc):
     try:
@@ -100,9 +103,7 @@ async def get_weather_openweathermap(mc):
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(
-            get_weather_openweathermap(mc)
-        )
+        await asyncio.gather(get_weather_openweathermap(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 

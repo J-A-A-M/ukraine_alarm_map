@@ -29,7 +29,7 @@ regions = {
     "ZAKARPATSKA": {"name": "Закарпатська область", "id": 11, "legacy_id": 1},
     "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "id": 13, "legacy_id": 2},
     "TERNOPILSKA": {"name": "Тернопільська область", "id": 21, "legacy_id": 3},
-    "LVIVKA": {"name": "Львівська область", "id":27, "legacy_id": 4},
+    "LVIVKA": {"name": "Львівська область", "id": 27, "legacy_id": 4},
     "VOLYNSKA": {"name": "Волинська область", "id": 8, "legacy_id": 5},
     "RIVENSKA": {"name": "Рівненська область", "id": 5, "legacy_id": 6},
     "ZHYTOMYRSKA": {"name": "Житомирська область", "id": 10, "legacy_id": 7},
@@ -94,10 +94,11 @@ legacy_flag_leds = [
     180,
 ]
 
+
 async def get_cache_data(mc, key_b, default_response=None):
     if default_response is None:
         default_response = {}
-        
+
     cache = await mc.get(key_b)
 
     if cache:
@@ -107,29 +108,38 @@ async def get_cache_data(mc, key_b, default_response=None):
 
     return cache
 
+
 async def get_alerts(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
+
 
 async def get_historical_alerts(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+
 async def get_regions(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
+
 
 async def get_etryvoga(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+
 async def get_weather(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
+
 
 def get_region_name(search_key, region_id):
     return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
 
+
 def get_current_datetime_formatted():
     return datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%d %H:%M:%S")
 
+
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 def calculate_time_difference(timestamp1, timestamp2):
     format_str = "%Y-%m-%dT%H:%M:%SZ"
@@ -144,99 +154,106 @@ def calculate_time_difference(timestamp1, timestamp2):
 async def svg_generator_alerts(mc):
     stored_data = {}
     while True:
-      try:
-         await asyncio.sleep(loop_time)
-         local_time = get_current_datetime_formatted()
+        try:
+            await asyncio.sleep(loop_time)
+            local_time = get_current_datetime_formatted()
 
-         alerts_svg_data = {}
+            alerts_svg_data = {}
 
-         alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", [])
-         drones_cache = await get_etryvoga(mc,b"drones_etryvoga", {"states:{}"})
-         missiles_cache = await get_etryvoga(mc,b"missiles_etryvoga", {"states:{}"})
-         explosions_cache = await get_etryvoga(mc,b"explosions_etryvoga", {"states:{}"})
-         regions_cache = await get_regions(mc, b"regions_api", {})
+            alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", [])
+            drones_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states:{}"})
+            missiles_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states:{}"})
+            explosions_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states:{}"})
+            regions_cache = await get_regions(mc, b"regions_api", {})
 
-         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "State":
-               region_id = int(region_id)
-               region_name = get_region_name("id", region_id)
-               time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-               alerts_svg_data[region_name] = (COLOR_ALERT if time_diff>300 else COLOR_ALERT_BEGIN)  if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else (COLOR_SAFE if time_diff>300 else COLOR_SAFE_BEGIN) 
+            for region_id, region_data in alerts_cache.items():
+                if region_data["regionType"] == "State":
+                    region_id = int(region_id)
+                    region_name = get_region_name("id", region_id)
+                    time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                    alerts_svg_data[region_name] = (
+                        (COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN)
+                        if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"])
+                        else (COLOR_SAFE if time_diff > 300 else COLOR_SAFE_BEGIN)
+                    )
 
-         for region_id, region_data in alerts_cache.items():
-            if region_data["regionType"] == "District" and any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]):
-                  state_id = int(regions_cache[region_data["regionId"]]["stateId"])
-                  state_name = get_region_name("id", state_id)
-                  time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-                  alerts_svg_data[state_name] = COLOR_ALERT if time_diff>300 else COLOR_ALERT_BEGIN
+            for region_id, region_data in alerts_cache.items():
+                if region_data["regionType"] == "District" and any(
+                    alert["type"] == "AIR" for alert in region_data["activeAlerts"]
+                ):
+                    state_id = int(regions_cache[region_data["regionId"]]["stateId"])
+                    state_name = get_region_name("id", state_id)
+                    time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                    alerts_svg_data[state_name] = COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN
 
-         for region_id, region_data in drones_cache["states"].items():
-            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-            state_id = int(region_id)
-            state_name = get_region_name("id", state_id)
-            if time_diff < 180:
-                alerts_svg_data[state_name] = COLOR_DRONES
+            for region_id, region_data in drones_cache["states"].items():
+                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                if time_diff < 180:
+                    alerts_svg_data[state_name] = COLOR_DRONES
 
-         for region_id, region_data in missiles_cache["states"].items():
-            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-            state_id = int(region_id)
-            state_name = get_region_name("id", state_id)
-            if time_diff < 180:
-                alerts_svg_data[state_name] = COLOR_MISSILES
+            for region_id, region_data in missiles_cache["states"].items():
+                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                if time_diff < 180:
+                    alerts_svg_data[state_name] = COLOR_MISSILES
 
-         for region_id, region_data in explosions_cache["states"].items():
-            time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-            state_id = int(region_id)
-            state_name = get_region_name("id", state_id)
-            if time_diff < 180:
-                alerts_svg_data[state_name] = COLOR_EXPLOSIVES
-                
-         if alerts_svg_data == stored_data:
-             continue
+            for region_id, region_data in explosions_cache["states"].items():
+                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                if time_diff < 180:
+                    alerts_svg_data[state_name] = COLOR_EXPLOSIVES
 
-         file_path = os.path.join(shared_path, "alerts_map.png")
-         await generate_map(
-            time=local_time,
-            output_file=file_path,
-            show_alert_info=True,
-            **alerts_svg_data,
-         )
-         stored_data = alerts_svg_data
+            if alerts_svg_data == stored_data:
+                continue
 
-      except Exception as e:
-         logger.error(f"svg_generator_alerts: {e}")
-         logger.debug(f"Повний стек помилки:", exc_info=True)
-      
+            file_path = os.path.join(shared_path, "alerts_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_alert_info=True,
+                **alerts_svg_data,
+            )
+            stored_data = alerts_svg_data
+
+        except Exception as e:
+            logger.error(f"svg_generator_alerts: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+
+
 async def svg_generator_weather(mc):
     stored_data = {}
     while True:
-      try:
-         await asyncio.sleep(loop_time)
-         local_time = get_current_datetime_formatted()
+        try:
+            await asyncio.sleep(loop_time)
+            local_time = get_current_datetime_formatted()
 
-         weather_svg_data = {}
+            weather_svg_data = {}
 
-         weather_cache = await get_weather(mc, b"weather_openweathermap", [])
-         for region_id, region_data in weather_cache["states"].items():
-            state_id = int(region_id)
-            state_name = get_region_name("id", state_id)
-            weather_svg_data[state_name] = calculate_html_color_from_temp(int(round(region_data["temp"], 0)))
+            weather_cache = await get_weather(mc, b"weather_openweathermap", [])
+            for region_id, region_data in weather_cache["states"].items():
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                weather_svg_data[state_name] = calculate_html_color_from_temp(int(round(region_data["temp"], 0)))
 
-         if weather_svg_data == stored_data:
-             continue
+            if weather_svg_data == stored_data:
+                continue
 
-         file_path = os.path.join(shared_path, "weather_map.png")
-         await generate_map(
-            time=local_time,
-            output_file=file_path,
-            show_weather_info=True,
-            **weather_svg_data,
-         )
-         stored_data = weather_svg_data     
+            file_path = os.path.join(shared_path, "weather_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_weather_info=True,
+                **weather_svg_data,
+            )
+            stored_data = weather_svg_data
 
-      except Exception as e:
-         logger.error(f"svg_generator_weather: {e}")
-         logger.debug(f"Повний стек помилки:", exc_info=True)
+        except Exception as e:
+            logger.error(f"svg_generator_weather: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
 async def generate_flag():
@@ -1064,14 +1081,11 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file, scale=1.5)
     logger.debug("generate map complete")
 
-    
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(
-            svg_generator_alerts(mc),
-            svg_generator_weather(mc)
-        )
+        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
