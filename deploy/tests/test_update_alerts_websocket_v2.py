@@ -956,6 +956,7 @@ async def test_14(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_mc.set.assert_not_called()
 
+
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
 @patch("updater.updater.get_cache_data", new_callable=AsyncMock)
@@ -978,8 +979,13 @@ async def test_15(mock_get_alerts, mock_get_regions, mock_get_cache_data):
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "495", "regionType": "Community", "type": "ARTILLERY", "lastUpdate": "2022-04-04T16:45:00Z"},
-                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {
+                    "regionId": "495",
+                    "regionType": "Community",
+                    "type": "ARTILLERY",
+                    "lastUpdate": "2022-04-04T16:45:00Z",
+                },
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
             ],
         }
     ]
