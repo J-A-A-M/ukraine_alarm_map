@@ -75,6 +75,8 @@ async def get_etryvoga(mc, key_b, default_response={}):
 async def get_weather(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 async def check_states(data, cache):
     index = 0
@@ -318,9 +320,6 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:
             break
-
-def get_current_datetime():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 async def update_alerts_historical_v1(mc, run_once=False):
     while True:

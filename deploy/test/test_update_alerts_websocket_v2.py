@@ -13,36 +13,37 @@ unix 1736935200 - 2025-01-15T10:00:00Z
 """
 
 districts = {
-    "1":{
+    "11":{
         "regionName": "Закарпатська область",
         "regionType": "State",
         "parentId": None,
-        "stateId": "1"
+        "stateId": "11"
     },
-    "2":{
+    "66":{
+        "regionName": "Ужгородський район",
+        "regionType": "District",
+        "parentId": "11",
+        "stateId": "11"
+    },
+    "495":{
+        "regionName": "Перечинська територіальна громада",
+        "regionType": "Community",
+        "parentId": "66",
+        "stateId": "11"
+    },
+    "61": {
+        "regionName": "Берегівський район",
+        "regionType": "District",
+        "parentId": "11",
+        "stateId": "11"
+    },
+    "13":{
         "regionName": "Івано-Франківська область",
         "regionType": "State",
         "parentId": None,
-        "stateId": "2"
-    },
-    "6":{
-        "regionName": "Район в області",
-        "regionType": "District",
-        "parentId": "1",
-        "stateId": "1"
-    },
-    "7":{
-        "regionName": "Район 2 в області",
-        "regionType": "District",
-        "parentId": "1",
-        "stateId": "1"
-    },
-    "15":{
-        "regionName": "Громада 1 в районі",
-        "regionType": "Community",
-        "parentId": "6",
-        "stateId": "1"
+        "stateId": "13"
     }
+    
 }
 
 
@@ -63,14 +64,14 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "Luhanska region",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "1",
+                    "regionId": "11",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -111,14 +112,14 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "6",
+                    "regionId": "66",
                     "regionType": "District",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -160,20 +161,20 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "6",
+                    "regionId": "66",
                     "regionType": "District",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T09:00:00Z"
                 },
                 {
-                    "regionId": "1",
+                    "regionId": "61",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -214,14 +215,14 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "1",
+                    "regionId": "11",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -261,14 +262,14 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "1",
+                    "regionId": "11",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -276,14 +277,14 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
                 ]
             },
             {
-                "regionId": "2",
+                "regionId": "13",
                 "regionType": "State",
                 "regionName": "Івано-Франківська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "2",
+                    "regionId": "13",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -395,14 +396,14 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "2",
+                "regionId": "13",
                 "regionType": "State",
                 "regionName": "Івано-Франківська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "2",
+                    "regionId": "13",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -448,20 +449,20 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "Luhanska region",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "6",
+                    "regionId": "66",
                     "regionType": "District",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T11:00:00Z"
                 },
                 {
-                    "regionId": "7",
+                    "regionId": "61",
                     "regionType": "District",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T15:00:00Z"
@@ -501,20 +502,20 @@ async def test_10(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "1",
+                    "regionId": "61",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
                 },
                 {
-                    "regionId": "6",
+                    "regionId": "66",
                     "regionType": "District",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -553,14 +554,14 @@ async def test_11(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "15",
+                "regionId": "495",
                 "regionType": "Community",
                 "regionName": "Закарпатська область",
                 "regionEngName": "",
                 "lastUpdate": "2022-04-04T16:45:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "15",
+                    "regionId": "495",
                     "regionType": "Community",
                     "type": "AIR",
                     "lastUpdate": "2022-04-04T16:45:00Z"
@@ -595,14 +596,14 @@ async def test_12(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = (
         [
             {
-                "regionId": "1",
+                "regionId": "11",
                 "regionType": "State",
                 "regionName": "Закарпатська область",
                 "regionEngName": "Luhanska region",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "1",
+                    "regionId": "11",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T10:00:00Z"
@@ -610,14 +611,106 @@ async def test_12(mock_get_alerts, mock_get_regions, mock_get_cache_data):
                 ]
             },
             {
-                "regionId": "6",
+                "regionId": "66",
                 "regionType": "District",
                 "regionName": "Район в області",
                 "regionEngName": "Luhanska region",
                 "lastUpdate": "2025-01-15T11:00:00Z",
                 "activeAlerts": [
                 {
-                    "regionId": "6",
+                    "regionId": "66",
+                    "regionType": "State",
+                    "type": "AIR",
+                    "lastUpdate": "2025-01-15T11:00:00Z"
+                }
+                ]
+            }
+        ]
+    )
+    mock_get_regions.return_value = (districts)
+
+    mock_get_cache_data.return_value = [[1, 1736935200], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000]
+                        ]
+
+    await update_alerts_websocket_v2(mock_mc, run_once=True)
+
+    mock_mc.set.assert_not_called()
+
+@pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
+@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
+@patch("updater.updater.get_regions", new_callable=AsyncMock)
+@patch("updater.updater.get_alerts", new_callable=AsyncMock)
+async def test_13(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+    """
+    e дані в memcache
+    спроба переписати тривогу в District додатковим State
+    """
+
+    mock_mc = AsyncMock(spec=Client)
+    mock_mc.set.return_value = True
+
+    mock_get_alerts.return_value = (
+        [
+            {
+                "regionId": "11",
+                "regionType": "State",
+                "regionName": "Закарпатська область",
+                "regionEngName": "Luhanska region",
+                "lastUpdate": "2025-01-15T11:00:00Z",
+                "activeAlerts": [
+                {
+                    "regionId": "11",
+                    "regionType": "State",
+                    "type": "AIR",
+                    "lastUpdate": "2025-01-15T11:00:00Z"
+                }
+                ]
+            }
+        ]
+    )
+    mock_get_regions.return_value = (districts)
+
+    mock_get_cache_data.return_value = [[1, 1736935200], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], [0, 1645674000], 
+                        [0, 1645674000], [0, 1645674000]
+                        ]
+
+    await update_alerts_websocket_v2(mock_mc, run_once=True)
+
+    mock_mc.set.assert_not_called()
+
+@pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
+@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
+@patch("updater.updater.get_regions", new_callable=AsyncMock)
+@patch("updater.updater.get_alerts", new_callable=AsyncMock)
+async def test_14(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+    """
+    e дані в memcache
+    спроба переписати тривогу в State через District в момент коли State зникає
+    """
+
+    mock_mc = AsyncMock(spec=Client)
+    mock_mc.set.return_value = True
+
+    mock_get_alerts.return_value = (
+        [
+            {
+                "regionId": "66",
+                "regionType": "District",
+                "regionName": "Район в області",
+                "regionEngName": "Luhanska region",
+                "lastUpdate": "2025-01-15T11:00:00Z",
+                "activeAlerts": [
+                {
+                    "regionId": "66",
                     "regionType": "State",
                     "type": "AIR",
                     "lastUpdate": "2025-01-15T11:00:00Z"

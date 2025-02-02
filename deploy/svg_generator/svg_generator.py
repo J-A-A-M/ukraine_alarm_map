@@ -189,7 +189,7 @@ async def svg_generator_alerts(mc):
             state_id = int(region_id)
             state_name = get_region_name("id", state_id)
             if time_diff < 180:
-                alerts_svg_data[state_name] = COLOR_MISSILES
+                alerts_svg_data[state_name] = COLOR_EXPLOSIVES
                 
          if alerts_svg_data == stored_data:
              continue
