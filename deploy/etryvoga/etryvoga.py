@@ -45,7 +45,7 @@ regions = {
     "SUMSKA": {"name": "Сумська область", "id": 20, "legacy_id": 10},
     "HARKIVSKA": {"name": "Харківська область", "id": 22, "legacy_id": 11},
     "LUGANSKA": {"name": "Луганська область", "id": 16, "legacy_id": 12},
-    "DONETSKAYA": {"name": "Донецька область", "id": 28, "ilegacy_idd": 13},
+    "DONETSKAYA": {"name": "Донецька область", "id": 28, "legacy_id": 13},
     "ZAPORIZKA": {"name": "Запорізька область", "id": 12, "legacy_id": 14},
     "HERSONSKA": {"name": "Херсонська область", "id": 23, "legacy_id": 15},
     "KRIMEA": {"name": "Автономна Республіка Крим", "id": 9999, "legacy_id": 16},
@@ -262,7 +262,7 @@ async def get_etryvoga_districts(mc):
                 else:
                     logger.error(f"get_etryvoga_districts: Request failed with status code {response.status}")
         except Exception as e:
-            logger.error(f"get_etryvoga_districts: {e.message}")
+            logger.error(f"get_etryvoga_districts: {str(e)}")
         await asyncio.sleep(etryvoga_districts_loop_time)
 
 

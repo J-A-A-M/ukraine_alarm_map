@@ -1,0 +1,63 @@
+name: 'Server PyTests'
+description: 'Run server pytest'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
+    paths:
+      - "deploy/**"
+  workflow_dispatch:
+
+jobs:
+  pytests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.2'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-python-3.12-pip-${{ hashFiles('deploy/**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python-3.12-pip-
+
+      - name: Install dependencies from deploy subfolders
+        run: |
+          cd deploy
+          for req_file in $(find . -name "requirements.txt"); do
+            echo "Installing dependencies from $req_file"
+            pip install -r "$req_file"
+          done
+
+      - name: Ensure pytest is installed
+        run: pip install pytest
+
+      - name: Add deploy to PYTHONPATH
+        run: |
+          DEPLOY_PATH=$(pwd)/deploy
+          if [ -z "$PYTHONPATH" ]; then
+            echo "PYTHONPATH=$DEPLOY_PATH" >> $GITHUB_ENV
+          else
+            echo "PYTHONPATH=${PYTHONPATH}:$DEPLOY_PATH" >> $GITHUB_ENV
+          fi
+
+      - name: Debug PYTHONPATH
+        run: |
+          echo "Current PYTHONPATH: $PYTHONPATH"
+
+      - name: Run PyTest in deploy/tests
+        run: |
+          cd deploy/tests
+          pytest --tb=short -v --capture=tee-sys
