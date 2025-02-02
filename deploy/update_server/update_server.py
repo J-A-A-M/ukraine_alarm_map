@@ -20,6 +20,15 @@ memcached_port = int(os.environ.get("MEMCACHED_PORT")) or 11211
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
 
+if not shared_path or not os.path.isdir(shared_path):
+    raise ValueError(f"SHARED_PATH має вказувати на існуючу директорію: {shared_path}")
+
+if not shared_beta_path or not os.path.isdir(shared_beta_path):
+    raise ValueError(f"SHARED_BETA_PATH має вказувати на існуючу директорію: {shared_beta_path}")
+
+if not isinstance(port, int) or not (1024 <= port <= 65535):
+    raise ValueError(f"PORT має бути цілим числом між 1024 та 65535: {port}")
+
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 

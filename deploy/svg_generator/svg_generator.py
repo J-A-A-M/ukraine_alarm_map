@@ -38,7 +38,7 @@ regions = {
     "SUMSKA": {"name": "Сумська область", "id": 20, "legacy_id": 10},
     "HARKIVSKA": {"name": "Харківська область", "id": 22, "legacy_id": 11},
     "LUGANSKA": {"name": "Луганська область", "id": 16, "legacy_id": 12},
-    "DONETSKAYA": {"name": "Донецька область", "id": 28, "ilegacy_idd": 13},
+    "DONETSKAYA": {"name": "Донецька область", "id": 28, "legacy_id": 13},
     "ZAPORIZKA": {"name": "Запорізька область", "id": 12, "legacy_id": 14},
     "HERSONSKA": {"name": "Херсонська область", "id": 23, "legacy_id": 15},
     "KRIMEA": {"name": "Автономна Республіка Крим", "id": 9999, "legacy_id": 16},
@@ -160,10 +160,10 @@ async def svg_generator_alerts(mc):
 
             alerts_svg_data = {}
 
-            alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", [])
-            drones_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states:{}"})
-            missiles_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states:{}"})
-            explosions_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states:{}"})
+            alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", {})
+            drones_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
+            missiles_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
+            explosions_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
             regions_cache = await get_regions(mc, b"regions_api", {})
 
             for region_id, region_data in alerts_cache.items():
@@ -233,7 +233,7 @@ async def svg_generator_weather(mc):
 
             weather_svg_data = {}
 
-            weather_cache = await get_weather(mc, b"weather_openweathermap", [])
+            weather_cache = await get_weather(mc, b"weather_openweathermap", {"states": {}})
             for region_id, region_data in weather_cache["states"].items():
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)

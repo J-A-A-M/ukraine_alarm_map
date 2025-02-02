@@ -4,7 +4,6 @@ import asyncio
 import logging
 import datetime
 from aiomcache import Client
-from deepdiff import DeepDiff
 from copy import deepcopy
 
 version = 3

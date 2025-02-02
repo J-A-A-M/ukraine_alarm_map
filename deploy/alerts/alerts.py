@@ -104,6 +104,7 @@ async def get_alerts(mc):
     while True:
         try:
             logger.debug("start get_alerts")
+            cache_tasks = []
 
             alerts_historical_cache = await get_cache_data(mc, b"alerts_historical_api", [])
             regions_cache = await get_cache_data(mc, b"regions_api", {})
@@ -113,7 +114,12 @@ async def get_alerts(mc):
                     if state_data["regionType"] == "State":
                         region_alert_url = "%s/%s" % (alarm_url, state_id)
                         async with aiohttp.ClientSession() as session:
-                            response = await session.get(region_alert_url, headers=headers)  # Replace with your URL
+                            response = await session.get(region_alert_url, headers=headers)
+                            if response.status != 200:
+                                logger.error(
+                                    f"Помилка отримання даних тривог для регіону {state_id}: {response.status}"
+                                )
+                                continue
                             new_data = await response.text()
                             region_data = json.loads(new_data)[0]
                         alerts_historical_cache.append(region_data)

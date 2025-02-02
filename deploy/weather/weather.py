@@ -17,7 +17,7 @@ weather_loop_time = int(os.environ.get("WEATHER_PERIOD", 7200))
 if not weather_token:
     raise ValueError("WEATHER_TOKEN environment variable is required")
 if weather_loop_time < 7200:
-    raise ValueError("REGIONS_PERIOD must be >= 7200")
+    raise ValueError("WEATHER_PERIOD must be >= 7200")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ async def get_weather_openweathermap(mc):
                     data["current"]["region"] = weather_region_data
                     weather_cached_data["states"][weather_region_data["id"]] = data["current"]
                 else:
-                    logger.error(f"Request failed with status code: {response.status_code}")
+                    logger.error(f"Request failed with status code: {response.status}")
 
         weather_cached_data["info"]["last_update"] = get_current_datetime()
         logger.debug("store weather data: %s" % get_current_datetime())
