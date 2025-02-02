@@ -16,7 +16,7 @@ debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT")) or 8090
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-memcached_port = int(os.environ.get("MEMCACHED_PORT")) or 11211
+memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
 
