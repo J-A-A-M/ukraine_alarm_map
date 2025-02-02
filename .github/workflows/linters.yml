@@ -62,5 +62,4 @@ jobs:
       - name: Run PyTest in deploy/tests
         run: |
           cd deploy/tests
-          pip install pytest  # Ensure pytest is installed
           pytest --tb=short -v --capture=tee-sys
