@@ -205,7 +205,7 @@ async def main(request):
     return HTMLResponse(response)
 
 
-async def get_cache_data(mc, key_b, default_response=None, json=True):
+async def get_cache_data(mc, key_b, default_response=None, json_parse=True):
     if default_response is None:
         default_response = {}
 
@@ -213,7 +213,7 @@ async def get_cache_data(mc, key_b, default_response=None, json=True):
 
     if cache:
         cache = cache.decode("utf-8")
-        if json:
+        if json_parse:
             cache = json.loads(cache)
 
     else:
