@@ -44,7 +44,10 @@ on:
 
 run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
 jobs:
+    pytests:
+      uses: ./.github/workflows/pytests.yml
     deploy_websocket_dev:
+        needs: pytests
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy Dev WebSockets

@@ -32,7 +32,10 @@ on:
 
 run-name: Deploy Websockets from '${{ github.ref_name }}' branch
 jobs:
+    pytests:
+      uses: ./.github/workflows/pytests.yml
     deploy_websocket:
+        needs: pytests
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy WebSockets

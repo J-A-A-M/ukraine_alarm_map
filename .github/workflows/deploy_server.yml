@@ -44,6 +44,7 @@ jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
     deploy_microservices:
+        needs: pytests
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy WebSockets
