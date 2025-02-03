@@ -663,49 +663,54 @@ async def print_clients(shared_data, mc):
             logger.error(f"Error in update_shared_data: {e}")
 
 
-async def get_data_from_memcached_test(shared_data):
-    if not shared_data.test_id:
-        shared_data.test_id = 0
+def circular_offset_legacy(n, offset, total=26):
+    return ((n - 1 + offset) % total) + 1
 
-    alerts = []
-    weather = []
-    explosion = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    rocket = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    drone = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+def circular_offset_index(n, offset, total=26):
+    return (n + offset) % total
+
+
+async def get_data_from_memcached_test(shared_data):
+    if shared_data.test_id == None:
+        shared_data.test_id = 1
+
+    alerts = [[0, 1736935200]] * 26
+    weather = [0] * 26
+    explosion = [0] * 26
+    missile = [0] * 26
+    drone = [0] * 26
 
     for region_name, data in regions.items():
-        region_id = data["id"]
+        region_id = data["legacy_id"]
         if region_id == shared_data.test_id:
             alert = 1
             temp = 30
-            if region_id == 0:
-                explosion[25] = int(datetime.datetime.now().timestamp())
-            else:
-                explosion[region_id - 1] = int(datetime.datetime.now().timestamp())
-            logger.debug(f"District: %s, %s" % (region_id, region_name))
+            expl = int(datetime.datetime.now().timestamp())
         else:
             alert = 0
             temp = 0
-        region_alert = [str(alert), "2024-09-05T09:47:52Z"]
-        alerts.append(region_alert)
-        weather.append(str(temp))
+            expl = 0
+        alerts[circular_offset_index(region_id - 1, 0)] = [
+            str(alert),
+            f"{int(datetime.datetime.now().timestamp())-3600}",
+        ]
+        explosion[circular_offset_index(region_id - 1, -1)] = expl
+        missile[circular_offset_index(region_id - 1, -2)] = expl
+        drone[circular_offset_index(region_id - 1, -3)] = expl
+        weather[circular_offset_index(region_id - 1, 0)] = temp
 
-    shared_data.test_id += 1
-    if shared_data.test_id > 25:
-        shared_data.test_id = 0
+    shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
     return (
         "{}",
         json.dumps(alerts),
         json.dumps(weather),
         json.dumps(explosion),
-        json.dumps(rocket),
+        json.dumps(missile),
         json.dumps(drone),
         '["latest.bin"]',
         '["latest_beta.bin"]',
-        "{}",
-        "{}",
-        "{}",
         "{}",
         "{}",
     )
