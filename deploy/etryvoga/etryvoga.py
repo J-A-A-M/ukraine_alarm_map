@@ -214,13 +214,15 @@ async def get_etryvoga_data(mc):
                     drones_cached_data["info"]["last_id"] = last_id
                     drones_cached_data["info"]["last_update"] = get_current_datetime()
                     logger.debug("store etryvoga data")
-                    await mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8"))
-                    await mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8"))
-                    await mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8"))
-                    await mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8"))
-                    await mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8"))
+                    await asyncio.gather(
+                        mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
+                        mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
+                        mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
+                        mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
+                        mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8")),
+                        service_is_fine(mc, b"etryvoga_api_last_call")
+                    )
                     logger.info("etryvoga data stored")
-                    await service_is_fine(mc, b"etryvoga_api_last_call")
                     logger.debug("end get_etryvoga_data")
                 else:
                     logger.error(f"get_etryvoga_data: Request failed with status code {response.status}")
