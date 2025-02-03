@@ -220,7 +220,7 @@ async def get_etryvoga_data(mc):
                         mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
                         mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
                         mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8")),
-                        service_is_fine(mc, b"etryvoga_api_last_call")
+                        service_is_fine(mc, b"etryvoga_api_last_call"),
                     )
                     logger.info("etryvoga data stored")
                     logger.debug("end get_etryvoga_data")
