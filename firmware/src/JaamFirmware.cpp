@@ -3556,8 +3556,17 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
   case 18:
     FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
     break;
+  case 25:
+    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
+    break;
   case 26:
     FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 27:
+    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
+    break;
+  case 32:
+    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
     break;
   case 33:
     FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
