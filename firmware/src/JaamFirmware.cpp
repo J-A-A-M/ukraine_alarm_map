@@ -2267,7 +2267,7 @@ void handleSounds(AsyncWebServerRequest* request) {
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Яскравість\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
-  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічий час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
+  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
   addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
