@@ -370,8 +370,8 @@ bool needToPlaySound(SoundType type) {
     // ignore mute on alert
     if (SoundType::ALERT_ON == type && settings.getBool(SOUND_ON_ALERT) && settings.getBool(IGNORE_MUTE_ON_ALERT)) return true;
 
-    // disable sounds on night mode
-    if (settings.getBool(MUTE_SOUND_ON_NIGHT) && getNightModeType() > 0) return false;
+    // disable sounds on night mode by time only
+    if (settings.getBool(MUTE_SOUND_ON_NIGHT) && settings.getInt(BRIGHTNESS_MODE) >= 1 && isItNightNow()) return false;
 
     switch (type) {
     case MIN_OF_SILINCE:
@@ -2266,8 +2266,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
-  addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
-  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
+  addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Яскравість\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічий час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
   addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
