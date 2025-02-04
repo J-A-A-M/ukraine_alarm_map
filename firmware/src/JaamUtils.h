@@ -15,15 +15,17 @@ static Firmware parseFirmwareVersion(const char* version) {
   char* versionCopy = strdup(version);
   char* token = strtok(versionCopy, ".-");
 
+  int part = 0;
   while (token) {
     if (isdigit(token[0])) {
-      if (firmware.major == 0)
+      if (part == 0)
         firmware.major = atoi(token);
-      else if (firmware.minor == 0)
+      else if (part == 1)
         firmware.minor = atoi(token);
-      else if (firmware.patch == 0)
+      else if (part == 2)
         firmware.patch = atoi(token);
-    } else if (firmware.betaBuild == 0 && token[0] == 'b' && strcmp(token, "bin") != 0) {
+      part++;
+    } else if (token[0] == 'b' && strcmp(token, "bin") != 0) {
       firmware.isBeta = true;
       firmware.betaBuild = atoi(token + 1); // Skip the 'b' character
     }
@@ -36,11 +38,11 @@ static Firmware parseFirmwareVersion(const char* version) {
 }
 
 static void fillFwVersion(char* result, Firmware firmware) {
-  char patch[5] = "";
+  char patch[10] = "";
   if (firmware.patch > 0) {
     sprintf(patch, ".%d", firmware.patch);
   }
-  char beta[5] = "";
+  char beta[10] = "";
   if (firmware.isBeta) {
     sprintf(beta, "-b%d", firmware.betaBuild);
   }
