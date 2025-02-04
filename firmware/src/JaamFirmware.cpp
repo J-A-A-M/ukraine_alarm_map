@@ -3527,56 +3527,63 @@ void initClearPin() {
 }
 
 void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
-  switch (pin)
-  {
-  case 2:
-    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 4:
-    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 12:
-    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 13:
-    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 14:
-    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 15:
-    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 16:
-    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 17:
-    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 18:
-    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 25:
-    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 26:
-    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 27:
-    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 32:
-    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 33:
-    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  default:
-    LOG.print("This PIN is not supported for LEDs: ");
-    LOG.println(pin);
-    break;
-  }
+    bool isSupported = false;
+
+    // Перевірка, чи пін входить до підтримуваних
+    for (auto supportedPin : SUPPORTED_LEDS_PINS) {
+        if (pin == supportedPin) {
+            isSupported = true;
+            break;
+        }
+    }
+
+    if (!isSupported) {
+        LOG.print("This PIN is not supported for LEDs: ");
+        LOG.println(pin);
+        return;
+    }
+
+    switch (pin) {
+      #if defined(ESP32S3)
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(8)
+        GENERATE_PIN_CASE(9)
+        GENERATE_PIN_CASE(10)
+        GENERATE_PIN_CASE(11)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(16)
+        GENERATE_PIN_CASE(17)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(19)
+        GENERATE_PIN_CASE(20)
+        GENERATE_PIN_CASE(21)
+      #elif defined(ESP32)
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(16)
+        GENERATE_PIN_CASE(17)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(25)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(27)
+        GENERATE_PIN_CASE(32)
+        GENERATE_PIN_CASE(33)
+      #endif
+      default:
+        LOG.print("Error: Unexpected pin configuration for this board: ");
+        LOG.println(pin);
+        break;
+    }
 }
+
 
 void initStrip() {
   LOG.println("Init leds");
