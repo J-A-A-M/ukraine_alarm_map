@@ -3426,15 +3426,13 @@ void initLegacy() {
 #endif
   switch (settings.getInt(LEGACY)) {
   case 0:
-    LOG.println("Mode: jaam 1");
+    LOG.println("Mode: jaam 1");    
 
-    pinMode(settings.getInt(POWER_PIN), OUTPUT);
-    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
-    pinMode(settings.getInt(DATA_PIN), OUTPUT);
-    pinMode(settings.getInt(HA_PIN), OUTPUT);
-    //pinMode(settings.reservedpin, OUTPUT);
-
-    servicePin(POWER, HIGH, false);
+    settings.saveInt(POWER_PIN, 12, false);
+    settings.saveInt(WIFI_PIN, 14, false);
+    settings.saveInt(DATA_PIN, 25, false);
+    settings.saveInt(HA_PIN, 26, false);
+    settings.saveInt(RESERVED_PIN, 27, false);
 
     settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
@@ -3446,6 +3444,14 @@ void initLegacy() {
     settings.saveInt(DISPLAY_MODEL, 1, false);
     settings.saveInt(DISPLAY_HEIGHT, 64, false);
     settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
+
+    pinMode(settings.getInt(POWER_PIN), OUTPUT);
+    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
+    pinMode(settings.getInt(DATA_PIN), OUTPUT);
+    pinMode(settings.getInt(HA_PIN), OUTPUT);
+
+    servicePin(POWER, HIGH, false);
+
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -3550,17 +3556,8 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
   case 18:
     FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
     break;
-  case 25:
-    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
-    break;
   case 26:
     FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 27:
-    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 32:
-    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
     break;
   case 33:
     FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
