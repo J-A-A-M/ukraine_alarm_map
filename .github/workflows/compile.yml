@@ -17,6 +17,7 @@
             uses: ./.github/workflows/firmware-compile
             with:
               project-folder: firmware
+              project-env: firmware
           - name: Copy bin file
             run: |
               cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware.bin
@@ -25,6 +26,23 @@
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/firmware.bin
+    compile_firmware_esp32s3:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Compile firmware
+          uses: ./.github/workflows/firmware-compile
+          with:
+            project-folder: firmware
+            project-env: firmware_esp32s3
+        - name: Copy bin file
+          run: |
+            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-esp32s3.bin
+        - name: Upload firmware esp32s3
+          uses: actions/upload-artifact@v4
+          with:
+            name: firmware-esp32s3.bin
+            path: ${{ github.workspace }}/firmware-esp32s3.bin
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
@@ -36,6 +54,7 @@
             uses: ./.github/workflows/firmware-compile
             with:
               project-folder: firmware
+              project-env: firmware
           - name: Copy bin file
             run: |
               cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-lite.bin
@@ -56,6 +75,7 @@
             uses: ./.github/workflows/firmware-compile
             with:
               project-folder: firmware
+              project-env: firmware
           - name: Copy bin file
             run: |
               cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-jaam2-test.bin

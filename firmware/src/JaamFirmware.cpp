@@ -3544,7 +3544,7 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
     }
 
     switch (pin) {
-      #if defined(ESP32S3)
+      #if defined(BOARD_ESP32S3)
         GENERATE_PIN_CASE(2)
         GENERATE_PIN_CASE(4)
         GENERATE_PIN_CASE(8)
@@ -3561,7 +3561,7 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
         GENERATE_PIN_CASE(19)
         GENERATE_PIN_CASE(20)
         GENERATE_PIN_CASE(21)
-      #elif defined(ESP32)
+      #elif defined(BOARD_ESP32)
         GENERATE_PIN_CASE(2)
         GENERATE_PIN_CASE(4)
         GENERATE_PIN_CASE(12)
