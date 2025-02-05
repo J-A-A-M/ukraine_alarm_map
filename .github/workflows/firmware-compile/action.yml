@@ -24,4 +24,4 @@ runs:
       run: pip install --upgrade platformio
     - name: Build ${{ inputs.project-folder }}
       shell: bash
-      run: pio run -d ${{ inputs.project-folder }} ${{ inputs.project-env }}
+      run: pio run -d ${{ inputs.project-folder }} -e ${{ inputs.project-env }}
