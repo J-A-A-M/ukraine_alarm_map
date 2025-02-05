@@ -37,7 +37,7 @@
             project-env: firmware_esp32s3
         - name: Copy bin file
           run: |
-            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-esp32s3.bin
+            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/firmware-esp32s3.bin
         - name: Upload firmware esp32s3
           uses: actions/upload-artifact@v4
           with:
@@ -100,6 +100,7 @@
           uses: ./.github/workflows/firmware-compile
           with:
             project-folder: updater
+            project-env: updater
         - name: Copy bin file
           run: |
             cp -f ${{ github.workspace }}/updater/.pio/build/updater/firmware.bin ${{ github.workspace }}/updater.bin
