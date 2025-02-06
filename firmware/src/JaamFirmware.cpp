@@ -29,7 +29,7 @@
 #endif
 #include <esp_task_wdt.h>
 
-const PROGMEM char* VERSION = "4.3-b100";
+const PROGMEM char* VERSION = "4.3-b101";
 
 JaamSettings settings;
 Firmware currentFirmware;
@@ -370,8 +370,8 @@ bool needToPlaySound(SoundType type) {
     // ignore mute on alert
     if (SoundType::ALERT_ON == type && settings.getBool(SOUND_ON_ALERT) && settings.getBool(IGNORE_MUTE_ON_ALERT)) return true;
 
-    // disable sounds on night mode
-    if (settings.getBool(MUTE_SOUND_ON_NIGHT) && getNightModeType() > 0) return false;
+    // disable sounds on night mode by time only
+    if (settings.getBool(MUTE_SOUND_ON_NIGHT) && isItNightNow()) return false;
 
     switch (type) {
     case MIN_OF_SILINCE:
@@ -2089,8 +2089,6 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness", "Загальна", settings.getInt(BRIGHTNESS), 0, 100, 1, "%", settings.getInt(BRIGHTNESS_MODE) == 1 || settings.getInt(BRIGHTNESS_MODE) == 2);
   addSlider(response, "brightness_day", "Денна", settings.getInt(BRIGHTNESS_DAY), 0, 100, 1, "%", settings.getInt(BRIGHTNESS_MODE) == 0);
   addSlider(response, "brightness_night", "Нічна", settings.getInt(BRIGHTNESS_NIGHT), 0, 100, 1, "%");
-  addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година", settings.getInt(BRIGHTNESS_MODE) == 0 || settings.getInt(BRIGHTNESS_MODE) == 2);
-  addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година", settings.getInt(BRIGHTNESS_MODE) == 0 || settings.getInt(BRIGHTNESS_MODE) == 2);
   if (display.isDisplayAvailable()) {
     addCheckbox(response, "dim_display_on_night", settings.getBool(DIM_DISPLAY_ON_NIGHT), "Знижувати яскравість дисплею у нічний час");
   }
@@ -2192,7 +2190,8 @@ void handleModes(AsyncWebServerRequest* request) {
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
   }
-
+  addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година");
+  addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година");
   if (climate.isTemperatureAvailable()) {
     addSlider(response, "temp_correction", "Корегування температури", settings.getFloat(TEMP_CORRECTION), -10.0f, 10.0f, 0.1f, "°C");
   }
@@ -2266,8 +2265,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
-  addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у \"Нічному режимі\"", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
-  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у \"Нічному режимі\"", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
+  addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
+  addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
   addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
@@ -2582,8 +2581,6 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
   saved = saveInt(request->getParam("brightness", true), BRIGHTNESS, saveBrightness) || saved;
   saved = saveInt(request->getParam("brightness_day", true), BRIGHTNESS_DAY, saveDayBrightness) || saved;
   saved = saveInt(request->getParam("brightness_night", true), BRIGHTNESS_NIGHT, saveNightBrightness) || saved;
-  saved = saveInt(request->getParam("day_start", true), DAY_START) || saved;
-  saved = saveInt(request->getParam("night_start", true), NIGHT_START) || saved;
   saved = saveInt(request->getParam("brightness_auto", true), BRIGHTNESS_MODE, saveAutoBrightnessMode) || saved;
   saved = saveInt(request->getParam("brightness_alert", true), BRIGHTNESS_ALERT) || saved;
   saved = saveInt(request->getParam("brightness_clear", true), BRIGHTNESS_CLEAR) || saved;
@@ -2637,6 +2634,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
   saved = saveInt(request->getParam("button2_mode_long", true), BUTTON_2_MODE_LONG) || saved;
   saved = saveInt(request->getParam("kyiv_district_mode", true), KYIV_DISTRICT_MODE, NULL, initLedMapping) || saved;
+  saved = saveInt(request->getParam("day_start", true), DAY_START) || saved;
+  saved = saveInt(request->getParam("night_start", true), NIGHT_START) || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", HOME_ALERT_TIME, saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), ALARMS_NOTIFY_MODE) || saved;
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
