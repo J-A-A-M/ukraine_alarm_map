@@ -37,15 +37,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Replace version and build type in firmware source
+      - name: Replace version in firmware source
         run: |
           sed -i 's/VERSION = ".*";/VERSION = "${{ inputs.release-version }}";/' ${{ github.workspace }}/firmware/src/JaamFirmware.cpp
-          sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
       - name: Compile firmware
         uses: ./.github/workflows/firmware-compile
+        with:
+          project-env: firmware_lite
       - name: Copy bin to upload
         run: |
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_lite/firmware.bin ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:

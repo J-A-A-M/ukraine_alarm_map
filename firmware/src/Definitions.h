@@ -1,8 +1,4 @@
-#define LITE 0
-#define TEST_MODE 0
 #define TELNET_ENABLED 0
-//#define BOARD_ESP32 1
-//#define BOARD_ESP32S3 0
 #if LITE
 #define ARDUINO_OTA_ENABLED 0
 #define FW_UPDATE_ENABLED 0
