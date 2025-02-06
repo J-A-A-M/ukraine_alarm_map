@@ -4,6 +4,9 @@ inputs:
   project-folder:
     description: 'Project folder'
     default: 'firmware'
+  project-env:
+    description: 'Project environment to build'
+    default: 'firmware'
 permissions:
   contents: read
   pull-requests: write
