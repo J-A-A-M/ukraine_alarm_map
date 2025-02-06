@@ -345,6 +345,8 @@ static const size_t MAX_JSON_SIZE = 6000; // 6KB
     #define SUPPORTED_LEDS_PINS {2, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
 #elif BOARD_ESP32
     #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 16, 17, 18, 25, 26, 27, 32, 33}
+#elif BOARD_ESP32C3
+    #define SUPPORTED_LEDS_PINS {2, 4, 18}
 #else
     #error "Платформа не підтримується!"
 #endif

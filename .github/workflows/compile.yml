@@ -39,6 +39,22 @@
           with:
             name: firmware-esp32s3.bin
             path: ${{ github.workspace }}/firmware-esp32s3.bin
+    compile_firmware_esp32c3:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Compile firmware esp32c3
+          uses: ./.github/workflows/firmware-compile
+          with:
+            project-env: firmware_esp32c3
+        - name: Copy bin file
+          run: |
+            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/firmware-esp32c3.bin
+        - name: Upload firmware esp32c3
+          uses: actions/upload-artifact@v4
+          with:
+            name: firmware-esp32c3.bin
+            path: ${{ github.workspace }}/firmware-esp32c3.bin
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:

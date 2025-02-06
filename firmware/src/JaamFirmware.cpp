@@ -3575,6 +3575,10 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
         GENERATE_PIN_CASE(27)
         GENERATE_PIN_CASE(32)
         GENERATE_PIN_CASE(33)
+      #elif BOARD_ESP32C3
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(18)
       #endif
       default:
         LOG.print("Error: Unexpected pin configuration for this board: ");
