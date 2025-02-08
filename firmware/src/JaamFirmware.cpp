@@ -29,7 +29,7 @@
 #endif
 #include <esp_task_wdt.h>
 
-const PROGMEM char* VERSION = "4.3-b101";
+const PROGMEM char* VERSION = "4.3";
 
 JaamSettings settings;
 Firmware currentFirmware;
