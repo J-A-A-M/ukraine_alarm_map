@@ -73,7 +73,7 @@
             <div class='by col-md-9 mt-2'>
                 <div class='center'>
                     <esp-web-install-button manifest="manifest.json">
-                        <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.2</button>
+                        <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">JAAM 4.2</button>
                         <div slot="unsupported">
                             <div class='alert alert-danger'>
                                 <p>Ваш браузер не підтримується!</p>
@@ -84,16 +84,23 @@
                             <div class='alert alert-danger'>
                                 <p>Встановлення через HTTP заборонено!</p>
                                 <p>Спробуйте встановити через HTTPS.</p>
-                            </div>
-                        </div>
-                    </esp-web-install-button>
-                    <esp-web-install-button manifest="manifest-beta.json">
-                        <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.3 Beta 101</button>
+                    <esp-web-install-button manifest="manifest-lite.json">
+                        <button class='btn btn-success' type='button' aria-expanded='false' slot="activate">JAAM 4.2 Lite</button>
                         <span slot="unsupported"></span>
                         <span slot="not-allowed"></span>
                     </esp-web-install-button>
-                    <esp-web-install-button manifest="manifest-lite.json">
-                        <button class='btn btn-success' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.2 Lite</button>
+                    <esp-web-install-button manifest="manifest-beta.json">
+                        <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">JAAM 4.3 Beta 101</button>
+                        <span slot="unsupported"></span>
+                        <span slot="not-allowed"></span>
+                    </esp-web-install-button>
+                    <esp-web-install-button manifest="manifest-beta-s3.json">
+                        <button class='btn btn-danger' type='button' aria-expanded='false' slot="activate">JAAM 4.2 S3 Beta 101</button>
+                        <span slot="unsupported"></span>
+                        <span slot="not-allowed"></span>
+                    </esp-web-install-button>
+                    <esp-web-install-button manifest="manifest-beta-c3.json">
+                        <button class='btn btn-danger' type='button' aria-expanded='false' slot="activate">JAAM 4.2 C3 Beta 101</button>
                         <span slot="unsupported"></span>
                         <span slot="not-allowed"></span>
                     </esp-web-install-button>
@@ -103,6 +110,8 @@
                         <li><b>JAAM</b> - стабільна релізна <a href="https://github.com/J-A-A-M/ukraine_alarm_map/releases/latest">версія</a> прошивки</li>
                         <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці.</li>
                         <li><b>JAAM Lite</b> - "скорочена" версія прошивки. Видалено підтримку дисплею, Home Assistant, сенсорів освітлення та клімату, динаміка (buzzer), не підтримує оновлення через веб-інтерфейс</li>
+                        <li><b>JAAM S3 Beta</b> - тестова версія прошивки для чіпа ESP32-S3. Містить функції, що перебувають у розробці.</li>
+                        <li><b>JAAM C3 Beta</b> - тестова версія прошивки для чіпа ESP32-C3. Містить функції, що перебувають у розробці.</li>
                     </ul>
 
                 </div>

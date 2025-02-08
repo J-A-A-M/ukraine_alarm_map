@@ -7,6 +7,12 @@ inputs:
   beta_binary_path:
     description: 'Path to the beta binary'
     default: ''
+  beta_s3_binary_path:
+    description: 'Path to the beta s3 binary'
+    default: ''
+  beta_c3_binary_path:
+    description: 'Path to the beta c3 binary'
+    default: ''
   lite_binary_path:
     description: 'Path to the lite binary'
     default: ''
@@ -24,37 +30,63 @@ runs:
       shell: bash
       run: |
         cp -f ${{ inputs.binary_path }} ${{ github.workspace }}/flasher/bins/jaam.bin
-    - name: Change version in flasher
-      if: ${{ inputs.binary_path != '' }}
-      shell: bash
-      run: |
-        sed -i 's/>Встановити JAAM [0-9.]*</>Встановити JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/>Отримати опис JAAM [0-9.]*</>>Отримати опис JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest.json
-        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Copy beta bin to flasher
       if: ${{ inputs.beta_binary_path != '' }}
       shell: bash
       run: |
         cp -f ${{ inputs.beta_binary_path }} ${{ github.workspace }}/flasher/bins/jaam_beta.bin
-    - name: Change beta version in flasher
-      if: ${{ inputs.beta_binary_path != '' }}
+    - name: Copy beta s3 bin to flasher
+      if: ${{ inputs.beta_s3_binary_path != '' }}
       shell: bash
       run: |
-        sed -i 's/>Встановити JAAM [0-9.]* Beta [0-9]*</>Встановити JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta.json
-        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
+        cp -f ${{ inputs.beta_s3_binary_path }} ${{ github.workspace }}/flasher/bins/jaam_beta_s3.bin
+    - name: Copy beta c3 bin to flasher
+      if: ${{ inputs.beta_c3_binary_path != '' }}
+      shell: bash
+      run: |
+        cp -f ${{ inputs.beta_c3_binary_path }} ${{ github.workspace }}/flasher/bins/jaam_beta_c3.bin
     - name: Copy lite bin to flasher
       if: ${{ inputs.lite_binary_path != '' }}
       shell: bash
       run: |
         cp -f ${{ inputs.lite_binary_path }} ${{ github.workspace }}/flasher/bins/jaam_lite.bin
+    - name: Change version in flasher
+      if: ${{ inputs.binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>JAAM [0-9.]*</>JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Отримати опис JAAM [0-9.]*</>>Отримати опис JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}'\''/' ${{ github.workspace }}/flasher/index.html
+    - name: Change beta version in flasher
+      if: ${{ inputs.beta_binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>JAAM [0-9.]* Beta [0-9]*</>JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
+    - name: Change s3 beta version in flasher
+      if: ${{ inputs.beta_s3_binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>JAAM [0-9.]* S3 Beta [0-9]*</>JAAM ${{ inputs.version }} S3 Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta-s3.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
+    - name: Change c3 beta version in flasher
+      if: ${{ inputs.beta_binary_path != '' }}
+      shell: bash
+      run: |
+        sed -i 's/>JAAM [0-9.]* C3 Beta [0-9]*</>JAAM ${{ inputs.version }} C3 Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta-c3.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Change lite version in flasher
       if: ${{ inputs.lite_binary_path != '' }}
       shell: bash
       run: |
-        sed -i 's/>Встановити JAAM [0-9.]* Lite</>Встановити JAAM ${{ inputs.version }} Lite</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>JAAM [0-9.]* Lite</>JAAM ${{ inputs.version }} Lite</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest-lite.json
     - name: Setup Pages
       uses: actions/configure-pages@v4

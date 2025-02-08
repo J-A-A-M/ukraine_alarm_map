@@ -19,6 +19,8 @@ memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
+shared_beta_s3_path = os.environ.get("SHARED_BETA_S3_PATH") or "/shared_beta_s3_data"
+shared_beta_c3_path = os.environ.get("SHARED_BETA_C3_PATH") or "/shared_beta_c3_data"
 
 if not shared_path or not os.path.isdir(shared_path):
     raise ValueError(f"SHARED_PATH має вказувати на існуючу директорію: {shared_path}")

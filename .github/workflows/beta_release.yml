@@ -36,10 +36,36 @@ jobs:
       - name: Leave only 10 recent BETA builds
         run: |
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
+      - name: Compile firmware s3
+        uses: ./.github/workflows/firmware-compile
+        with:
+            project-env: firmware_esp32s3
+      - name: Copy release files to bin folder
+        run: |
+          mkdir -p ${{ github.workspace }}/bin_beta_s3/
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/bin_beta_s3/${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
+      - name: Leave only 10 recent BETA S3 builds
+        run: |
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta_s3/ 10
+      - name: Compile firmware c3
+        uses: ./.github/workflows/firmware-compile
+        with:
+            project-env: firmware_esp32c3
+      - name: Copy release files to bin folder
+        run: |
+          mkdir -p ${{ github.workspace }}/bin_beta_c3/
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/bin_beta_c3/${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
+      - name: Leave only 10 recent BETA C3 builds
+        run: |
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta_c3/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
           beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          beta_s3_binary_path: ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
+          beta_c3_binary_path: ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
           version: ${{ inputs.release-version }}
           beta_build: ${{ github.run_number }}  
       - name: Commit changes
@@ -47,7 +73,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Beta ${{ env.BETA_VERSION }}"
-          file_pattern: ${{ github.workspace }}/firmware/src/JaamFirmware.cpp ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/flasher/
+          file_pattern: ${{ github.workspace }}/firmware/src/JaamFirmware.cpp ${{ github.workspace }}/bin_beta/ ${{ github.workspace }}/bin_beta_s3/ ${{ github.workspace }}/bin_beta_c3/ ${{ github.workspace }}/flasher/
       - name: Create Beta Pre Release
         uses: ncipollo/release-action@v1
         with:
