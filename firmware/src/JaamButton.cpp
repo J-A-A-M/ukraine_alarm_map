@@ -19,18 +19,18 @@ void JaamButton::tick() {
     if (isButton2Enabled()) button2.tick();
 }
 
-void JaamButton::setButton1Pin(int pin) {
+void JaamButton::setButton1Pin(int pin, bool activeLow) {
     button1Pin = pin;
     if (isButton1Enabled()) {
-        button1.setup(button1Pin);
+        button1.setup(button1Pin, INPUT_PULLUP, activeLow);
         button1.setLongPressIntervalMs(100);
     }
 }
 
-void JaamButton::setButton2Pin(int pin) {
+void JaamButton::setButton2Pin(int pin, bool activeLow) {
     button2Pin = pin;
-    if (isButton1Enabled()) {
-        button2.setup(button2Pin);
+    if (isButton2Enabled()) {
+        button2.setup(button2Pin, INPUT_PULLUP, activeLow);
         button2.setLongPressIntervalMs(100);
     }
 }

@@ -8,72 +8,6 @@ struct Firmware {
   bool isBeta = false;
 };
 
-static int alphabetDistrictToNum(int alphabet) {
-  switch (alphabet) {
-    case 0: return 15;
-    case 1: return 22;
-    case 2: return 4;
-    case 3: return 18;
-    case 4: return 12;
-    case 5: return 6;
-    case 6: return 0;
-    case 7: return 13;
-    case 8: return 1;
-    case 9: return 7;
-    case 10: return 25;
-    case 11: return 21;
-    case 12: return 11;
-    case 13: return 3;
-    case 14: return 17;
-    case 15: return 16;
-    case 16: return 19;
-    case 17: return 5;
-    case 18: return 9;
-    case 19: return 2;
-    case 20: return 10;
-    case 21: return 14;
-    case 22: return 23;
-    case 23: return 20;
-    case 24: return 24;
-    case 25: return 8;
-      // return Київ by default
-    default: return 25;
-  }
-}
-
-static int numDistrictToAlphabet(int num) {
-  switch (num) {
-    case 0: return 6;
-    case 1: return 8;
-    case 2: return 19;
-    case 3: return 13;
-    case 4: return 2;
-    case 5: return 17;
-    case 6: return 5;
-    case 7: return 9;
-    case 8: return 25;
-    case 9: return 18;
-    case 10: return 20;
-    case 11: return 12;
-    case 12: return 4;
-    case 13: return 7;
-    case 14: return 21;
-    case 15: return 0;
-    case 16: return 15;
-    case 17: return 14;
-    case 18: return 3;
-    case 19: return 16;
-    case 20: return 23;
-    case 21: return 11;
-    case 22: return 1;
-    case 23: return 22;
-    case 24: return 24;
-    case 25: return 10;
-      // return Київ by default
-    default: return 10;
-  }
-}
-
 static Firmware parseFirmwareVersion(const char* version) {
 
   Firmware firmware;
@@ -81,15 +15,17 @@ static Firmware parseFirmwareVersion(const char* version) {
   char* versionCopy = strdup(version);
   char* token = strtok(versionCopy, ".-");
 
+  int part = 0;
   while (token) {
     if (isdigit(token[0])) {
-      if (firmware.major == 0)
+      if (part == 0)
         firmware.major = atoi(token);
-      else if (firmware.minor == 0)
+      else if (part == 1)
         firmware.minor = atoi(token);
-      else if (firmware.patch == 0)
+      else if (part == 2)
         firmware.patch = atoi(token);
-    } else if (firmware.betaBuild == 0 && token[0] == 'b' && strcmp(token, "bin") != 0) {
+      part++;
+    } else if (token[0] == 'b' && strcmp(token, "bin") != 0) {
       firmware.isBeta = true;
       firmware.betaBuild = atoi(token + 1); // Skip the 'b' character
     }
@@ -102,11 +38,11 @@ static Firmware parseFirmwareVersion(const char* version) {
 }
 
 static void fillFwVersion(char* result, Firmware firmware) {
-  char patch[5] = "";
+  char patch[10] = "";
   if (firmware.patch > 0) {
     sprintf(patch, ".%d", firmware.patch);
   }
-  char beta[5] = "";
+  char beta[10] = "";
   if (firmware.isBeta) {
     sprintf(beta, "-b%d", firmware.betaBuild);
   }
@@ -141,36 +77,11 @@ static bool firstIsNewer(Firmware first, Firmware second) {
 }
 #endif
 
-static bool isInArray(int value, int* array, int arraySize) {
+static bool isInIgnoreList(int value, SettingListItem array[], int arraySize) {
   for (int i = 0; i < arraySize; i++) {
-    if (array[i] == value) return true;
+    if (array[i].ignore && array[i].id == value) return true;
   }
   return false;
-}
-
-static int getLocalDisplayMode(int settingsDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = settingsDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode == 9) return lastModeIndex;
-  // default
-  return 0;
-}
-
-static int getSettingsDisplayMode(int localDisplayMode, int ignoreDisplayModeOptions[]) {
-  int newDisplayMode = localDisplayMode;
-  while (isInArray(newDisplayMode, ignoreDisplayModeOptions, DISPLAY_MODE_OPTIONS_MAX)) {
-    newDisplayMode++;
-  }
-
-  int lastModeIndex = DISPLAY_MODE_OPTIONS_MAX - 1;
-  if (newDisplayMode < lastModeIndex) return newDisplayMode;
-  if (newDisplayMode >= lastModeIndex) return 9;
-  // default
-  return 0;
 }
 
 static const char* disableRange(bool isDisabled) {
@@ -266,67 +177,38 @@ static int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
   return round(h);
 }
 
-template <typename T>
-
-static void adaptLeds(int kyivDistrictMode, T *leds, T *adaptedLeds, int size, int offset) {
-  T lastValue = leds[size - 1];
-  for (uint16_t i = 0; i < size; i++) {
-    adaptedLeds[i] = leds[i];
+/**
+* Maps LED sequences to values.
+* @tparam V Type of the value to map to LEDs
+* @param ledsSequence Function that returns LED sequence for a given key
+* @param values Map of district IDs to values
+* @return Mapped LED values
+*/
+template <typename V>
+static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), std::map<int, V> values, V (*combiModeHandler)(V kyiv, V kyivObl) = NULL) {
+  if (!ledsSequence) {
+    return {};
   }
-  if (kyivDistrictMode == 2) {
-    adaptedLeds[7 + offset] = leds[25];
-  }
-  if (kyivDistrictMode == 3) {
-    for (int i = 24; i >= 8 + offset; i--) {
-      adaptedLeds[i + 1] = leds[i];
+  std::map<int, V> remaped = {};
+  for (int i = 0; i < DISTRICTS_COUNT; i++) {
+    int regId = DISTRICTS[i].id;
+    auto sequence = ledsSequence(regId);
+    int ledCount = sequence.first;
+    int *ledList = sequence.second;
+    if (!ledList) {
+      continue;
     }
-    adaptedLeds[8 + offset] = lastValue;
-  }
-}
-
-static int calculateOffset(int initial_position, int offset) {
-  int position;
-  if (initial_position == 25) {
-    position = 25;
-  } else {
-    position = initial_position + offset;
-    if (position >= 25) {
-      position -= 25;
+    V valueForKey = values[regId];
+    if (combiModeHandler && regId == KYIV_REGION_ID) {
+        V kyivOblValue = values[KYIV_OBL_REGION_ID];
+        valueForKey = combiModeHandler(valueForKey, kyivOblValue);
     }
-  }
-  return position;
-}
-
-static int calculateOffsetDistrict(int kyivDistrictMode, int initialPosition, int offset) {
-  int position;
-  if (initialPosition == 25) {
-    position = 25;
-  } else {
-    position = initialPosition + offset;
-    if (position >= 25) {
-      position -= 25;
+    for (int i = 0; i < ledCount; i++) {
+      remaped[ledList[i]] = valueForKey;
     }
+    delete[] ledList; // Free the allocated array
   }
-  if (kyivDistrictMode == 2) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  if (kyivDistrictMode == 3) {
-
-    if (position == 25) {
-      return 8 + offset;
-    }
-    if (position > 7 + offset) {
-      return position + 1;
-    }
-  }
-  if (kyivDistrictMode == 4) {
-    if (position == 25) {
-      return 7 + offset;
-    }
-  }
-  return position;
+  return remaped;
 }
 
 static float mapf(float value, float istart, float istop, float ostart, float ostop) {
@@ -337,13 +219,13 @@ static void distributeBrightnessLevelsFor(int dayBrightness, int nightBrightness
   int minBrightness = min(dayBrightness, nightBrightness);
   int maxBrightness = max(dayBrightness, nightBrightness);
   float step = (maxBrightness - minBrightness) / (BR_LEVELS_COUNT - 1.0);
-  Serial.printf("%s brightness levels: [", logTitle);
+  LOG.printf("%s brightness levels: [", logTitle);
   for (int i = 0; i < BR_LEVELS_COUNT; i++) {
     brightnessLevels[i] = round(i == BR_LEVELS_COUNT - 1 ? maxBrightness : minBrightness + i * step), maxBrightness;
-    Serial.print(brightnessLevels[i]);
-    if (i < BR_LEVELS_COUNT - 1) Serial.print(", ");
+    LOG.print(brightnessLevels[i]);
+    if (i < BR_LEVELS_COUNT - 1) LOG.print(", ");
   }
-  Serial.println("]");
+  LOG.println("]");
 }
 
 static void fillUptime(int uptimeValue, char* uptimeChar) {
@@ -356,5 +238,314 @@ static void fillUptime(int uptimeValue, char* uptimeChar) {
     sprintf(uptimeChar, "%d год. %d хв.", hours, minutes);
   } else {
     sprintf(uptimeChar, "%d хв. %d сек.", minutes, seconds);
+  }
+}
+
+static void getHaOptions(char* result, const char* options[], int optionsSize) {
+  strcpy(result, "");
+  int haIndex = 0;
+  for (int i = 0; i < optionsSize; i++) {
+    const char* option = options[i];
+    if (i > 0) {
+      strcat(result, ";");
+    }
+    strcat(result, option);
+    haIndex++;
+  }
+}
+
+static std::pair<int, int*> mapTranscarpatiaStart1(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9: return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4: return std::make_pair(1, new int[1]{22});
+    case 3: return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapOdessaStart1(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapTranscarpatiaStart2(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(0, new int[0]{});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9:  return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4:  return std::make_pair(1, new int[1]{22});
+    case 3:  return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    case 31: return std::make_pair(1, new int[1]{7});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapOdessaStart2(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(0, new int[0]{});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{16});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapTranscarpatiaStart3(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{9});
+    case 20: return std::make_pair(1, new int[1]{10});
+    case 22: return std::make_pair(1, new int[1]{11});
+    case 16: return std::make_pair(1, new int[1]{12});
+    case 28: return std::make_pair(1, new int[1]{13});
+    case 12: return std::make_pair(1, new int[1]{14});
+    case 23: return std::make_pair(1, new int[1]{15});
+    case 9999: return std::make_pair(1, new int[1]{16});
+    case 18: return std::make_pair(1, new int[1]{17});
+    case 17: return std::make_pair(1, new int[1]{18});
+    case 9: return std::make_pair(1, new int[1]{19});
+    case 19: return std::make_pair(1, new int[1]{20});
+    case 24: return std::make_pair(1, new int[1]{21});
+    case 15: return std::make_pair(1, new int[1]{22});
+    case 4: return std::make_pair(1, new int[1]{23});
+    case 3: return std::make_pair(1, new int[1]{24});
+    case 26: return std::make_pair(1, new int[1]{25});
+    case 31: return std::make_pair(1, new int[1]{8});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapOdessaStart3(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{18});
+    case 20: return std::make_pair(1, new int[1]{19});
+    case 22: return std::make_pair(1, new int[1]{20});
+    case 16: return std::make_pair(1, new int[1]{21});
+    case 28: return std::make_pair(1, new int[1]{22});
+    case 12: return std::make_pair(1, new int[1]{23});
+    case 23: return std::make_pair(1, new int[1]{24});
+    case 9999: return std::make_pair(1, new int[1]{25});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{17});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapTranscarpatiaStart4(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{0});
+    case 13: return std::make_pair(1, new int[1]{1});
+    case 21: return std::make_pair(1, new int[1]{2});
+    case 27: return std::make_pair(1, new int[1]{3});
+    case 8: return std::make_pair(1, new int[1]{4});
+    case 5: return std::make_pair(1, new int[1]{5});
+    case 10: return std::make_pair(1, new int[1]{6});
+    case 14: return std::make_pair(1, new int[1]{7});
+    case 25: return std::make_pair(1, new int[1]{8});
+    case 20: return std::make_pair(1, new int[1]{9});
+    case 22: return std::make_pair(1, new int[1]{10});
+    case 16: return std::make_pair(1, new int[1]{11});
+    case 28: return std::make_pair(1, new int[1]{12});
+    case 12: return std::make_pair(1, new int[1]{13});
+    case 23: return std::make_pair(1, new int[1]{14});
+    case 9999: return std::make_pair(1, new int[1]{15});
+    case 18: return std::make_pair(1, new int[1]{16});
+    case 17: return std::make_pair(1, new int[1]{17});
+    case 9:  return std::make_pair(1, new int[1]{18});
+    case 19: return std::make_pair(1, new int[1]{19});
+    case 24: return std::make_pair(1, new int[1]{20});
+    case 15: return std::make_pair(1, new int[1]{21});
+    case 4:  return std::make_pair(1, new int[1]{22});
+    case 3:  return std::make_pair(1, new int[1]{23});
+    case 26: return std::make_pair(1, new int[1]{24});
+    case 31: return std::make_pair(1, new int[1]{7});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static std::pair<int, int*> mapOdessaStart4(int key) {
+  switch (key) {
+    case 11: return std::make_pair(1, new int[1]{9});
+    case 13: return std::make_pair(1, new int[1]{10});
+    case 21: return std::make_pair(1, new int[1]{11});
+    case 27: return std::make_pair(1, new int[1]{12});
+    case 8: return std::make_pair(1, new int[1]{13});
+    case 5: return std::make_pair(1, new int[1]{14});
+    case 10: return std::make_pair(1, new int[1]{15});
+    case 14: return std::make_pair(1, new int[1]{16});
+    case 25: return std::make_pair(1, new int[1]{17});
+    case 20: return std::make_pair(1, new int[1]{18});
+    case 22: return std::make_pair(1, new int[1]{19});
+    case 16: return std::make_pair(1, new int[1]{20});
+    case 28: return std::make_pair(1, new int[1]{21});
+    case 12: return std::make_pair(1, new int[1]{22});
+    case 23: return std::make_pair(1, new int[1]{23});
+    case 9999: return std::make_pair(1, new int[1]{24});
+    case 18: return std::make_pair(1, new int[1]{0});
+    case 17: return std::make_pair(1, new int[1]{1});
+    case 9:  return std::make_pair(1, new int[1]{2});
+    case 19: return std::make_pair(1, new int[1]{3});
+    case 24: return std::make_pair(1, new int[1]{4});
+    case 15: return std::make_pair(1, new int[1]{5});
+    case 4:  return std::make_pair(1, new int[1]{6});
+    case 3:  return std::make_pair(1, new int[1]{7});
+    case 26: return std::make_pair(1, new int[1]{8});
+    case 31: return std::make_pair(1, new int[1]{16});
+    default: return std::make_pair(0, new int[0]{});
+  }
+}
+
+static bool isInArray(int value, int* array, int arraySize) {
+  if (!array || arraySize <= 0) {
+    return false;
+  }
+  for (int i = 0; i < arraySize; i++) {
+    if (array[i] == value) return true;
+  }
+  return false;
+}
+
+static int mapIndexToRegionId(int index) {
+  switch (index) {
+    case 0: return 11; // Закарпатська обл.
+    case 1: return 13; // Івано-Франківська обл.
+    case 2: return 21; // Тернопільська обл.
+    case 3: return 27; // Львівська обл.
+    case 4: return 8; // Волинська обл.
+    case 5: return 5; // Рівненська обл.
+    case 6: return 10; // Житомирська обл.
+    case 7: return 14; // Київська обл.
+    case 8: return 25; // Чернігівська обл.
+    case 9: return 20; // Сумська обл.
+    case 10: return 22; // Харківська обл.
+    case 11: return 16; // Луганська обл.
+    case 12: return 28; // Донецька обл.
+    case 13: return 12; // Запорізька обл.
+    case 14: return 23; // Херсонська обл.
+    case 15: return 9999; // Автономна Республіка Крим
+    case 16: return 18; // Одеська обл.
+    case 17: return 17; // Миколаївська обл.
+    case 18: return 9; // Дніпропетровська обл.
+    case 19: return 19; // Полтавська обл.
+    case 20: return 24; // Черкаська обл.
+    case 21: return 15; // Кіровоградська обл.
+    case 22: return 4; // Вінницька обл.
+    case 23: return 3; // Хмельницька обл.
+    case 24: return 26; // Чернівецька обл.
+    case 25: return 31; // м. Київ
+    default: return -1;
   }
 }

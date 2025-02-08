@@ -1,0 +1,54 @@
+name: 'Server PyTests'
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+    paths:
+      - "deploy/**"
+  push:
+    branches:
+      - develop
+    paths:
+      - "deploy/**"
+  workflow_call:
+jobs:
+  pytests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.8'
+
+      - name: Install dependencies from deploy subfolders
+        run: |
+          cd deploy
+          for req_file in $(find . -name "requirements.txt"); do
+            echo "Installing dependencies from $req_file"
+            pip install -r "$req_file"
+          done
+
+      - name: Ensure pytest is installed
+        run: pip install pytest
+
+      - name: Add deploy to PYTHONPATH
+        run: |
+          DEPLOY_PATH=$(pwd)/deploy
+          if [ -z "$PYTHONPATH" ]; then
+            echo "PYTHONPATH=$DEPLOY_PATH" >> $GITHUB_ENV
+          else
+            echo "PYTHONPATH=${PYTHONPATH}:$DEPLOY_PATH" >> $GITHUB_ENV
+          fi
+
+      - name: Debug PYTHONPATH
+        run: |
+          echo "Current PYTHONPATH: $PYTHONPATH"
+
+      - name: Run PyTest in deploy/tests
+        run: |
+          cd deploy/tests
+          pytest --tb=short -v --capture=tee-sys

@@ -9,7 +9,7 @@ class JaamHomeAssistant {
 public:
     JaamHomeAssistant();
     
-    bool initDevice(const char* mqttServeIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID);
+    bool initDevice(const char* localIP, const char* mqttServeIp, const char* deviceName, const char* currentFwVersion, const char* deviceDescription, const char* chipID);
     void loop();
 
     bool isHaAvailable();
@@ -25,16 +25,16 @@ public:
     void initBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
     void initDayBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
     void initNightBrightnessSensor(int currentBrightness, bool (*onChange)(int newBrightness));
-    void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode));
-    std::map<int, int> initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize, int ignoreOptions[],
-        bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
+    void initMapModeSensor(int currentMapMode, const char* mapModes[], int mapModesSize, bool (*onChange)(int newMapMode), int (*transform)(int haMapMode));
+    void initDisplayModeSensor(int currentDisplayMode, const char* displayModes[], int displayModesSize,
+    bool (*onChange)(int newDisplayMode), int (*transform)(int haDisplayMode));
     void initMapModeToggleSensor(void (*onClick)(void));
     void initDisplayModeToggleSensor(void (*onClick)(void));
     void initShowHomeAlarmTimeSensor(bool currentState, bool (*onChange)(bool newState));
-    void initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode));
+    void initAutoAlarmModeSensor(int currentAutoAlarmMode, const char* autoAlarms[], int autoAlarmsSize, bool (*onChange)(int newAutoAlarmMode), int (*transform)(int haAutoAlarmMode));
     void initMapModeCurrentSensor();
     void initMapApiConnectSensor(bool currentApiState);
-    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode));
+    void initAutoBrightnessModeSensor(int currentAutoBrightnessMode, const char* autoBrightnessModes[], int autoBrightmesSize, bool (*onChange)(int newAutoBrightnessMode), int (*transform)(int haAutoBrightnessMode));
     void initRebootSensor(void (*onClick)(void));
     void initCpuTempSensor(float currentCpuTemp);
     void initHomeDistrictSensor();

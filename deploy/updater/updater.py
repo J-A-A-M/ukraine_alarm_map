@@ -4,329 +4,397 @@ import asyncio
 import logging
 import datetime
 from aiomcache import Client
+from copy import deepcopy
 
 version = 3
 
-debug_level = os.environ.get("LOGGING")
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-loop_time = int(os.environ.get("UPDATER_PERIOD", 1))
+debug_level = os.environ.get("LOGGING") or "INFO"
+memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+update_period = int(os.environ.get("UPDATE_PERIOD", 1))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
-regions = [
-    "Закарпатська область",
-    "Івано-Франківська область",
-    "Тернопільська область",
-    "Львівська область",
-    "Волинська область",
-    "Рівненська область",
-    "Житомирська область",
-    "Київська область",
-    "Чернігівська область",
-    "Сумська область",
-    "Харківська область",
-    "Луганська область",
-    "Донецька область",
-    "Запорізька область",
-    "Херсонська область",
-    "Автономна Республіка Крим",
-    "Одеська область",
-    "Миколаївська область",
-    "Дніпропетровська область",
-    "Полтавська область",
-    "Черкаська область",
-    "Кіровоградська область",
-    "Вінницька область",
-    "Хмельницька область",
-    "Чернівецька область",
-    "м. Київ",
-]
+
+regions = {
+    "Закарпатська область": {"id": 11, "legacy_id": 1},
+    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
+    "Тернопільська область": {"id": 21, "legacy_id": 3},
+    "Львівська область": {"id": 27, "legacy_id": 4},
+    "Волинська область": {"id": 8, "legacy_id": 5},
+    "Рівненська область": {"id": 5, "legacy_id": 6},
+    "Житомирська область": {"id": 10, "legacy_id": 7},
+    "Київська область": {"id": 14, "legacy_id": 8},
+    "Чернігівська область": {"id": 25, "legacy_id": 9},
+    "Сумська область": {"id": 20, "legacy_id": 10},
+    "Харківська область": {"id": 22, "legacy_id": 11},
+    "Луганська область": {"id": 16, "legacy_id": 12},
+    "Донецька область": {"id": 28, "legacy_id": 13},
+    "Запорізька область": {"id": 12, "legacy_id": 14},
+    "Херсонська область": {"id": 23, "legacy_id": 15},
+    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
+    "Одеська область": {"id": 18, "legacy_id": 17},
+    "Миколаївська область": {"id": 17, "legacy_id": 18},
+    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
+    "Полтавська область": {"id": 19, "legacy_id": 20},
+    "Черкаська область": {"id": 24, "legacy_id": 21},
+    "Кіровоградська область": {"id": 15, "legacy_id": 22},
+    "Вінницька область": {"id": 4, "legacy_id": 23},
+    "Хмельницька область": {"id": 3, "legacy_id": 24},
+    "Чернівецька область": {"id": 26, "legacy_id": 25},
+    "м. Київ": {"id": 31, "legacy_id": 26},
+}
 
 
-async def calculate_time_difference(timestamp1, timestamp2):
-    format_str = "%Y-%m-%dT%H:%M:%SZ"
+async def get_cache_data(mc, key_b, default_response=None):
+    if default_response is None:
+        default_response = {}
 
-    time1 = datetime.datetime.strptime(timestamp1, format_str)
-    time2 = datetime.datetime.strptime(timestamp2, format_str)
+    cache = await mc.get(key_b)
 
-    time_difference = (time2 - time1).total_seconds()
-    return abs(time_difference)
+    if cache:
+        cache = json.loads(cache.decode("utf-8"))
+    else:
+        cache = default_response
+
+    return cache
 
 
-async def update_data(mc):
+async def get_alerts(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+async def get_historical_alerts(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+async def get_regions(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+async def get_etryvoga(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+async def get_weather(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+async def check_states(data, cache):
+    index = 0
+    for old_alert_data in cache:
+        new_alert_data = data[index]
+        is_new_alert = bool(new_alert_data[0] in [1, 2])
+        is_old_alert = bool(old_alert_data[0] in [1, 2])
+        is_new_data_set = bool(new_alert_data[1] != 1645674000)
+        is_old_data_set = bool(old_alert_data[1] != 1645674000)
+
+        if not is_new_alert and is_old_alert and is_old_data_set:
+            now = int(datetime.datetime.now(datetime.UTC).timestamp())
+            data[index] = [0, now]
+        if not is_new_alert and not is_old_alert and not is_new_data_set and is_old_data_set:
+            data[index] = [0, old_alert_data[1]]
+
+        index += 1
+
+
+async def check_notifications(data, cache):
+    index = 0
+    for old_data in cache:
+        new_data = data[index]
+
+        if new_data < old_data:
+            data[index] = old_data
+
+        index += 1
+
+
+async def store_websocket_data(mc, data, data_websocket, key, key_b):
+    if data_websocket != data:
+        logger.debug(f"store {key}")
+        await mc.set(key_b, json.dumps(data).encode("utf-8"))
+        logger.info(f"{key} stored")
+    else:
+        logger.debug(f"{key} not changed")
+
+
+async def update_alerts_websocket_v1(mc, run_once=False):
     while True:
         try:
-            await asyncio.sleep(loop_time)
-            tcp_cached = await mc.get(b"tcp")
-            svg_cached = await mc.get(b"svg")
-            alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
-            alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
-            alerts_cached_v3 = await mc.get(b"alerts_websocket_v3")
-            weather_cached_v1 = await mc.get(b"weather_websocket_v1")
-            explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
-            rockets_cached_v1 = await mc.get(b"rockets_websocket_v1")
-            drones_cached_v1 = await mc.get(b"drones_websocket_v1")
-            alerts_data = await mc.get(b"alerts")
-            weather_data = await mc.get(b"weather")
-            explosions_data = await mc.get(b"explosions")
-            rockets_data = await mc.get(b"rockets")
-            drones_data = await mc.get(b"drones")
+            await asyncio.sleep(update_period)
 
-            if tcp_cached:
-                tcp_cached_data = json.loads(tcp_cached.decode("utf-8"))
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            regions_cache = await get_regions(mc, b"regions_api", {})
+            alerts_websocket_v1 = await get_cache_data(mc, b"alerts_websocket_v1", [])
+
+            alerts = [0] * 26
+
+            for alert in alerts_cache:
+                for active_alert in alert["activeAlerts"]:
+                    region_id = active_alert["regionId"]
+                    region_type = active_alert["regionType"]
+                    state_id = regions_cache[region_id]["stateId"]
+                    state_name = regions_cache[state_id]["regionName"]
+                    legacy_state_id = regions[state_name]["legacy_id"]
+                    alert_type = active_alert["type"]
+                    if alert_type in ["AIR"] and region_type in ["State", "District"]:
+                        alerts[legacy_state_id - 1] = 1
+
+            if alerts_websocket_v1 != alerts:
+                logger.debug("store alerts_websocket_v1")
+                await mc.set(b"alerts_websocket_v1", json.dumps(alerts).encode("utf-8"))
+                logger.info("alerts_websocket_v1 stored")
             else:
-                tcp_cached_data = {}
-            if svg_cached:
-                svg_cached_data = json.loads(svg_cached.decode("utf-8"))
-            else:
-                svg_cached_data = []
-            if alerts_cached_v1:
-                alerts_cached_data_v1 = json.loads(alerts_cached_v1.decode("utf-8"))
-            else:
-                alerts_cached_data_v1 = []
-            if alerts_cached_v2:
-                alerts_cached_data_v2 = json.loads(alerts_cached_v2.decode("utf-8"))
-            else:
-                alerts_cached_data_v2 = []
-            if alerts_cached_v3:
-                alerts_cached_data_v3 = json.loads(alerts_cached_v3.decode("utf-8"))
-            else:
-                alerts_cached_data_v3 = []
-            if weather_cached_v1:
-                weather_cached_data_v1 = json.loads(weather_cached_v1.decode("utf-8"))
-            else:
-                weather_cached_data_v1 = []
-            if explosions_cached_v1:
-                explosions_cached_data_v1 = json.loads(explosions_cached_v1.decode("utf-8"))
-            else:
-                explosions_cached_data_v1 = []
-            if rockets_cached_v1:
-                rockets_cached_data_v1 = json.loads(rockets_cached_v1.decode("utf-8"))
-            else:
-                rockets_cached_data_v1 = []
-            if drones_cached_v1:
-                drones_cached_data_v1 = json.loads(drones_cached_v1.decode("utf-8"))
-            else:
-                drones_cached_data_v1 = []
+                logger.debug("alerts_websocket_v1 not changed")
 
-            current_datetime = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-            alerts_data = json.loads(alerts_data.decode("utf-8")) if alerts_data else "No alerts data from Memcached"
-            weather_data = (
-                json.loads(weather_data.decode("utf-8")) if weather_data else "No weather data from Memcached"
-            )
-            explosions_data = (
-                json.loads(explosions_data.decode("utf-8")) if explosions_data else "No explosions data from Memcached"
-            )
-            rockets_data = (
-                json.loads(rockets_data.decode("utf-8")) if rockets_data else "No missiles data from Memcached"
-            )
-            drones_data = json.loads(drones_data.decode("utf-8")) if drones_data else "No drones data from Memcached"
-
-            logger.debug(f"Alerts updated: {alerts_data['info']['last_update']}")
-            logger.debug(f"Weather updated: {weather_data['info']['last_update']}")
-
-            alerts_v1 = []
-            alerts_v2 = []
-            alerts_v3 = []
-            weather_v1 = []
-            explosions_v1 = []
-            explosions_svg = []
-            rockets_v1 = []
-            rockets_svg = []
-            drones_v1 = []
-            drones_svg = []
-
-            try:
-                for region_name in regions:
-                    time_diff = await calculate_time_difference(
-                        alerts_data["states"][region_name]["changed"], current_datetime
-                    )
-                    if alerts_data["states"][region_name]["alertnow"]:
-                        if time_diff > 300:
-                            alert_mode_v1 = 1
-                        else:
-                            alert_mode_v1 = 3
-                        alert_mode_v2 = 1
-                        if alerts_data["states"][region_name]["district"]:
-                            alert_mode_v3 = 4
-                        else:
-                            alert_mode_v3 = 1
-                    else:
-                        if time_diff > 300:
-                            alert_mode_v1 = 0
-                        else:
-                            alert_mode_v1 = 2
-                        alert_mode_v2 = 0
-                        alert_mode_v3 = 0
-
-                    alerts_v1.append(str(alert_mode_v1))
-                    alerts_v2.append([str(alert_mode_v2), alerts_data["states"][region_name]["changed"]])
-                    alerts_v3.append([str(alert_mode_v3), alerts_data["states"][region_name]["changed"]])
-            except Exception as e:
-                logger.error(f"Alert error: {e}")
-
-            try:
-                for region in regions:
-                    weather_temp = float(weather_data["states"][region]["temp"])
-                    weather_v1.append(str(weather_temp))
-            except Exception as e:
-                logger.error(f"Weather error: {e}")
-
-            try:
-                for region in regions:
-                    if region in explosions_data["states"]:
-                        isoDatetimeStr = explosions_data["states"][region]["changed"]
-                        datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
-                        timestamp = int(datetimeObjUtc.timestamp())
-                        explosions_v1.append(str(timestamp))
-                        time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 180:
-                            exp_mod = 0
-                        else:
-                            exp_mod = 1
-                        explosions_svg.append(str(exp_mod))
-                    else:
-                        explosions_v1.append(str(0))
-                        explosions_svg.append(str(0))
-            except Exception as e:
-                logger.error(f"Explosions error: {e}")
-
-            try:
-                for region in regions:
-                    if region in rockets_data["states"]:
-                        isoDatetimeStr = rockets_data["states"][region]["changed"]
-                        datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
-                        timestamp = int(datetimeObjUtc.timestamp())
-                        rockets_v1.append(str(timestamp))
-                        time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 180:
-                            exp_mod = 0
-                        else:
-                            exp_mod = 1
-                        rockets_svg.append(str(exp_mod))
-                    else:
-                        rockets_v1.append(str(0))
-                        rockets_svg.append(str(0))
-            except Exception as e:
-                logger.error(f"Rockets error: {e}")
-
-            try:
-                for region in regions:
-                    if region in drones_data["states"]:
-                        isoDatetimeStr = drones_data["states"][region]["changed"]
-                        datetimeObj = datetime.datetime.fromisoformat(isoDatetimeStr)
-                        datetimeObjUtc = datetimeObj.replace(tzinfo=datetime.UTC)
-                        timestamp = int(datetimeObjUtc.timestamp())
-                        drones_v1.append(str(timestamp))
-                        time_diff = int(datetime.datetime.now().timestamp()) - timestamp
-                        if time_diff > 180:
-                            exp_mod = 0
-                        else:
-                            exp_mod = 1
-                        drones_svg.append(str(exp_mod))
-                    else:
-                        drones_v1.append(str(0))
-                        drones_svg.append(str(0))
-            except Exception as e:
-                logger.error(f"Drones error: {e}")
-
-            tcp_data = "%s:%s" % (",".join(alerts_v1), ",".join(weather_v1))
-            svg_data = "%s:%s:%s:%s:%s" % (
-                ",".join(alerts_v1),
-                ",".join(weather_v1),
-                ",".join(explosions_svg),
-                ",".join(rockets_svg),
-                ",".join(drones_svg),
-            )
-
-            if tcp_cached_data != tcp_data:
-                logger.debug("store tcp data: %s" % current_datetime)
-                await mc.set(b"tcp", json.dumps(tcp_data).encode("utf-8"))
-                logger.debug("tcp data stored")
-            else:
-                logger.debug("tcp data not changed")
-
-            if svg_cached_data != svg_data:
-                logger.debug("store svg data: %s" % current_datetime)
-                await mc.set(b"svg", json.dumps(svg_data).encode("utf-8"))
-                logger.debug("svg data stored")
-            else:
-                logger.debug("svg data not changed")
-
-            if alerts_cached_data_v1 != alerts_v1:
-                logger.debug("store alerts_v1: %s" % current_datetime)
-                await mc.set(b"alerts_websocket_v1", json.dumps(alerts_v1).encode("utf-8"))
-                logger.debug("alerts_v1 stored")
-            else:
-                logger.debug("alerts_v1 not changed")
-
-            if alerts_cached_data_v2 != alerts_v2:
-                logger.debug("store alerts_v2: %s" % current_datetime)
-                await mc.set(b"alerts_websocket_v2", json.dumps(alerts_v2).encode("utf-8"))
-                logger.debug("alerts_v2 stored")
-            else:
-                logger.debug("alerts_v2 not changed")
-
-            if alerts_cached_data_v3 != alerts_v3:
-                logger.debug("store alerts_v3: %s" % current_datetime)
-                await mc.set(b"alerts_websocket_v3", json.dumps(alerts_v3).encode("utf-8"))
-                logger.debug("alerts_v3 stored")
-            else:
-                logger.debug("alerts_v3 not changed")
-
-            if weather_cached_data_v1 != weather_v1:
-                logger.debug("store weather_v1: %s" % current_datetime)
-                await mc.set(b"weather_websocket_v1", json.dumps(weather_v1).encode("utf-8"))
-                logger.debug("weather_v1 stored")
-            else:
-                logger.debug("weather_v1 not changed")
-
-            if explosions_cached_data_v1 != explosions_v1:
-                logger.debug("store explosions_v1: %s" % current_datetime)
-                await mc.set(b"explosions_websocket_v1", json.dumps(explosions_v1).encode("utf-8"))
-                logger.debug("explosions_v1 stored")
-            else:
-                logger.debug("explosions_v1 not changed")
-
-            if rockets_cached_data_v1 != rockets_v1:
-                logger.debug("store rockets_v1: %s" % current_datetime)
-                await mc.set(b"rockets_websocket_v1", json.dumps(rockets_v1).encode("utf-8"))
-                logger.debug("rockets_v1 stored")
-            else:
-                logger.debug("rockets_v1 not changed")
-
-            if drones_cached_data_v1 != drones_v1:
-                logger.debug("store drones_v1: %s" % current_datetime)
-                await mc.set(b"drones_websocket_v1", json.dumps(drones_v1).encode("utf-8"))
-                logger.debug("drones_v1 stored")
-            else:
-                logger.debug("drones_v1 not changed")
         except Exception as e:
-            logging.error(f"Error fetching data: {str(e)}")
-            raise
+            logger.error(f"update_alerts_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_alerts_websocket_v2(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            regions_cache = await get_regions(mc, b"regions_api", {})
+            alerts_websocket_v2 = await get_cache_data(mc, b"alerts_websocket_v2", [[0, 1645674000]] * 26)
+
+            alerts = [[0, 1645674000]] * 26
+
+            for alert in alerts_cache:
+                if alert["regionType"] not in ["State", "District"]:
+                    continue
+                state_alert = any(item["regionType"] == "State" for item in alert["activeAlerts"])
+                for active_alert in alert["activeAlerts"]:
+                    region_id = active_alert["regionId"]
+                    region_type = active_alert["regionType"]
+                    state_id = regions_cache[region_id]["stateId"]
+                    state_name = regions_cache[state_id]["regionName"]
+                    legacy_state_id = regions[state_name]["legacy_id"]
+                    alert_type = active_alert["type"]
+                    alert_start_time = active_alert["lastUpdate"]
+                    alert_start_time = int(
+                        datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp()
+                    )
+                    old_alert_data = alerts_websocket_v2[legacy_state_id - 1]
+                    is_old_state_alert = bool(old_alert_data[0] == 1)
+                    if alert_type in ["AIR"]:
+                        if region_type == "District" and not state_alert:
+                            if is_old_state_alert:
+                                alerts[legacy_state_id - 1] = [1, old_alert_data[1]]
+                            else:
+                                alerts[legacy_state_id - 1] = [1, alert_start_time]
+                        if region_type == "State":
+                            if is_old_state_alert:
+                                alerts[legacy_state_id - 1] = [1, old_alert_data[1]]
+                            else:
+                                alerts[legacy_state_id - 1] = [1, alert_start_time]
+
+            await check_states(alerts, alerts_websocket_v2)
+            await store_websocket_data(mc, alerts, alerts_websocket_v2, "alerts_websocket_v2", b"alerts_websocket_v2")
+
+        except Exception as e:
+            logger.error(f"update_alerts_websocket_v2: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_alerts_websocket_v3(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            regions_cache = await get_regions(mc, b"regions_api", {})
+            alerts_websocket_v3 = await get_cache_data(mc, b"alerts_websocket_v3", [[0, 1645674000]] * 26)
+
+            alerts = [[0, 1645674000]] * 26
+
+            for alert in alerts_cache:
+                if alert["regionType"] not in ["State", "District"]:
+                    continue
+                state_alert = any(item["regionType"] == "State" for item in alert["activeAlerts"])
+                for active_alert in alert["activeAlerts"]:
+                    region_id = active_alert["regionId"]
+                    region_type = active_alert["regionType"]
+                    state_id = regions_cache[region_id]["stateId"]
+                    state_name = regions_cache[state_id]["regionName"]
+                    legacy_state_id = regions[state_name]["legacy_id"]
+                    alert_type = active_alert["type"]
+                    alert_start_time = active_alert["lastUpdate"]
+                    alert_start_time = int(
+                        datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp()
+                    )
+                    old_alert_data = alerts_websocket_v3[legacy_state_id - 1]
+                    is_old_state_alert = bool(old_alert_data[0] == 1)
+                    is_old_district_alert = bool(old_alert_data[0] == 2)
+                    if alert_type in ["AIR"]:
+                        if region_type == "District" and not state_alert:
+                            if is_old_district_alert or is_old_state_alert:
+                                alerts[legacy_state_id - 1] = [2, old_alert_data[1]]
+                            else:
+                                alerts[legacy_state_id - 1] = [2, alert_start_time]
+                        if region_type == "State":
+                            if is_old_district_alert or is_old_state_alert:
+                                alerts[legacy_state_id - 1] = [1, old_alert_data[1]]
+                            else:
+                                alerts[legacy_state_id - 1] = [1, alert_start_time]
+
+            await check_states(alerts, alerts_websocket_v3)
+            await store_websocket_data(mc, alerts, alerts_websocket_v3, "alerts_websocket_v3", b"alerts_websocket_v3")
+        except Exception as e:
+            logger.error(f"update_alerts_websocket_v3: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def ertyvoga_v1(mc, cache_key, data_key, data_key_text):
+    cache = await get_etryvoga(mc, cache_key, {"states:{}"})
+    websocket = await get_cache_data(mc, data_key, [1645674000] * 26)
+
+    data = [0] * 26
+
+    for state_id, state_data in regions.items():
+        state_id = state_data["id"]
+        state_id_str = str(state_id)
+        legacy_state_id = state_data["legacy_id"]
+        legacy_state_id_str = str(legacy_state_id)
+        if state_id_str in cache["states"]:
+            alert_start_time = cache["states"][state_id_str]["lastUpdate"]
+            alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
+            data[legacy_state_id - 1] = alert_start_time
+
+    await check_notifications(data, websocket)
+    await store_websocket_data(mc, data, websocket, data_key_text, data_key)
+
+
+async def update_drones_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, b"drones_etryvoga", b"drones_websocket_v1", "drones_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_drones_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_missiles_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, b"missiles_etryvoga", b"missiles_websocket_v1", "missiles_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_missiles_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_explosions_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, b"explosions_etryvoga", b"explosions_websocket_v1", "explosions_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_explosions_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_weather_openweathermap_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            cache = await get_weather(mc, b"weather_openweathermap", {"states": {}, "info": {"last_update": None}})
+            websocket = await get_cache_data(mc, b"weather_websocket_v1", [0] * 26)
+
+            data = [0] * 26
+
+            for state_name, state_data in regions.items():
+                legacy_state_id = state_data["legacy_id"]
+                legacy_state_id_str = str(legacy_state_id)
+                state_id = state_data["id"]
+                state_id_str = str(state_id)
+                if state_id_str in cache["states"]:
+                    data[legacy_state_id - 1] = int(round(cache["states"][state_id_str]["temp"], 0))
+
+            await store_websocket_data(mc, data, websocket, "weather_websocket_v1", b"weather_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_weather_openweathermap_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
+async def update_alerts_historical_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            alerts_historical_cache = await get_historical_alerts(mc, b"alerts_historical_api", [])
+
+            websocket = await get_cache_data(mc, b"alerts_historical_v1", {})
+
+            alerts_data = {
+                alert["regionId"]: alert for alert in alerts_cache if alert["regionType"] in ["State", "District"]
+            }
+            if websocket:
+                data = deepcopy(websocket)
+            else:
+                data = {
+                    alert["regionId"]: alert
+                    for alert in alerts_historical_cache
+                    if alert["regionType"] in ["State", "District"]
+                }
+
+            data.update(alerts_data)
+
+            for region_id, region_data in data.items():
+                if region_id not in alerts_data and data[region_id]["activeAlerts"] != []:
+                    data[region_id]["activeAlerts"] = []
+                    data[region_id]["lastUpdate"] = get_current_datetime()
+
+            await store_websocket_data(mc, data, websocket, "alerts_historical_v1", b"alerts_historical_v1")
+        except Exception as e:
+            logger.error(f"update_alerts_historical: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
 
 
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(update_data(mc))
+        await asyncio.gather(
+            update_alerts_websocket_v1(mc),
+            update_alerts_websocket_v2(mc),
+            update_alerts_websocket_v3(mc),
+            update_drones_etryvoga_v1(mc),
+            update_missiles_etryvoga_v1(mc),
+            update_explosions_etryvoga_v1(mc),
+            update_weather_openweathermap_v1(mc),
+            update_alerts_historical_v1(mc),
+        )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
-    except Exception as e:
-        logger.error(f"Caught an exception: {e}")
-    finally:
-        logger.debug("Task completed")
-        pass
 
 
 if __name__ == "__main__":
-    try:
-        logging.info("Start")
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logging.error("KeyboardInterrupt")
-        pass
+    asyncio.run(main())

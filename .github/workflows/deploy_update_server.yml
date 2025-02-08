@@ -4,7 +4,10 @@ on:
     
 run-name: Deploy Update Server from '${{ github.ref_name }}' branch
 jobs:
+    pytests:
+      uses: ./.github/workflows/pytests.yml
     deploy_websocket:
+        needs: pytests
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy Update Server (bin list)

@@ -44,7 +44,10 @@ on:
 
 run-name: Deploy Dev Websockets from '${{ github.ref_name }}' branch
 jobs:
+    pytests:
+      uses: ./.github/workflows/pytests.yml
     deploy_websocket_dev:
+        needs: pytests
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy Dev WebSockets
@@ -58,7 +61,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_websocket_server_dev.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -r ${{ inputs.random_mode && 'True' || 'False' }} -e ${{ inputs.test_mode && 'True' || 'False' }} -f ${{ inputs.fetch_interval }} -g ${{ inputs.google_stat && 'True' || 'False' }} -l ${{ inputs.logging }} -p ${{ inputs.ping_interval }} -t ${{ inputs.ping_timeout }} -c ${{ inputs.ping_timeout_count }}
+                bash redeploy_websocket_server_dev.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }} -r ${{ inputs.random_mode && 'True' || 'False' }} -e ${{ inputs.test_mode && 'True' || 'False' }} -f ${{ inputs.fetch_interval }} -g ${{ inputs.google_stat && 'True' || 'False' }} -l ${{ inputs.logging }} -p ${{ inputs.ping_interval }} -t ${{ inputs.ping_timeout }} -c ${{ inputs.ping_timeout_count }} -k ${{ secrets.IP_INFO_TOKEN }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

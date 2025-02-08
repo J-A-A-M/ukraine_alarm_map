@@ -21,7 +21,7 @@ bin_sort() {
         version="${bin%.bin}"
         fw_beta=(${version//-/ })
         fw="${fw_beta[0]}"
-        beta=1000
+        beta=10000
         if [[ ${#fw_beta[@]} -gt 1 ]]; then
             beta="${fw_beta[1]#b}"
         fi
