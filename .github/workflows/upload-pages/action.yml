@@ -66,22 +66,6 @@ runs:
         sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta.json
         sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
-    - name: Change s3 beta version in flasher
-      if: ${{ inputs.beta_s3_binary_path != '' }}
-      shell: bash
-      run: |
-        sed -i 's/>JAAM [0-9.]* S3 Beta [0-9]*</>JAAM ${{ inputs.version }} S3 Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta-s3.json
-        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
-    - name: Change c3 beta version in flasher
-      if: ${{ inputs.beta_binary_path != '' }}
-      shell: bash
-      run: |
-        sed -i 's/>JAAM [0-9.]* C3 Beta [0-9]*</>JAAM ${{ inputs.version }} C3 Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta-c3.json
-        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Change lite version in flasher
       if: ${{ inputs.lite_binary_path != '' }}
       shell: bash
