@@ -1,5 +1,6 @@
 #include "Constants.h"
 #include "JaamLogs.h"
+#include <string>
 
 struct Firmware {
   int major = 0;
@@ -39,19 +40,31 @@ static Firmware parseFirmwareVersion(const char* version) {
 }
 
 static void fillFwVersion(char* result, Firmware firmware) {
-  char patch[10] = "";
+  std::string version = std::to_string(firmware.major) + "." + std::to_string(firmware.minor);
+
   if (firmware.patch > 0) {
-    sprintf(patch, ".%d", firmware.patch);
+    version += "." + std::to_string(firmware.patch);
   }
-  char beta[10] = "";
+
   if (firmware.isBeta) {
-    sprintf(beta, "-b%d", firmware.betaBuild);
+    version += "-b" + std::to_string(firmware.betaBuild);
   }
-#if LITE
-  sprintf(result, "%d.%d%s%s-lite", firmware.major, firmware.minor, patch, beta);
-#else
-  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+
+#if ARDUINO_ESP32S3_DEV
+  version += "-s3";
+#elif ARDUINO_ESP32C3_DEV
+  version += "-c3";
 #endif
+
+#if LITE
+  version += "-lite";
+#endif
+
+#if TEST_MODE
+  version += "-test";
+#endif
+
+  strcpy(result, version.c_str());
 }
 
 #if FW_UPDATE_ENABLED
