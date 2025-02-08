@@ -1,14 +1,5 @@
-#include "Definitions.h"
 #include <Arduino.h>
 #include <map>
-#if TELNET_ENABLED
-#include <TelnetSpy.h>
-
-TelnetSpy SerialAndTelnet;
-#define LOG SerialAndTelnet
-#else
-#define LOG Serial
-#endif
 
 #define MAIN_LEDS_COUNT 26
 #define DISTRICTS_COUNT 26
@@ -341,11 +332,11 @@ static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
 static const size_t MAX_JSON_SIZE = 6000; // 6KB
 
 // Визначення пінів для різних плат
-#if BOARD_ESP32S3
-    #define SUPPORTED_LEDS_PINS {2, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
-#elif BOARD_ESP32
+#if ARDUINO_ESP32_DEV
     #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 16, 17, 18, 25, 26, 27, 32, 33}
-#elif BOARD_ESP32C3
+#elif ARDUINO_ESP32S3_DEV
+    #define SUPPORTED_LEDS_PINS {2, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
+#elif ARDUINO_ESP32C3_DEV
     #define SUPPORTED_LEDS_PINS {2, 4, 18}
 #else
     #error "Платформа не підтримується!"

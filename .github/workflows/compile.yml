@@ -87,6 +87,22 @@
             with:
               name: firmware-jaam2-test.bin
               path: ${{ github.workspace }}/firmware-jaam2-test.bin
+    compile_firmware_telnet:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Compile firmware with telnet
+            uses: ./.github/workflows/firmware-compile
+            with:
+              project-env: firmware_telnet
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_telnet/firmware.bin ${{ github.workspace }}/firmware-telnet.bin
+          - name: Upload firmware with telnet
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware-telnet.bin
+              path: ${{ github.workspace }}/firmware-telnet.bin
     # check_firmware:
     #   runs-on: ubuntu-latest
     #   steps:

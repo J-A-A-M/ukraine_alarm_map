@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #include "JaamUtils.h"
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
@@ -28,8 +27,6 @@
 #include <melody_factory.h>
 #endif
 #include <esp_task_wdt.h>
-
-const PROGMEM char* VERSION = "4.3-b101";
 
 JaamSettings settings;
 Firmware currentFirmware;
@@ -3543,7 +3540,22 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
     }
 
     switch (pin) {
-      #if BOARD_ESP32S3
+      #if ARDUINO_ESP32_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(16)
+        GENERATE_PIN_CASE(17)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(25)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(27)
+        GENERATE_PIN_CASE(32)
+        GENERATE_PIN_CASE(33)
+      #elif ARDUINO_ESP32S3_DEV
         GENERATE_PIN_CASE(2)
         GENERATE_PIN_CASE(4)
         GENERATE_PIN_CASE(8)
@@ -3560,22 +3572,7 @@ void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
         GENERATE_PIN_CASE(19)
         GENERATE_PIN_CASE(20)
         GENERATE_PIN_CASE(21)
-      #elif BOARD_ESP32
-        GENERATE_PIN_CASE(2)
-        GENERATE_PIN_CASE(4)
-        GENERATE_PIN_CASE(12)
-        GENERATE_PIN_CASE(13)
-        GENERATE_PIN_CASE(14)
-        GENERATE_PIN_CASE(15)
-        GENERATE_PIN_CASE(16)
-        GENERATE_PIN_CASE(17)
-        GENERATE_PIN_CASE(18)
-        GENERATE_PIN_CASE(25)
-        GENERATE_PIN_CASE(26)
-        GENERATE_PIN_CASE(27)
-        GENERATE_PIN_CASE(32)
-        GENERATE_PIN_CASE(33)
-      #elif BOARD_ESP32C3
+      #elif ARDUINO_ESP32C3_DEV
         GENERATE_PIN_CASE(2)
         GENERATE_PIN_CASE(4)
         GENERATE_PIN_CASE(18)

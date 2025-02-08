@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #if BH1750_ENABLED
 #include <BH1750_WE.h>
 #endif
