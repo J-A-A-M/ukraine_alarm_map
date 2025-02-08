@@ -19,8 +19,8 @@
         "chipFamily": "ESP32-S3",
         "improv": false,
         "parts": [
-          { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
-          { "path": "bins/jaam.partitions.bin", "offset": 32768 },
+          { "path": "bins/jaam.bootloader.s3.bin", "offset": 4096 },
+          { "path": "bins/jaam.partitions.s3.bin", "offset": 32768 },
           { "path": "bins/jaam.boot.app0.bin", "offset": 57344 },
           { "path": "bins/jaam_beta_s3.bin", "offset": 65536 }
         ]
@@ -29,8 +29,8 @@
         "chipFamily": "ESP32-C3",
         "improv": false,
         "parts": [
-          { "path": "bins/jaam.bootloader.bin", "offset": 4096 },
-          { "path": "bins/jaam.partitions.bin", "offset": 32768 },
+          { "path": "bins/jaam.bootloader.c3.bin", "offset": 4096 },
+          { "path": "bins/jaam.partitions.c3.bin", "offset": 32768 },
           { "path": "bins/jaam.boot.app0.bin", "offset": 57344 },
           { "path": "bins/jaam_beta_c3.bin", "offset": 65536 }
         ]
