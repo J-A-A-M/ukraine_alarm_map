@@ -1,4 +1,5 @@
 #include "Constants.h"
+#include "JaamLogs.h"
 
 struct Firmware {
   int major = 0;

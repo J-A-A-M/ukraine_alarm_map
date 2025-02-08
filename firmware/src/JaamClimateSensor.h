@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #if BME280_ENABLED
 #include <forcedBMX280.h>
 #endif
