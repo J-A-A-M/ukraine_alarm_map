@@ -19,8 +19,6 @@ memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
-shared_beta_s3_path = os.environ.get("SHARED_BETA_S3_PATH") or "/shared_beta_s3_data"
-shared_beta_c3_path = os.environ.get("SHARED_BETA_C3_PATH") or "/shared_beta_c3_data"
 
 if not shared_path or not os.path.isdir(shared_path):
     raise ValueError(f"SHARED_PATH має вказувати на існуючу директорію: {shared_path}")
@@ -135,6 +133,10 @@ async def update(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
+async def update_board(request):
+    return FileResponse(f'{shared_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
+
+
 async def update_beta(request):
     if request.path_params["filename"] == "latest_beta":
         filenames = sorted(
@@ -162,12 +164,8 @@ async def update_beta(request):
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 
-async def spiffs_update(request):
-    return FileResponse(f'{shared_path}/spiffs/{request.path_params["filename"]}.bin')
-
-
-async def spiffs_update_beta(request):
-    return FileResponse(f'{shared_beta_path}/spiffs/{request.path_params["filename"]}.bin')
+async def update_beta_board(request):
+    return FileResponse(f'{shared_beta_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
 
 
 async def update_cache():
@@ -186,8 +184,48 @@ async def update_cache():
             if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
         ]
     )
+    s3_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_path}/s3/")
+            if (os.path.isfile(os.path.join(f"{shared_path}/s3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
+    s3_beta_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_beta_path}/s3/")
+            if (os.path.isfile(os.path.join(f"{shared_beta_path}/s3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
+    c3_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_path}/c3/")
+            if (os.path.isfile(os.path.join(f"{shared_path}/c3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
+    c3_beta_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_beta_path}/c3/")
+            if (os.path.isfile(os.path.join(f"{shared_beta_path}/c3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
+    await mc.set(b"s3_bins", json.dumps(s3_filenames).encode("utf-8"))
+    await mc.set(b"s3_test_bins", json.dumps(s3_beta_filenames).encode("utf-8"))
+    await mc.set(b"c3_bins", json.dumps(c3_filenames).encode("utf-8"))
+    await mc.set(b"c3_test_bins", json.dumps(c3_beta_filenames).encode("utf-8"))
 
 
 app = Starlette(
@@ -198,9 +236,9 @@ app = Starlette(
         Route("/list", list),
         Route("/betalist", list_beta),
         Route("/{filename}.bin", update),
-        Route("/spiffs/{filename}.bin", spiffs_update),
         Route("/beta/{filename}.bin", update_beta),
-        Route("/beta/spiffs/{filename}.bin", spiffs_update_beta),
+        Route("/{board}/{filename}.bin", update_board),
+        Route("/beta/{board}/{filename}.bin", update_beta_board),
     ],
 )
 

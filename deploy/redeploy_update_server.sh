@@ -28,14 +28,6 @@ while [[ $# -gt 0 ]]; do
             SHARED_BETA_PATH="$2"
             shift 2
             ;;
-        -sbs|--shared-beta-s3-path)
-            SHARED_BETA_S3_PATH="$2"
-            shift 2
-            ;;
-        -sbc|--shared-beta-c3-path)
-            SHARED_BETA_C3_PATH="$2"
-            shift 2
-            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -51,8 +43,6 @@ echo "UPDATE_SERVER"
 
 echo "SHARED_PATH: $SHARED_PATH"
 echo "SHARED_BETA_PATH: $SHARED_BETA_PATH"
-echo "SHARED_BETA_S3_PATH: $SHARED_BETA_S3_PATH"
-echo "SHARED_BETA_C3_PATH: $SHARED_BETA_C3_PATH"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "PORT: $PORT"
 echo "LOGGING: $LOGGING"
@@ -82,7 +72,7 @@ docker rm map_update_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_update_server --restart unless-stopped --network=jaam -d -p "$PORT":"$PORT"  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data -v "$SHARED_BETA_S3_PATH":/shared_beta_s3_data -v "$SHARED_BETA_C3_PATH":/shared_beta_c3_data --env PORT="$PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_update_server
+docker run --name map_update_server --restart unless-stopped --network=jaam -d -p "$PORT":"$PORT"  -v "$SHARED_PATH":/shared_data -v "$SHARED_BETA_PATH":/shared_beta_data --env PORT="$PORT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_update_server
 
 echo "Container deployed successfully!"
 

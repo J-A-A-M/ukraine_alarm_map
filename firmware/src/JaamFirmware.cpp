@@ -830,7 +830,13 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
     "http://%s:%d%s%s",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(UPDATE_SERVER_PORT),
+  #if ARDUINO_ESP32_DEV
     isBeta ? "/beta/" : "/",
+  #elif ARDUINO_ESP32S3_DEV
+    isBeta ? "/beta/s3/" : "/s3/",
+  #elif ARDUINO_ESP32C3_DEV
+    isBeta ? "/beta/c3/" : "/c3/",
+  #endif
     binFileName
   );
 

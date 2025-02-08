@@ -31,6 +31,48 @@ jobs:
         with:
           name: JAAM_${{ inputs.release-version }}.bin
           path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
+  build_s3:
+    if: ${{ github.ref_name == 'master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION=".*"/VERSION="${{ inputs.release-version }}"/' ${{ github.workspace }}/firmware/platformio.ini
+      - name: Compile firmware
+        uses: ./.github/workflows/firmware-compile
+        with:
+            project-env: firmware_esp32s3
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_S3_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin
+  build_c3:
+    if: ${{ github.ref_name == 'master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION=".*"/VERSION="${{ inputs.release-version }}"/' ${{ github.workspace }}/firmware/platformio.ini
+      - name: Compile firmware
+        uses: ./.github/workflows/firmware-compile
+        with:
+            project-env: firmware_esp32c3
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_C3_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin
   build_lite:
     if: ${{ github.ref_name == 'master' }}
     runs-on: ubuntu-latest
@@ -53,7 +95,7 @@ jobs:
           name: JAAM_${{ inputs.release-version }}_lite.bin
           path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin
   release_firmware:
-    needs: [build, build_lite]
+    needs: [build, build_s3, build_c3, build_lite]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -72,6 +114,16 @@ jobs:
         with:
           name: JAAM_${{ inputs.release-version }}.bin
           path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin
+      - name: Download S3 firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_S3_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin
+      - name: Download C3 firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_C3_${{ inputs.release-version }}.bin
+          path: ${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin
       - name: Download firmware lite
         uses: actions/download-artifact@v4
         with:
@@ -81,12 +133,24 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/bin/
           mkdir -p ${{ github.workspace }}/bin_beta/
+          mkdir -p ${{ github.workspace }}/bin/s3/
+          mkdir -p ${{ github.workspace }}/bin_beta/s3/
+          mkdir -p ${{ github.workspace }}/bin/c3/
+          mkdir -p ${{ github.workspace }}/bin_beta/c3/
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/${{ inputs.release-version }}.bin
           cp -f ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin/JAAM_S3_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/s3/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin/JAAM_S3_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/s3/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin/JAAM_C3_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin/c3/${{ inputs.release-version }}.bin
+          cp -f ${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin/JAAM_C3_${{ inputs.release-version }}.bin ${{ github.workspace }}/bin_beta/c3/${{ inputs.release-version }}.bin
       - name: Leave only 5 recent PROD builds and 10 recent BETA builds
         run: |
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/ 5
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/s3/ 5
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/s3/ 10
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/c3/ 5
+          bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/c3/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
