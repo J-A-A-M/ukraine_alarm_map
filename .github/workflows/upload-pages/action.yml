@@ -54,8 +54,8 @@ runs:
       if: ${{ inputs.binary_path != '' }}
       shell: bash
       run: |
-        sed -i 's/>JAAM [0-9.]*</>JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
-        sed -i 's/>Отримати опис JAAM [0-9.]*</>>Отримати опис JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Встановити JAAM [0-9.]*</>Встановити JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
+        sed -i 's/>Отримати опис JAAM [0-9.]*</>Отримати опис JAAM ${{ inputs.version }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}",/' ${{ github.workspace }}/flasher/manifest.json
         sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Change beta version in flasher
