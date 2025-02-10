@@ -321,12 +321,18 @@ static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   {64, "128x64", false}
 };
 
+#if ARDUINO_ESP32_DEV
 #define LEGACY_OPTIONS_COUNT 4
+#else
+#define LEGACY_OPTIONS_COUNT 2
+#endif
 static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+#if ARDUINO_ESP32_DEV
+  {3, "Плата JAAM 2.x", false},
   {0, "Плата JAAM 1.3", false},
+#endif
   {1, "Початок на Закарпатті", false},
   {2, "Початок на Одещині", false},
-  {3, "Плата JAAM 2.x", false}
 };
 
 static const size_t MAX_JSON_SIZE = 6000; // 6KB
