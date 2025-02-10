@@ -322,7 +322,9 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                 logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
 
 
-async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
+async def alerts_data(
+    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
+):
     while True:
         try:
             chip_id = await get_client_chip_id(client)
@@ -371,7 +373,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
-            if client["bins"] != shared_data.bins and not firmware.contains("-s3") and not firmware.contains("-c3"):
+            if client["bins"] != shared_data.bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -381,11 +383,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
-            if (
-                client["test_bins"] != shared_data.test_bins
-                and not firmware.contains("-s3")
-                and not firmware.contains("-c3")
-            ):
+            if client["test_bins"] != shared_data.test_bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.test_bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -395,28 +393,28 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
-            if client["bins"] != shared_data.s3_bins and firmware.contains("-s3"):
+            if client["bins"] != shared_data.s3_bins and "-s3" in firmware:
                 temp_bins = list(json.loads(shared_data.s3_bins))
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new s3_bins")
                 client["bins"] = shared_data.s3_bins
-            if client["test_bins"] != shared_data.s3_test_bins and firmware.contains("-s3"):
+            if client["test_bins"] != shared_data.s3_test_bins and "-s3" in firmware:
                 temp_bins = list(json.loads(shared_data.s3_test_bins))
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new s3_test_bins")
                 client["test_bins"] = shared_data.s3_test_bins
-            if client["bins"] != shared_data.c3_bins and firmware.contains("-c3"):
+            if client["bins"] != shared_data.c3_bins and "-c3" in firmware:
                 temp_bins = list(json.loads(shared_data.c3_bins))
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new c3_bins")
                 client["bins"] = shared_data.c3_bins
-            if client["test_bins"] != shared_data.c3_test_bins and firmware.contains("-c3"):
+            if client["test_bins"] != shared_data.c3_test_bins and "-c3" in firmware:
                 temp_bins = list(json.loads(shared_data.c3_test_bins))
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
