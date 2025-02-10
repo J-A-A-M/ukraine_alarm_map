@@ -826,74 +826,23 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v1 = json.dumps(missiles_v1[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
     else:
-        if alerts_cached_v1:
-            alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8")
-        else:
-            alerts_cached_data_v1 = "[]"
-        if alerts_cached_v2:
-            alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8")
-        else:
-            alerts_cached_data_v2 = "[]"
+        alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
+        alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
+        explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
+        missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
+        drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
 
-        if explosions_cached_v1:
-            explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8")
-        else:
-            explosions_cashed_data_v1 = "[]"
+    weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
+    bins_cached_data = bins_cached.decode("utf-8") if bins_cached else "[]"
+    test_bins_cached_data = test_bins_cached.decode("utf-8") if test_bins_cached else "[]"
+    s3_bins_cached_data = s3_bins_cached.decode("utf-8") if s3_bins_cached else "[]"
+    s3_test_bins_cached_data = s3_test_bins_cached.decode("utf-8") if s3_test_bins_cached else "[]"
+    c3_bins_cached_data = c3_bins_cached.decode("utf-8") if c3_bins_cached else "[]"
+    c3_test_bins_cached_data = c3_test_bins_cached.decode("utf-8") if c3_test_bins_cached else "[]"
 
-        if missiles_cached_v1:
-            missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8")
-        else:
-            missiles_cashed_data_v1 = "[]"
+    alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8")) if alerts_full_cached else {}
+    weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8")) if weather_full_cached else {}
 
-        if drones_cached_v1:
-            drones_cashed_data_v1 = drones_cached_v1.decode("utf-8")
-        else:
-            drones_cashed_data_v1 = "[]"
-
-    if weather_cached_v1:
-        weather_cached_data_v1 = weather_cached_v1.decode("utf-8")
-    else:
-        weather_cached_data_v1 = "[]"
-
-    if bins_cached:
-        bins_cached_data = bins_cached.decode("utf-8")
-    else:
-        bins_cached_data = "[]"
-
-    if test_bins_cached:
-        test_bins_cached_data = test_bins_cached.decode("utf-8")
-    else:
-        test_bins_cached_data = "[]"
-
-    if s3_bins_cached:
-        s3_bins_cached_data = s3_bins_cached.decode("utf-8")
-    else:
-        s3_bins_cached_data = "[]"
-
-    if s3_test_bins_cached:
-        s3_test_bins_cached_data = s3_test_bins_cached.decode("utf-8")
-    else:
-        s3_test_bins_cached_data = "[]"
-
-    if c3_bins_cached:
-        c3_bins_cached_data = c3_bins_cached.decode("utf-8")
-    else:
-        c3_bins_cached_data = "[]"
-
-    if c3_test_bins_cached:
-        c3_test_bins_cached_data = c3_test_bins_cached.decode("utf-8")
-    else:
-        c3_test_bins_cached_data = "[]"
-
-    if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))
-    else:
-        alerts_full_cached_data = {}
-
-    if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))
-    else:
-        weather_full_cached_data = {}
     return (
         alerts_cached_data_v1,
         alerts_cached_data_v2,
