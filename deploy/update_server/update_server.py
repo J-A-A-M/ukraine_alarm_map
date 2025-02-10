@@ -184,15 +184,15 @@ async def update_cache():
             if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
         ]
     )
-    s3_filenames = sorted(
-        [
-            file
-            for file in os.listdir(f"{shared_path}/s3/")
-            if (os.path.isfile(os.path.join(f"{shared_path}/s3/", file)) and file.endswith(".bin"))
-        ],
-        key=bin_sort,
-        reverse=True,
-    )
+    # s3_filenames = sorted(
+    #     [
+    #         file
+    #         for file in os.listdir(f"{shared_path}/s3/")
+    #         if (os.path.isfile(os.path.join(f"{shared_path}/s3/", file)) and file.endswith(".bin"))
+    #     ],
+    #     key=bin_sort,
+    #     reverse=True,
+    # )
     s3_beta_filenames = sorted(
         [
             file
@@ -202,15 +202,15 @@ async def update_cache():
         key=bin_sort,
         reverse=True,
     )
-    c3_filenames = sorted(
-        [
-            file
-            for file in os.listdir(f"{shared_path}/c3/")
-            if (os.path.isfile(os.path.join(f"{shared_path}/c3/", file)) and file.endswith(".bin"))
-        ],
-        key=bin_sort,
-        reverse=True,
-    )
+    # c3_filenames = sorted(
+    #     [
+    #         file
+    #         for file in os.listdir(f"{shared_path}/c3/")
+    #         if (os.path.isfile(os.path.join(f"{shared_path}/c3/", file)) and file.endswith(".bin"))
+    #     ],
+    #     key=bin_sort,
+    #     reverse=True,
+    # )
     c3_beta_filenames = sorted(
         [
             file
@@ -222,9 +222,9 @@ async def update_cache():
     )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
-    await mc.set(b"s3_bins", json.dumps(s3_filenames).encode("utf-8"))
+    # await mc.set(b"s3_bins", json.dumps(s3_filenames).encode("utf-8"))
     await mc.set(b"s3_test_bins", json.dumps(s3_beta_filenames).encode("utf-8"))
-    await mc.set(b"c3_bins", json.dumps(c3_filenames).encode("utf-8"))
+    # await mc.set(b"c3_bins", json.dumps(c3_filenames).encode("utf-8"))
     await mc.set(b"c3_test_bins", json.dumps(c3_beta_filenames).encode("utf-8"))
 
 
