@@ -147,7 +147,7 @@ std::map<Type, SettingItemFloat> floatSettings = {
     {TEMP_CORRECTION, {"ltc", 0.0f}},
     {HUM_CORRECTION, {"lhc", 0.0f}},
     {PRESSURE_CORRECTION, {"lpc", 0.0f}},
-    {LIGHT_SENSOR_FACTOR, {"lsf", 0.0f}},
+    {LIGHT_SENSOR_FACTOR, {"lsf", 1.0f}},
 };
 
 Preferences preferences;
