@@ -1,5 +1,4 @@
 
-#include "Definitions.h"
 #if DISPLAY_ENABLED
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_SH110X.h>

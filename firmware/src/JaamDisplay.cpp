@@ -1,5 +1,5 @@
 #include "JaamDisplay.h"
-#include "Constants.h"
+#include "JaamLogs.h"
 
 #if DISPLAY_ENABLED
 Adafruit_SSD1306 *ssd1306;

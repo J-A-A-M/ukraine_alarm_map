@@ -77,6 +77,10 @@ class SharedData:
         self.drones_v1 = "[]"
         self.bins = "[]"
         self.test_bins = "[]"
+        self.s3_bins = "[]"
+        self.s3_test_bins = "[]"
+        self.c3_bins = "[]"
+        self.c3_test_bins = "[]"
         self.clients = {}
         self.trackers = {}
         self.blocked_ips = []
@@ -318,7 +322,9 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                 logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
 
 
-async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
+async def alerts_data(
+    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
+):
     while True:
         try:
             chip_id = await get_client_chip_id(client)
@@ -367,7 +373,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
-            if client["bins"] != shared_data.bins:
+            if client["bins"] != shared_data.bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -377,7 +383,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
-            if client["test_bins"] != shared_data.test_bins:
+            if client["test_bins"] != shared_data.test_bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.test_bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -387,6 +393,35 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
+            if client["bins"] != shared_data.s3_bins and "-s3" in firmware:
+                temp_bins = list(json.loads(shared_data.s3_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "bins", "bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new s3_bins")
+                client["bins"] = shared_data.s3_bins
+            if client["test_bins"] != shared_data.s3_test_bins and "-s3" in firmware:
+                temp_bins = list(json.loads(shared_data.s3_test_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new s3_test_bins")
+                client["test_bins"] = shared_data.s3_test_bins
+            if client["bins"] != shared_data.c3_bins and "-c3" in firmware:
+                temp_bins = list(json.loads(shared_data.c3_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "bins", "bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new c3_bins")
+                client["bins"] = shared_data.c3_bins
+            if client["test_bins"] != shared_data.c3_test_bins and "-c3" in firmware:
+                temp_bins = list(json.loads(shared_data.c3_test_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new c3_test_bins")
+                client["test_bins"] = shared_data.c3_test_bins
+
             await asyncio.sleep(0.5)
         except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
@@ -559,7 +594,7 @@ async def echo(websocket: ServerConnection):
 #     }
 
 
-async def update_shared_data(shared_data, mc):
+async def update_shared_data(shared_data: SharedData, mc):
     while True:
         logger.debug("memcache check")
         (
@@ -571,6 +606,10 @@ async def update_shared_data(shared_data, mc):
             drones_v1,
             bins,
             test_bins,
+            s3_bins,
+            s3_test_bins,
+            c3_bins,
+            c3_test_bins,
             alerts_full,
             weather_full,
         ) = (
@@ -632,6 +671,34 @@ async def update_shared_data(shared_data, mc):
                 logger.debug(f"test bins updated: {test_bins}")
         except Exception as e:
             logger.error(f"error in test_bins: {e}")
+
+        try:
+            if s3_bins != shared_data.s3_bins:
+                shared_data.s3_bins = s3_bins
+                logger.debug(f"s3 bins updated: {s3_bins}")
+        except Exception as e:
+            logger.error(f"error in s3 bins: {e}")
+
+        try:
+            if s3_test_bins != shared_data.s3_test_bins:
+                shared_data.s3_test_bins = s3_test_bins
+                logger.debug(f"s3 test bins updated: {s3_test_bins}")
+        except Exception as e:
+            logger.error(f"error in s3 test_bins: {e}")
+
+        try:
+            if c3_bins != shared_data.c3_bins:
+                shared_data.c3_bins = c3_bins
+                logger.debug(f"c3 bins updated: {c3_bins}")
+        except Exception as e:
+            logger.error(f"error in c3 bins: {e}")
+
+        try:
+            if c3_test_bins != shared_data.c3_test_bins:
+                shared_data.c3_test_bins = c3_test_bins
+                logger.debug(f"c3 test bins updated: {c3_test_bins}")
+        except Exception as e:
+            logger.error(f"error in c3 test_bins: {e}")
 
         try:
             if alerts_full != shared_data.alerts_full:
@@ -725,6 +792,10 @@ async def get_data_from_memcached(mc):
     drones_cached_v1 = await mc.get(b"drones_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
+    s3_bins_cached = await mc.get(b"s3_bins")
+    s3_test_bins_cached = await mc.get(b"s3_test_bins")
+    c3_bins_cached = await mc.get(b"c3_bins")
+    c3_test_bins_cached = await mc.get(b"c3_test_bins")
     alerts_full_cached = await mc.get(b"alerts_historical_v1")
     weather_full_cached = await mc.get(b"weather_openweathermap")
 
@@ -755,54 +826,23 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v1 = json.dumps(missiles_v1[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
     else:
-        if alerts_cached_v1:
-            alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8")
-        else:
-            alerts_cached_data_v1 = "[]"
-        if alerts_cached_v2:
-            alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8")
-        else:
-            alerts_cached_data_v2 = "[]"
+        alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
+        alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
+        explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
+        missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
+        drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
 
-        if explosions_cached_v1:
-            explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8")
-        else:
-            explosions_cashed_data_v1 = "[]"
+    weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
+    bins_cached_data = bins_cached.decode("utf-8") if bins_cached else "[]"
+    test_bins_cached_data = test_bins_cached.decode("utf-8") if test_bins_cached else "[]"
+    s3_bins_cached_data = s3_bins_cached.decode("utf-8") if s3_bins_cached else "[]"
+    s3_test_bins_cached_data = s3_test_bins_cached.decode("utf-8") if s3_test_bins_cached else "[]"
+    c3_bins_cached_data = c3_bins_cached.decode("utf-8") if c3_bins_cached else "[]"
+    c3_test_bins_cached_data = c3_test_bins_cached.decode("utf-8") if c3_test_bins_cached else "[]"
 
-        if missiles_cached_v1:
-            missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8")
-        else:
-            missiles_cashed_data_v1 = "[]"
+    alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8")) if alerts_full_cached else {}
+    weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8")) if weather_full_cached else {}
 
-        if drones_cached_v1:
-            drones_cashed_data_v1 = drones_cached_v1.decode("utf-8")
-        else:
-            drones_cashed_data_v1 = "[]"
-
-    if weather_cached_v1:
-        weather_cached_data_v1 = weather_cached_v1.decode("utf-8")
-    else:
-        weather_cached_data_v1 = "[]"
-
-    if bins_cached:
-        bins_cached_data = bins_cached.decode("utf-8")
-    else:
-        bins_cached_data = "[]"
-
-    if test_bins_cached:
-        test_bins_cached_data = test_bins_cached.decode("utf-8")
-    else:
-        test_bins_cached_data = "[]"
-
-    if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))
-    else:
-        alerts_full_cached_data = {}
-
-    if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))
-    else:
-        weather_full_cached_data = {}
     return (
         alerts_cached_data_v1,
         alerts_cached_data_v2,
@@ -812,6 +852,10 @@ async def get_data_from_memcached(mc):
         drones_cashed_data_v1,
         bins_cached_data,
         test_bins_cached_data,
+        s3_bins_cached_data,
+        s3_test_bins_cached_data,
+        c3_bins_cached_data,
+        c3_test_bins_cached_data,
         alerts_full_cached_data,
         weather_full_cached_data,
     )

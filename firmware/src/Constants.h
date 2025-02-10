@@ -1,14 +1,5 @@
-#include "Definitions.h"
 #include <Arduino.h>
 #include <map>
-#if TELNET_ENABLED
-#include <TelnetSpy.h>
-
-TelnetSpy SerialAndTelnet;
-#define LOG SerialAndTelnet
-#else
-#define LOG Serial
-#endif
 
 #define MAIN_LEDS_COUNT 26
 #define DISTRICTS_COUNT 26
@@ -330,12 +321,33 @@ static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   {64, "128x64", false}
 };
 
+#if ARDUINO_ESP32_DEV
 #define LEGACY_OPTIONS_COUNT 4
+#else
+#define LEGACY_OPTIONS_COUNT 2
+#endif
 static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+#if ARDUINO_ESP32_DEV
+  {3, "Плата JAAM 2.x", false},
   {0, "Плата JAAM 1.3", false},
+#endif
   {1, "Початок на Закарпатті", false},
   {2, "Початок на Одещині", false},
-  {3, "Плата JAAM 2.x", false}
 };
 
 static const size_t MAX_JSON_SIZE = 6000; // 6KB
+
+// Визначення пінів для різних плат
+#if ARDUINO_ESP32_DEV
+    #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 16, 17, 18, 25, 26, 27, 32, 33}
+#elif ARDUINO_ESP32S3_DEV
+    #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 18, 21, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+#elif ARDUINO_ESP32C3_DEV
+    #define SUPPORTED_LEDS_PINS {2, 3, 4, 5, 6, 7, 8, 9, 10, 18, 19, 20, 21}
+#else
+    #error "Платформа не підтримується!"
+#endif
+
+// Макрос для генерації switch-case для кожного піна
+#define GENERATE_PIN_CASE(pin) \
+    case pin: FastLED.addLeds<NEOPIXEL, pin>(const_cast<CRGB*>(leds), pixelcount); break;

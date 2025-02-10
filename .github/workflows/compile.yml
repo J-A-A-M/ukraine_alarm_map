@@ -15,8 +15,6 @@
           - uses: actions/checkout@v4
           - name: Compile firmware
             uses: ./.github/workflows/firmware-compile
-            with:
-              project-folder: firmware
           - name: Copy bin file
             run: |
               cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware.bin
@@ -25,20 +23,49 @@
             with:
               name: firmware.bin
               path: ${{ github.workspace }}/firmware.bin
+    compile_firmware_esp32s3:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Compile firmware esp32s3
+          uses: ./.github/workflows/firmware-compile
+          with:
+            project-env: firmware_esp32s3
+        - name: Copy bin file
+          run: |
+            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/firmware-esp32s3.bin
+        - name: Upload firmware esp32s3
+          uses: actions/upload-artifact@v4
+          with:
+            name: firmware-esp32s3.bin
+            path: ${{ github.workspace }}/firmware-esp32s3.bin
+    compile_firmware_esp32c3:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Compile firmware esp32c3
+          uses: ./.github/workflows/firmware-compile
+          with:
+            project-env: firmware_esp32c3
+        - name: Copy bin file
+          run: |
+            cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/firmware-esp32c3.bin
+        - name: Upload firmware esp32c3
+          uses: actions/upload-artifact@v4
+          with:
+            name: firmware-esp32c3.bin
+            path: ${{ github.workspace }}/firmware-esp32c3.bin
     compile_firmware_lite:
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
-          - name: Switch to LITE version
-            run: |
-              sed -i 's/#define LITE ./#define LITE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
-          - name: Compile firmware
+          - name: Compile lite firmware
             uses: ./.github/workflows/firmware-compile
             with:
-              project-folder: firmware
+              project-env: firmware_lite
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-lite.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_lite/firmware.bin ${{ github.workspace }}/firmware-lite.bin
           - name: Upload firmware lite
             uses: actions/upload-artifact@v4
             with:
@@ -48,22 +75,34 @@
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v4
-          - name: Switch to TEST_MODE build
-            run: |
-              sed -i 's/#define LITE ./#define LITE 0/' ${{ github.workspace }}/firmware/src/Definitions.h
-              sed -i 's/#define TEST_MODE ./#define TEST_MODE 1/' ${{ github.workspace }}/firmware/src/Definitions.h
           - name: Compile test firmware
             uses: ./.github/workflows/firmware-compile
             with:
-              project-folder: firmware
+              project-env: firmware_test
           - name: Copy bin file
             run: |
-              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/firmware-jaam2-test.bin
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_test/firmware.bin ${{ github.workspace }}/firmware-jaam2-test.bin
           - name: Upload JAAM 2 test firmware
             uses: actions/upload-artifact@v4
             with:
               name: firmware-jaam2-test.bin
               path: ${{ github.workspace }}/firmware-jaam2-test.bin
+    compile_firmware_telnet:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Compile firmware with telnet
+            uses: ./.github/workflows/firmware-compile
+            with:
+              project-env: firmware_telnet
+          - name: Copy bin file
+            run: |
+              cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_telnet/firmware.bin ${{ github.workspace }}/firmware-telnet.bin
+          - name: Upload firmware with telnet
+            uses: actions/upload-artifact@v4
+            with:
+              name: firmware-telnet.bin
+              path: ${{ github.workspace }}/firmware-telnet.bin
     # check_firmware:
     #   runs-on: ubuntu-latest
     #   steps:
@@ -80,6 +119,7 @@
           uses: ./.github/workflows/firmware-compile
           with:
             project-folder: updater
+            project-env: updater
         - name: Copy bin file
           run: |
             cp -f ${{ github.workspace }}/updater/.pio/build/updater/firmware.bin ${{ github.workspace }}/updater.bin

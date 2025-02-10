@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #if HA_ENABLED
 #include <ArduinoHA.h>
 #endif

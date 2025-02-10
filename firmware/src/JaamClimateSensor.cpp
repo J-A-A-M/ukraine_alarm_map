@@ -1,6 +1,6 @@
 #include "JaamClimateSensor.h"
 #include <Arduino.h>
-#include "Constants.h"
+#include "JaamLogs.h"
 
 #if BME280_ENABLED
 ForcedBME280Float *bme280;

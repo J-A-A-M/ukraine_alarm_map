@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #include "JaamUtils.h"
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
@@ -28,8 +27,6 @@
 #include <melody_factory.h>
 #endif
 #include <esp_task_wdt.h>
-
-const PROGMEM char* VERSION = "4.3.1";
 
 JaamSettings settings;
 Firmware currentFirmware;
@@ -833,7 +830,13 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
     "http://%s:%d%s%s",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(UPDATE_SERVER_PORT),
+  #if ARDUINO_ESP32_DEV
     isBeta ? "/beta/" : "/",
+  #elif ARDUINO_ESP32S3_DEV
+    isBeta ? "/beta/s3/" : "/s3/",
+  #elif ARDUINO_ESP32C3_DEV
+    isBeta ? "/beta/c3/" : "/c3/",
+  #endif
     binFileName
   );
 
@@ -3425,15 +3428,13 @@ void initLegacy() {
 #endif
   switch (settings.getInt(LEGACY)) {
   case 0:
-    LOG.println("Mode: jaam 1");
+    LOG.println("Mode: jaam 1");    
 
-    pinMode(settings.getInt(POWER_PIN), OUTPUT);
-    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
-    pinMode(settings.getInt(DATA_PIN), OUTPUT);
-    pinMode(settings.getInt(HA_PIN), OUTPUT);
-    //pinMode(settings.reservedpin, OUTPUT);
-
-    servicePin(POWER, HIGH, false);
+    settings.saveInt(POWER_PIN, 12, false);
+    settings.saveInt(WIFI_PIN, 14, false);
+    settings.saveInt(DATA_PIN, 25, false);
+    settings.saveInt(HA_PIN, 26, false);
+    settings.saveInt(RESERVED_PIN, 27, false);
 
     settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
@@ -3445,6 +3446,14 @@ void initLegacy() {
     settings.saveInt(DISPLAY_MODEL, 1, false);
     settings.saveInt(DISPLAY_HEIGHT, 64, false);
     settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
+
+    pinMode(settings.getInt(POWER_PIN), OUTPUT);
+    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
+    pinMode(settings.getInt(DATA_PIN), OUTPUT);
+    pinMode(settings.getInt(HA_PIN), OUTPUT);
+
+    servicePin(POWER, HIGH, false);
+
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -3520,56 +3529,78 @@ void initClearPin() {
 }
 
 void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
-  switch (pin)
-  {
-  case 2:
-    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 4:
-    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 12:
-    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 13:
-    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 14:
-    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 15:
-    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 16:
-    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 17:
-    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 18:
-    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 25:
-    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 26:
-    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 27:
-    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 32:
-    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 33:
-    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  default:
-    LOG.print("This PIN is not supported for LEDs: ");
-    LOG.println(pin);
-    break;
-  }
+    bool isSupported = false;
+
+    // Перевірка, чи пін входить до підтримуваних
+    for (auto supportedPin : SUPPORTED_LEDS_PINS) {
+        if (pin == supportedPin) {
+            isSupported = true;
+            break;
+        }
+    }
+
+    if (!isSupported) {
+        LOG.print("This PIN is not supported for LEDs: ");
+        LOG.println(pin);
+        return;
+    }
+
+    switch (pin) {
+      #if ARDUINO_ESP32_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(16)
+        GENERATE_PIN_CASE(17)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(25)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(27)
+        GENERATE_PIN_CASE(32)
+        GENERATE_PIN_CASE(33)
+      #elif ARDUINO_ESP32S3_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(21)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(33)
+        GENERATE_PIN_CASE(34)
+        GENERATE_PIN_CASE(35)
+        GENERATE_PIN_CASE(36)
+        GENERATE_PIN_CASE(37)
+        GENERATE_PIN_CASE(38)
+        GENERATE_PIN_CASE(39)
+        GENERATE_PIN_CASE(40)
+        GENERATE_PIN_CASE(41)
+        GENERATE_PIN_CASE(42)
+      #elif ARDUINO_ESP32C3_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(3)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(5)
+        GENERATE_PIN_CASE(6)
+        GENERATE_PIN_CASE(7)
+        GENERATE_PIN_CASE(10)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(19)
+        GENERATE_PIN_CASE(20)
+        GENERATE_PIN_CASE(21)
+      #endif
+      default:
+        LOG.print("Error: Unexpected pin configuration for this board: ");
+        LOG.println(pin);
+        break;
+    }
 }
+
 
 void initStrip() {
   LOG.println("Init leds");
