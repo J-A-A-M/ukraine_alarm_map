@@ -198,7 +198,7 @@ static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
   {5, std::make_pair(5, (int*)D5)},
   {10, std::make_pair(4, (int*)D10)},
   {14, std::make_pair(6, (int*)D14)},
-  {25, std::make_pair(1, (int*)D25)},
+  {25, std::make_pair(3, (int*)D25)},
   {20, std::make_pair(3, (int*)D20)},
   {22, std::make_pair(4, (int*)D22)},
   {16, std::make_pair(2, (int*)D16)},
