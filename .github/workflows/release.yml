@@ -166,7 +166,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin"
+          artifacts: "${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_S3_${{ inputs.release-version }}.bin/JAAM_S3_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_C3_${{ inputs.release-version }}.bin/JAAM_C3_${{ inputs.release-version }}.bin,${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin"
           name: "${{ inputs.release-version }}: ${{ inputs.release-title }}"
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ inputs.release-version }}

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
         release-version:
-          description: 'Beta version, ex. 3.6 or 3.6.1'
+          description: 'Beta version, ex. 4.3 or 4.3.1'
           required: true
           type: string
 run-name: Release BETA ${{ inputs.release-version }}-b${{ github.run_number }}
@@ -11,8 +11,69 @@ env:
   BETA_VERSION: ${{ inputs.release-version }}-b${{ github.run_number }}
   RELEASE_TITLE: Beta ${{ inputs.release-version }}-b${{ github.run_number }}
 jobs:
-  release_beta_firmware:
+  build_beta:
     if: ${{ github.ref_name == 'develop' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION=".*"/VERSION="${{ env.BETA_VERSION }}"/' ${{ github.workspace }}/firmware/platformio.ini
+      - name: Compile BETA firmware
+        uses: ./.github/workflows/firmware-compile
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+      - name: Upload BETA firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+  build_beta_s3:
+    if: ${{ github.ref_name == 'develop' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION=".*"/VERSION="${{ env.BETA_VERSION }}"/' ${{ github.workspace }}/firmware/platformio.ini
+      - name: Compile BETA s3 firmware
+        uses: ./.github/workflows/firmware-compile
+        with:
+          project-env: firmware_esp32s3
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/JAAM_S3${{ env.BETA_VERSION }}.bin
+      - name: Upload BETA s3 firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_S3${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_S3${{ env.BETA_VERSION }}.bin
+  build_beta_c3:
+    if: ${{ github.ref_name == 'develop' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Replace version in firmware source
+        run: |
+          sed -i 's/VERSION=".*"/VERSION="${{ env.BETA_VERSION }}"/' ${{ github.workspace }}/firmware/platformio.ini
+      - name: Compile BETA c3 firmware
+        uses: ./.github/workflows/firmware-compile
+        with:
+          project-env: firmware_esp32c3
+      - name: Copy bin to upload
+        run: |
+          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/JAAM_C3${{ env.BETA_VERSION }}.bin
+      - name: Upload BETA c3 firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAAM_C3${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_C3${{ env.BETA_VERSION }}.bin
+  release_beta_firmware:
+    needs: [build_beta, build_beta_s3, build_beta_c3]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -26,48 +87,42 @@ jobs:
       - name: Replace version in firmware source
         run: |
           sed -i 's/VERSION=".*"/VERSION="${{ env.BETA_VERSION }}"/' ${{ github.workspace }}/firmware/platformio.ini
-      - name: Compile firmware
-        uses: ./.github/workflows/firmware-compile
-      - name: Copy release files to bin folder
+      - name: Download BETA firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+      - name: Download S3 BETA firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_S3_${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
+      - name: Download C3 BETA firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: JAAM_C3_${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
+      - name: Copy BETA files to bin_beta folder
         run: |
           mkdir -p ${{ github.workspace }}/bin_beta/
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware/firmware.bin ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          mkdir -p ${{ github.workspace }}/bin_beta/s3/
+          mkdir -p ${{ github.workspace }}/bin_beta/c3/
+          cp -f ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin/JAAM_${{ env.BETA_VERSION }}.bin ${{ github.workspace }}/bin_beta/${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin/JAAM_S3_${{ env.BETA_VERSION }}.bin ${{ github.workspace }}/bin_beta/s3/${{ env.BETA_VERSION }}.bin
+          cp -f ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin/JAAM_C3_${{ env.BETA_VERSION }}.bin ${{ github.workspace }}/bin_beta/c3/${{ env.BETA_VERSION }}.bin
       - name: Leave only 10 recent BETA builds
         run: |
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/ 10
-      - name: Compile firmware s3
-        uses: ./.github/workflows/firmware-compile
-        with:
-            project-env: firmware_esp32s3
-      - name: Copy release files to bin folder
-        run: |
-          mkdir -p ${{ github.workspace }}/bin_beta/s3/
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/bin_beta/s3/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32s3/firmware.bin ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
-      - name: Leave only 10 recent BETA S3 builds
-        run: |
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/s3/ 10
-      - name: Compile firmware c3
-        uses: ./.github/workflows/firmware-compile
-        with:
-            project-env: firmware_esp32c3
-      - name: Copy release files to bin folder
-        run: |
-          mkdir -p ${{ github.workspace }}/bin_beta/c3/
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/bin_beta/c3/${{ env.BETA_VERSION }}.bin
-          cp -f ${{ github.workspace }}/firmware/.pio/build/firmware_esp32c3/firmware.bin ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
-      - name: Leave only 10 recent BETA C3 builds
-        run: |
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/c3/ 10
       - name: Upload flasher to Github Pages
         uses: ./.github/workflows/upload-pages
         with:
-          beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
-          beta_s3_binary_path: ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
-          beta_c3_binary_path: ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
+          beta_binary_path: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin/JAAM_${{ env.BETA_VERSION }}.bin
+          beta_s3_binary_path: ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin/JAAM_S3_${{ env.BETA_VERSION }}.bin
+          beta_c3_binary_path: ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin/JAAM_C3_${{ env.BETA_VERSION }}.bin
           version: ${{ inputs.release-version }}
-          beta_build: ${{ github.run_number }}  
+          beta_build: ${{ github.run_number }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -77,7 +132,7 @@ jobs:
       - name: Create Beta Pre Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: ${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin
+          artifacts: "${{ github.workspace }}/JAAM_${{ env.BETA_VERSION }}.bin/JAAM_${{ env.BETA_VERSION }}.bin,${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin/JAAM_S3_${{ env.BETA_VERSION }}.bin,${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin/JAAM_C3_${{ env.BETA_VERSION }}.bin"
           name: ${{ env.RELEASE_TITLE }}
           commit: ${{ steps.commit_changes.outputs.commit_hash }}
           tag: ${{ env.BETA_VERSION }}
