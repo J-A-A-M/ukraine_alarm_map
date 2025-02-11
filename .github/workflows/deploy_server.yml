@@ -9,7 +9,7 @@ on:
       redeploy_web_sockets:
         type: boolean
         default: false
-        description: WebSockets
+        description: WebSocket server (map data)
       redeploy_update_server:
         type: boolean
         default: false
@@ -17,19 +17,23 @@ on:
       redeploy_web_server:
         type: boolean
         default: false
-        description: Web server
+        description: Web server 
       redeploy_alerts:
         type: boolean
         default: false
-        description: Alerts
+        description: Alerts parser
+      redeploy_alerts_ws:
+          type: boolean
+          default: false
+          description: Alerts websocket parser
       redeploy_weather:
         type: boolean
         default: false
-        description: Weather
+        description: Weather parser
       redeploy_updater:
         type: boolean
         default: false
-        description: Updater
+        description: Updater (information processing)
       redeploy_svg_generator:
         type: boolean
         default: false
@@ -37,7 +41,7 @@ on:
       redeploy_etryvoga:
         type: boolean
         default: false
-        description: Etryvoga
+        description: Etryvoga parser
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 jobs:
@@ -151,6 +155,28 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+          - name: Redeploy Alerts websocket parser
+            if: ${{ inputs.redeploy_alerts_ws || inputs.redeploy_all }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_alerts_ws.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                  -su ${{ secrets.WS_SOURCE_URL }} \
+                  -tid ${{ secrets.WS_TOKEN_ID }} \
+                  -u ${{ secrets.WS_URL_ID }} \
+                  -rfu ${{ secrets.WS_REQUEST_FOLLOW_UP }} \
+                  -rdt ${{ secrets.WS_REQUEST_DATA_TRIGGER }} \
+                  -ika ${{ secrets.WS_RESPONSE_INITIAL_KEY_ALERTS }} \
+                  -iki ${{ secrets.WS_RESPONSE_INITIAL_KEY_INFO }} \
+                  -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
+                  -lki ${{ secrets.WS_RESPONSE_LOOP_KEY_INFO }} 
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

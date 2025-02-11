@@ -1,0 +1,132 @@
+#!/bin/bash
+
+source_url = os.environ.get("WS_SOURCE_URL")
+token_id = os.environ.get("WS_TOKEN_ID")
+url_id = os.environ.get("WS_URL_ID")
+ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
+ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
+ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
+ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
+ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
+ws_response_loop_key_info = os.environ.get("WS_RESPONSE_LOOP_KEY_INFO")
+
+
+# Default values
+MEMCACHED_HOST=""
+LOGGING="INFO"
+WS_SOURCE_URL=""
+WS_TOKEN_ID=""
+WS_URL_ID=""
+WS_REQUEST_FOLLOW_UP=""
+WS_REQUEST_DATA_TRIGGER=""
+WS_RESPONSE_INITIAL_KEY_ALERTS=""
+WS_RESPONSE_INITIAL_KEY_INFO=""
+WS_RESPONSE_LOOP_KEY_ALERTS=""
+WS_RESPONSE_LOOP_KEY_INFO=""
+
+
+# Check for arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -m|--memcached-host)
+            MEMCACHED_HOST="$2"
+            shift 2
+            ;;
+        -l|--logging)
+            LOGGING="$2"
+            shift 2
+            ;;
+        -su|--source_url)
+            WS_SOURCE_URL="$2"
+            shift 2
+            ;;
+        -tid|token_id--)
+            WS_TOKEN_ID="$2"
+            shift 2
+            ;;
+        -u|url_id--)
+            WS_URL_ID="$2"
+            shift 2
+            ;;
+        -rfu|request_follow_up--)
+            WS_REQUEST_FOLLOW_UP="$2"
+            shift 2
+            ;;
+        -rdt|request_data_trigger--)
+            WS_REQUEST_DATA_TRIGGER="$2"
+            shift 2
+            ;;
+        -ika|initial_key_alerts--)
+            WS_RESPONSE_INITIAL_KEY_ALERTS="$2"
+            shift 2
+            ;;
+        -iki|initial_key_info--)
+            WS_RESPONSE_INITIAL_KEY_INFO="$2"
+            shift 2
+            ;;
+        -lka|loop_key_alerts--)
+            WS_RESPONSE_LOOP_KEY_ALERTS="$2"
+            shift 2
+            ;;
+        -lki|loop_key_info--)
+            WS_RESPONSE_LOOP_KEY_INFO="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
+done
+
+echo "ALERTS WS"
+
+echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "LOGGING: $LOGGING"
+echo "WS_SOURCE_URL: $WS_SOURCE_URL"
+echo "WS_TOKEN_ID: $WS_TOKEN_ID"
+echo "WS_URL_ID: $WS_URL_ID"
+echo "WS_REQUEST_FOLLOW_UP: $WS_REQUEST_FOLLOW_UP"
+echo "WS_REQUEST_DATA_TRIGGER: $WS_REQUEST_DATA_TRIGGER"
+echo "WS_RESPONSE_INITIAL_KEY_ALERTS: $WS_RESPONSE_INITIAL_KEY_ALERTS"
+echo "WS_RESPONSE_INITIAL_KEY_INFO: $WS_RESPONSE_INITIAL_KEY_INFO"
+echo "WS_RESPONSE_LOOP_KEY_ALERTS: $WS_RESPONSE_LOOP_KEY_ALERTS"
+echo "WS_RESPONSE_LOOP_KEY_INFO: $WS_RESPONSE_LOOP_KEY_INFO"
+
+
+# Updating the Git repo
+echo "Updating Git repo..."
+#cd /path/to/your/git/repo
+git pull
+
+# Moving to the deployment directory
+echo "Moving to deployment directory..."
+cd alerts
+
+# Building Docker image
+echo "Building Docker image..."
+docker build -t map_alerts -f Dockerfile .
+
+# Stopping and removing the old container (if exists)
+echo "Stopping and removing old container..."
+docker stop map_alerts || true
+docker rm map_alerts || true
+
+# Deploying the new container
+echo "Deploying new container..."
+docker run --name map_alerts_ws --restart unless-stopped --network=jaam -d  \
+    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env LOGGING="$LOGGING" \
+    --env WS_SOURCE_URL="$WS_SOURCE_URL" \
+    --env WS_TOKEN_ID="$WS_TOKEN_ID" \
+    --env WS_URL_ID="$WS_URL_ID" \
+    --env WS_REQUEST_FOLLOW_UP="$WS_REQUEST_FOLLOW_UP" \
+    --env WS_REQUEST_DATA_TRIGGER="$WS_REQUEST_DATA_TRIGGER" \
+    --env WS_RESPONSE_INITIAL_KEY_ALERTS="$WS_RESPONSE_INITIAL_KEY_ALERTS" \
+    --env WS_RESPONSE_INITIAL_KEY_INFO="$WS_RESPONSE_INITIAL_KEY_INFO" \
+    --env WS_RESPONSE_LOOP_KEY_ALERTS="$WS_RESPONSE_LOOP_KEY_ALERTS" \
+    --env WS_RESPONSE_LOOP_KEY_INFO="$WS_RESPONSE_LOOP_KEY_INFO" \
+    map_alerts_ws
+
+echo "Container deployed successfully!"
+

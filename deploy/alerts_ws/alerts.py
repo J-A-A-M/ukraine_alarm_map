@@ -12,9 +12,9 @@ version = 1
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-source_url = os.environ.get("SOURCE_URL")
-token_id = os.environ.get("TOKEN_ID")
-url_id = os.environ.get("URL_ID")
+source_url = os.environ.get("WS_SOURCE_URL")
+token_id = os.environ.get("WS_TOKEN_ID")
+url_id = os.environ.get("WS_URL_ID")
 ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
 ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
 ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
@@ -23,11 +23,11 @@ ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
 ws_response_loop_key_info = os.environ.get("WS_RESPONSE_LOOP_KEY_INFO")
 
 if not source_url:
-    raise ValueError("SOURCE_URL environment variable is required")
+    raise ValueError("WS_SOURCE_URL environment variable is required")
 if not token_id:
-    raise ValueError("TOKEN_ID environment variable is required")
+    raise ValueError("WS_TOKEN_ID environment variable is required")
 if not url_id:
-    raise ValueError("URL_ID environment variable is required")
+    raise ValueError("WS_URL_ID environment variable is required")
 if not ws_request_follow_up:
     raise ValueError("WS_REQUEST_FOLLOW_UP environment variable is required")
 if not ws_request_data_trigger:
