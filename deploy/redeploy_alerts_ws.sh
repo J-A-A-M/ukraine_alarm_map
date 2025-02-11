@@ -1,16 +1,5 @@
 #!/bin/bash
 
-source_url = os.environ.get("WS_SOURCE_URL")
-token_id = os.environ.get("WS_TOKEN_ID")
-url_id = os.environ.get("WS_URL_ID")
-ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
-ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
-ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
-ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
-ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
-ws_response_loop_key_info = os.environ.get("WS_RESPONSE_LOOP_KEY_INFO")
-
-
 # Default values
 MEMCACHED_HOST=""
 LOGGING="INFO"
