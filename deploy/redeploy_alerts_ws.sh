@@ -101,16 +101,16 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd alerts
+cd alerts_ws
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_alerts -f Dockerfile .
+docker build -t map_alerts_ws -f Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_alerts || true
-docker rm map_alerts || true
+docker stop map_alerts_ws || true
+docker rm map_alerts_ws || true
 
 # Deploying the new container
 echo "Deploying new container..."
