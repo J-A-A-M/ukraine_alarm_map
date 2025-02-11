@@ -1,1 +1,2 @@
 aiomcache==0.8.2
+websockets==14.1
