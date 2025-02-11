@@ -62,15 +62,20 @@ def fetch_token():
         "upgrade-insecure-requests": "1",
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
+    logger.debug(f"source_url: {source_url}")
     response = requests.get(source_url, headers=headers)
-    html = response.text
+    if response.reason == "OK":
+        html = response.text
 
-    token = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html).group(1)
-    url = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html).group(1)
+        token = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html).group(1)
+        url = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html).group(1)
 
-    logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
+        logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
 
-    return token, url
+        return token, url
+    else:
+        logger.debug(f"Error parse token:\nreason: {response.reason}\status code: {response.status_code}")
+    
 
 
 def generate_websocket_key():
