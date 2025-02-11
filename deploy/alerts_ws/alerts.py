@@ -17,6 +17,8 @@ token_id = os.environ.get("WS_TOKEN_ID")
 url_id = os.environ.get("WS_URL_ID")
 ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
 ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
+ws_request_token = os.environ.get("WS_REQUEST_TOKEN")
+ws_request_uri = os.environ.get("WS_REQUEST_URI")
 ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
 ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
 ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
@@ -74,7 +76,7 @@ def fetch_token():
 
         return token, url
     else:
-        logger.debug(f"Error parse token:\nreason: {response.reason}\status code: {response.status_code}")
+        logger.debug(f"Error parse token:\nreason: {response.reason}\nstatus code: {response.status_code}")
     
 
 
@@ -88,7 +90,10 @@ ttl = 0
 
 def initialize_connection():
     global token, uri
-    token, uri = fetch_token()
+    if ws_request_token and ws_request_uri:
+        token, uri  = ws_request_token, ws_request_uri
+    else:
+        token, uri = fetch_token()
 
 
 async def connect_and_send(mc):
