@@ -519,9 +519,9 @@ async def tcp_v1(request):
 
 async def api_status(request):
     local_time = get_current_datetime()
-    alerts_api_last_call = await get_cache_data(mc, b"alerts_api_last_call", json=False)
-    weather_api_last_call = await get_cache_data(mc, b"weather_api_last_call", json=False)
-    etryvoga_api_last_call = await get_cache_data(mc, b"etryvoga_api_last_call", json=False)
+    alerts_api_last_call = await get_cache_data(mc, b"alerts_api_last_call", json_parse=False)
+    weather_api_last_call = await get_cache_data(mc, b"weather_api_last_call", json_parse=False)
+    etryvoga_api_last_call = await get_cache_data(mc, b"etryvoga_api_last_call", json_parse=False)
 
     alert_time_diff = calculate_time_difference(alerts_api_last_call, get_current_datetime())
     weather_time_diff = calculate_time_difference(weather_api_last_call, get_current_datetime())
