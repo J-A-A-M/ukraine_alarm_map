@@ -64,19 +64,31 @@ def fetch_token():
         "upgrade-insecure-requests": "1",
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
-    logger.debug(f"source_url: {source_url}")
-    response = requests.get(source_url, headers=headers)
-    if response.reason == "OK":
-        html = response.text
 
-        token = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html).group(1)
-        url = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html).group(1)
+    logger.debug(f"Fetching source URL: {source_url}")
 
-        logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
+    try:
+        response = requests.get(source_url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"fetch_token failed: {e}")
+        return None, None
 
-        return token, url
-    else:
-        logger.debug(f"Error parse token:\nreason: {response.reason}\nstatus code: {response.status_code}")
+    html = response.text
+
+    token_match = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html)
+    url_match = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html)
+
+    if not token_match or not url_match:
+        logger.warning("fetch_token failed: failed to parse token or URL from HTML")
+        return None, None
+
+    token = token_match.group(1)
+    url = url_match.group(1)
+
+    logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
+
+    return token, url
     
 
 
@@ -84,23 +96,26 @@ def generate_websocket_key():
     return base64.b64encode(os.urandom(16)).decode("utf-8")
 
 
-client_id = None
-ttl = 0
-
-
 def initialize_connection():
-    global token, uri
     if ws_request_token and ws_request_uri:
         token, uri  = ws_request_token, ws_request_uri
     else:
         token, uri = fetch_token()
 
+    return token, uri
+
 
 async def connect_and_send(mc):
-    global client_id, ttl
+    client_id = None
+    ttl = 0
 
     while True:
-        initialize_connection()
+        token, uri = initialize_connection()
+
+        if not token or not uri:
+            logger.error(f"initialize_connection failed, wait 60 sec")
+            await asyncio.sleep(60)
+            continue
 
         initial_data = {"params": {"token": token, "name": "js"}, "id": 1}
 
