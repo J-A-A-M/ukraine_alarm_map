@@ -171,8 +171,8 @@ jobs:
                   -su ${{ secrets.WS_SOURCE_URL }} \
                   -tid ${{ secrets.WS_TOKEN_ID }} \
                   -u ${{ secrets.WS_URL_ID }} \
-                  -rfu ${{ secrets.WS_REQUEST_FOLLOW_UP }} \
-                  -rdt ${{ secrets.WS_REQUEST_DATA_TRIGGER }} \
+                  -rfu '${{ secrets.WS_REQUEST_FOLLOW_UP }}' \
+                  -rdt '${{ secrets.WS_REQUEST_DATA_TRIGGER }}' \
                   -ika ${{ secrets.WS_RESPONSE_INITIAL_KEY_ALERTS }} \
                   -iki ${{ secrets.WS_RESPONSE_INITIAL_KEY_INFO }} \
                   -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
