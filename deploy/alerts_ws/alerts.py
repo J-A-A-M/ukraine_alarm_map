@@ -19,6 +19,7 @@ ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
 ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
 ws_request_token = os.environ.get("WS_REQUEST_TOKEN")
 ws_request_uri = os.environ.get("WS_REQUEST_URI")
+ws_proxy = os.environ.get("WS_PROXY")
 ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
 ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
 ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
@@ -65,10 +66,17 @@ def fetch_token():
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
 
-    logger.debug(f"Fetching source URL: {source_url}")
+    proxies = None
+
+    if ws_proxy:
+        proxies = {
+            "http": ws_proxy,
+            "https": ws_proxy,
+        }
+        logger.debug(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
 
     try:
-        response = requests.get(source_url, headers=headers, timeout=10)
+        response = requests.get(source_url, headers=headers, proxies=proxies, timeout=10)
         response.raise_for_status()
     except requests.RequestException as e:
         logger.error(f"fetch_token failed: {e}")
