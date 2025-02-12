@@ -81,7 +81,7 @@ def fetch_token():
             "http": ws_proxy,
             "https": ws_proxy,
         }
-        logger.debug(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
+        logger.info(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
 
     try:
         response = requests.get(source_url, headers=headers, proxies=proxies, timeout=10)
