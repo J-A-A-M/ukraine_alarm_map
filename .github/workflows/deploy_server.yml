@@ -168,7 +168,7 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts_ws.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
-                  -pr ${{ secrets.WS_PROXY }} \
+                  -pr ${{ secrets.WS_PROXIES }} \
                   -su ${{ secrets.WS_SOURCE_URL }} \
                   -tid ${{ secrets.WS_TOKEN_ID }} \
                   -u ${{ secrets.WS_URL_ID }} \

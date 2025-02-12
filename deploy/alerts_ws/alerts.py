@@ -6,6 +6,7 @@ import re
 import base64
 import os
 import logging
+import random
 from aiomcache import Client
 
 version = 1
@@ -19,7 +20,7 @@ ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
 ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
 ws_request_token = os.environ.get("WS_REQUEST_TOKEN")
 ws_request_uri = os.environ.get("WS_REQUEST_URI")
-ws_proxy = os.environ.get("WS_PROXY")
+ws_proxies = os.environ.get("WS_PROXIES")
 ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
 ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
 ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
@@ -49,6 +50,12 @@ logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(mes
 logger = logging.getLogger(__name__)
 
 
+def get_random_proxy():
+    if not ws_proxies or ws_proxies == [""]:
+        return None
+    return random.choice(ws_proxies.split("::")).strip()
+
+
 def fetch_token():
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -66,6 +73,7 @@ def fetch_token():
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
 
+    ws_proxy = get_random_proxy()
     proxies = None
 
     if ws_proxy:
