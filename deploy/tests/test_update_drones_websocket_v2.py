@@ -12,19 +12,19 @@ pip install pytest pytest-asyncio
 
 
 def get_reasons_mock(**kwargs):
-    data = {'reasons': [
-        {'regionId': '11', 'parentRegionId': '11', 'alertTypes': ["Drones"]}, 
-        {'regionId': '124', 'parentRegionId': '11', 'alertTypes': ["Drones","Ballistic"]}, 
-        {'regionId': '123', 'parentRegionId': '11', 'alertTypes': ["Drones"]}, 
-
-        {'regionId': '13', 'parentRegionId': '13', 'alertTypes': ["Drones","Missile"]}, 
-        {'regionId': '146', 'parentRegionId': '13', 'alertTypes': ["Drones"]}, 
-        {'regionId': '145', 'parentRegionId': '13', 'alertTypes': ["Drones"]}, 
-
-        {'regionId': '21', 'parentRegionId': '21', 'alertTypes': ["Drones"]}, 
-        {'regionId': '44', 'parentRegionId': '21', 'alertTypes': ["Drones"]}, 
-        {'regionId': '47', 'parentRegionId': '21', 'alertTypes': ["Drones"]}, 
-    ]}
+    data = {
+        "reasons": [
+            {"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones"]},
+            {"regionId": "124", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]},
+            {"regionId": "123", "parentRegionId": "11", "alertTypes": ["Drones"]},
+            {"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]},
+            {"regionId": "146", "parentRegionId": "13", "alertTypes": ["Drones"]},
+            {"regionId": "145", "parentRegionId": "13", "alertTypes": ["Drones"]},
+            {"regionId": "21", "parentRegionId": "21", "alertTypes": ["Drones"]},
+            {"regionId": "44", "parentRegionId": "21", "alertTypes": ["Drones"]},
+            {"regionId": "47", "parentRegionId": "21", "alertTypes": ["Drones"]},
+        ]
+    }
     return data
 
 
@@ -36,6 +36,7 @@ async def test_1():
     зберігання перших даних
     """
     mock_mc = object()
+
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": get_reasons_mock(),
@@ -45,15 +46,17 @@ async def test_1():
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
@@ -70,6 +73,7 @@ async def test_1():
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
         assert mock_store_websocket_data.call_count == 1
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -91,15 +95,17 @@ async def test_2():
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
@@ -112,6 +118,7 @@ async def test_2():
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
         assert mock_store_websocket_data.call_count == 1
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -126,22 +133,26 @@ async def test_3():
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
-            b"ws_info": {"reasons": [{'regionId': '11', 'parentRegionId': '11', 'alertTypes': ["Drones", "Ballistic"]}]},
+            b"ws_info": {
+                "reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]}]
+            },
             b"drones_websocket_v2": websocket_data,
         }
         return mock_responses.get(key, default)
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
@@ -156,6 +167,7 @@ async def test_3():
 
         assert mock_store_websocket_data.call_count == 1
 
+
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
 async def test_4():
@@ -169,22 +181,24 @@ async def test_4():
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
-            b"ws_info": {"reasons": [{'regionId': '11', 'parentRegionId': '11', 'alertTypes': ["Ballistic"]}]},
+            b"ws_info": {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Ballistic"]}]},
             b"drones_websocket_v2": websocket_data,
         }
         return mock_responses.get(key, default)
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
@@ -197,6 +211,7 @@ async def test_4():
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
         assert mock_store_websocket_data.call_count == 1
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -218,15 +233,17 @@ async def test_5():
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
@@ -239,6 +256,7 @@ async def test_5():
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
         assert mock_store_websocket_data.call_count == 1
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -253,28 +271,29 @@ async def test_6():
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
-            b"ws_info": {"reasons": [{'regionId': '13', 'parentRegionId': '13', 'alertTypes': ["Drones","Missile"]}]},
+            b"ws_info": {"reasons": [{"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]}]},
             b"drones_websocket_v2": websocket_data,
         }
         return mock_responses.get(key, default)
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-    mock_timestamp = 1700000000 
+    mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     mock_store_websocket_data = AsyncMock()
 
-    with patch("updater.updater.get_cache_data", mock_get_cache_data), \
-         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
-         patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+    with (
+        patch("updater.updater.get_cache_data", mock_get_cache_data),
+        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+        patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+    ):
+
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
         expected_drones = [[0, 1645674000]] * 26
         expected_drones[1] = [1, mock_timestamp]
-
 
         expected_calls = [
             call(mock_mc, expected_drones, websocket_data, "drones_websocket_v2", b"drones_websocket_v2"),
@@ -283,6 +302,7 @@ async def test_6():
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
         assert mock_store_websocket_data.call_count == 1
+
 
 # @pytest.mark.asyncio
 # @patch("updater.updater.update_period", new=0)
@@ -304,7 +324,7 @@ async def test_6():
 
 #     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-#     mock_timestamp = 1700000000 
+#     mock_timestamp = 1700000000
 #     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
 #     mock_store_websocket_data = AsyncMock()
@@ -312,7 +332,7 @@ async def test_6():
 #     with patch("updater.updater.get_cache_data", mock_get_cache_data), \
 #          patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
 #          patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+
 #         await update_alert_reasons_websocket_v1(mock_mc, run_once=True)
 #         assert mock_get_cache_data.call_count == 4
 #         assert mock_store_websocket_data.call_count == 3
@@ -359,7 +379,7 @@ async def test_6():
 
 #     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-#     mock_timestamp = 1700000000 
+#     mock_timestamp = 1700000000
 #     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
 #     mock_store_websocket_data = AsyncMock()
@@ -367,7 +387,7 @@ async def test_6():
 #     with patch("updater.updater.get_cache_data", mock_get_cache_data), \
 #          patch("updater.updater.get_current_timestamp", mock_get_current_timestamp), \
 #          patch("updater.updater.store_websocket_data", mock_store_websocket_data):
-        
+
 #         await update_alert_reasons_websocket_v1(mock_mc, run_once=True)
 #         assert mock_get_cache_data.call_count == 4
 #         assert mock_store_websocket_data.call_count == 3
@@ -385,8 +405,3 @@ async def test_6():
 #         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
 #         assert mock_store_websocket_data.call_count == 3
-
-
-
-
-

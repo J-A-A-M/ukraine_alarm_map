@@ -105,7 +105,6 @@ def fetch_token():
     logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
 
     return token, url
-    
 
 
 def generate_websocket_key():
@@ -114,7 +113,7 @@ def generate_websocket_key():
 
 def initialize_connection():
     if ws_request_token and ws_request_uri:
-        token, uri  = ws_request_token, ws_request_uri
+        token, uri = ws_request_token, ws_request_uri
     else:
         token, uri = fetch_token()
 
