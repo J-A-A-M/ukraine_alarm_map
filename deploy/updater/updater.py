@@ -79,10 +79,18 @@ async def get_etryvoga(mc, key_b, default_response={}):
 async def get_weather(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
+def convert_region_ids(key_value, initial_key, result_key):
+    for region_name, region_data in regions.items():
+        if region_data[initial_key] == key_value:
+            return region_name, region_data[result_key]
+
+
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+def get_current_timestamp():
+    return int(datetime.datetime.now(datetime.UTC).timestamp())
 
 async def check_states(data, cache):
     index = 0
@@ -94,7 +102,7 @@ async def check_states(data, cache):
         is_old_data_set = bool(old_alert_data[1] != 1645674000)
 
         if not is_new_alert and is_old_alert and is_old_data_set:
-            now = int(datetime.datetime.now(datetime.UTC).timestamp())
+            now = get_current_timestamp()
             data[index] = [0, now]
         if not is_new_alert and not is_old_alert and not is_new_data_set and is_old_data_set:
             data[index] = [0, old_alert_data[1]]
@@ -378,6 +386,107 @@ async def update_alerts_historical_v1(mc, run_once=False):
         if run_once:
             break
 
+# async def update_alert_reasons_websocket_v1(mc, run_once=False):
+#     while True:
+#         try:
+#             await asyncio.sleep(update_period)
+#             reasons_cache = await get_cache_data(mc, b"ws_info")
+#             reasons = reasons_cache.get("reasons",[])
+#             drones_websocket_v2 = await get_cache_data(mc, b"drones_websocket_v2", [[0, 1645674000]] * 26)
+#             missiles_websocket_v2 = await get_cache_data(mc, b"missiles_websocket_v2", [[0, 1645674000]] * 26)
+#             ballistic_websocket_v2 = await get_cache_data(mc, b"ballistic_websocket_v2", [[0, 1645674000]] * 26)
+
+#             drones = [[0, 1645674000]] * 26
+#             missiles = [[0, 1645674000]] * 26
+#             ballistic = [[0, 1645674000]] * 26
+
+#             for reason in reasons:
+#                 region_id = reason["regionId"]
+#                 state_id = reason["parentRegionId"]
+#                 state_name, legacy_state_id = convert_region_ids(int(state_id), "id", "legacy_id")
+                
+#                 for alert_type in reason["alertTypes"]:
+#                     match alert_type:
+#                         case "Drones":
+#                             drones[legacy_state_id - 1] = [1, calculate_reason_date(drones_websocket_v2, legacy_state_id)]
+#                         case "Missile":
+#                             missiles[legacy_state_id - 1] = [1, calculate_reason_date(missiles_websocket_v2, legacy_state_id)]
+#                         case "Ballistic":
+#                             ballistic[legacy_state_id - 1] = [1, calculate_reason_date(ballistic_websocket_v2, legacy_state_id)]
+#                         case _:
+#                                 pass
+#             await check_states(drones, drones_websocket_v2)
+#             await check_states(missiles, missiles_websocket_v2)
+#             await check_states(ballistic, ballistic_websocket_v2)
+#             await store_websocket_data(mc, drones, drones_websocket_v2, "drones_websocket_v2", b"drones_websocket_v2")
+#             await store_websocket_data(mc, missiles, missiles_websocket_v2, "missiles_websocket_v2", b"missiles_websocket_v2")
+#             await store_websocket_data(mc, ballistic, ballistic_websocket_v2, "ballistic_websocket_v2", b"ballistic_websocket_v2")
+            
+#         except Exception as e:
+#             logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+#             logger.debug(f"Повний стек помилки:", exc_info=True)
+#         if run_once:
+#             break
+
+def calculate_reason_date(websocket, legacy_state_id):
+    old_alert_data = websocket[legacy_state_id - 1]
+    is_old_state_alert = bool(old_alert_data[0] == 1)
+    is_old_district_alert = bool(old_alert_data[0] == 2)
+    now = get_current_timestamp()
+    if is_old_district_alert or is_old_state_alert:
+        return old_alert_data[1]
+    else:
+        return now
+
+async def alert_reasons_v1(mc, alert_type, cache_key, default_value):
+    reasons_cache = await get_cache_data(mc, b"ws_info")
+    reasons = reasons_cache.get("reasons", [])
+    websocket_data = await get_cache_data(mc, cache_key, default_value)
+    alerts = default_value.copy()
+    
+    for reason in reasons:
+        state_id = reason["parentRegionId"]
+        _, legacy_state_id = convert_region_ids(int(state_id), "id", "legacy_id")
+        
+        if alert_type in reason["alertTypes"]:
+            alerts[legacy_state_id - 1] = [1, calculate_reason_date(websocket_data, legacy_state_id)]
+    
+    await check_states(alerts, websocket_data)
+    await store_websocket_data(mc, alerts, websocket_data, cache_key.decode(), cache_key)
+
+async def update_drones_websocket_v2(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await alert_reasons_v1(mc, "Drones", b"drones_websocket_v2", [[0, 1645674000]] * 26)
+        except Exception as e:
+            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.debug("Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+async def update_missiles_websocket_v2(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await alert_reasons_v1(mc, "Missile", b"missiles_websocket_v2", [[0, 1645674000]] * 26)
+        except Exception as e:
+            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.debug("Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+async def update_ballistic_websocket_v2(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await alert_reasons_v1(mc, "Ballistic", b"ballistic_websocket_v2", [[0, 1645674000]] * 26)
+        except Exception as e:
+            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.debug("Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
 
 async def main():
     mc = Client(memcached_host, 11211)
@@ -391,6 +500,7 @@ async def main():
             update_explosions_etryvoga_v1(mc),
             update_weather_openweathermap_v1(mc),
             update_alerts_historical_v1(mc),
+            update_drones_websocket_v2(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
