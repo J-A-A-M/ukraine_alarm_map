@@ -1749,7 +1749,7 @@ int sliderIndex = 1;
 int selectIndex = 1;
 int inputFieldIndex = 1;
 
-void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
+void addCheckbox(Print* response, const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
   response->print("<div class='form-group form-check'>");
   response->print("<input name='");
   response->print(name);
@@ -1771,7 +1771,7 @@ void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked
 
 template <typename V>
 
-void addSlider(AsyncResponseStream* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
+void addSlider(Print* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   response->print(label);
   response->print(": <span id='sv");
   response->print(sliderIndex);
@@ -1825,7 +1825,7 @@ void addSlider(AsyncResponseStream* response, const char* name, const char* labe
   sliderIndex++;
 }
 
-void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
+void addSelectBox(Print* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
   response->print(label);
   response->print(": <select name='");
   response->print(name);
@@ -1855,7 +1855,7 @@ void addSelectBox(AsyncResponseStream* response, const char* name, const char* l
   selectIndex++;
 }
 
-void addInputText(AsyncResponseStream* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
+void addInputText(Print* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
   response->print(label);
   response->print(": <input type='");
   response->print(type);
@@ -1878,7 +1878,7 @@ void addInputText(AsyncResponseStream* response, const char* name, const char* l
 
 template <typename V>
 
-void addCard(AsyncResponseStream* response, const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
+void addCard(Print* response, const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
   response->print("<div class='col-auto mb-2'>");
   response->print("<div class='card' style='width: 15rem; height: 9rem;'>");
   response->print("<div class='card-header d-flex'>");
@@ -1908,7 +1908,7 @@ void addCard(AsyncResponseStream* response, const char* title, V value, const ch
   response->print("</div>");
 }
 
-void addHeader(AsyncResponseStream* response) {
+void addHeader(Print* response) {
   response->println("<!DOCTYPE html>");
   response->println("<html lang='uk'>");
   response->println("<head>");
@@ -2006,7 +2006,7 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</div>");
 }
 
-void addLinks(AsyncResponseStream* response) {
+void addLinks(Print* response) {
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<a href='/brightness' class='btn btn-success'>Яскравість</a>");
@@ -2026,7 +2026,7 @@ void addLinks(AsyncResponseStream* response) {
   response->println("</div>");
 }
 
-void addFooter(AsyncResponseStream* response) {
+void addFooter(Print* response) {
   response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
   response->println("<div id='saved-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
   response->println("<div class='toast-body'>");
@@ -2075,7 +2075,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2130,7 +2130,7 @@ void handleColors(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2167,7 +2167,7 @@ void handleModes(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2291,7 +2291,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2341,7 +2341,7 @@ void handleDev(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2423,7 +2423,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2569,9 +2569,9 @@ void handleUpdate(AsyncWebServerRequest* request) {
 }
 #endif
 
-AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
+AsyncWebServerResponse* redirectResponse(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
   AsyncWebServerResponse* response = request->beginResponse(302);
-  response->addHeader("Location", location);
+  response->addHeader(asyncsrv::T_LOCATION, location);
   response->addHeader("Set-Cookie", "scroll=true");
   if (saved) response->addHeader("Set-Cookie", "saved=true");
   if (restore) response->addHeader("Set-Cookie", "restore=true");
@@ -2598,7 +2598,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
 
   if (saved) autoBrightnessUpdate();
 
-  request->send(redirectResponce(request, "/brightness", saved));
+  request->send(redirectResponse(request, "/brightness", saved));
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
@@ -2613,7 +2613,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
   saved = saveInt(request->getParam("color_bg_neighbor_alert", true), COLOR_BG_NEIGHBOR_ALERT) || saved;
 
-  request->send(redirectResponce(request, "/colors", saved));
+  request->send(redirectResponse(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
@@ -2662,7 +2662,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  request->send(redirectResponce(request, "/modes", saved));
+  request->send(redirectResponse(request, "/modes", saved));
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
@@ -2686,11 +2686,11 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
 #endif
   }) || saved;
 
-  request->send(redirectResponce(request, "/sounds", saved));
+  request->send(redirectResponse(request, "/sounds", saved));
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->send(redirectResponce(request, "/telemetry", false));
+  request->send(redirectResponse(request, "/telemetry", false));
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2726,7 +2726,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   if (reboot) {
     rebootDevice(3000, true);
   }
-  request->send(redirectResponce(request, "/dev", false, reboot));
+  request->send(redirectResponse(request, "/dev", false, reboot));
 }
 
 void handleBackup(AsyncWebServerRequest* request) {
@@ -2764,7 +2764,7 @@ void handleRestore(AsyncWebServerRequest *request) {
   }
   jsonBody.clear();
   LOG.printf("Setting restored: %s\n", restored ? "true" : "false");
-  request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
+  request->send(redirectResponse(request, "/dev", false, false, restored, !restored));
 }
 
 #if FW_UPDATE_ENABLED
@@ -2773,7 +2773,7 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", NEW_FW_NOTIFICATION) || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), FW_UPDATE_CHANNEL, NULL, saveLatestFirmware) || saved;
 
-  request->send(redirectResponce(request, "/firmware", saved));
+  request->send(redirectResponse(request, "/firmware", saved));
 }
 #endif
 
@@ -2788,8 +2788,12 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 }
 #endif
 
+LoggingMiddleware loggerMiddleware;
+
 void setupRouting() {
   LOG.println("Init WebServer");
+  loggerMiddleware.setOutput(LOG);
+  webserver.addMiddleware(&loggerMiddleware);
   webserver.on("/", HTTP_GET, handleRoot);
   webserver.on("/brightness", HTTP_GET, handleBrightness);
   webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
