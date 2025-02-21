@@ -52,6 +52,7 @@ regions = {
     "HMELNYCKA": {"name": "Хмельницька область", "id": 3, "legacy_id": 24},
     "CHERNIVETSKA": {"name": "Чернівецька область", "id": 26, "legacy_id": 25},
     "KIYEW": {"name": "м. Київ", "id": 31, "legacy_id": 26},
+    "KHARKIV": {"name": "м. Харків та Харківська територіальна громада", "id": 1293, "legacy_id": 27},
     "UNKNOWN": {"name": "Невідомо", "id": 1111, "legacy_id": 1111},
     "ALL": {"name": "Вся Україна", "id": 2222, "legacy_id": 2222},
     "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},

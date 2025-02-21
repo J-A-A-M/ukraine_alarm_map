@@ -758,7 +758,6 @@ async def update_shared_data(shared_data: SharedData, mc):
         except Exception as e:
             logger.error(f"error in c3 test_bins: {e}")
 
-
         await asyncio.sleep(memcache_fetch_interval)
 
 
