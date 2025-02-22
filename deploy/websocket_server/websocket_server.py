@@ -341,12 +341,24 @@ async def alerts_data(
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
                     if client["alerts"] != shared_data.alerts_v2:
                         payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                 case AlertVersion.v3:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
                     if client["alerts"] != shared_data.alerts_v2:
                         payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
@@ -365,6 +377,12 @@ async def alerts_data(
                         logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones"] = shared_data.drones_v1
                 case AlertVersion.v4:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
                     if client["alerts"] != shared_data.alerts_v3:
                         payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v3
                         await websocket.send(payload)
@@ -397,12 +415,6 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new ballistic")
                         client["ballistic2"] = shared_data.ballistic_v2
-            if client["explosions"] != shared_data.explosions_v1:
-                explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
-                payload = '{"payload": "explosions", "explosions": %s}' % explosions
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
-                client["explosions"] = shared_data.explosions_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
