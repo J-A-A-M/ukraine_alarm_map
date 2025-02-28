@@ -389,11 +389,11 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
                         client["explosions"] = shared_data.explosions_v1
-                    if client["alerts"] != shared_data.alerts_v3:
-                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v3
+                    if client["alerts"] != shared_data.alerts_v2:
+                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
-                        client["alerts"] = shared_data.alerts_v3
+                        client["alerts"] = shared_data.alerts_v2
                     if client["missiles"] != shared_data.missiles_v1:
                         missiles = json.dumps([int(missile) for missile in json.loads(shared_data.missiles_v1)])
                         payload = '{"payload": "missiles", "missiles": %s}' % missiles
@@ -808,7 +808,7 @@ def circular_offset_index(n, offset, total=26):
 
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
-        shared_data.test_id = 1
+        shared_data.test_id = 12
 
     alerts_v2 = [[0, 1736935200]] * 26
     alerts_v3 = [[0, 1736935200]] * 26
@@ -826,34 +826,52 @@ async def get_data_from_memcached_test(shared_data):
             alert = 1
             temp = 30
             expl = int(datetime.datetime.now().timestamp())
+
+            alerts_v2[circular_offset_index(region_id - 1, 0)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-3600}",
+            ]
+            alerts_v3[circular_offset_index(region_id - 1, 0)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-3600}",
+            ]
+            alerts_v2[circular_offset_index(region_id - 1, -1)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-60}",
+            ]
+            alerts_v3[circular_offset_index(region_id - 1, -1)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-60}",
+            ]
+            alerts_v2[circular_offset_index(region_id - 1, -2)] = [
+                "0",
+                f"{int(datetime.datetime.now().timestamp())-60}",
+            ]
+            alerts_v3[circular_offset_index(region_id - 1, -2)] = [
+                "0",
+                f"{int(datetime.datetime.now().timestamp())-60}",
+            ]
+            missile_v2[circular_offset_index(region_id - 1, -3)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-3600}",
+            ]
+            missile[circular_offset_index(region_id - 1, -4)] = expl
+            drone_v2[circular_offset_index(region_id - 1, -5)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-3600}",
+            ]
+            drone[circular_offset_index(region_id - 1, -6)] = expl
+            ballistic_v2[circular_offset_index(region_id - 1, -7)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-3600}",
+            ]
+            explosion[circular_offset_index(region_id - 1, -8)] = expl
+            weather[circular_offset_index(region_id - 1, 0)] = temp
         else:
             alert = 0
             temp = 0
             expl = 0
-        alerts_v2[circular_offset_index(region_id - 1, 0)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        alerts_v3[circular_offset_index(region_id - 1, 0)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        missile_v2[circular_offset_index(region_id - 1, -1)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        missile[circular_offset_index(region_id - 1, -2)] = expl
-        drone_v2[circular_offset_index(region_id - 1, -3)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        drone[circular_offset_index(region_id - 1, -4)] = expl
-        ballistic_v2[circular_offset_index(region_id - 1, -5)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        explosion[circular_offset_index(region_id - 1, -6)] = expl
-        weather[circular_offset_index(region_id - 1, 0)] = temp
+        
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 

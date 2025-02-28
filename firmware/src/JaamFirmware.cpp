@@ -91,12 +91,18 @@ std::map<int, std::pair<int, long>> id_to_alerts; //regionId to alert state and 
 std::map<int, std::pair<int, long>> led_to_alerts; // ledPosition to alert state and time
 std::map<int, float>                id_to_weather; //regionId to temperature
 std::map<int, float>                led_to_weather; // ledPosition to temperature
-std::map<int, long>                 id_to_explosions; //regionId to explosion time
-std::map<int, long>                 led_to_explosions; // ledPosition to explosion time
-std::map<int, long>                 id_to_missiles; //regionId to missiles time
-std::map<int, long>                 led_to_missiles; // ledPosition to missils time
-std::map<int, long>                 id_to_drones; //regionId to missiles time
-std::map<int, long>                 led_to_drones; // ledPosition to missils time
+std::map<int, long>                 id_to_explosions_notifications; //regionId to explosion time
+std::map<int, long>                 led_to_explosions_notifications; // ledPosition to explosion time
+std::map<int, long>                 id_to_missiles_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_missiles_notifications; // ledPosition to missils time
+std::map<int, std::pair<int, long>> id_to_missiles; //regionId to missiles state and time
+std::map<int, std::pair<int, long>> led_to_missiles; // ledPosition to missiles state and time
+std::map<int, long>                 id_to_drones_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_drones_notifications; // ledPosition to missils time
+std::map<int, std::pair<int, long>> id_to_drones; //regionId to drones state and time
+std::map<int, std::pair<int, long>> led_to_drones; // ledPosition to drones state and time
+std::map<int, std::pair<int, long>> id_to_ballistic; //regionId to ballistic state and time
+std::map<int, std::pair<int, long>> led_to_ballistic; // ledPosition to ballistic state and time
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -1186,6 +1192,21 @@ void remapAlerts() {
   led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
 }
 
+void remapMissiles() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
+}
+
+void remapDrones() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+}
+
+void remapBallistic() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_ballistic = mapLeds(ledMapping, id_to_ballistic, combiHandler);
+}
+
 float weatherCombiModeHandler(float kyiv, float kyivObl) {
   // return average value of Kyiv and Kyiv Oblast
   return (kyiv + kyivObl) / 2.0f;
@@ -1201,19 +1222,19 @@ long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
   return max(kyiv, kyivObl);
 }
 
-void remapExplosions() {
+void remapExplosionsNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_explosions = mapLeds(ledMapping, id_to_explosions, combiHandler);
+  led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, combiHandler);
 }
 
-void remapMissiles() {
+void remapMissilesNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
+  led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, combiHandler);
 }
 
-void remapDrones() {
+void remapDronesNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+  led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
 }
 
 void remapHomeDistrict() {
@@ -1736,9 +1757,12 @@ void initLedMapping() {
   remapFlag();
   remapAlerts();
   remapWeather();
-  remapExplosions();
+  remapExplosionsNotifications();
+  remapMissilesNotifications();
   remapMissiles();
+  remapDronesNotifications();
   remapDrones();
+  remapBallistic();
   remapHomeDistrict();
 }
 
@@ -2925,7 +2949,7 @@ void alertPinCycle() {
 
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
-  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT)];
+  long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
   bool localAlarmNow = ledStatus == 1;
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
@@ -2977,22 +3001,40 @@ void onMessageCallback(WebsocketsMessage message) {
       ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) ]);
     } else if (payload == "explosions") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_explosions[mapIndexToRegionId(i)] = data["explosions"][i];
+        id_to_explosions_notifications[mapIndexToRegionId(i)] = data["explosions"][i];
       }
-      LOG.println("Successfully parsed explosions data");
-      remapExplosions();
+      LOG.println("Successfully parsed explosions notifications data");
+      remapExplosionsNotifications();
     } else if (payload == "missiles") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_missiles[mapIndexToRegionId(i)] = data["missiles"][i];
+        id_to_missiles_notifications[mapIndexToRegionId(i)] = data["missiles"][i];
+      }
+      LOG.println("Successfully parsed missiles notifications data");
+      remapMissilesNotifications();
+    } else if (payload == "missiles2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_missiles[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["missiles"][i][0], (long) data["missiles"][i][1]);
       }
       LOG.println("Successfully parsed missiles data");
       remapMissiles();
     } else if (payload == "drones") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_drones[mapIndexToRegionId(i)] = data["drones"][i];
+        id_to_drones_notifications[mapIndexToRegionId(i)] = data["drones"][i];
+      }
+      LOG.println("Successfully parsed drones notifications data");
+      remapDronesNotifications();
+    } else if (payload == "drones2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_drones[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["drones"][i][0], (long) data["drones"][i][1]);
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
+    } else if (payload == "ballistic2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_ballistic[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["ballistic"][i][0], (long) data["ballistic"][i][1]);
+      }
+      LOG.println("Successfully parsed drones data");
+      remapBallistic();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3037,7 +3079,7 @@ void socketConnect() {
   char webSocketUrl[100];
   sprintf(
     webSocketUrl,
-    "ws://%s:%d/data_v3",
+    "ws://%s:%d/data_v4",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(WS_SERVER_PORT)
   );
@@ -3095,7 +3137,7 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
+CRGB processAlarms(int alert_status, long alert_time, int missile_status, long missile_time, int drone_status, long drone_time, int ballistic_status, long ballistic_time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
   CRGB hue;
   float localBrightnessAlert = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_ALERT) / 100.0f;
   float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
@@ -3114,23 +3156,47 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
     return hue;
   }
 
-  // missiles has second priority
+  // ballistic has second priority
+  switch (ballistic_status) {
+    case ALERT:
+      colorSwitch = settings.getInt(COLOR_EXPLOSION);
+      hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+      return hue;
+  }
+
+  // missiles notifications has third priority
   if (settings.getBool(ENABLE_MISSILES) && missilesTime > 0 && currentTime - missilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_MISSILES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // drones has third priority
+  // missiles  has fouth priority
+  switch (missile_status) {
+    case ALERT:
+      colorSwitch = settings.getInt(COLOR_MISSILES);
+      hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+      return hue;
+  }
+
+  // drones notifications has fifth priority
   if (settings.getBool(ENABLE_DRONES) && dronesTime > 0 && currentTime - dronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_DRONES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  switch (led) {
+  // drones has six priority
+  switch (drone_status) {
     case ALERT:
-      if (currentTime - time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      colorSwitch = settings.getInt(COLOR_DRONES);
+      hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+      return hue;
+  }
+
+  switch (alert_status) {
+    case ALERT:
+      if (currentTime - alert_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_NEW_ALERT);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
       } else {
@@ -3139,7 +3205,7 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
       }
       break;
     case CLEAR:
-      if (currentTime - time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      if (currentTime - alert_time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_ALERT_OVER);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
@@ -3258,9 +3324,15 @@ void mapAlarms() {
     strip[i] = processAlarms(
       led_to_alerts[i].first,
       led_to_alerts[i].second,
-      led_to_explosions[i],
-      led_to_missiles[i],
-      led_to_drones[i],
+      led_to_missiles[i].first,
+      led_to_missiles[i].second,
+      led_to_drones[i].first,
+      led_to_drones[i].second,
+      led_to_ballistic[i].first,
+      led_to_ballistic[i].second,
+      led_to_explosions_notifications[i],
+      led_to_missiles_notifications[i],
+      led_to_drones_notifications[i],
       i,
       blinkBrightness,
       notificationBrightness,
@@ -3281,9 +3353,15 @@ void mapAlarms() {
         processAlarms(
           led_to_alerts[localDistrictLed].first,
           led_to_alerts[localDistrictLed].second,
-          led_to_explosions[localDistrictLed],
-          led_to_missiles[localDistrictLed],
-          led_to_drones[localDistrictLed],
+          led_to_missiles[localDistrictLed].first,
+          led_to_missiles[localDistrictLed].second,
+          led_to_drones[localDistrictLed].first,
+          led_to_drones[localDistrictLed].second,
+          led_to_ballistic[localDistrictLed].first,
+          led_to_ballistic[localDistrictLed].second,
+          led_to_explosions_notifications[localDistrictLed],
+          led_to_missiles_notifications[localDistrictLed],
+          led_to_drones_notifications[localDistrictLed],
           localDistrictLed,
           blinkBrightness,
           notificationBrightness,
