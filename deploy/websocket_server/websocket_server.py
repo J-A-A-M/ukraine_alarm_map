@@ -268,61 +268,67 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
-        chip_id = get_chip_id(client, client_id)
+        try:
+            chip_id = get_chip_id(client, client_id)
 
-        logger.debug(f"{client_ip}:{chip_id} >>> {message}")
+            logger.debug(f"{client_ip}:{chip_id} >>> {message}")
 
-        def split_message(message):
-            parts = message.split(":", 1)  # Split at most into 2 parts
-            header = parts[0]
-            data = parts[1] if len(parts) > 1 else ""
-            return header, data
+            def split_message(message):
+                parts = message.split(":", 1)  # Split at most into 2 parts
+                header = parts[0]
+                data = parts[1] if len(parts) > 1 else ""
+                return header, data
 
-        header, data = split_message(message)
-        match header:
-            # case "district":
-            #     district_data = await district_data_v1(int(data))
-            #     payload = json.dumps(district_data).encode("utf-8")
-            #     await websocket.send(payload)
-            #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
-            case "firmware":
-                client["firmware"] = data
-                parts = data.split("_", 1)
-                if google_stat_send:
-                    tracker.store.set_user_property("firmware_v", parts[0])
-                    tracker.store.set_user_property("identifier", parts[1])
-                logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
-            case "user_info":
-                json_data = json.loads(data)
-                if google_stat_send:
-                    for key, value in json_data.items():
-                        tracker.store.set_user_property(key, value)
-            case "chip_id":
-                client["chip_id"] = data
-                logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
-                if google_stat_send:
-                    tracker.client_id = data
-                    tracker.store.set_session_parameter("session_id", f"{data}_{datetime.datetime.now().timestamp()}")
-                    tracker.store.set_user_property("user_id", data)
-                    tracker.store.set_user_property("chip_id", data)
-                    tracker.store.set_user_property("country", country)
-                    tracker.store.set_user_property("region", region)
-                    tracker.store.set_user_property("city", city)
-                    tracker.store.set_user_property("ip", client_ip)
-                    online_event = tracker.create_new_event("status")
-                    online_event.set_event_param("online", "true")
-                    await send_google_stat(tracker, online_event)
-                logger.debug(f"{client_ip}:{data} >>> chip_id saved")
-            case "settings":
-                json_data = json.loads(data)
-                if google_stat_send:
-                    settings_event = tracker.create_new_event("settings")
-                    for key, value in json_data.items():
-                        settings_event.set_event_param(key, value)
-                    await send_google_stat(tracker, settings_event)
-                    logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
-            case _:
-                logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
+            header, data = split_message(message)
+            match header:
+                # case "district":
+                #     district_data = await district_data_v1(int(data))
+                #     payload = json.dumps(district_data).encode("utf-8")
+                #     await websocket.send(payload)
+                #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
+                case "firmware":
+                    client["firmware"] = data
+                    parts = data.split("_", 1)
+                    if google_stat_send:
+                        tracker.store.set_user_property("firmware_v", parts[0])
+                        tracker.store.set_user_property("identifier", parts[1])
+                    logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
+                case "user_info":
+                    json_data = json.loads(data)
+                    if google_stat_send:
+                        for key, value in json_data.items():
+                            tracker.store.set_user_property(key, value)
+                case "chip_id":
+                    client["chip_id"] = data
+                    logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
+                    if google_stat_send:
+                        tracker.client_id = data
+                        tracker.store.set_session_parameter(
+                            "session_id", f"{data}_{datetime.datetime.now().timestamp()}"
+                        )
+                        tracker.store.set_user_property("user_id", data)
+                        tracker.store.set_user_property("chip_id", data)
+                        tracker.store.set_user_property("country", country)
+                        tracker.store.set_user_property("region", region)
+                        tracker.store.set_user_property("city", city)
+                        tracker.store.set_user_property("ip", client_ip)
+                        online_event = tracker.create_new_event("status")
+                        online_event.set_event_param("online", "true")
+                        await send_google_stat(tracker, online_event)
+                    logger.debug(f"{client_ip}:{data} >>> chip_id saved")
+                case "settings":
+                    json_data = json.loads(data)
+                    if google_stat_send:
+                        settings_event = tracker.create_new_event("settings")
+                        for key, value in json_data.items():
+                            settings_event.set_event_param(key, value)
+                        await send_google_stat(tracker, settings_event)
+                        logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
+                case _:
+                    logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! message_handler Exception - {e}")
+            break
 
 
 async def alerts_data(
@@ -477,6 +483,9 @@ async def alerts_data(
         except FirmwareTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
             break
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
+            break
 
 
 async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
@@ -504,6 +513,9 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
                 logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
                 continue
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
+            break
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! ping_pong Exception - {e}")
             break
 
 
