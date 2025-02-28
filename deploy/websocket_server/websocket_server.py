@@ -300,7 +300,9 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                     logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
                     if google_stat_send:
                         tracker.client_id = data
-                        tracker.store.set_session_parameter("session_id", f"{data}_{datetime.datetime.now().timestamp()}")
+                        tracker.store.set_session_parameter(
+                            "session_id", f"{data}_{datetime.datetime.now().timestamp()}"
+                        )
                         tracker.store.set_user_property("user_id", data)
                         tracker.store.set_user_property("chip_id", data)
                         tracker.store.set_user_property("country", country)
@@ -322,7 +324,7 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                 case _:
                     logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
         except Exception as e:
-            logger.error(f"{client_ip}:{client_id} !!! message_handler Unknown Exception - {e}")
+            logger.error(f"{client_ip}:{client_id} !!! message_handler Exception - {e}")
             break
 
 
@@ -434,7 +436,7 @@ async def alerts_data(
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
             break
         except Exception as e:
-            logger.error(f"{client_ip}:{client_id} !!! alerts_data Unknown Exception - {e}")
+            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
             break
 
 
@@ -465,9 +467,8 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
             break
         except Exception as e:
-            logger.error(f"{client_ip}:{client_id} !!! ping_pong Unknown Exception - {e}")
+            logger.error(f"{client_ip}:{client_id} !!! ping_pong Exception - {e}")
             break
-
 
 
 async def send_google_stat(tracker, event):
