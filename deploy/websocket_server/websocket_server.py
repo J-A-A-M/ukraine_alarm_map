@@ -871,7 +871,6 @@ async def get_data_from_memcached_test(shared_data):
             alert = 0
             temp = 0
             expl = 0
-        
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
