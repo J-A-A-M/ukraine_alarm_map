@@ -1102,9 +1102,9 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             </g>
 
             <g id="FLAG_JAAM">
-               <text x="110" y="56" font-family="Arial" font-size="50px" fill="#ffffff" id="text256">JAAM</text>
-               <text x="110" y="80" font-family="Arial" font-size="22px" fill="#ffffff" id="text257">Just Another</text>
-               <text x="110" y="100" font-family="Arial" font-size="22px" fill="#ffffff" id="text258">Alert Map</text>
+               <text x="110" y="58" font-family="Arial" font-size="50px" fill="#ffffff" id="text256">JAAM</text>
+               <text x="110" y="85" font-family="Arial" font-size="22px" fill="#ffffff" id="text257">Just Another</text>
+               <text x="110" y="105" font-family="Arial" font-size="22px" fill="#ffffff" id="text258">Alert Map</text>
             </g>
 
             <text x="1205.0197" y="993.53314" font-family="Arial" font-size="26px" fill="#ffffff" id="TIMESTAMP">{time}</text>
