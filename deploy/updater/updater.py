@@ -390,49 +390,6 @@ async def update_alerts_historical_v1(mc, run_once=False):
             break
 
 
-# async def update_alert_reasons_websocket_v1(mc, run_once=False):
-#     while True:
-#         try:
-#             await asyncio.sleep(update_period)
-#             reasons_cache = await get_cache_data(mc, b"ws_info")
-#             reasons = reasons_cache.get("reasons",[])
-#             drones_websocket_v2 = await get_cache_data(mc, b"drones_websocket_v2", [[0, 1645674000]] * 26)
-#             missiles_websocket_v2 = await get_cache_data(mc, b"missiles_websocket_v2", [[0, 1645674000]] * 26)
-#             ballistic_websocket_v2 = await get_cache_data(mc, b"ballistic_websocket_v2", [[0, 1645674000]] * 26)
-
-#             drones = [[0, 1645674000]] * 26
-#             missiles = [[0, 1645674000]] * 26
-#             ballistic = [[0, 1645674000]] * 26
-
-#             for reason in reasons:
-#                 region_id = reason["regionId"]
-#                 state_id = reason["parentRegionId"]
-#                 state_name, legacy_state_id = convert_region_ids(int(state_id), "id", "legacy_id")
-
-#                 for alert_type in reason["alertTypes"]:
-#                     match alert_type:
-#                         case "Drones":
-#                             drones[legacy_state_id - 1] = [1, calculate_reason_date(drones_websocket_v2, legacy_state_id)]
-#                         case "Missile":
-#                             missiles[legacy_state_id - 1] = [1, calculate_reason_date(missiles_websocket_v2, legacy_state_id)]
-#                         case "Ballistic":
-#                             ballistic[legacy_state_id - 1] = [1, calculate_reason_date(ballistic_websocket_v2, legacy_state_id)]
-#                         case _:
-#                                 pass
-#             await check_states(drones, drones_websocket_v2)
-#             await check_states(missiles, missiles_websocket_v2)
-#             await check_states(ballistic, ballistic_websocket_v2)
-#             await store_websocket_data(mc, drones, drones_websocket_v2, "drones_websocket_v2", b"drones_websocket_v2")
-#             await store_websocket_data(mc, missiles, missiles_websocket_v2, "missiles_websocket_v2", b"missiles_websocket_v2")
-#             await store_websocket_data(mc, ballistic, ballistic_websocket_v2, "ballistic_websocket_v2", b"ballistic_websocket_v2")
-
-#         except Exception as e:
-#             logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
-#             logger.debug(f"Повний стек помилки:", exc_info=True)
-#         if run_once:
-#             break
-
-
 def calculate_reason_date(websocket, legacy_state_id):
     old_alert_data = websocket[legacy_state_id - 1]
     is_old_state_alert = bool(old_alert_data[0] == 1)

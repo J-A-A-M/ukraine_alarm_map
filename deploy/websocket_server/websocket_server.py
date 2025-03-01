@@ -865,7 +865,12 @@ async def get_data_from_memcached_test(shared_data):
                 str(alert),
                 f"{int(datetime.datetime.now().timestamp())-3600}",
             ]
-            explosion[circular_offset_index(region_id - 1, -8)] = expl
+            ballistic_v2[circular_offset_index(region_id - 1, -8)] = [
+                str(alert),
+                f"{int(datetime.datetime.now().timestamp())-60}",
+            ]
+
+            explosion[circular_offset_index(region_id - 1, -9)] = expl
             weather[circular_offset_index(region_id - 1, 0)] = temp
         else:
             alert = 0

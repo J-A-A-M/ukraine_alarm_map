@@ -58,7 +58,7 @@ regions = {
     "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},
 }
 
-COLOR_ALERT = "#FF0000"
+COLOR_ALERT = "#FF5733"
 COLOR_SAFE = "#32CD32"
 COLOR_ALERT_BEGIN = "#FFA533"
 COLOR_SAFE_BEGIN = "#BBFF33"
@@ -1082,7 +1082,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <circle cx="50" cy="880" r="20" fill="{COLOR_DRONES}" id="circle248" />
                <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА</text>             
                <circle cx="50" cy="930" r="20" fill="{COLOR_BALLISTIC}" id="circle252" />
-               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза баллістики</text>
+               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза балістики</text>
                <circle cx="50" cy="980" r="20" fill="{COLOR_EXPLOSIVES}" id="circle240" />
                <text x="75" y="985" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>

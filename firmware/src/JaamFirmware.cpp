@@ -2124,7 +2124,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракента небезпека, баллістика", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракента небезпека, балістика", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
     addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
@@ -2168,7 +2168,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
-  addSlider(response, "color_ballistic", "Баллістична небезпека", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
+  addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2247,7 +2247,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
-  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про баллістичну небезпеку");
+  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про балістичну небезпеку");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
@@ -3141,7 +3141,21 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int alert_status, long alert_time, int missile_status, long missile_time, int drone_status, long drone_time, int ballistic_status, long ballistic_time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, float extrafastBrightness, bool isBgStrip) {
+CRGB processAlarms(
+  int alert_status, long alert_time, 
+  int missile_status, long missile_time, 
+  int drone_status, long drone_time, 
+  int ballistic_status, long ballistic_time, 
+  int explosion_notification_time, 
+  int missiles_notification_time, 
+  int drones_notification_time, 
+  int position, 
+  float alertBrightness, 
+  float notificationBrightness, 
+  float extrafastBrightness, 
+  bool isBgStrip
+) {
+
   CRGB hue;
   float localBrightnessAlert = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_ALERT) / 100.0f;
   float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
@@ -3154,7 +3168,7 @@ CRGB processAlarms(int alert_status, long alert_time, int missile_status, long m
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
-  if (settings.getBool(ENABLE_EXPLOSIONS) && expTime > 0 && currentTime - expTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (settings.getBool(ENABLE_EXPLOSIONS) && explosion_notification_time > 0 && currentTime - explosion_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_EXPLOSION);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
@@ -3164,14 +3178,19 @@ CRGB processAlarms(int alert_status, long alert_time, int missile_status, long m
   if (settings.getBool(ENABLE_BALLISTIC)) {
     switch (ballistic_status) {
       case ALERT:
-        colorSwitch = settings.getInt(COLOR_BALLISTIC);
-        hue = fromHue(colorSwitch, extrafastBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        if (currentTime - ballistic_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+          colorSwitch = settings.getInt(COLOR_BALLISTIC);
+          hue = fromHue(colorSwitch, extrafastBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
+        } else {
+          colorSwitch = settings.getInt(COLOR_BALLISTIC);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
         return hue;
     }
   }
 
   // missiles notifications has third priority
-  if (settings.getBool(ENABLE_MISSILES) && missilesTime > 0 && currentTime - missilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (settings.getBool(ENABLE_MISSILES) && missiles_notification_time > 0 && currentTime - missiles_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_MISSILES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
@@ -3188,7 +3207,7 @@ CRGB processAlarms(int alert_status, long alert_time, int missile_status, long m
   }
 
   // drones notifications has fifth priority
-  if (settings.getBool(ENABLE_DRONES) && dronesTime > 0 && currentTime - dronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (settings.getBool(ENABLE_DRONES) && drones_notification_time > 0 && currentTime - drones_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_DRONES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
