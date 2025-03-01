@@ -65,7 +65,7 @@ COLOR_SAFE_BEGIN = "#BBFF33"
 COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
-COLOR_BALLISTIC = "#F5D105"
+COLOR_BALLISTIC = "#f9ff33"
 
 legacy_flag_leds = [
     60,
@@ -229,8 +229,8 @@ async def svg_generator_alerts(mc):
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_EXPLOSIVES
 
-            if alerts_svg_data == stored_data:
-                continue
+            # if alerts_svg_data == stored_data:
+            #     continue
 
             file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(
