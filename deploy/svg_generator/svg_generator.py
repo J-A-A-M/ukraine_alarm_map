@@ -59,9 +59,9 @@ regions = {
 }
 
 COLOR_ALERT = "#FF0000"
-COLOR_SAFE = "#64ff33"
-COLOR_ALERT_BEGIN = "#FF7F50"
-COLOR_SAFE_BEGIN = "#00FF00"
+COLOR_SAFE = "#32CD32"
+COLOR_ALERT_BEGIN = "#FFA533"
+COLOR_SAFE_BEGIN = "#BBFF33"
 COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
@@ -229,8 +229,8 @@ async def svg_generator_alerts(mc):
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_EXPLOSIVES
 
-            # if alerts_svg_data == stored_data:
-            #     continue
+            if alerts_svg_data == stored_data:
+                continue
 
             file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(
