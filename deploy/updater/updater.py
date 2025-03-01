@@ -424,7 +424,7 @@ async def update_drones_websocket_v2(mc, run_once=False):
             await asyncio.sleep(update_period)
             await alert_reasons_v1(mc, "Drones", b"drones_websocket_v2", [[0, 1645674000]] * 26)
         except Exception as e:
-            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.error(f"update_drones_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -436,7 +436,7 @@ async def update_missiles_websocket_v2(mc, run_once=False):
             await asyncio.sleep(update_period)
             await alert_reasons_v1(mc, "Missile", b"missiles_websocket_v2", [[0, 1645674000]] * 26)
         except Exception as e:
-            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.error(f"update_missiles_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -448,7 +448,7 @@ async def update_ballistic_websocket_v2(mc, run_once=False):
             await asyncio.sleep(update_period)
             await alert_reasons_v1(mc, "Ballistic", b"ballistic_websocket_v2", [[0, 1645674000]] * 26)
         except Exception as e:
-            logger.error(f"update_alert_reasons_websocket_v1: {str(e)}")
+            logger.error(f"update_ballistic_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -467,6 +467,8 @@ async def main():
             update_weather_openweathermap_v1(mc),
             update_alerts_historical_v1(mc),
             update_drones_websocket_v2(mc),
+            update_missiles_websocket_v2(mc),
+            update_ballistic_websocket_v2(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
