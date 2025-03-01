@@ -192,7 +192,7 @@ async def svg_generator_alerts(mc):
 
             for reason in websocket_cache["reasons"]:
                 state_id = reason["parentRegionId"]
-                state_name = get_region_name("id", state_id)
+                state_name = get_region_name("id", int(state_id))
                 if "Drones" in reason["alertTypes"]:
                     alerts_svg_data[state_name] = COLOR_DRONES
 
@@ -205,7 +205,7 @@ async def svg_generator_alerts(mc):
 
             for reason in websocket_cache["reasons"]:
                 state_id = reason["parentRegionId"]
-                state_name = get_region_name("id", state_id)
+                state_name = get_region_name("id", int(state_id))
                 if "Missile" in reason["alertTypes"]:
                     alerts_svg_data[state_name] = COLOR_MISSILES
 
@@ -218,7 +218,7 @@ async def svg_generator_alerts(mc):
 
             for reason in websocket_cache["reasons"]:
                 state_id = reason["parentRegionId"]
-                state_name = get_region_name("id", state_id)
+                state_name = get_region_name("id", int(state_id))
                 if "Ballistic" in reason["alertTypes"]:
                     alerts_svg_data[state_name] = COLOR_BALLISTIC
 
