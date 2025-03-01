@@ -32,6 +32,8 @@ static const char SHCHEDRYK[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g
 static const char XMEN[]                 PROGMEM = "XMen:d=4,o=6,b=125:16d#4,16g4,16c5,16d#5,4d5,8c5,8g4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8g#4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8d#5,2p,8d5,8c5,8g5,16g5,32a5,32b5,4c6";
 static const char AVENGERS[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4p.,16e4,16p,8e4,16p,16b4,4a4,4p,4g4,4f#4,16d4,16e4,8p,16e4,16f#4,8p,16d5,16e5,8p,16e5,16f#5,8p,4e4";
 static const char SIREN2[]               PROGMEM = "Siren2:d=4,o=5,b=200:a.,8g#,a.,8g#,a.,8g#";
+static const char SIREN3[]               PROGMEM = "Siren3:o=6,d=4,b=100:8b5,8d,8b5,8d,8b5,8d";
+static const char SIREN4[]               PROGMEM = "Siren4:o=5,d=4,b=200:16a,16b,16a,16b,16a,16b";
 static const char SQUIDGAME[]            PROGMEM = "SquidGame:d=32,o=4,b=200:8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,4g,32p,8g.,32p,4g,32p,8c5.,32p,4a#,32p,8a.,4g,32p,8a.,4a#.,16p.,4a#.,16p.,4a#.";
 static const char BANDERA[]              PROGMEM = "Bandera:d=32,o=4,b=140:8e,32p,8e,8c5,8b,8a,32p,8a,4p,8c5,32p,8c5,8d5,8c5,4b.,32p,8b,32p,8b,8b,8b,8b,8e5,8d5,8c5,8b,4a,32p,8a.,16a,32p,8a,8a";
 static const char HUILO[]                PROGMEM = "Huilo:d=32,o=4,b=150:8e5,8p,4e5,4d5,2c5,2p5,8g,8c5,8d5,8e5,8d5,8c5,8e5,2a,2p,8g,8a,8b,8c5,8b,8a,8e,2f,2p,8e,8f,8e,8f,8e,8f,8f#,2g";
@@ -42,7 +44,7 @@ static const char MOS_BEEP[]             PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 static const char SINGLE_CLICK_SOUND[]   PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 static const char LONG_CLICK_SOUND[]     PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 23
+#define MELODIES_COUNT 25
 static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   UA_ANTHEM,
   OI_U_LUZI,
@@ -66,7 +68,9 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   SQUIDGAME,
   BANDERA,
   HUILO,
-  HELLDIVERS
+  HELLDIVERS,
+  SIREN3,
+  SIREN4,
 };
 
 static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
@@ -77,6 +81,8 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {2, "Козацький марш", false},
   {4, "Сирена", false},
   {18, "Сирена 2", false},
+  {23, "Сирена 3", false},
+  {24, "Сирена 4", false},
   {5, "Комунікатор", false},
   {3, "Гаррі Поттер", false},
   {6, "Зоряні війни", false},
@@ -85,8 +91,8 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {9, "Індіана Джонс", false},
   {10, "Назад у майбутнє", false},
   {11, "Kiss - I Was Made", false},
-  {12, "Русалонька", false},
-  {13, "Nokia tune", false},
+  {12, "Little Mermaid - Under the Sea", false},
+  {13, "Рінгтон Nokia", false},
   {14, "Пакмен", false},
   {16, "Люди Х", false},
   {17, "Месники", false},

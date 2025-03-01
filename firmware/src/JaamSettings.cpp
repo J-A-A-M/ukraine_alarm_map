@@ -94,6 +94,8 @@ std::map<Type, SettingItemInt> intSettings = {
     {MELODY_ON_ALERT_END, {"moae", 5}},
     {SOUND_ON_EXPLOSION, {"soex", 0}},
     {MELODY_ON_EXPLOSION, {"moex", 18}},
+    {SOUND_ON_BALLISTIC, {"soblst", 0}},
+    {MELODY_ON_BALLISTIC, {"moblst", 23}},
     {SOUND_ON_EVERY_HOUR, {"soeh", 0}},
     {SOUND_ON_BUTTON_CLICK, {"sobc", 0}},
     {MUTE_SOUND_ON_NIGHT, {"mson", 0}},

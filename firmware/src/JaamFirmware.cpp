@@ -68,6 +68,7 @@ enum SoundType {
   ALERT_ON,
   ALERT_OFF,
   EXPLOSIONS,
+  BALLISTIC,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -131,6 +132,7 @@ int     prevMapMode = 1;
 bool    alarmNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
+long    homeBallisticTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
 short   clockBeepInterval = -1;
@@ -303,6 +305,9 @@ void playMelody(SoundType type) {
     case EXPLOSIONS:
       playMelody(MELODIES[settings.getInt(MELODY_ON_EXPLOSION)]);
       break;
+    case BALLISTIC:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_BALLISTIC)]);
+      break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -387,6 +392,8 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_ALERT_END);
     case EXPLOSIONS:
       return settings.getBool(SOUND_ON_EXPLOSION);
+    case BALLISTIC:
+      return settings.getBool(SOUND_ON_BALLISTIC);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -2292,6 +2299,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
+  addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2702,6 +2711,8 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_alert_end", true), MELODY_ON_ALERT_END) || saved;
   saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", SOUND_ON_EXPLOSION) || saved;
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
+  saved = saveBool(request->getParam("sound_on_ballistic", true), "sound_on_ballistic", SOUND_ON_BALLISTIC) || saved;
+  saved = saveInt(request->getParam("melody_on_ballistic", true), MELODY_ON_BALLISTIC) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
@@ -2954,6 +2965,7 @@ void alertPinCycle() {
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
   long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
+  long localHomeBallistic = id_to_ballistic[settings.getInt(HOME_DISTRICT)].second;
   bool localAlarmNow = ledStatus == 1;
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
@@ -2969,6 +2981,13 @@ void checkHomeDistrictAlerts() {
       showServiceMessage("Відбій!", districtName, 5000);
     }
     ha.setAlarmAtHome(alarmNow);
+  }
+  if (localHomeBallistic != homeBallisticTime) {
+    homeBallisticTime = localHomeBallistic;
+    if (homeBallisticTime > 0 && timeClient.unixGMT() - homeBallisticTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      showServiceMessage("Балістика!", districtName, 5000);
+      if (needToPlaySound(BALLISTIC)) playMelody(BALLISTIC);
+    }
   }
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
