@@ -59,7 +59,7 @@ regions = {
 }
 
 COLOR_ALERT = "#FF0000"
-COLOR_SAFE = "#008000"
+COLOR_SAFE = "#64ff33"
 COLOR_ALERT_BEGIN = "#FF7F50"
 COLOR_SAFE_BEGIN = "#00FF00"
 COLOR_MISSILES = "#9D00FF"
@@ -1119,7 +1119,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(svg_generator_alerts(mc))
+        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
