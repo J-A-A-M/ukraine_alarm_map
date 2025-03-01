@@ -61,7 +61,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {COLOR_EXPLOSION, {"colorex", 180}},
     {COLOR_MISSILES, {"colormi", 275}},
     {COLOR_DRONES, {"colordr", 330}},
-    {COLOR_BALLISTIC, {"colorblst", 230}},
+    {COLOR_BALLISTIC, {"colorblst", 55}},
     {COLOR_HOME_DISTRICT, {"colorhd", 120}},
     {COLOR_BG_NEIGHBOR_ALERT, {"colorbna", 30}},
     {ENABLE_EXPLOSIONS, {"eex", 1}},
