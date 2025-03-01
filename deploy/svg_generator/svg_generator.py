@@ -229,8 +229,8 @@ async def svg_generator_alerts(mc):
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_EXPLOSIVES
 
-            # if alerts_svg_data == stored_data:
-            #     continue
+            if alerts_svg_data == stored_data:
+                continue
 
             file_path = os.path.join(shared_path, "alerts_map.png")
             await generate_map(
