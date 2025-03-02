@@ -2254,7 +2254,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
-  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про балістичну небезпеку");
+  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
@@ -3056,7 +3056,7 @@ void onMessageCallback(WebsocketsMessage message) {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_ballistic[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["ballistic"][i][0], (long) data["ballistic"][i][1]);
       }
-      LOG.println("Successfully parsed drones data");
+      LOG.println("Successfully parsed ballistic data");
       remapBallistic();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
