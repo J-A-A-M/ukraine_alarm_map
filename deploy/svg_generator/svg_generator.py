@@ -52,6 +52,7 @@ regions = {
     "HMELNYCKA": {"name": "Хмельницька область", "id": 3, "legacy_id": 24},
     "CHERNIVETSKA": {"name": "Чернівецька область", "id": 26, "legacy_id": 25},
     "KIYEW": {"name": "м. Київ", "id": 31, "legacy_id": 26},
+    "KHARKIV": {"name": "м. Харків та Харківська територіальна громада", "id": 1293, "legacy_id": 27},
     "UNKNOWN": {"name": "Невідомо", "id": 1111, "legacy_id": 1111},
     "ALL": {"name": "Вся Україна", "id": 2222, "legacy_id": 2222},
     "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},
@@ -64,6 +65,7 @@ COLOR_SAFE_BEGIN = "#BBFF33"
 COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
+COLOR_BALLISTIC = "#f9ff33"
 
 legacy_flag_leds = [
     60,
@@ -155,15 +157,17 @@ async def svg_generator_alerts(mc):
     stored_data = {}
     while True:
         try:
+            logger.debug("start alerts map generaton")
             await asyncio.sleep(loop_time)
             local_time = get_current_datetime_formatted()
 
             alerts_svg_data = {}
 
             alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", {})
-            drones_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
-            missiles_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
-            explosions_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
+            drones_notifications_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
+            missiles_notifications_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
+            explosions_notifications_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
+            websocket_cache = await get_cache_data(mc, b"ws_info", {"reasons": []})
             regions_cache = await get_regions(mc, b"regions_api", {})
 
             for region_id, region_data in alerts_cache.items():
@@ -186,21 +190,39 @@ async def svg_generator_alerts(mc):
                     time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                     alerts_svg_data[state_name] = COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN
 
-            for region_id, region_data in drones_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Drones" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_DRONES
+
+            for region_id, region_data in drones_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_DRONES
 
-            for region_id, region_data in missiles_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Missile" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_MISSILES
+
+            for region_id, region_data in missiles_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_MISSILES
 
-            for region_id, region_data in explosions_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Ballistic" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_BALLISTIC
+
+            for region_id, region_data in explosions_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
@@ -218,6 +240,7 @@ async def svg_generator_alerts(mc):
                 **alerts_svg_data,
             )
             stored_data = alerts_svg_data
+            logger.debug("end alerts map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_alerts: {e}")
@@ -228,6 +251,7 @@ async def svg_generator_weather(mc):
     stored_data = {}
     while True:
         try:
+            logger.debug("start weather map generation")
             await asyncio.sleep(loop_time)
             local_time = get_current_datetime_formatted()
 
@@ -250,6 +274,7 @@ async def svg_generator_weather(mc):
                 **weather_svg_data,
             )
             stored_data = weather_svg_data
+            logger.debug("end weather map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_weather: {e}")
@@ -352,7 +377,7 @@ def calculate_html_color_from_temp(temp):
 
 
 async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
-    logger.debug("generate map start")
+    logger.debug("generator start")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
          enable-background="new 0 0 1546.93 1040.822" xml:space="preserve" inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
@@ -1044,22 +1069,31 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             style="stroke:#2c2c2c;stroke-width:1;stroke-linecap:round;stroke-linejoin:round">
 
             <g id="ALERTS_LEGEND" visibility="{"visible" if show_alert_info else "hidden"}">
-               <circle cx="50" cy="630" r="20" fill="#ff5733" id="circle224" />
+               <circle cx="50" cy="630" r="20" fill="{COLOR_ALERT}" id="circle224" />
                <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- тривога</text>
-               <circle cx="50" cy="680" r="20" fill="#32cd32" id="circle228" />
+               <circle cx="50" cy="680" r="20" fill="{COLOR_SAFE}" id="circle228" />
                <text x="75" y="685" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
-               <circle cx="50" cy="730" r="20" fill="#ffa533" id="circle232" />
+               <circle cx="50" cy="730" r="20" fill="{COLOR_ALERT_BEGIN}" id="circle232" />
                <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
-               <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
+               <circle cx="50" cy="780" r="20" fill="{COLOR_SAFE_BEGIN}" id="circle236" />
                <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
-               <circle cx="50" cy="830" r="20" fill="#9d00ff" id="circle244" />
-               <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека (до 3 хв. тому)</text>
-               <circle cx="50" cy="880" r="20" fill="#ff00ff" id="circle248" />
-               <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА (до 3 хв. тому)</text>
-               <circle cx="50" cy="930" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
+               <circle cx="50" cy="830" r="20" fill="{COLOR_MISSILES}" id="circle244" />
+               <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека</text>
+               <circle cx="50" cy="880" r="20" fill="{COLOR_DRONES}" id="circle248" />
+               <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА</text>             
+               <circle cx="50" cy="930" r="20" fill="{COLOR_BALLISTIC}" id="circle252" />
+               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза балістики</text>
+               <circle cx="50" cy="980" r="20" fill="{COLOR_EXPLOSIVES}" id="circle240" />
+               <text x="75" y="985" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>
 
+            <g transform="translate(60,20) scale(0.5)">
+               <path d="M-81.25 1.25h162.5v172.5a31.25 31.25 0 0 1-18.578029 28.565428L0 228.867475l-62.671971-27.802047A31.25 31.25 0 0 1-81.25 172.5z" fill="#005bbb" stroke="#ffd500" stroke-width="2.5"/>
+               <path d="M5.985561 78.82382a104.079383 104.079383 0 0 0 14.053598 56.017033 55 55 0 0 1-13.218774 70.637179A20 20 0 0 0 0 212.5a20 20 0 0 0-6.820384-7.021968 55 55 0 0 1-13.218774-70.637179A104.079383 104.079383 0 0 0-5.98556 78.82382l-1.599642-45.260519A30.103986 30.103986 0 0 1 0 12.5a30.103986 30.103986 0 0 1 7.585202 21.063301zM5 193.624749a45 45 0 0 0 6.395675-53.75496A114.079383 114.079383 0 0 1 0 112.734179a114.079383 114.079383 0 0 1-11.395675 27.13561A45 45 0 0 0-5 193.624749V162.5H5z" fill="#ffd500" stroke="#000000" stroke-width="2" />
+               <path id="a" d="M27.779818 75.17546A62.64982 62.64982 0 0 1 60 27.5v145H0l-5-10a22.5 22.5 0 0 1 17.560976-21.95122l14.634147-3.292683a10 10 0 1 0-4.427443-19.503751zm5.998315 34.353887a20 20 0 0 1-4.387889 37.482848l-14.634146 3.292683A12.5 12.5 0 0 0 5 162.5h45V48.265462a52.64982 52.64982 0 0 0-12.283879 28.037802zM42 122.5h10v10H42z"  fill="#ffd500" stroke="#000000" stroke-width="2" />
+               <use xlink:href="#a" transform="scale(-1 1)"/>
+            </g>
+               
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">
                <rect x="60" y="630" width="50" height="250" fill="url(#weather)" id="rect244" />
                <text x="130" y="643" font-family="Arial" font-size="30px" fill="#ffffff" id="text246">30°C</text>
@@ -1068,9 +1102,9 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             </g>
 
             <g id="FLAG_JAAM">
-               <text x="123.36918" y="995.97467" font-family="Arial" font-size="36px" fill="#ffffff" id="text256">JAAM</text>
-               <rect x="40" y="960" width="60" height="20" fill="#005bbb" id="rect252" />
-               <rect x="40" y="980" width="60" height="20" fill="#fedf00" id="rect254" />
+               <text x="110" y="58" font-family="Arial" font-size="50px" fill="#ffffff" id="text256">JAAM</text>
+               <text x="110" y="85" font-family="Arial" font-size="22px" fill="#ffffff" id="text257">Just Another</text>
+               <text x="110" y="105" font-family="Arial" font-size="22px" fill="#ffffff" id="text258">Alert Map</text>
             </g>
 
             <text x="1205.0197" y="993.53314" font-family="Arial" font-size="26px" fill="#ffffff" id="TIMESTAMP">{time}</text>
@@ -1079,7 +1113,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
     """
 
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file, scale=1.5)
-    logger.debug("generate map complete")
+    logger.debug("generator complete")
 
 
 async def main():

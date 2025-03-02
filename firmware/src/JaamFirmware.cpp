@@ -68,6 +68,7 @@ enum SoundType {
   ALERT_ON,
   ALERT_OFF,
   EXPLOSIONS,
+  BALLISTIC,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -91,12 +92,18 @@ std::map<int, std::pair<int, long>> id_to_alerts; //regionId to alert state and 
 std::map<int, std::pair<int, long>> led_to_alerts; // ledPosition to alert state and time
 std::map<int, float>                id_to_weather; //regionId to temperature
 std::map<int, float>                led_to_weather; // ledPosition to temperature
-std::map<int, long>                 id_to_explosions; //regionId to explosion time
-std::map<int, long>                 led_to_explosions; // ledPosition to explosion time
-std::map<int, long>                 id_to_missiles; //regionId to missiles time
-std::map<int, long>                 led_to_missiles; // ledPosition to missils time
-std::map<int, long>                 id_to_drones; //regionId to missiles time
-std::map<int, long>                 led_to_drones; // ledPosition to missils time
+std::map<int, long>                 id_to_explosions_notifications; //regionId to explosion time
+std::map<int, long>                 led_to_explosions_notifications; // ledPosition to explosion time
+std::map<int, long>                 id_to_missiles_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_missiles_notifications; // ledPosition to missils time
+std::map<int, std::pair<int, long>> id_to_missiles; //regionId to missiles state and time
+std::map<int, std::pair<int, long>> led_to_missiles; // ledPosition to missiles state and time
+std::map<int, long>                 id_to_drones_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_drones_notifications; // ledPosition to missils time
+std::map<int, std::pair<int, long>> id_to_drones; //regionId to drones state and time
+std::map<int, std::pair<int, long>> led_to_drones; // ledPosition to drones state and time
+std::map<int, std::pair<int, long>> id_to_ballistic; //regionId to ballistic state and time
+std::map<int, std::pair<int, long>> led_to_ballistic; // ledPosition to ballistic state and time
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -125,6 +132,7 @@ int     prevMapMode = 1;
 bool    alarmNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
+long    homeBallisticTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
 short   clockBeepInterval = -1;
@@ -297,6 +305,9 @@ void playMelody(SoundType type) {
     case EXPLOSIONS:
       playMelody(MELODIES[settings.getInt(MELODY_ON_EXPLOSION)]);
       break;
+    case BALLISTIC:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_BALLISTIC)]);
+      break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -381,6 +392,8 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_ALERT_END);
     case EXPLOSIONS:
       return settings.getBool(SOUND_ON_EXPLOSION);
+    case BALLISTIC:
+      return settings.getBool(SOUND_ON_BALLISTIC);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -1186,6 +1199,21 @@ void remapAlerts() {
   led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
 }
 
+void remapMissiles() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
+}
+
+void remapDrones() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+}
+
+void remapBallistic() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_ballistic = mapLeds(ledMapping, id_to_ballistic, combiHandler);
+}
+
 float weatherCombiModeHandler(float kyiv, float kyivObl) {
   // return average value of Kyiv and Kyiv Oblast
   return (kyiv + kyivObl) / 2.0f;
@@ -1201,19 +1229,19 @@ long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
   return max(kyiv, kyivObl);
 }
 
-void remapExplosions() {
+void remapExplosionsNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_explosions = mapLeds(ledMapping, id_to_explosions, combiHandler);
+  led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, combiHandler);
 }
 
-void remapMissiles() {
+void remapMissilesNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
+  led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, combiHandler);
 }
 
-void remapDrones() {
+void remapDronesNotifications() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+  led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
 }
 
 void remapHomeDistrict() {
@@ -1736,9 +1764,12 @@ void initLedMapping() {
   remapFlag();
   remapAlerts();
   remapWeather();
-  remapExplosions();
+  remapExplosionsNotifications();
+  remapMissilesNotifications();
   remapMissiles();
+  remapDronesNotifications();
   remapDrones();
+  remapBallistic();
   remapHomeDistrict();
 }
 
@@ -2100,7 +2131,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракента небезпека, балістика", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
     addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
@@ -2144,6 +2175,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
+  addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2222,6 +2254,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
+  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
@@ -2266,6 +2299,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
+  addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2609,6 +2644,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_alert_over", true), COLOR_ALERT_OVER) || saved;
   saved = saveInt(request->getParam("color_explosion", true), COLOR_EXPLOSION) || saved;
   saved = saveInt(request->getParam("color_missiles", true), COLOR_MISSILES) || saved;
+  saved = saveInt(request->getParam("color_ballistic", true), COLOR_BALLISTIC) || saved;
   saved = saveInt(request->getParam("color_drones", true), COLOR_DRONES) || saved;
   saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
   saved = saveInt(request->getParam("color_bg_neighbor_alert", true), COLOR_BG_NEIGHBOR_ALERT) || saved;
@@ -2644,6 +2680,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
   saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", ENABLE_MISSILES) || saved;
   saved = saveBool(request->getParam("enable_drones", true), "enable_drones", ENABLE_DRONES) || saved;
+  saved = saveBool(request->getParam("enable_ballistic", true), "enable_ballistic", ENABLE_BALLISTIC) || saved;
   saved = saveInt(request->getParam("alert_on_time", true), ALERT_ON_TIME) || saved;
   saved = saveInt(request->getParam("alert_off_time", true), ALERT_OFF_TIME) || saved;
   saved = saveInt(request->getParam("explosion_time", true), EXPLOSION_TIME) || saved;
@@ -2674,6 +2711,8 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_alert_end", true), MELODY_ON_ALERT_END) || saved;
   saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", SOUND_ON_EXPLOSION) || saved;
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
+  saved = saveBool(request->getParam("sound_on_ballistic", true), "sound_on_ballistic", SOUND_ON_BALLISTIC) || saved;
+  saved = saveInt(request->getParam("melody_on_ballistic", true), MELODY_ON_BALLISTIC) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
@@ -2925,7 +2964,8 @@ void alertPinCycle() {
 
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
-  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT)];
+  long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
+  long localHomeBallistic = id_to_ballistic[settings.getInt(HOME_DISTRICT)].second;
   bool localAlarmNow = ledStatus == 1;
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
@@ -2941,6 +2981,13 @@ void checkHomeDistrictAlerts() {
       showServiceMessage("Відбій!", districtName, 5000);
     }
     ha.setAlarmAtHome(alarmNow);
+  }
+  if (localHomeBallistic != homeBallisticTime) {
+    homeBallisticTime = localHomeBallistic;
+    if (homeBallisticTime > 0 && timeClient.unixGMT() - homeBallisticTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      showServiceMessage("Балістика!", districtName, 5000);
+      if (needToPlaySound(BALLISTIC)) playMelody(BALLISTIC);
+    }
   }
   if (localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
@@ -2977,22 +3024,40 @@ void onMessageCallback(WebsocketsMessage message) {
       ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) ]);
     } else if (payload == "explosions") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_explosions[mapIndexToRegionId(i)] = data["explosions"][i];
+        id_to_explosions_notifications[mapIndexToRegionId(i)] = data["explosions"][i];
       }
-      LOG.println("Successfully parsed explosions data");
-      remapExplosions();
+      LOG.println("Successfully parsed explosions notifications data");
+      remapExplosionsNotifications();
     } else if (payload == "missiles") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_missiles[mapIndexToRegionId(i)] = data["missiles"][i];
+        id_to_missiles_notifications[mapIndexToRegionId(i)] = data["missiles"][i];
+      }
+      LOG.println("Successfully parsed missiles notifications data");
+      remapMissilesNotifications();
+    } else if (payload == "missiles2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_missiles[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["missiles"][i][0], (long) data["missiles"][i][1]);
       }
       LOG.println("Successfully parsed missiles data");
       remapMissiles();
     } else if (payload == "drones") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_drones[mapIndexToRegionId(i)] = data["drones"][i];
+        id_to_drones_notifications[mapIndexToRegionId(i)] = data["drones"][i];
+      }
+      LOG.println("Successfully parsed drones notifications data");
+      remapDronesNotifications();
+    } else if (payload == "drones2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_drones[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["drones"][i][0], (long) data["drones"][i][1]);
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
+    } else if (payload == "ballistic2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_ballistic[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["ballistic"][i][0], (long) data["ballistic"][i][1]);
+      }
+      LOG.println("Successfully parsed ballistic data");
+      remapBallistic();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3037,7 +3102,7 @@ void socketConnect() {
   char webSocketUrl[100];
   sprintf(
     webSocketUrl,
-    "ws://%s:%d/data_v3",
+    "ws://%s:%d/data_v4",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(WS_SERVER_PORT)
   );
@@ -3095,7 +3160,21 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
+CRGB processAlarms(
+  int alert_status, long alert_time, 
+  int missile_status, long missile_time, 
+  int drone_status, long drone_time, 
+  int ballistic_status, long ballistic_time, 
+  int explosion_notification_time, 
+  int missiles_notification_time, 
+  int drones_notification_time, 
+  int position, 
+  float alertBrightness, 
+  float notificationBrightness, 
+  float extrafastBrightness, 
+  bool isBgStrip
+) {
+
   CRGB hue;
   float localBrightnessAlert = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_ALERT) / 100.0f;
   float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
@@ -3108,29 +3187,64 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
-  if (settings.getBool(ENABLE_EXPLOSIONS) && expTime > 0 && currentTime - expTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (settings.getBool(ENABLE_EXPLOSIONS) && explosion_notification_time > 0 && currentTime - explosion_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_EXPLOSION);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // missiles has second priority
-  if (settings.getBool(ENABLE_MISSILES) && missilesTime > 0 && currentTime - missilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  // ballistic has second priority
+  if (settings.getBool(ENABLE_BALLISTIC)) {
+    switch (ballistic_status) {
+      case ALERT:
+        if (currentTime - ballistic_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+          colorSwitch = settings.getInt(COLOR_BALLISTIC);
+          hue = fromHue(colorSwitch, extrafastBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
+        } else {
+          colorSwitch = settings.getInt(COLOR_BALLISTIC);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
+        return hue;
+    }
+  }
+
+  // missiles notifications has third priority
+  if (settings.getBool(ENABLE_MISSILES) && missiles_notification_time > 0 && currentTime - missiles_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_MISSILES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // drones has third priority
-  if (settings.getBool(ENABLE_DRONES) && dronesTime > 0 && currentTime - dronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  // missiles  has fouth priority
+  if (settings.getBool(ENABLE_MISSILES)) {
+    switch (missile_status) {
+      case ALERT:
+        colorSwitch = settings.getInt(COLOR_MISSILES);
+        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        return hue;
+    }
+  }
+
+  // drones notifications has fifth priority
+  if (settings.getBool(ENABLE_DRONES) && drones_notification_time > 0 && currentTime - drones_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_DRONES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  switch (led) {
+  // drones has six priority
+  if (settings.getBool(ENABLE_DRONES)) {
+    switch (drone_status) {
+      case ALERT:
+        colorSwitch = settings.getInt(COLOR_DRONES);
+        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        return hue;
+    }
+  }
+
+  switch (alert_status) {
     case ALERT:
-      if (currentTime - time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      if (currentTime - alert_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_NEW_ALERT);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
       } else {
@@ -3139,7 +3253,7 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
       }
       break;
     case CLEAR:
-      if (currentTime - time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      if (currentTime - alert_time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_ALERT_OVER);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
@@ -3250,20 +3364,29 @@ void mapLamp() {
 void mapAlarms() {
   float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
+  float extrafastBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000);
-    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 500);
+    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667);
+    extrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334);
   }
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     strip[i] = processAlarms(
       led_to_alerts[i].first,
       led_to_alerts[i].second,
-      led_to_explosions[i],
-      led_to_missiles[i],
-      led_to_drones[i],
+      led_to_missiles[i].first,
+      led_to_missiles[i].second,
+      led_to_drones[i].first,
+      led_to_drones[i].second,
+      led_to_ballistic[i].first,
+      led_to_ballistic[i].second,
+      led_to_explosions_notifications[i],
+      led_to_missiles_notifications[i],
+      led_to_drones_notifications[i],
       i,
       blinkBrightness,
       notificationBrightness,
+      extrafastBrightness,
       false
     );
   }
@@ -3281,12 +3404,19 @@ void mapAlarms() {
         processAlarms(
           led_to_alerts[localDistrictLed].first,
           led_to_alerts[localDistrictLed].second,
-          led_to_explosions[localDistrictLed],
-          led_to_missiles[localDistrictLed],
-          led_to_drones[localDistrictLed],
+          led_to_missiles[localDistrictLed].first,
+          led_to_missiles[localDistrictLed].second,
+          led_to_drones[localDistrictLed].first,
+          led_to_drones[localDistrictLed].second,
+          led_to_ballistic[localDistrictLed].first,
+          led_to_ballistic[localDistrictLed].second,
+          led_to_explosions_notifications[localDistrictLed],
+          led_to_missiles_notifications[localDistrictLed],
+          led_to_drones_notifications[localDistrictLed],
           localDistrictLed,
           blinkBrightness,
           notificationBrightness,
+          extrafastBrightness,
           true
         )
       );
