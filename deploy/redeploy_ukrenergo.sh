@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
             UKRENERGO_REQUEST_PERIOD="$2"
             shift 2
             ;;
-        -u|--updatw-period)
+        -u|--update-period)
             UKRENERGO_UPDATE_PERIOD="$2"
             shift 2
             ;;
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             USER_AGENT="$2"
             shift 2
             ;;
-        -m|--matrix)
+        -mx|--matrix)
             MATRIX="$2"
             shift 2
             ;;
@@ -70,7 +70,7 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd alerts
+cd ukrenergo
 
 # Building Docker image
 echo "Building Docker image..."

@@ -74,9 +74,6 @@ def get_random_proxy():
     return random.choice(proxies.split("::")).strip()
 
 
-p
-
-
 async def get_region_data(region_id, headers, proxies):
 
     url = f"{source_url}{region_id}"
