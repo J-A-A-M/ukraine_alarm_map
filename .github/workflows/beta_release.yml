@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JAAM_S3${{ env.BETA_VERSION }}.bin
-          path: ${{ github.workspace }}/JAAM_S3${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_S3_${{ env.BETA_VERSION }}.bin
   build_beta_c3:
     if: ${{ github.ref_name == 'develop' }}
     runs-on: ubuntu-latest
@@ -71,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JAAM_C3${{ env.BETA_VERSION }}.bin
-          path: ${{ github.workspace }}/JAAM_C3${{ env.BETA_VERSION }}.bin
+          path: ${{ github.workspace }}/JAAM_C3_${{ env.BETA_VERSION }}.bin
   release_beta_firmware:
     needs: [build_beta, build_beta_s3, build_beta_c3]
     runs-on: ubuntu-latest
