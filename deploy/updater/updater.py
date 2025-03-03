@@ -454,6 +454,34 @@ async def update_ballistic_websocket_v2(mc, run_once=False):
             break
 
 
+async def update_energy_websocket_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            cache = await get_cache_data(mc, b"energy_ukrenergo", {"states": {}, "info": {"last_update": None}})
+            websocket = await get_cache_data(mc, b"energy_websocket_v1", [[0, 1645674000]] * 26)
+
+            data = [[0, 1645674000]] * 26
+
+            for _, state_data in regions.items():
+                legacy_state_id = state_data["legacy_id"]
+                state_id = state_data["id"]
+                state_id_str = str(state_id)
+                old_state = websocket[legacy_state_id - 1][0]
+                old_date = websocket[legacy_state_id - 1][1]
+                if state_id_str in cache["states"]:
+                    new_state = int(cache["states"][state_id_str]["state"]["id"])
+                    new_date = get_current_timestamp() if old_state != new_state else old_date
+                    data[legacy_state_id - 1] = [new_state, new_date]
+
+            await store_websocket_data(mc, data, websocket, "energy_websocket_v1", b"energy_websocket_v1")
+        except Exception as e:
+            logger.error(f"update_alerts_historical: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
@@ -469,6 +497,7 @@ async def main():
             update_drones_websocket_v2(mc),
             update_missiles_websocket_v2(mc),
             update_ballistic_websocket_v2(mc),
+            update_energy_websocket_v1(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
