@@ -85,7 +85,7 @@ async def fetch_token():
                 if response.status != 200:
                     logger.error(f"fetch_token failed, status: {response.status}")
                     return None, None
-                
+
                 html = await response.text()
 
                 token_match = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html)
@@ -101,7 +101,7 @@ async def fetch_token():
                 logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
 
                 return token, url
-                
+
     except aiohttp.ClientError as e:
         logger.error(f"fetch_token failed: {e}")
     except Exception as e:

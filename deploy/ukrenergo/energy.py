@@ -79,6 +79,9 @@ async def get_region_data(region_id, headers, proxy):
 
     url = f"{source_url}{region_id}"
 
+    if proxy:
+        logger.info(f"Fetching source URL: {url} via proxy {proxy}")
+
     timeout = aiohttp.ClientTimeout(total=10)
     connector = ProxyConnector.from_url(proxy) if proxy else None
 
@@ -88,13 +91,13 @@ async def get_region_data(region_id, headers, proxy):
                 if response.status != 200:
                     logger.error(f"Request failed for region {region_id}, status: {response.status}")
                     return None
-                
+
                 try:
                     return await response.json()
                 except json.JSONDecodeError:
                     logger.error(f"JSON decoding error for region {region_id}")
                     return None
-                
+
     except aiohttp.ClientError as e:
         logger.error(f"Request error for region {region_id}: {e}")
     except Exception as e:
@@ -113,8 +116,7 @@ async def get_data():
         "content-type": "application/json",
     }
 
-    ws_proxy = get_random_proxy()
-    proxies = None
+    proxy = get_random_proxy()
     energy_cached_data = {
         "states": {},
         "info": {
@@ -122,16 +124,10 @@ async def get_data():
         },
     }
 
-    if ws_proxy:
-        proxies = {
-            "http": ws_proxy,
-            "https": ws_proxy,
-        }
-        logger.info(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
-
     for region_name, region_data in regions.items():
-        region_energy = await get_region_data(region_id=region_data["id"], headers=headers, proxy=ws_proxy)
+        region_energy = await get_region_data(region_id=region_data["id"], headers=headers, proxy=proxy)
         if region_energy:
+            logger.info(f"fetched data from region {region_data['id']}")
             energy_cached_data["states"][region_data["id"]] = region_energy
 
         await asyncio.sleep(request_time)
