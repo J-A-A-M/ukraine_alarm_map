@@ -2,10 +2,6 @@ name: ☁️ Deploy Microservices
 on:
   workflow_dispatch:
     inputs:
-      # redeploy_all:
-      #   type: boolean
-      #   default: false
-      #   description: Redeploy all (be careful!)
       redeploy_web_sockets:
         type: boolean
         default: false
