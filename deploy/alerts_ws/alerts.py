@@ -1,13 +1,14 @@
 import asyncio
 import websockets
 import json
-import requests
+import aiohttp
 import re
 import base64
 import os
 import logging
 import random
 from aiomcache import Client
+from aiohttp_socks import ProxyConnector
 
 version = 1
 
@@ -56,7 +57,7 @@ def get_random_proxy():
     return random.choice(ws_proxies.split("::")).strip()
 
 
-def fetch_token():
+async def fetch_token():
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "accept-language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -73,49 +74,51 @@ def fetch_token():
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
 
-    ws_proxy = get_random_proxy()
-    proxies = None
+    proxy = get_random_proxy()
 
-    if ws_proxy:
-        proxies = {
-            "http": ws_proxy,
-            "https": ws_proxy,
-        }
-        logger.info(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
+    timeout = aiohttp.ClientTimeout(total=10)
+    connector = ProxyConnector.from_url(proxy) if proxy else None
 
     try:
-        response = requests.get(source_url, headers=headers, proxies=proxies, timeout=10)
-        response.raise_for_status()
-    except requests.RequestException as e:
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            async with session.get(source_url, headers=headers) as response:
+                if response.status != 200:
+                    logger.error(f"fetch_token failed, status: {response.status}")
+                    return None, None
+                
+                html = await response.text()
+
+                token_match = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html)
+                url_match = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html)
+
+                if not token_match or not url_match:
+                    logger.warning("fetch_token failed: failed to parse token or URL from HTML")
+                    return None, None
+
+                token = token_match.group(1)
+                url = url_match.group(1)
+
+                logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
+
+                return token, url
+                
+    except aiohttp.ClientError as e:
         logger.error(f"fetch_token failed: {e}")
-        return None, None
+    except Exception as e:
+        logger.error(f"fetch_token failed: {e}")
 
-    html = response.text
-
-    token_match = re.search(rf'<input id="{token_id}" type="hidden" value="(.*?)"', html)
-    url_match = re.search(rf'<input id="{url_id}" type="hidden" value="(.*?)"', html)
-
-    if not token_match or not url_match:
-        logger.warning("fetch_token failed: failed to parse token or URL from HTML")
-        return None, None
-
-    token = token_match.group(1)
-    url = url_match.group(1)
-
-    logger.debug(f"Parsed Data:\nToken: {token}\nURL: {url}")
-
-    return token, url
+    return None, None
 
 
 def generate_websocket_key():
     return base64.b64encode(os.urandom(16)).decode("utf-8")
 
 
-def initialize_connection():
+async def initialize_connection():
     if ws_request_token and ws_request_uri:
         token, uri = ws_request_token, ws_request_uri
     else:
-        token, uri = fetch_token()
+        token, uri = await fetch_token()
 
     return token, uri
 
@@ -125,7 +128,7 @@ async def connect_and_send(mc):
     ttl = 0
 
     while True:
-        token, uri = initialize_connection()
+        token, uri = await initialize_connection()
 
         if not token or not uri:
             logger.error(f"initialize_connection failed, wait 60 sec")

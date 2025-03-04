@@ -1,11 +1,12 @@
 import asyncio
 import json
-import requests
+import aiohttp
 import os
 import logging
 import random
 import datetime
 from aiomcache import Client
+from aiohttp_socks import ProxyConnector
 
 version = 1
 
@@ -74,24 +75,32 @@ def get_random_proxy():
     return random.choice(proxies.split("::")).strip()
 
 
-async def get_region_data(region_id, headers, proxies):
+async def get_region_data(region_id, headers, proxy):
 
     url = f"{source_url}{region_id}"
 
+    timeout = aiohttp.ClientTimeout(total=10)
+    connector = ProxyConnector.from_url(proxy) if proxy else None
+
     try:
-        response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"request error for region {region_id}: {e}")
-        return None
-    except json.JSONDecodeError:
-        logger.error(f"json error for region {region_id}")
-        return None
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            async with session.get(url, headers=headers) as response:
+                if response.status != 200:
+                    logger.error(f"Request failed for region {region_id}, status: {response.status}")
+                    return None
+                
+                try:
+                    return await response.json()
+                except json.JSONDecodeError:
+                    logger.error(f"JSON decoding error for region {region_id}")
+                    return None
+                
+    except aiohttp.ClientError as e:
+        logger.error(f"Request error for region {region_id}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error for region {region_id}: {e}")
 
-    logger.debug(f"data for region {region_id} parced succesfully")
-
-    return data
+    return None
 
 
 async def get_data():
@@ -121,7 +130,7 @@ async def get_data():
         logger.info(f"Fetching source URL: {source_url} via proxy {ws_proxy}")
 
     for region_name, region_data in regions.items():
-        region_energy = await get_region_data(region_id=region_data["id"], headers=headers, proxies=proxies)
+        region_energy = await get_region_data(region_id=region_data["id"], headers=headers, proxy=ws_proxy)
         if region_energy:
             energy_cached_data["states"][region_data["id"]] = region_energy
 
