@@ -98,10 +98,12 @@ async def get_region_data(region_id, headers, proxy):
                     logger.error(f"JSON decoding error for region {region_id}")
                     return None
 
+    except asyncio.TimeoutError:
+        logger.error("get_region_data: timeout occurred")
     except aiohttp.ClientError as e:
-        logger.error(f"Request error for region {region_id}: {e}")
+        logger.error(f"get_region_data: request error for region {region_id}: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error for region {region_id}: {e}")
+        logger.error(f"get_region_data: unexpected error for region {region_id}: {e}")
 
     return None
 

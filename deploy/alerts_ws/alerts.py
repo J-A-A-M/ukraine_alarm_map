@@ -102,6 +102,8 @@ async def fetch_token():
 
                 return token, url
 
+    except asyncio.TimeoutError:
+        logger.error("fetch_token failed: timeout occurred")
     except aiohttp.ClientError as e:
         logger.error(f"fetch_token failed: {e}")
     except Exception as e:
