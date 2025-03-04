@@ -2,10 +2,10 @@ name: ☁️ Deploy Microservices
 on:
   workflow_dispatch:
     inputs:
-      redeploy_all:
-        type: boolean
-        default: false
-        description: Redeploy all (be careful!)
+      # redeploy_all:
+      #   type: boolean
+      #   default: false
+      #   description: Redeploy all (be careful!)
       redeploy_web_sockets:
         type: boolean
         default: false
@@ -56,7 +56,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy WebSockets
-            if: ${{ inputs.redeploy_web_sockets || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_web_sockets }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -69,7 +69,7 @@ jobs:
                 git pull
                 bash redeploy_websocket_server.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }}
           - name: Redeploy Update Server (bin list)
-            if: ${{ inputs.redeploy_update_server || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_update_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -82,7 +82,7 @@ jobs:
                 git pull
                 bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Web Server
-            if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -95,7 +95,7 @@ jobs:
                 git pull
                 bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Weather
-            if: ${{ inputs.redeploy_weather || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_weather }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -108,7 +108,7 @@ jobs:
                 git pull
                 bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Updater
-            if: ${{ inputs.redeploy_updater || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_updater }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -121,7 +121,7 @@ jobs:
                 git pull
                 bash redeploy_updater.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Svg Generator
-            if: ${{ inputs.redeploy_svg_generator || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_svg_generator }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -134,7 +134,7 @@ jobs:
                 git pull
                 bash redeploy_svg_generator.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Etryvoga
-            if: ${{ inputs.redeploy_etryvoga || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_etryvoga }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -147,7 +147,7 @@ jobs:
                 git pull
                 bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Alerts
-            if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_alerts }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -160,7 +160,7 @@ jobs:
                 git pull
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Alerts websocket parser
-            if: ${{ inputs.redeploy_alerts_ws || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -183,7 +183,7 @@ jobs:
                   -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
                   -lki ${{ secrets.WS_RESPONSE_LOOP_KEY_INFO }} 
           - name: Redeploy UkrEnergo parser
-            if: ${{ inputs.redeploy_alerts_ws || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
