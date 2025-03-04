@@ -301,19 +301,19 @@ async def svg_generator_energy(mc):
 
             weather_cache = await get_weather(mc, b"energy_ukrenergo", {"states": {}})
             for region_id, region_data in weather_cache["states"].items():
-               state_id = int(region_id)
-               state_name = get_region_name("id", state_id)
-               match region_data["state"]["id"]:
-                  case 0:
-                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
-                  case 3:
-                     energy_svg_data[state_name] = COLOR_ENERGY_OK
-                  case 4:
-                     energy_svg_data[state_name] = COLOR_ENERGY_WARNING
-                  case 9:
-                     energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
-                  case _:
-                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                match region_data["state"]["id"]:
+                    case 0:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                    case 3:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OK
+                    case 4:
+                        energy_svg_data[state_name] = COLOR_ENERGY_WARNING
+                    case 9:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
+                    case _:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
 
             if energy_svg_data == stored_data:
                 continue
@@ -428,7 +428,9 @@ def calculate_html_color_from_temp(temp):
     return hex_color
 
 
-async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, show_energy_info=False, **kwargs):
+async def generate_map(
+    time, output_file, show_alert_info=False, show_weather_info=False, show_energy_info=False, **kwargs
+):
     logger.debug("generator start")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
