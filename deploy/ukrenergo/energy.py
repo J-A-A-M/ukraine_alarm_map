@@ -82,7 +82,7 @@ async def get_region_data(region_id, headers, proxy):
     if proxy:
         logger.info(f"Fetching source URL: {url} via proxy {proxy}")
 
-    timeout = aiohttp.ClientTimeout(total=10)
+    timeout = aiohttp.ClientTimeout(total=30)
     connector = ProxyConnector.from_url(proxy) if proxy else None
 
     try:
