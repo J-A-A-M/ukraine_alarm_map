@@ -3,7 +3,7 @@
 # Default values
 MEMCACHED_HOST=""
 LOGGING="INFO"
-WS_PROXIES=""
+PROXIES=""
 WS_SOURCE_URL=""
 WS_TOKEN_ID=""
 WS_URL_ID=""
@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -pr|--proxies)
-            WS_PROXIES="$2"
+            PROXIES="$2"
             shift 2
             ;;
         -su|--source_url)
@@ -77,7 +77,7 @@ echo "ALERTS WS"
 
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "LOGGING: $LOGGING"
-echo "WS_PROXIES: $WS_PROXIES"
+echo "PROXIES: $PROXIES"
 echo "WS_SOURCE_URL: $WS_SOURCE_URL"
 echo "WS_TOKEN_ID: $WS_TOKEN_ID"
 echo "WS_URL_ID: $WS_URL_ID"
@@ -112,7 +112,7 @@ echo "Deploying new container..."
 docker run --name map_alerts_ws --restart unless-stopped --network=jaam -d  \
     --env MEMCACHED_HOST="$MEMCACHED_HOST" \
     --env LOGGING="$LOGGING" \
-    --env WS_PROXIES="$WS_PROXIES" \
+    --env PROXIES="$PROXIES" \
     --env WS_SOURCE_URL="$WS_SOURCE_URL" \
     --env WS_TOKEN_ID="$WS_TOKEN_ID" \
     --env WS_URL_ID="$WS_URL_ID" \

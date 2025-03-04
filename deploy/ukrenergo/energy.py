@@ -13,18 +13,18 @@ version = 1
 debug_level = os.environ.get("LOGGING") or "INFO"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 proxies = os.environ.get("PROXIES")
-source_url = os.environ.get("SOURCE_URL")
+source_url = os.environ.get("UKRENERGO_SOURCE_URL")
 request_time = int(os.environ.get("UKRENERGO_REQUEST_PERIOD", 5))
 loop_time = int(os.environ.get("UKRENERGO_UPDATE_PERIOD", 300))
-user_agent = os.environ.get("USER_AGENT")
-matrix = os.environ.get("MATRIX")
+user_agent = os.environ.get("UKRENERGO_USER_AGENT")
+matrix = os.environ.get("UKRENERGO_MATRIX")
 
 if not source_url:
-    raise ValueError("SOURCE_URL environment variable is required")
+    raise ValueError("UKRENERGO_SOURCE_URL environment variable is required")
 if not user_agent:
-    raise ValueError("USER_AGENT environment variable is required")
+    raise ValueError("UKRENERGO_USER_AGENT environment variable is required")
 if not matrix:
-    raise ValueError("MATRIX environment variable is required")
+    raise ValueError("UKRENERGO_MATRIX environment variable is required")
 
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")

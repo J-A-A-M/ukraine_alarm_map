@@ -23,9 +23,9 @@ on:
         default: false
         description: Alerts parser
       redeploy_alerts_ws:
-          type: boolean
-          default: false
-          description: Alerts websocket parser
+        type: boolean
+        default: false
+        description: Alerts websocket parser
       redeploy_weather:
         type: boolean
         default: false
@@ -42,6 +42,10 @@ on:
         type: boolean
         default: false
         description: Etryvoga parser
+      redeploy_energy:
+        type: boolean
+        default: false
+        description: UkrEnergo parser
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 jobs:
@@ -168,7 +172,7 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts_ws.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
-                  -pr ${{ secrets.WS_PROXIES }} \
+                  -pr ${{ secrets.PROXIES }} \
                   -su ${{ secrets.WS_SOURCE_URL }} \
                   -tid ${{ secrets.WS_TOKEN_ID }} \
                   -u ${{ secrets.WS_URL_ID }} \
@@ -178,6 +182,25 @@ jobs:
                   -iki ${{ secrets.WS_RESPONSE_INITIAL_KEY_INFO }} \
                   -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
                   -lki ${{ secrets.WS_RESPONSE_LOOP_KEY_INFO }} 
+          - name: Redeploy UkrEnergo parser
+            if: ${{ inputs.redeploy_alerts_ws || inputs.redeploy_all }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_ukrenergo.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                  -r ${{ secrets.UKRENERGO_REQUEST_PERIOD }} \
+                  -u ${{ secrets.UKRENERGO_UPDATE_PERIOD }} \
+                  -s ${{ secrets.UKRENERGO_SOURCE_URL }} \
+                  -pr ${{ secrets.PROXIES }} \
+                  -ua '${{ secrets.UKRENERGO_USER_AGENT }}' \
+                  -mx '${{ secrets.UKRENERGO_MATRIX }}'
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

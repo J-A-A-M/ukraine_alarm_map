@@ -26,19 +26,19 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -s|--source-url)
-            SOURCE_URL="$2"
+            UKRENERGO_SOURCE_URL="$2"
             shift 2
             ;;
-        -p|--proxies)
+        -pr|--proxies)
             PROXIES="$2"
             shift 2
             ;;
         -ua|--user-agent)
-            USER_AGENT="$2"
+            UKRENERGO_USER_AGENT="$2"
             shift 2
             ;;
         -mx|--matrix)
-            MATRIX="$2"
+            UKRENERGO_MATRIX="$2"
             shift 2
             ;;
         -l|--logging)
@@ -57,10 +57,10 @@ echo "UKRENERGO"
 echo "MEMCACHED_HOST: $MEMCACHED_HOST"
 echo "UKRENERGO_REQUEST_PERIOD: $UKRENERGO_REQUEST_PERIOD"
 echo "UKRENERGO_UPDATE_PERIOD: $UKRENERGO_UPDATE_PERIOD"
-echo "SOURCE_URL: $SOURCE_URL"
+echo "SOURCE_URL: $UKRENERGO_SOURCE_URL"
 echo "PROXIES: $PROXIES"
-echo "USER_AGENT: $USER_AGENT"
-echo "MATRIX: $MATRIX"
+echo "USER_AGENT: $UKRENERGO_USER_AGENT"
+echo "MATRIX: $UKRENERGO_MATRIX"
 echo "LOGGING: $LOGGING"
 
 # Updating the Git repo
@@ -89,10 +89,10 @@ docker run --name map_ukrenergo \
         --env MEMCACHED_HOST="$MEMCACHED_HOST" \
         --env UKRENERGO_REQUEST_PERIOD="$UKRENERGO_REQUEST_PERIOD" \
         --env UKRENERGO_UPDATE_PERIOD="$UKRENERGO_UPDATE_PERIOD" \
-        --env SOURCE_URL="$SOURCE_URL" \
+        --env UKRENERGO_SOURCE_URL="$UKRENERGO_SOURCE_URL" \
         --env PROXIES="$PROXIES" \
-        --env USER_AGENT="$USER_AGENT" \
-        --env MATRIX="$MATRIX" \
+        --env UKRENERGO_USER_AGENT="$UKRENERGO_USER_AGENT" \
+        --env UKRENERGO_MATRIX="$UKRENERGO_MATRIX" \
         --env LOGGING="$LOGGING" \
         map_ukrenergo
 
