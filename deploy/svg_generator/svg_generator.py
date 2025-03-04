@@ -66,6 +66,10 @@ COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
 COLOR_BALLISTIC = "#f9ff33"
+COLOR_ENERGY_UNKNOWN = "#808080"
+COLOR_ENERGY_OK = "#55a349"
+COLOR_ENERGY_WARNING = "#f9ac1a"
+COLOR_ENERGY_OFFLINE = "#c82400"
 
 legacy_flag_leds = [
     60,
@@ -128,6 +132,10 @@ async def get_etryvoga(mc, key_b, default_response={}):
 
 
 async def get_weather(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
+async def get_energy(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
 
@@ -281,6 +289,50 @@ async def svg_generator_weather(mc):
             logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
+async def svg_generator_energy(mc):
+    stored_data = {}
+    while True:
+        try:
+            logger.debug("start energy map generation")
+            await asyncio.sleep(loop_time)
+            local_time = get_current_datetime_formatted()
+
+            energy_svg_data = {}
+
+            weather_cache = await get_weather(mc, b"energy_ukrenergo", {"states": {}})
+            for region_id, region_data in weather_cache["states"].items():
+               state_id = int(region_id)
+               state_name = get_region_name("id", state_id)
+               match region_data["state"]["id"]:
+                  case 0:
+                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                  case 3:
+                     energy_svg_data[state_name] = COLOR_ENERGY_OK
+                  case 4:
+                     energy_svg_data[state_name] = COLOR_ENERGY_WARNING
+                  case 9:
+                     energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
+                  case _:
+                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+
+            if energy_svg_data == stored_data:
+                continue
+
+            file_path = os.path.join(shared_path, "energy_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_energy_info=True,
+                **energy_svg_data,
+            )
+            stored_data = energy_svg_data
+            logger.debug("end energy map generation")
+
+        except Exception as e:
+            logger.error(f"svg_generator_energy: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+
+
 async def generate_flag():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
@@ -376,7 +428,7 @@ def calculate_html_color_from_temp(temp):
     return hex_color
 
 
-async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
+async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, show_energy_info=False, **kwargs):
     logger.debug("generator start")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
@@ -1087,6 +1139,17 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <text x="75" y="985" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>
 
+            <g id="ENERGY_LEGEND" visibility="{"visible" if show_energy_info else "hidden"}">
+               <circle cx="50" cy="630" r="20" fill="{COLOR_ENERGY_UNKNOWN}" id="circle224" />
+               <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- Нема даних</text>
+               <circle cx="50" cy="680" r="20" fill="{COLOR_ENERGY_OK}" id="circle228" />
+               <text x="75" y="685" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- Електроенергії вистачає</text>
+               <circle cx="50" cy="730" r="20" fill="{COLOR_ENERGY_WARNING}" id="circle232" />
+               <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- Електроенергії не вистачає</text>
+               <circle cx="50" cy="780" r="20" fill="{COLOR_ENERGY_OFFLINE}" id="circle236" />
+               <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- Застосовані аварійні відключення</text>
+            </g>
+
             <g transform="translate(60,20) scale(0.5)">
                <path d="M-81.25 1.25h162.5v172.5a31.25 31.25 0 0 1-18.578029 28.565428L0 228.867475l-62.671971-27.802047A31.25 31.25 0 0 1-81.25 172.5z" fill="#005bbb" stroke="#ffd500" stroke-width="2.5"/>
                <path d="M5.985561 78.82382a104.079383 104.079383 0 0 0 14.053598 56.017033 55 55 0 0 1-13.218774 70.637179A20 20 0 0 0 0 212.5a20 20 0 0 0-6.820384-7.021968 55 55 0 0 1-13.218774-70.637179A104.079383 104.079383 0 0 0-5.98556 78.82382l-1.599642-45.260519A30.103986 30.103986 0 0 1 0 12.5a30.103986 30.103986 0 0 1 7.585202 21.063301zM5 193.624749a45 45 0 0 0 6.395675-53.75496A114.079383 114.079383 0 0 1 0 112.734179a114.079383 114.079383 0 0 1-11.395675 27.13561A45 45 0 0 0-5 193.624749V162.5H5z" fill="#ffd500" stroke="#000000" stroke-width="2" />
@@ -1119,7 +1182,7 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc))
+        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
