@@ -248,7 +248,7 @@ async def svg_generator_alerts(mc):
                 **alerts_svg_data,
             )
             stored_data = alerts_svg_data
-            logger.debug("end alerts map generation")
+            logger.info("end alerts map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_alerts: {e}")
@@ -282,7 +282,7 @@ async def svg_generator_weather(mc):
                 **weather_svg_data,
             )
             stored_data = weather_svg_data
-            logger.debug("end weather map generation")
+            logger.info("end weather map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_weather: {e}")
@@ -299,8 +299,8 @@ async def svg_generator_energy(mc):
 
             energy_svg_data = {}
 
-            weather_cache = await get_weather(mc, b"energy_ukrenergo", {"states": {}})
-            for region_id, region_data in weather_cache["states"].items():
+            energy_cache = await get_weather(mc, b"energy_ukrenergo", {"states": {}})
+            for region_id, region_data in energy_cache["states"].items():
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
                 match region_data["state"]["id"]:
@@ -326,7 +326,7 @@ async def svg_generator_energy(mc):
                 **energy_svg_data,
             )
             stored_data = energy_svg_data
-            logger.debug("end energy map generation")
+            logger.info("end energy map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_energy: {e}")
