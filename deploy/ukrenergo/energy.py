@@ -102,15 +102,20 @@ async def get_region_data(region_id, headers, proxy):
                         return None
 
         except asyncio.TimeoutError:
-            logger.warning(f"Timeout occurred for region {region_id}, retrying... ({attempt+1}/{max_retries})")
+            logger.warning(f"Timeout occurred for region {region_id}")
+            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
             attempt += 1
-            await asyncio.sleep(base_delay * attempt)  # Збільшуємо затримку з кожною спробою
+            await asyncio.sleep(base_delay * attempt)
         except aiohttp.ClientError as e:
             logger.error(f"Request error for region {region_id}: {e}")
-            return None
+            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+            attempt += 1
+            await asyncio.sleep(base_delay * attempt)
         except Exception as e:
             logger.error(f"Unexpected error for region {region_id}: {e}")
-            return None
+            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+            attempt += 1
+            await asyncio.sleep(base_delay * attempt)
 
     logger.error(f"Max retries reached for region {region_id}, skipping...")
     return None
