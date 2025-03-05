@@ -69,8 +69,16 @@ async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
 
 
+async def handle_retry(attempt, max_retries, base_delay):
+    if attempt >= max_retries - 1:
+        return False
+    logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+    await asyncio.sleep(base_delay * (attempt + 1))
+    return True
+
+
 def get_random_proxy():
-    if not proxies or proxies == [""]:
+    if not proxies or proxies == "":
         return None
     return random.choice(proxies.split("::")).strip()
 
@@ -100,22 +108,27 @@ async def get_region_data(region_id, headers):
                     except json.JSONDecodeError:
                         logger.error(f"JSON decoding error for region {region_id}")
                         return None
-
         except asyncio.TimeoutError:
-            logger.warning(f"Timeout occurred for region {region_id}")
-            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+            error_msg = f"Timeout occurred for region {region_id}"
+            logger.warning(error_msg)
+            retry_success = await handle_retry(attempt, max_retries, base_delay)
+            if not retry_success:
+                break
             attempt += 1
-            await asyncio.sleep(base_delay * attempt)
         except aiohttp.ClientError as e:
-            logger.error(f"Request error for region {region_id}: {e}")
-            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+            error_msg = f"Request error for region {region_id}: {e}"
+            logger.error(error_msg)
+            retry_success = await handle_retry(attempt, max_retries, base_delay)
+            if not retry_success:
+                break
             attempt += 1
-            await asyncio.sleep(base_delay * attempt)
         except Exception as e:
-            logger.error(f"Unexpected error for region {region_id}: {e}")
-            logger.warning(f"retrying... ({attempt+1}/{max_retries})")
+            error_msg = f"Unexpected error for region {region_id}: {e}"
+            logger.error(error_msg)
+            retry_success = await handle_retry(attempt, max_retries, base_delay)
+            if not retry_success:
+                break
             attempt += 1
-            await asyncio.sleep(base_delay * attempt)
 
     logger.error(f"Max retries reached for region {region_id}, skipping...")
     return None
@@ -151,12 +164,20 @@ async def get_data():
 async def get_ukrenergo_data(mc):
 
     while True:
-        energy_cached_data = await get_data()
-        energy_cached_data["info"]["last_update"] = get_current_datetime()
-        logger.debug("store energy data: %s" % get_current_datetime())
-        await mc.set(b"energy_ukrenergo", json.dumps(energy_cached_data).encode("utf-8"))
-        await service_is_fine(mc, b"ukrenergo_api_last_call")
-        logger.info("energy data stored")
+        try:
+            energy_cached_data = await get_data()
+            if not energy_cached_data or not energy_cached_data.get("states"):
+                logger.error("Failed to fetch energy data, empty or incorrect response")
+                await asyncio.sleep(loop_time)
+                continue
+
+            energy_cached_data["info"]["last_update"] = get_current_datetime()
+            logger.debug("store energy data: %s" % get_current_datetime())
+            await mc.set(b"energy_ukrenergo", json.dumps(energy_cached_data).encode("utf-8"))
+            await service_is_fine(mc, b"ukrenergo_api_last_call")
+            logger.info("energy data stored")
+        except Exception as e:
+            logger.error(f"Error in get_ukrenergo_data: {e}")
         await asyncio.sleep(loop_time)
 
 

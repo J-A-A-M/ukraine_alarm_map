@@ -1412,20 +1412,25 @@ void showEnergy() {
   int status = id_to_energy[settings.getInt(HOME_DISTRICT)].first;
   char title[38];
   char message[35];
-  sprintf(message, "%02d%c", id_to_energy[regionId]);
   strcpy(title, "Стан енергосистеми");
 
-  if (status == 0 ) {
-    strcpy(message, "Дані відсутні");
-  } else if (status == 3) {
-    strcpy(message, "Достатньо");
-  } else if (status == 4) {
-    strcpy(message, "Не вистачає");
-  }else if (status == 9) {
-    strcpy(message, "Відключення!");
-  }else {
-    strcpy(message, "Невідомий статус");
-  }
+  switch (status) {
+    case 0:
+      strcpy(message, "Дані відсутні");
+      break;
+    case 3:
+      strcpy(message, "Достатньо");
+      break;
+    case 4:
+      strcpy(message, "Не вистачає");
+      break;
+    case 9:
+      strcpy(message, "Відключення!");
+      break;
+    default:
+      strcpy(message, "Невідомий статус");
+      break;
+    }
   displayMessage(message, title);
 }
 

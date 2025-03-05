@@ -21,7 +21,7 @@ ws_request_follow_up = os.environ.get("WS_REQUEST_FOLLOW_UP")  # "[]"
 ws_request_data_trigger = os.environ.get("WS_REQUEST_DATA_TRIGGER")  # "[]"
 ws_request_token = os.environ.get("WS_REQUEST_TOKEN")
 ws_request_uri = os.environ.get("WS_REQUEST_URI")
-ws_proxies = os.environ.get("PROXIES")
+proxies = os.environ.get("PROXIES")
 ws_response_initial_key_alerts = os.environ.get("WS_RESPONSE_INITIAL_KEY_ALERTS")
 ws_response_initial_key_info = os.environ.get("WS_RESPONSE_INITIAL_KEY_INFO")
 ws_response_loop_key_alerts = os.environ.get("WS_RESPONSE_LOOP_KEY_ALERTS")
@@ -52,9 +52,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_random_proxy():
-    if not ws_proxies or ws_proxies == [""]:
+    if not proxies or proxies == "":
         return None
-    return random.choice(ws_proxies.split("::")).strip()
+    return random.choice(proxies.split("::")).strip()
 
 
 async def fetch_token():
