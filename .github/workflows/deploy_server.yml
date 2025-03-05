@@ -2,38 +2,18 @@ name: ☁️ Deploy Microservices
 on:
   workflow_dispatch:
     inputs:
-      redeploy_web_sockets:
-        type: boolean
-        default: false
-        description: WebSocket server (map data)
-      redeploy_update_server:
-        type: boolean
-        default: false
-        description: Update server (bin list)
-      redeploy_web_server:
-        type: boolean
-        default: false
-        description: Web server 
       redeploy_alerts:
         type: boolean
         default: false
-        description: Alerts parser
+        description: Alerts UkraineAlarm Api parser
       redeploy_alerts_ws:
         type: boolean
         default: false
-        description: Alerts websocket parser
+        description: Alerts UkraineAlarm websocket parser
       redeploy_weather:
         type: boolean
         default: false
         description: Weather parser
-      redeploy_updater:
-        type: boolean
-        default: false
-        description: Updater (information processing)
-      redeploy_svg_generator:
-        type: boolean
-        default: false
-        description: SVG Generator
       redeploy_etryvoga:
         type: boolean
         default: false
@@ -42,6 +22,26 @@ on:
         type: boolean
         default: false
         description: UkrEnergo parser
+      redeploy_svg_generator:
+        type: boolean
+        default: false
+        description: SVG Generator
+      redeploy_updater:
+        type: boolean
+        default: false
+        description: Updater (information processing)
+      redeploy_update_server:
+        type: boolean
+        default: false
+        description: Update server (bin list)
+      redeploy_web_sockets:
+        type: boolean
+        default: false
+        description: WebSocket server (map data)
+      redeploy_web_server:
+        type: boolean
+        default: false
+        description: Web server 
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 jobs:
