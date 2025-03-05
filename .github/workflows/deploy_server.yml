@@ -179,7 +179,7 @@ jobs:
                   -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
                   -lki ${{ secrets.WS_RESPONSE_LOOP_KEY_INFO }} 
           - name: Redeploy UkrEnergo parser
-            if: ${{ inputs.redeploy_alerts_ws }}
+            if: ${{ inputs.redeploy_energy }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
