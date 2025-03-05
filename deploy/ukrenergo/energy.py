@@ -75,20 +75,20 @@ def get_random_proxy():
     return random.choice(proxies.split("::")).strip()
 
 
-async def get_region_data(region_id, headers, proxy):
+async def get_region_data(region_id, headers):
     url = f"{source_url}{region_id}"
     attempt = 0
     max_retries = 5
     base_delay = request_time
 
-    if proxy:
-        logger.info(f"Fetching source URL: {url} via proxy {proxy}")
-
     timeout = aiohttp.ClientTimeout(total=30)
-    connector = ProxyConnector.from_url(proxy) if proxy else None
 
     while attempt < max_retries:
         try:
+            proxy = get_random_proxy()
+            if proxy:
+                logger.info(f"Fetching source URL: {url} via proxy {proxy}")
+            connector = ProxyConnector.from_url(proxy) if proxy else None
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
                 async with session.get(url, headers=headers) as response:
                     if response.status != 200:
@@ -131,7 +131,6 @@ async def get_data():
         "content-type": "application/json",
     }
 
-    proxy = get_random_proxy()
     energy_cached_data = {
         "states": {},
         "info": {
@@ -140,7 +139,7 @@ async def get_data():
     }
 
     for region_name, region_data in regions.items():
-        region_energy = await get_region_data(region_id=region_data["id"], headers=headers, proxy=proxy)
+        region_energy = await get_region_data(region_id=region_data["id"], headers=headers)
         if region_energy:
             logger.info(f"fetched data from region {region_data['id']}")
             energy_cached_data["states"][region_data["id"]] = region_energy
