@@ -106,6 +106,8 @@ std::map<int, std::pair<int, long>> id_to_ballistic; //regionId to ballistic sta
 std::map<int, std::pair<int, long>> led_to_ballistic; // ledPosition to ballistic state and time
 std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
 std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
+std::map<int, float>                id_to_radiation; //regionId to radiation
+std::map<int, float>                led_to_radiation; // ledPosition to radiation
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -1222,9 +1224,19 @@ float weatherCombiModeHandler(float kyiv, float kyivObl) {
   return (kyiv + kyivObl) / 2.0f;
 }
 
+float radiationCombiModeHandler(float kyiv, float kyivObl) {
+  // return average value of Kyiv and Kyiv Oblast
+  return (kyiv + kyivObl) / 2.0f;
+}
+
 void remapWeather() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? weatherCombiModeHandler : NULL;
   led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
+}
+
+void remapRadiation() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? radiationCombiModeHandler : NULL;
+  led_to_radiation = mapLeds(ledMapping, id_to_radiation, combiHandler);
 }
 
 void remapEnergy() {
@@ -1407,6 +1419,14 @@ void showTemp() {
   displayMessage(message, getNameById(DISTRICTS, regionId, DISTRICTS_COUNT));
 }
 
+void showRadiation() {
+  int regionId = settings.getInt(HOME_DISTRICT);
+  char title[38];
+  char message[35];
+  sprintf(message, "%.0f%", id_to_radiation[regionId]);
+  displayMessage(message, "Радіація (нЗв/год)");
+}
+
 void showEnergy() {
   int regionId = settings.getInt(HOME_DISTRICT);
   int status = id_to_energy[regionId].first;
@@ -1556,6 +1576,13 @@ int getNextToggleMode(int periodIndex) {
     }
     // else show time
   case 5:
+    // radiation status
+    if (settings.getBool(TOGGLE_MODE_RADIATION)) {
+      // show radiation status
+      return 6;
+    }
+    // else show time
+  case 6:
   default:
     return 0;
   }
@@ -1591,6 +1618,10 @@ void showToggleModes() {
     // Display UkrEnergo Status
     showEnergy();
     break;
+  case 6:
+    // Display SaveEcoBot Radiation Status
+    showRadiation();
+    break;
   default:
     break;
   }
@@ -1620,6 +1651,10 @@ void displayByMode(int mode) {
     // Display UkrEnergo Status
     case 5:
       showEnergy();
+      break;
+    // Display SaveEcoBot Radiation Status
+    case 6:
+      showRadiation();
       break;
     // Display Mode Switching
     case 9:
@@ -1821,6 +1856,7 @@ void initLedMapping() {
   remapBallistic();
   remapHomeDistrict();
   remapEnergy();
+  remapRadiation();
 }
 
 //--Web server start
@@ -2035,6 +2071,9 @@ void addHeader(Print* response) {
       break;
     case 6:
       response->print("energy_map.png");
+      break;
+    case 7:
+      response->print("radiation_map.png");
       break;
     default:
       response->print("alerts_map.png");
@@ -2279,6 +2318,7 @@ void handleModes(AsyncWebServerRequest* request) {
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
     addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем у домашньому регіоні");
+    addCheckbox(response, "toggle_mode_radiation", settings.getBool(TOGGLE_MODE_RADIATION), "Середній рівень радіації у домашньому регіоні");
   }
   addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година");
   addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година");
@@ -2293,6 +2333,7 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MIN_TEMP), -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MAX_TEMP), 11, 40, 1, "°C");
+  addSlider(response, "radiation_max", "Верхній рівень радіації (режим 'Радіація')", settings.getInt(RADIATION_MAX), 110, 2000, 10, " нЗв/год");
   if (buttons.isButton1Enabled()) {
     addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
     addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
@@ -2381,6 +2422,8 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
+  int local_home_district = settings.getInt(HOME_DISTRICT);
+
   AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
@@ -2395,7 +2438,8 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) ], "°C");
+  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_weather[local_home_district], "°C");
+  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_radiation[local_home_district], " нЗв/год");
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2716,6 +2760,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("display_mode_time", true), DISPLAY_MODE_TIME) || saved;
   saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", TOGGLE_MODE_WEATHER) || saved;
   saved = saveBool(request->getParam("toggle_mode_energy", true), "toggle_mode_energy", TOGGLE_MODE_ENERGY) || saved;
+  saved = saveBool(request->getParam("toggle_mode_radiation", true), "toggle_mode_radiation", TOGGLE_MODE_RADIATION) || saved;
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", TOGGLE_MODE_TEMP) || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", TOGGLE_MODE_HUM) || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", TOGGLE_MODE_PRESS) || saved;
@@ -2724,6 +2769,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveFloat(request->getParam("pressure_correction", true), PRESSURE_CORRECTION, NULL, climateSensorCycle) || saved;
   saved = saveInt(request->getParam("weather_min_temp", true), WEATHER_MIN_TEMP) || saved;
   saved = saveInt(request->getParam("weather_max_temp", true), WEATHER_MAX_TEMP) || saved;
+  saved = saveInt(request->getParam("radiation_max", true), RADIATION_MAX) || saved;
   saved = saveInt(request->getParam("button_mode", true), BUTTON_1_MODE) || saved;
   saved = saveInt(request->getParam("button2_mode", true), BUTTON_2_MODE) || saved;
   saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
@@ -3119,7 +3165,13 @@ void onMessageCallback(WebsocketsMessage message) {
         id_to_energy[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["energy"][i][0], (long) data["energy"][i][1]);
       }
       LOG.println("Successfully parsed energy data");
-      remapEnergy();
+      remapEnergy();;
+    } else if (payload == "radiation") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_radiation[mapIndexToRegionId(i)] = data["radiation"][i];
+      }
+      LOG.println("Successfully parsed radiation data");
+      remapRadiation();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3393,6 +3445,24 @@ int processWeather(float temp) {
   return hue;
 }
 
+int processRadiation(int rad) {
+  float maxRad = settings.getInt(RADIATION_MAX);
+
+  float normalizedValue = float(rad - 100) / float(maxRad - 100);
+
+  if (normalizedValue > 1) {
+    normalizedValue = 1;
+  }
+  if (normalizedValue < 0) {
+    normalizedValue = 0;
+  }
+
+  int hue = round(180 + normalizedValue * (320 - 180));  
+  hue %= 360;
+
+  return hue;
+}
+
 int processEnergy(int status) {
   int hue = 0;
   if (status == 3) {
@@ -3412,8 +3482,8 @@ void mapReconnect() {
     strip[i] = hue;
   }
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3429,8 +3499,8 @@ void mapOff() {
 void mapLamp() {
   fill_solid(strip, MAIN_LEDS_COUNT, fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS)));
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3505,8 +3575,27 @@ void mapWeather() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) ]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) ]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
+  }
+  FastLED.show();
+}
+
+void mapRadiation() {
+  int current_brightness = settings.getInt(CURRENT_BRIGHTNESS);
+  int local_home_district = settings.getInt(HOME_DISTRICT);
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    int brightness = 0;
+    int rad = led_to_radiation[i];
+    if (rad > 0) {
+      brightness = current_brightness;
+    }
+    strip[i] = fromHue(processRadiation(led_to_radiation[i]), brightness);
+  }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processRadiation(id_to_radiation[local_home_district]), current_brightness * brightness_factor));
   }
   FastLED.show();
 }
@@ -3523,8 +3612,8 @@ void mapEnergy() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3535,8 +3624,8 @@ void mapFlag() {
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(180, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(180, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3548,8 +3637,8 @@ void mapRandom() {
   if (isBgStripEnabled()) {
     int bgRandomLed = random(settings.getInt(BG_LED_COUNT));
     int bgRandomColor = random(360);
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror);
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor);
   }
   FastLED.show();
 }
@@ -3581,6 +3670,9 @@ void mapCycle() {
       break;
     case 6:
       mapEnergy();
+      break;
+    case 7:
+      mapRadiation();
       break;
     case 1000:
       mapReconnect();

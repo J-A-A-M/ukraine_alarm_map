@@ -487,8 +487,12 @@ async def update_energy_websocket_v1(mc, run_once=False):
 async def update_radiation_websocket_v1(mc, run_once=False):
     while True:
         try:
-            data_cache = await get_cache_data(mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}})
-            sensors_cache = await get_cache_data(mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}})
+            data_cache = await get_cache_data(
+                mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            sensors_cache = await get_cache_data(
+                mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
             websocket = await get_cache_data(mc, b"radiation_websocket_v1", [0] * 26)
 
             data = [0] * 26

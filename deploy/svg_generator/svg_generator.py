@@ -143,7 +143,7 @@ async def get_energy(mc, key_b, default_response={}):
 
 def get_region_name(search_key, region_id):
     if search_key == "name" and region_id == "Київ":
-         return "KIYEW"
+        return "KIYEW"
     return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
 
 
@@ -340,20 +340,24 @@ async def svg_generator_energy(mc):
 async def svg_generator_radiation(mc):
     stored_data = {}
     while True:
-         try:
+        try:
             logger.debug("start radiation map generation")
             local_time = get_current_datetime_formatted()
 
             radiation_svg_data = {}
 
-            data_cache = await get_cache_data(mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}})
-            sensors_cache = await get_cache_data(mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}})
+            data_cache = await get_cache_data(
+                mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            sensors_cache = await get_cache_data(
+                mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
 
             temp_data = {}
             for sensor_data in data_cache["states"]:
                 if sensor_data["is_old"]:
                     continue
-                
+
                 state_name = sensors_cache["states"].get(str(sensor_data["sensor_id"]), {}).get("region_name")
                 if not state_name:
                     continue
@@ -368,7 +372,7 @@ async def svg_generator_radiation(mc):
                     continue
 
                 radiation_svg_data[state_name] = calculate_html_color_from_radiation(statistics.median(radiation_data))
-            
+
             if radiation_svg_data == stored_data:
                 continue
 
@@ -382,10 +386,10 @@ async def svg_generator_radiation(mc):
             stored_data = radiation_svg_data
             logger.info("end radiation map generation")
 
-         except Exception as e:
+        except Exception as e:
             logger.error(f"svg_generator_radiation: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-         await asyncio.sleep(loop_time_long)
+        await asyncio.sleep(loop_time_long)
 
 
 async def generate_flag():
@@ -539,7 +543,13 @@ def calculate_html_color_from_temp(temp):
 
 
 async def generate_map(
-    time, output_file, show_alert_info=False, show_weather_info=False, show_energy_info=False, show_radiation_info=False, **kwargs
+    time,
+    output_file,
+    show_alert_info=False,
+    show_weather_info=False,
+    show_energy_info=False,
+    show_radiation_info=False,
+    **kwargs,
 ):
     logger.debug("generator start")
     svg_data = f"""
@@ -1295,7 +1305,7 @@ async def generate_map(
                <text x="130" y="825" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">201-300</text>
                <text x="130" y="865" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">301-500</text>
                <text x="130" y="905" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">501-2000</text>
-               <text x="130" y="945" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">2000+ нЗв/год</text>
+               <text x="130" y="945" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">2000+</text>
             </g>
 
             <g id="FLAG_JAAM">
@@ -1316,8 +1326,10 @@ async def generate_map(
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc), svg_generator_radiation(mc))
-        
+        await asyncio.gather(
+            svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc), svg_generator_radiation(mc)
+        )
+
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
