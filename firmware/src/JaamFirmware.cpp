@@ -1404,12 +1404,12 @@ void showTemp() {
   int regionId = settings.getInt(HOME_DISTRICT);
   char message[10];
   sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
-  displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
+  displayMessage(message, getNameById(DISTRICTS, regionId, DISTRICTS_COUNT));
 }
 
 void showEnergy() {
   int regionId = settings.getInt(HOME_DISTRICT);
-  int status = id_to_energy[settings.getInt(HOME_DISTRICT)].first;
+  int status = id_to_energy[regionId].first;
   char title[38];
   char message[35];
   strcpy(title, "Стан енергосистеми");
