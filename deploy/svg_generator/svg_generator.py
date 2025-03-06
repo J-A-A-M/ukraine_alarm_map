@@ -342,6 +342,7 @@ async def svg_generator_radiation(mc):
     while True:
         try:
             logger.debug("start radiation map generation")
+            await asyncio.sleep(loop_time_long)
             local_time = get_current_datetime_formatted()
 
             radiation_svg_data = {}
@@ -389,7 +390,7 @@ async def svg_generator_radiation(mc):
         except Exception as e:
             logger.error(f"svg_generator_radiation: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-        await asyncio.sleep(loop_time_long)
+        
 
 
 async def generate_flag():
