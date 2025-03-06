@@ -22,6 +22,10 @@ on:
         type: boolean
         default: false
         description: UkrEnergo parser
+      redeploy_radiation:
+        type: boolean
+        default: false
+        description: SaveEcoBot radiation parser
       redeploy_svg_generator:
         type: boolean
         default: false
@@ -34,10 +38,6 @@ on:
         type: boolean
         default: false
         description: Update server (bin list)
-      redeploy_web_sockets:
-        type: boolean
-        default: false
-        description: WebSocket server (map data)
       redeploy_web_server:
         type: boolean
         default: false
@@ -51,19 +51,6 @@ jobs:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy WebSockets
-            if: ${{ inputs.redeploy_web_sockets }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_websocket_server.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }}
           - name: Redeploy Update Server (bin list)
             if: ${{ inputs.redeploy_update_server }}
             uses: appleboy/ssh-action@v1.2.0
@@ -197,6 +184,23 @@ jobs:
                   -pr ${{ secrets.PROXIES }} \
                   -ua '${{ secrets.UKRENERGO_USER_AGENT }}' \
                   -mx '${{ secrets.UKRENERGO_MATRIX }}'
+          - name: Redeploy SaveEcoBot radiation parser
+            if: ${{ inputs.redeploy_radiation }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_radiation.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                  -a ${{ secrets.SAVEECOBOT_API_KEY }} \
+                  -s ${{ secrets.SAVEECOBOT_SENSORS_URL }} \
+                  -d ${{ secrets.SAVEECOBOT_DATA_URL }} \
+                  -pr ${{ secrets.PROXIES }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
