@@ -224,20 +224,22 @@ static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
   {31, std::make_pair(1, (int*)D31)},
 };
 
-#define MAP_MODES_COUNT 6
+#define MAP_MODES_COUNT 7
 static SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
   {0, "Вимкнено", false},
   {1, "Тривога", false},
+  {6, "Енергосистема", false},
   {2, "Погода", false},
   {3, "Прапор", false},
   {4, "Випадкові кольори", false},
   {5, "Лампа", false},
 };
 
-#define DISPLAY_MODE_OPTIONS_MAX 6
+#define DISPLAY_MODE_OPTIONS_MAX 7
 static SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
   {0, "Вимкнено", false},
   {1, "Годинник", false},
+  {5, "Енергосистема", false},
   {2, "Погода", false},
   {3, "Технічна інформація", false},
   {4, "Мікроклімат", false},

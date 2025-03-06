@@ -104,6 +104,8 @@ std::map<int, std::pair<int, long>> id_to_drones; //regionId to drones state and
 std::map<int, std::pair<int, long>> led_to_drones; // ledPosition to drones state and time
 std::map<int, std::pair<int, long>> id_to_ballistic; //regionId to ballistic state and time
 std::map<int, std::pair<int, long>> led_to_ballistic; // ledPosition to ballistic state and time
+std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
+std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -156,6 +158,7 @@ int     currentDimDisplay = 0;
 // 2 - Climate Temperature
 // 3 - Climate Humidity
 // 4 - Climate Pressure
+// 5 - Energy monitoring
 int     currentDisplayToggleMode = 0;
 int     currentDisplayToggleIndex = 0;
 
@@ -1224,6 +1227,11 @@ void remapWeather() {
   led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
 }
 
+void remapEnergy() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_energy = mapLeds(ledMapping, id_to_energy, combiHandler);
+}
+
 long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
   // return nearest by time
   return max(kyiv, kyivObl);
@@ -1396,7 +1404,34 @@ void showTemp() {
   int regionId = settings.getInt(HOME_DISTRICT);
   char message[10];
   sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
-  displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
+  displayMessage(message, getNameById(DISTRICTS, regionId, DISTRICTS_COUNT));
+}
+
+void showEnergy() {
+  int regionId = settings.getInt(HOME_DISTRICT);
+  int status = id_to_energy[regionId].first;
+  char title[38];
+  char message[35];
+  strcpy(title, "Стан енергосистеми");
+
+  switch (status) {
+    case 0:
+      strcpy(message, "Дані відсутні");
+      break;
+    case 3:
+      strcpy(message, "Достатньо");
+      break;
+    case 4:
+      strcpy(message, "Не вистачає");
+      break;
+    case 9:
+      strcpy(message, "Відключення!");
+      break;
+    default:
+      strcpy(message, "Невідомий статус");
+      break;
+    }
+  displayMessage(message, title);
 }
 
 void showTechInfo() {
@@ -1513,8 +1548,14 @@ int getNextToggleMode(int periodIndex) {
       // show local pressure
       return 4;
     }
-    // else show time
   case 4:
+    // enegry status
+    if (settings.getBool(TOGGLE_MODE_ENERGY)) {
+      // show grid status
+      return 5;
+    }
+    // else show time
+  case 5:
   default:
     return 0;
   }
@@ -1546,6 +1587,10 @@ void showToggleModes() {
     // Display Climate Pressure
     showLocalPressure();
     break;
+  case 5:
+    // Display UkrEnergo Status
+    showEnergy();
+    break;
   default:
     break;
   }
@@ -1571,6 +1616,10 @@ void displayByMode(int mode) {
     // Display Climate info from sensor
     case 4:
       showClimate();
+      break;
+    // Display UkrEnergo Status
+    case 5:
+      showEnergy();
       break;
     // Display Mode Switching
     case 9:
@@ -1771,6 +1820,7 @@ void initLedMapping() {
   remapDrones();
   remapBallistic();
   remapHomeDistrict();
+  remapEnergy();
 }
 
 //--Web server start
@@ -1982,6 +2032,9 @@ void addHeader(Print* response) {
       break;
     case 5:
       response->print("lamp_map.png");
+      break;
+    case 6:
+      response->print("energy_map.png");
       break;
     default:
       response->print("alerts_map.png");
@@ -2217,13 +2270,15 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
     addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні)");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
+    response->println("Відображати в режимі \"Перемикання\":<br><br>");
     if (climate.isAnySensorAvailable()) {
-      response->println("Відображати в режимі \"Перемикання\":<br><br>");
+      
       addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.getBool(TOGGLE_MODE_TEMP), "Температуру в приміщенні");
       if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
+    addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем у домашньому регіоні");
   }
   addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година");
   addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година");
@@ -2660,6 +2715,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("home_district", true), HOME_DISTRICT, saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), DISPLAY_MODE_TIME) || saved;
   saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", TOGGLE_MODE_WEATHER) || saved;
+  saved = saveBool(request->getParam("toggle_mode_energy", true), "toggle_mode_energy", TOGGLE_MODE_ENERGY) || saved;
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", TOGGLE_MODE_TEMP) || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", TOGGLE_MODE_HUM) || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", TOGGLE_MODE_PRESS) || saved;
@@ -3058,6 +3114,12 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed ballistic data");
       remapBallistic();
+    } else if (payload == "energy") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_energy[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["energy"][i][0], (long) data["energy"][i][1]);
+      }
+      LOG.println("Successfully parsed energy data");
+      remapEnergy();
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3331,6 +3393,18 @@ int processWeather(float temp) {
   return hue;
 }
 
+int processEnergy(int status) {
+  int hue = 0;
+  if (status == 3) {
+    hue = 100;
+  } else if (status == 4) {
+    hue = 30;
+  } else if (status == 9) {
+    hue = 15;
+  }
+  return hue;
+}
+
 void mapReconnect() {
   float localBrightness = getFadeInFadeOutBrightness(settings.getInt(CURRENT_BRIGHTNESS) / 200.0f, settings.getInt(ALERT_BLINK_TIME) * 1000);
   CRGB hue = fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS));
@@ -3437,6 +3511,24 @@ void mapWeather() {
   FastLED.show();
 }
 
+void mapEnergy() {
+  int current_brightness = settings.getInt(CURRENT_BRIGHTNESS);
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    int brightness = 0;
+    int hue = led_to_energy[i].first;
+    if (hue > 0) {
+      brightness = current_brightness;
+    }
+    strip[i] = fromHue(processEnergy(hue), brightness);
+  }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+  }
+  FastLED.show();
+}
+
 void mapFlag() {
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     strip[i] = fromHue(led_to_flag_color[i], settings.getInt(CURRENT_BRIGHTNESS));
@@ -3486,6 +3578,9 @@ void mapCycle() {
       break;
     case 5:
       mapLamp();
+      break;
+    case 6:
+      mapEnergy();
       break;
     case 1000:
       mapReconnect();

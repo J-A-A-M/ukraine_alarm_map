@@ -2,46 +2,46 @@ name: ☁️ Deploy Microservices
 on:
   workflow_dispatch:
     inputs:
-      redeploy_all:
-        type: boolean
-        default: false
-        description: Redeploy all (be careful!)
-      redeploy_web_sockets:
-        type: boolean
-        default: false
-        description: WebSocket server (map data)
-      redeploy_update_server:
-        type: boolean
-        default: false
-        description: Update server (bin list)
-      redeploy_web_server:
-        type: boolean
-        default: false
-        description: Web server 
       redeploy_alerts:
         type: boolean
         default: false
-        description: Alerts parser
+        description: Alerts UkraineAlarm Api parser
       redeploy_alerts_ws:
-          type: boolean
-          default: false
-          description: Alerts websocket parser
+        type: boolean
+        default: false
+        description: Alerts UkraineAlarm websocket parser
       redeploy_weather:
         type: boolean
         default: false
         description: Weather parser
-      redeploy_updater:
-        type: boolean
-        default: false
-        description: Updater (information processing)
-      redeploy_svg_generator:
-        type: boolean
-        default: false
-        description: SVG Generator
       redeploy_etryvoga:
         type: boolean
         default: false
         description: Etryvoga parser
+      redeploy_energy:
+        type: boolean
+        default: false
+        description: UkrEnergo parser
+      redeploy_svg_generator:
+        type: boolean
+        default: false
+        description: SVG Generator
+      redeploy_updater:
+        type: boolean
+        default: false
+        description: Updater (information processing)
+      redeploy_update_server:
+        type: boolean
+        default: false
+        description: Update server (bin list)
+      redeploy_web_sockets:
+        type: boolean
+        default: false
+        description: WebSocket server (map data)
+      redeploy_web_server:
+        type: boolean
+        default: false
+        description: Web server 
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 jobs:
@@ -52,7 +52,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
           - name: Redeploy WebSockets
-            if: ${{ inputs.redeploy_web_sockets || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_web_sockets }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -65,7 +65,7 @@ jobs:
                 git pull
                 bash redeploy_websocket_server.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} -s ${{ secrets.API_SECRET }} -i ${{ secrets.MEASUREMENT_ID }}
           - name: Redeploy Update Server (bin list)
-            if: ${{ inputs.redeploy_update_server || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_update_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -78,7 +78,7 @@ jobs:
                 git pull
                 bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Web Server
-            if: ${{ inputs.redeploy_web_server || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -91,7 +91,7 @@ jobs:
                 git pull
                 bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Weather
-            if: ${{ inputs.redeploy_weather || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_weather }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -104,7 +104,7 @@ jobs:
                 git pull
                 bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Updater
-            if: ${{ inputs.redeploy_updater || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_updater }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -117,7 +117,7 @@ jobs:
                 git pull
                 bash redeploy_updater.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Svg Generator
-            if: ${{ inputs.redeploy_svg_generator || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_svg_generator }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -130,7 +130,7 @@ jobs:
                 git pull
                 bash redeploy_svg_generator.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Etryvoga
-            if: ${{ inputs.redeploy_etryvoga || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_etryvoga }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -143,7 +143,7 @@ jobs:
                 git pull
                 bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Alerts
-            if: ${{ inputs.redeploy_alerts || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_alerts }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -156,7 +156,7 @@ jobs:
                 git pull
                 bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Alerts websocket parser
-            if: ${{ inputs.redeploy_alerts_ws || inputs.redeploy_all }}
+            if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -168,7 +168,7 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_alerts_ws.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
-                  -pr ${{ secrets.WS_PROXIES }} \
+                  -pr ${{ secrets.PROXIES }} \
                   -su ${{ secrets.WS_SOURCE_URL }} \
                   -tid ${{ secrets.WS_TOKEN_ID }} \
                   -u ${{ secrets.WS_URL_ID }} \
@@ -178,6 +178,25 @@ jobs:
                   -iki ${{ secrets.WS_RESPONSE_INITIAL_KEY_INFO }} \
                   -lka ${{ secrets.WS_RESPONSE_LOOP_KEY_ALERTS }} \
                   -lki ${{ secrets.WS_RESPONSE_LOOP_KEY_INFO }} 
+          - name: Redeploy UkrEnergo parser
+            if: ${{ inputs.redeploy_energy }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_ukrenergo.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                  -r ${{ secrets.UKRENERGO_REQUEST_PERIOD }} \
+                  -u ${{ secrets.UKRENERGO_UPDATE_PERIOD }} \
+                  -s ${{ secrets.UKRENERGO_SOURCE_URL }} \
+                  -pr ${{ secrets.PROXIES }} \
+                  -ua '${{ secrets.UKRENERGO_USER_AGENT }}' \
+                  -mx '${{ secrets.UKRENERGO_MATRIX }}'
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
