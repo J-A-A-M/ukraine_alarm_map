@@ -3120,6 +3120,7 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed energy data");
       remapEnergy();
+      ha.setHomeEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first);
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -4008,6 +4009,7 @@ void initHA() {
   }
   ha.initHomeTemperatureSensor();
   ha.initNightModeSensor(nightMode, saveNightMode);
+  ha.initHomeEnergySensor();
 
   ha.connectToMqtt(settings.getInt(HA_MQTT_PORT), settings.getString(HA_MQTT_USER), settings.getString(HA_MQTT_PASSWORD), onMqttStateChanged);
 }
