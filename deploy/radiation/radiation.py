@@ -103,7 +103,9 @@ async def get_sensors(mc: Client) -> None:
                 continue
 
             sensors_cached_data = {
-                "states": sensors_data["data"],
+                "states": {
+                    state_data["sensor_id"]: state_data for state_data in sensors_data["data"]
+                },
                 "info": {
                     "last_update": get_current_datetime(),
                 },

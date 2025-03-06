@@ -1,5 +1,4 @@
-/deploy/alerts_map.png
-/deploy/weather_map.png
+/deploy/*.png
 /deploy/shared_data/
 .DS_Store
 .idea/
