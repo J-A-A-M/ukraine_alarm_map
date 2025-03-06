@@ -66,7 +66,7 @@ COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
 COLOR_BALLISTIC = "#f9ff33"
-COLOR_ENERGY_UNKNOWN = "#808080"
+COLOR_ENERGY_UNKNOWN = "#000000"
 COLOR_ENERGY_OK = "#55a349"
 COLOR_ENERGY_WARNING = "#f9ac1a"
 COLOR_ENERGY_OFFLINE = "#c82400"
@@ -1149,7 +1149,7 @@ async def generate_map(
                <circle cx="50" cy="730" r="20" fill="{COLOR_ENERGY_WARNING}" id="circle232" />
                <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- Електроенергії не вистачає</text>
                <circle cx="50" cy="780" r="20" fill="{COLOR_ENERGY_OFFLINE}" id="circle236" />
-               <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- Застосовані аварійні відключення</text>
+               <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- Застосовуються аварійні відключення</text>
             </g>
 
             <g transform="translate(60,20) scale(0.5)">

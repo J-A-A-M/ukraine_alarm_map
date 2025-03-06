@@ -2278,7 +2278,7 @@ void handleModes(AsyncWebServerRequest* request) {
       if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
-    addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем домашньому регіоні");
+    addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем у домашньому регіоні");
   }
   addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година");
   addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година");
