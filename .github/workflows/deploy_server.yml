@@ -2,14 +2,6 @@ name: ☁️ Deploy Microservices
 on:
   workflow_dispatch:
     inputs:
-      redeploy_alerts:
-        type: boolean
-        default: false
-        description: Alerts UkraineAlarm Api parser
-      redeploy_alerts_ws:
-        type: boolean
-        default: false
-        description: Alerts UkraineAlarm websocket parser
       redeploy_weather:
         type: boolean
         default: false
@@ -18,6 +10,14 @@ on:
         type: boolean
         default: false
         description: Etryvoga parser
+      redeploy_alerts:
+        type: boolean
+        default: false
+        description: Alerts UkraineAlarm Api parser
+      redeploy_alerts_ws:
+        type: boolean
+        default: false
+        description: Alerts UkraineAlarm websocket parser
       redeploy_energy:
         type: boolean
         default: false
@@ -26,14 +26,14 @@ on:
         type: boolean
         default: false
         description: SaveEcoBot radiation parser
-      redeploy_svg_generator:
-        type: boolean
-        default: false
-        description: SVG Generator
       redeploy_updater:
         type: boolean
         default: false
         description: Updater (information processing)
+      redeploy_svg_generator:
+        type: boolean
+        default: false
+        description: SVG Generator
       redeploy_update_server:
         type: boolean
         default: false
