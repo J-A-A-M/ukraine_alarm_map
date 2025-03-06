@@ -1551,7 +1551,7 @@ int getNextToggleMode(int periodIndex) {
   case 4:
     // enegry status
     if (settings.getBool(TOGGLE_MODE_ENERGY)) {
-      // show local pressure
+      // show grid status
       return 5;
     }
     // else show time
@@ -3512,11 +3512,12 @@ void mapWeather() {
 }
 
 void mapEnergy() {
+  int current_brightness = settings.getInt(CURRENT_BRIGHTNESS);
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     int brightness = 0;
     int hue = led_to_energy[i].first;
     if (hue > 0) {
-      brightness = settings.getInt(CURRENT_BRIGHTNESS);
+      brightness = current_brightness;
     }
     strip[i] = fromHue(processEnergy(hue), brightness);
   }
