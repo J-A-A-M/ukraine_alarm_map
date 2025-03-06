@@ -51,32 +51,6 @@ jobs:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy Update Server (bin list)
-            if: ${{ inputs.redeploy_update_server }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
-          - name: Redeploy Web Server
-            if: ${{ inputs.redeploy_web_server }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Weather
             if: ${{ inputs.redeploy_weather }}
             uses: appleboy/ssh-action@v1.2.0
@@ -90,32 +64,6 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
-          - name: Redeploy Updater
-            if: ${{ inputs.redeploy_updater }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_updater.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
-          - name: Redeploy Svg Generator
-            if: ${{ inputs.redeploy_svg_generator }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_svg_generator.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Redeploy Etryvoga
             if: ${{ inputs.redeploy_etryvoga }}
             uses: appleboy/ssh-action@v1.2.0
@@ -201,6 +149,58 @@ jobs:
                   -s ${{ secrets.SAVEECOBOT_SENSORS_URL }} \
                   -d ${{ secrets.SAVEECOBOT_DATA_URL }} \
                   -pr ${{ secrets.PROXIES }}
+          - name: Redeploy Updater
+            if: ${{ inputs.redeploy_updater }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_updater.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+          - name: Redeploy Svg Generator
+            if: ${{ inputs.redeploy_svg_generator }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_svg_generator.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+          - name: Redeploy Update Server (bin list)
+            if: ${{ inputs.redeploy_update_server }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+          - name: Redeploy Web Server
+            if: ${{ inputs.redeploy_web_server }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
