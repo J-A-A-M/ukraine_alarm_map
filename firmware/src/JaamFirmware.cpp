@@ -2307,14 +2307,14 @@ void handleModes(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
-    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні)");
+    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні). УВАГА - ресурс роботи дісплея суттево зменьшиться");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
     response->println("Відображати в режимі \"Перемикання\":<br><br>");
     if (climate.isAnySensorAvailable()) {
       
       addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.getBool(TOGGLE_MODE_TEMP), "Температуру в приміщенні");
-      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість");
+      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість в приміщенні");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
     addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем у домашньому регіоні");
@@ -2439,7 +2439,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
   addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_weather[local_home_district], "°C");
-  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_radiation[local_home_district], " нЗв/год");
+  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_radiation[local_home_district], " нЗв/год", 2, 0);
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
