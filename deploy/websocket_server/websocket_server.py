@@ -78,6 +78,7 @@ class SharedData:
         self.drones_v2 = "[]"
         self.ballistic_v2 = "[]"
         self.energy_v1 = "[]"
+        self.radiation_v1 = "[]"
         self.bins = "[]"
         self.test_bins = "[]"
         self.s3_bins = "[]"
@@ -427,6 +428,11 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new energy")
                         client["energy"] = shared_data.energy_v1
+                    if client["radiation"] != shared_data.radiation_v1:
+                        payload = '{"payload": "radiation", "radiation": %s}' % shared_data.radiation_v1
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new radiation")
+                        client["radiation"] = shared_data.radiation_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
@@ -558,6 +564,7 @@ async def echo(websocket: ServerConnection):
             "drones2": "[]",
             "ballistic2": "[]",
             "energy": "[]",
+            "radiation": "[]",
             "bins": "[]",
             "test_bins": "[]",
             "firmware": "unknown",
@@ -668,6 +675,7 @@ async def update_shared_data(shared_data: SharedData, mc):
             drones_v2,
             ballistic_v2,
             energy_v1,
+            radiation_v1,
             bins,
             test_bins,
             s3_bins,
@@ -756,6 +764,13 @@ async def update_shared_data(shared_data: SharedData, mc):
             logger.error(f"error in energy_v1: {e}")
 
         try:
+            if radiation_v1 != shared_data.radiation_v1:
+                shared_data.radiation_v1 = radiation_v1
+                logger.debug(f"radiation_v1 updated: {radiation_v1}")
+        except Exception as e:
+            logger.error(f"error in radiation_v1: {e}")
+
+        try:
             if bins != shared_data.bins:
                 shared_data.bins = bins
                 logger.debug(f"bins updated: {bins}")
@@ -835,6 +850,7 @@ async def get_data_from_memcached_test(shared_data):
     drone_v2 = [[0, 1736935200]] * 26
     ballistic_v2 = [[0, 1736935200]] * 26
     energy = [[3, 1736935200]] * 26
+    radiation = [100] * 26
 
     for region_name, data in regions.items():
         region_id = data["legacy_id"]
@@ -896,6 +912,8 @@ async def get_data_from_memcached_test(shared_data):
                 "4",
                 f"{int(datetime.datetime.now().timestamp())-60}",
             ]
+            radiation[circular_offset_index(region_id - 1, 0)] = 2000
+
         else:
             alert = 0
             temp = 0
@@ -915,6 +933,7 @@ async def get_data_from_memcached_test(shared_data):
         json.dumps(drone_v2),
         json.dumps(ballistic_v2),
         json.dumps(energy),
+        json.dumps(radiation),
         '["latest.bin"]',
         '["latest_beta.bin"]',
         '["latest.bin"]',
@@ -936,6 +955,7 @@ async def get_data_from_memcached(mc):
     drones_cached_v2 = await mc.get(b"drones_websocket_v2")
     ballistic_cached_v2 = await mc.get(b"ballistic_websocket_v2")
     energy_cached_v1 = await mc.get(b"energy_websocket_v1")
+    radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
     s3_bins_cached = await mc.get(b"s3_bins")
@@ -1014,6 +1034,7 @@ async def get_data_from_memcached(mc):
 
     weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
     energy_cached_data_v1 = energy_cached_v1.decode("utf-8") if energy_cached_v1 else "[]"
+    radiation_cached_data_v1 = radiation_cached_v1.decode("utf-8") if radiation_cached_v1 else "[]"
     bins_cached_data = bins_cached.decode("utf-8") if bins_cached else "[]"
     test_bins_cached_data = test_bins_cached.decode("utf-8") if test_bins_cached else "[]"
     s3_bins_cached_data = s3_bins_cached.decode("utf-8") if s3_bins_cached else "[]"
@@ -1033,6 +1054,7 @@ async def get_data_from_memcached(mc):
         drones_cashed_data_v2,
         ballistic_cashed_data_v2,
         energy_cached_data_v1,
+        radiation_cached_data_v1,
         bins_cached_data,
         test_bins_cached_data,
         s3_bins_cached_data,
