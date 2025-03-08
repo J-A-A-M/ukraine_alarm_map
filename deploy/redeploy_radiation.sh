@@ -29,11 +29,11 @@ while [[ $# -gt 0 ]]; do
             SAVEECOBOT_DATA_URL="$2"
             shift 2
             ;;
-        -up|--data-url)
+        -up|--sensors-update-period)
             SAVEECOBOT_SENSORS_UPDATE_PERIOD="$2"
             shift 2
             ;;
-        -dp|--data-url)
+        -dp|--data-update-period)
             SAVEECOBOT_DATA_UPDATE_PERIOD="$2"
             shift 2
             ;;
