@@ -188,6 +188,11 @@ static int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
   } else if (max == b) {
     h = 60 * ((r - g) / delta + 4);
   }
+
+  if (h < 0) {
+    h += 360;
+  }
+
   return round(h);
 }
 

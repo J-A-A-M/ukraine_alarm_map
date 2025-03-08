@@ -49,6 +49,7 @@ JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 JaamHomeAssistant ha;
 std::pair<std::map<int, int>, std::map<int, int>> haDisplayModeMap;
+std::pair<std::map<int, int>, std::map<int, int>> haMapModeMap;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 #endif
@@ -716,7 +717,7 @@ bool saveMapMode(int newMapMode) {
   settings.saveInt(MAP_MODE, newMapMode);
   reportSettingsChange("map_mode", newMapMode);
   ha.setLampState(newMapMode == 5);
-  ha.setMapMode(newMapMode);
+  ha.setMapMode(haMapModeMap.second[newMapMode]);
   const char* mapModeName = getNameById(MAP_MODES, newMapMode, MAP_MODES_COUNT);
   ha.setMapModeCurrent(mapModeName);
   showServiceMessage(mapModeName, "Режим мапи:");
@@ -726,7 +727,7 @@ bool saveMapMode(int newMapMode) {
 }
 
 int transformFromHaMapMode(int newIndex) {
-  return MAP_MODES[newIndex].id;
+  return haMapModeMap.first[newIndex];
 }
 
 int transformFromHaDisplayMode(int newIndex) {
@@ -3955,6 +3956,19 @@ void mapHaDisplayModes() {
   haDisplayModeMap = std::make_pair(mapHaToId, mapIdToHa);
 }
 
+void mapHaMapModes() {
+  std::map<int, int> mapHaToId = {};
+  std::map<int, int> mapIdToHa = {};
+  int haIndex = 0;
+  for (int i = 0; i < MAP_MODES_COUNT; i++) {
+    if (MAP_MODES[i].ignore) continue;
+    mapHaToId[haIndex] = MAP_MODES[i].id;
+    mapIdToHa[MAP_MODES[i].id] = haIndex;
+    haIndex++;
+  }
+  haMapModeMap = std::make_pair(mapHaToId, mapIdToHa);
+}
+
 void initHA() {
   if (shouldWifiReconnect) return;
 
@@ -3974,6 +3988,7 @@ void initHA() {
   ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
   ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
   auto mapModes = getNames(MAP_MODES, MAP_MODES_COUNT, true);
+  mapHaMapModes();
   ha.initMapModeSensor(getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT), mapModes.second, mapModes.first, saveMapMode, transformFromHaMapMode);
   if (display.isDisplayAvailable()) {
     auto displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, true);
