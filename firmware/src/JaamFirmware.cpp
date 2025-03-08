@@ -1219,23 +1219,18 @@ void remapBallistic() {
   led_to_ballistic = mapLeds(ledMapping, id_to_ballistic, combiHandler);
 }
 
-float weatherCombiModeHandler(float kyiv, float kyivObl) {
-  // return average value of Kyiv and Kyiv Oblast
-  return (kyiv + kyivObl) / 2.0f;
-}
-
-float radiationCombiModeHandler(float kyiv, float kyivObl) {
-  // return average value of Kyiv and Kyiv Oblast
-  return (kyiv + kyivObl) / 2.0f;
+float linearCombiModeHandler(float value1, float value2) {
+  // return average value of two values
+  return (value1 + value2) / 2.0f;
 }
 
 void remapWeather() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? weatherCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearCombiModeHandler : NULL;
   led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
 }
 
 void remapRadiation() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? radiationCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearCombiModeHandler : NULL;
   led_to_radiation = mapLeds(ledMapping, id_to_radiation, combiHandler);
 }
 
@@ -1244,23 +1239,23 @@ void remapEnergy() {
   led_to_energy = mapLeds(ledMapping, id_to_energy, combiHandler);
 }
 
-long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
+long maxCombiModeHandler(long value1, long value2) {
   // return nearest by time
-  return max(kyiv, kyivObl);
+  return max(value1, value2);
 }
 
 void remapExplosionsNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
   led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, combiHandler);
 }
 
 void remapMissilesNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
   led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, combiHandler);
 }
 
 void remapDronesNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
   led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
 }
 
@@ -2307,7 +2302,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
-    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні). УВАГА - ресурс роботи дісплея суттево зменьшиться");
+    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні). УВАГА - ресурс роботи дисплея суттєво зменшиться");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
     response->println("Відображати в режимі \"Перемикання\":<br><br>");
     if (climate.isAnySensorAvailable()) {
@@ -3165,7 +3160,7 @@ void onMessageCallback(WebsocketsMessage message) {
         id_to_energy[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["energy"][i][0], (long) data["energy"][i][1]);
       }
       LOG.println("Successfully parsed energy data");
-      remapEnergy();;
+      remapEnergy();
     } else if (payload == "radiation") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_radiation[mapIndexToRegionId(i)] = data["radiation"][i];

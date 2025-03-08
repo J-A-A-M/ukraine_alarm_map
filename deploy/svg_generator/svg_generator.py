@@ -390,7 +390,6 @@ async def svg_generator_radiation(mc):
         except Exception as e:
             logger.error(f"svg_generator_radiation: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-        
 
 
 async def generate_flag():
@@ -434,58 +433,17 @@ async def generate_random():
 
 
 def calculate_html_color_from_radiation(radiation):
-    min_temp = 100
-    max_temp = 2000
-    normalized_value = float(radiation - min_temp) / float(max_temp - min_temp)
+    min_rad = 100
+    max_rad = 2000
+    normalized_value = float(radiation - min_rad) / float(max_rad - min_rad)
     if normalized_value > 1:
         normalized_value = 1
     if normalized_value < 0:
         normalized_value = 0
     hue = round(180 + normalized_value * (270 - 180))
     hue %= 360
-    h = hue / 360.0
-    s = 1.0
-    v = 1.0
 
-    i = math.floor(h * 6)
-    f = h * 6 - i
-    p = v * (1 - s)
-    q = v * (1 - f * s)
-    t = v * (1 - (1 - f) * s)
-
-    match i % 6:
-        case 0:
-            r = v
-            g = t
-            b = p
-        case 1:
-            r = q
-            g = v
-            b = p
-        case 2:
-            r = p
-            g = v
-            b = t
-        case 3:
-            r = p
-            g = q
-            b = v
-        case 4:
-            r = t
-            g = p
-            b = v
-        case 5:
-            r = v
-            g = p
-            b = q
-        case _:
-            r = 1.0
-            g = 1.0
-            b = 1.0
-
-    # Convert RGB to hexadecimal
-    hex_color = "#{:02X}{:02X}{:02X}".format(round(r * 255), round(g * 255), round(b * 255))
-    return hex_color
+    return calculate_hex(hue)
 
 
 def calculate_html_color_from_temp(temp):
@@ -498,6 +456,11 @@ def calculate_html_color_from_temp(temp):
         normalized_value = 0
     hue = round(275 + normalized_value * (0 - 275))
     hue %= 360
+
+    return calculate_hex(hue)
+
+
+def calculate_hex(hue):
     h = hue / 360.0
     s = 1.0
     v = 1.0
@@ -1299,7 +1262,7 @@ async def generate_map(
                <rect x="60" y="685" width="50" height="30" fill="#000000" id="rect2441" />
                <rect x="60" y="730" width="50" height="220" fill="url(#radiation)" id="rect244" />
                <text x="70" y="645" font-family="Arial" font-size="30px" fill="#ffffff" id="text246">γ-Радіація</text>
-               <text x="220" y="645" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">(нЗв/год)</text>
+               <text x="230" y="645" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">(нЗв/год)</text>
                <text x="130" y="705" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">нема даних</text>
                <text x="130" y="745" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">0-100</text>
                <text x="130" y="785" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">101-200</text>
