@@ -1349,6 +1349,8 @@ bool saveHomeDistrict(int newHomeDistrict) {
   LOG.printf("home_district commited to preferences: %s\n", homeDistrictName);
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
+  ha.setHomeTemperature(id_to_weather[newHomeDistrict]);
+  ha.setHomeEnergy(id_to_energy[newHomeDistrict].first);
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
   remapHomeDistrict();
   return true;
