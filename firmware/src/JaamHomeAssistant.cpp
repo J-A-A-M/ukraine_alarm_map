@@ -91,7 +91,7 @@ void (*onMqqtConnectionStatusChanged)(bool connected);
 char configUrl[35];
 byte macAddress[6];
 
-#define SENSORS_COUNT 28
+#define SENSORS_COUNT 29
 
 char deviceUniqueID[15];
 
