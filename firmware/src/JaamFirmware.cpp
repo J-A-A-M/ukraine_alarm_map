@@ -107,8 +107,8 @@ std::map<int, std::pair<int, long>> id_to_ballistic; //regionId to ballistic sta
 std::map<int, std::pair<int, long>> led_to_ballistic; // ledPosition to ballistic state and time
 std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
 std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
-std::map<int, float>                id_to_radiation; //regionId to radiation
-std::map<int, float>                led_to_radiation; // ledPosition to radiation
+std::map<int, int>                id_to_radiation; //regionId to radiation
+std::map<int, int>                led_to_radiation; // ledPosition to radiation
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -1220,18 +1220,23 @@ void remapBallistic() {
   led_to_ballistic = mapLeds(ledMapping, id_to_ballistic, combiHandler);
 }
 
-float linearCombiModeHandler(float value1, float value2) {
+float linearFloatCombiModeHandler(float value1, float value2) {
   // return average value of two values
   return (value1 + value2) / 2.0f;
 }
 
+int linearIntCombiModeHandler(int value1, int value2) {
+  // return average value of two values
+  return (value1 + value2) / 2;
+}
+
 void remapWeather() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearFloatCombiModeHandler : NULL;
   led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
 }
 
 void remapRadiation() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearIntCombiModeHandler : NULL;
   led_to_radiation = mapLeds(ledMapping, id_to_radiation, combiHandler);
 }
 
@@ -1351,6 +1356,7 @@ bool saveHomeDistrict(int newHomeDistrict) {
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
   ha.setHomeTemperature(id_to_weather[newHomeDistrict]);
   ha.setHomeEnergy(id_to_energy[newHomeDistrict].first);
+  ha.setHomeRadiation(id_to_radiation[newHomeDistrict]);
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
   remapHomeDistrict();
   return true;
@@ -1421,7 +1427,7 @@ void showRadiation() {
   int regionId = settings.getInt(HOME_DISTRICT);
   char title[38];
   char message[35];
-  sprintf(message, "%.0f%", id_to_radiation[regionId]);
+  sprintf(message, "%d", id_to_radiation[regionId]);
   displayMessage(message, "Радіація (нЗв/год)");
 }
 
@@ -3171,6 +3177,7 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed radiation data");
       remapRadiation();
+      ha.setHomeRadiation(id_to_radiation[settings.getInt(HOME_DISTRICT)]);
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -4114,6 +4121,7 @@ void initHA() {
   ha.initHomeTemperatureSensor();
   ha.initNightModeSensor(nightMode, saveNightMode);
   ha.initHomeEnergySensor();
+  ha.initHomeRadiationSensor();
 
   ha.connectToMqtt(settings.getInt(HA_MQTT_PORT), settings.getString(HA_MQTT_USER), settings.getString(HA_MQTT_PASSWORD), onMqttStateChanged);
 }
