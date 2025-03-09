@@ -1349,6 +1349,8 @@ bool saveHomeDistrict(int newHomeDistrict) {
   LOG.printf("home_district commited to preferences: %s\n", homeDistrictName);
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
+  ha.setHomeTemperature(id_to_weather[newHomeDistrict]);
+  ha.setHomeEnergy(id_to_energy[newHomeDistrict].first);
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
   remapHomeDistrict();
   return true;
@@ -3162,6 +3164,7 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed energy data");
       remapEnergy();
+      ha.setHomeEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first);
     } else if (payload == "radiation") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_radiation[mapIndexToRegionId(i)] = data["radiation"][i];
@@ -4110,6 +4113,7 @@ void initHA() {
   }
   ha.initHomeTemperatureSensor();
   ha.initNightModeSensor(nightMode, saveNightMode);
+  ha.initHomeEnergySensor();
 
   ha.connectToMqtt(settings.getInt(HA_MQTT_PORT), settings.getString(HA_MQTT_USER), settings.getString(HA_MQTT_PASSWORD), onMqttStateChanged);
 }

@@ -34,6 +34,7 @@ char haLocalPressureID[28];
 char haLightLevelID[25];
 char haHomeTempID[23];
 char haNightModeID[24];
+char haHomeEnergyID[25];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -62,6 +63,7 @@ HASensorNumber*  haLocalPressure;
 HASensorNumber*  haLightLevel;
 HASensorNumber*  haHomeTemp;
 HASwitch*        haNightMode;
+HASensor*        haHomeEnergy;
 
 const char* mqttServer;
 
@@ -89,7 +91,7 @@ void (*onMqqtConnectionStatusChanged)(bool connected);
 char configUrl[35];
 byte macAddress[6];
 
-#define SENSORS_COUNT 28
+#define SENSORS_COUNT 29
 
 char deviceUniqueID[15];
 
@@ -546,6 +548,16 @@ void JaamHomeAssistant::initNightModeSensor(bool currentState, bool (*onChange)(
 #endif
 }
 
+void JaamHomeAssistant::initHomeEnergySensor() {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haHomeEnergyID, "%s_home_energy", deviceUniqueID);
+  haHomeEnergy = new HASensor(haHomeEnergyID, HASensor::JsonAttributesFeature);
+  haHomeEnergy->setIcon("mdi:home-battery");
+  haHomeEnergy->setName("Home District Energy State");
+#endif
+}
+
 void JaamHomeAssistant::setUptime(int uptime) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -727,3 +739,29 @@ void JaamHomeAssistant::setNightMode(bool nightMode) {
   haNightMode->setState(nightMode);
 #endif
 }
+
+void JaamHomeAssistant::setHomeEnergy(int homeEnergy) {
+  #if HA_ENABLED
+    if (!haEnabled) return;
+    switch (homeEnergy) {
+      case 0:
+        haHomeEnergy->setValue("Дані відсутні");
+        break;
+      case 3:
+        haHomeEnergy->setValue("Достатньо");
+        break;
+      case 4:
+        haHomeEnergy->setValue("Не вистачає");
+        break;
+      case 9:
+        haHomeEnergy->setValue("Відключення!");
+        break;
+      default:
+        haHomeEnergy->setValue("Невідомий статус");
+        break;
+    }
+    char json[15];
+    sprintf(json, "{\"status\": %d}", homeEnergy);
+    haHomeEnergy->setJsonAttributes(json);
+  #endif
+  }
