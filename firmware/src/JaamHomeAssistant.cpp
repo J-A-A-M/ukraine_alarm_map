@@ -35,6 +35,7 @@ char haLightLevelID[25];
 char haHomeTempID[23];
 char haNightModeID[24];
 char haHomeEnergyID[25];
+char haHomeRadiationID[29];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -64,6 +65,7 @@ HASensorNumber*  haLightLevel;
 HASensorNumber*  haHomeTemp;
 HASwitch*        haNightMode;
 HASensor*        haHomeEnergy;
+HASensorNumber*  haHomeRadiation;
 
 const char* mqttServer;
 
@@ -91,7 +93,7 @@ void (*onMqqtConnectionStatusChanged)(bool connected);
 char configUrl[35];
 byte macAddress[6];
 
-#define SENSORS_COUNT 29
+#define SENSORS_COUNT 30
 
 char deviceUniqueID[15];
 
@@ -558,6 +560,18 @@ void JaamHomeAssistant::initHomeEnergySensor() {
 #endif
 }
 
+void JaamHomeAssistant::initHomeRadiationSensor() {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haHomeRadiationID, "%s_home_radiation", deviceUniqueID);
+  haHomeRadiation = new HASensorNumber(haHomeRadiationID);
+  haHomeRadiation->setIcon("mdi:radioactive-circle");
+  haHomeRadiation->setName("Home District Radiation");
+  haHomeRadiation->setUnitOfMeasurement("nSv/h");
+  haHomeRadiation->setStateClass("measurement");
+#endif
+}
+
 void JaamHomeAssistant::setUptime(int uptime) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -765,3 +779,10 @@ void JaamHomeAssistant::setHomeEnergy(int homeEnergy) {
     haHomeEnergy->setJsonAttributes(json);
   #endif
   }
+
+void JaamHomeAssistant::setHomeRadiation(int homeRadiation) {
+  #if HA_ENABLED
+    if (!haEnabled) return;
+    haHomeRadiation->setValue(homeRadiation);
+  #endif
+}

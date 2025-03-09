@@ -47,6 +47,7 @@ public:
     void initHomeTemperatureSensor();
     void initNightModeSensor(bool currentState, bool (*onChange)(bool newState));
     void initHomeEnergySensor();
+    void initHomeRadiationSensor();
 
     void setUptime(int uptime);
     void setWifiSignal(int wifiSignal);
@@ -75,5 +76,6 @@ public:
     void setHomeTemperature(float homeTemperature);
     void setNightMode(bool nightMode);
     void setHomeEnergy(int homeEnergy);
+    void setHomeRadiation(int homeRadiation);
 };
     
