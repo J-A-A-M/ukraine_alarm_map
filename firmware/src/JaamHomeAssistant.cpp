@@ -273,7 +273,8 @@ void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapMod
   getHaOptions(mapModeOptions, mapModes, mapModesSize);
   haMapMode->setOptions(mapModeOptions);
   mapModeChanged = onChange;
-  haMapMode->onCommand([](int8_t index, HASelect* sender) { mapModeChanged(index); });
+  mapModeTransform = transform;
+  haMapMode->onCommand([](int8_t index, HASelect* sender) { mapModeChanged(mapModeTransform(index)); });
   haMapMode->setIcon("mdi:map");
   haMapMode->setName("Map Mode");
   haMapMode->setCurrentState(currentMapMode);

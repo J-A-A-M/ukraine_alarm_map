@@ -11,6 +11,7 @@ version = 3
 debug_level = os.environ.get("LOGGING") or "INFO"
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 update_period = int(os.environ.get("UPDATE_PERIOD", 1))
+update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ regions = {
     "Хмельницька область": {"id": 3, "legacy_id": 24},
     "Чернівецька область": {"id": 26, "legacy_id": 25},
     "м. Київ": {"id": 31, "legacy_id": 26},
+    "Київ": {"id": 31, "legacy_id": 26, "skip": True},
     "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 11},
 }
 
@@ -83,7 +85,7 @@ async def get_weather(mc, key_b, default_response={}):
 
 def convert_region_ids(key_value, initial_key, result_key):
     for region_name, region_data in regions.items():
-        if region_data[initial_key] == key_value:
+        if region_data[initial_key] == key_value and not region_data.get("skip"):
             return region_name, region_data[result_key]
 
 
@@ -275,7 +277,7 @@ async def ertyvoga_v1(mc, cache_key, data_key, data_key_text):
 
     data = [0] * 26
 
-    for state_id, state_data in regions.items():
+    for _, state_data in regions.items():
         state_id = state_data["id"]
         state_id_str = str(state_id)
         legacy_state_id = state_data["legacy_id"]
@@ -337,7 +339,7 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
 
             data = [0] * 26
 
-            for state_name, state_data in regions.items():
+            for _, state_data in regions.items():
                 legacy_state_id = state_data["legacy_id"]
                 legacy_state_id_str = str(legacy_state_id)
                 state_id = state_data["id"]
@@ -482,6 +484,45 @@ async def update_energy_websocket_v1(mc, run_once=False):
             break
 
 
+async def update_radiation_websocket_v1(mc, run_once=False):
+    while True:
+        try:
+            data_cache = await get_cache_data(
+                mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            sensors_cache = await get_cache_data(
+                mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            websocket = await get_cache_data(mc, b"radiation_websocket_v1", [0] * 26)
+
+            data = [0] * 26
+
+            temp_data = {}
+            for sensor_data in data_cache["states"]:
+                if sensor_data["is_old"]:
+                    continue
+                state_name = sensors_cache["states"].get(str(sensor_data["sensor_id"]), {}).get("region_name")
+                if not state_name:
+                    continue
+                if not temp_data.get(state_name):
+                    temp_data[state_name] = []
+                temp_data[state_name].append(sensor_data["gamma_nsv_h"])
+
+            for state_name, state_data in regions.items():
+                legacy_state_id = state_data["legacy_id"]
+                state_radiation_data = temp_data.get(state_name, [])
+                if state_radiation_data:
+                    data[legacy_state_id - 1] = round(sum(state_radiation_data) / len(state_radiation_data))
+
+            await store_websocket_data(mc, data, websocket, "radiation_websocket_v1", b"radiation_websocket_v1")
+            await asyncio.sleep(update_period_long)
+        except Exception as e:
+            logger.error(f"update_radiation_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
@@ -498,6 +539,7 @@ async def main():
             update_missiles_websocket_v2(mc),
             update_ballistic_websocket_v2(mc),
             update_energy_websocket_v1(mc),
+            update_radiation_websocket_v1(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

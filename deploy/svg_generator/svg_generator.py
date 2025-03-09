@@ -7,6 +7,7 @@ import random
 import pytz
 import math
 import datetime
+import statistics
 from aiomcache import Client
 from zoneinfo import ZoneInfo
 
@@ -18,6 +19,7 @@ log_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 loop_time = int(os.environ.get("SVG_PERIOD", 2))
+loop_time_long = int(os.environ.get("SVG_PERIOD_LONG", 60))
 min_temp = float(os.environ.get("MIN_TEMP", -10))
 max_temp = float(os.environ.get("MAX_TEMP", 30))
 
@@ -140,6 +142,8 @@ async def get_energy(mc, key_b, default_response={}):
 
 
 def get_region_name(search_key, region_id):
+    if search_key == "name" and region_id == "Київ":
+        return "KIYEW"
     return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
 
 
@@ -333,6 +337,61 @@ async def svg_generator_energy(mc):
             logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
+async def svg_generator_radiation(mc):
+    stored_data = {}
+    while True:
+        try:
+            logger.debug("start radiation map generation")
+            await asyncio.sleep(loop_time_long)
+            local_time = get_current_datetime_formatted()
+
+            radiation_svg_data = {}
+
+            data_cache = await get_cache_data(
+                mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            sensors_cache = await get_cache_data(
+                mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+
+            temp_data = {}
+            for sensor_data in data_cache["states"]:
+                if sensor_data["is_old"]:
+                    continue
+
+                state_name = sensors_cache["states"].get(str(sensor_data["sensor_id"]), {}).get("region_name")
+                if not state_name:
+                    continue
+                if not temp_data.get(state_name):
+                    temp_data[state_name] = []
+                temp_data[state_name].append(sensor_data["gamma_nsv_h"])
+
+            for state_name, radiation_data in temp_data.items():
+                state_name = get_region_name("name", state_name)
+
+                if not state_name:
+                    continue
+
+                radiation_svg_data[state_name] = calculate_html_color_from_radiation(statistics.median(radiation_data))
+
+            if radiation_svg_data == stored_data:
+                continue
+
+            file_path = os.path.join(shared_path, "radiation_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_radiation_info=True,
+                **radiation_svg_data,
+            )
+            stored_data = radiation_svg_data
+            logger.info("end radiation map generation")
+
+        except Exception as e:
+            logger.error(f"svg_generator_radiation: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+
+
 async def generate_flag():
     flag_svg_data = {}
     for index, color in enumerate(legacy_flag_leds):
@@ -373,6 +432,20 @@ async def generate_random():
     await asyncio.sleep(loop_time)
 
 
+def calculate_html_color_from_radiation(radiation):
+    min_rad = 100
+    max_rad = 2000
+    normalized_value = float(radiation - min_rad) / float(max_rad - min_rad)
+    if normalized_value > 1:
+        normalized_value = 1
+    if normalized_value < 0:
+        normalized_value = 0
+    hue = round(180 + normalized_value * (270 - 180))
+    hue %= 360
+
+    return calculate_hex(hue)
+
+
 def calculate_html_color_from_temp(temp):
     min_temp = -10
     max_temp = 30
@@ -383,6 +456,11 @@ def calculate_html_color_from_temp(temp):
         normalized_value = 0
     hue = round(275 + normalized_value * (0 - 275))
     hue %= 360
+
+    return calculate_hex(hue)
+
+
+def calculate_hex(hue):
     h = hue / 360.0
     s = 1.0
     v = 1.0
@@ -429,7 +507,13 @@ def calculate_html_color_from_temp(temp):
 
 
 async def generate_map(
-    time, output_file, show_alert_info=False, show_weather_info=False, show_energy_info=False, **kwargs
+    time,
+    output_file,
+    show_alert_info=False,
+    show_weather_info=False,
+    show_energy_info=False,
+    show_radiation_info=False,
+    **kwargs,
 ):
     logger.debug("generator start")
     svg_data = f"""
@@ -450,6 +534,14 @@ async def generate_map(
             </rdf:RDF>
          </metadata>
          <defs id="defs3670">
+            <linearGradient id="radiation" x1="0%" x2="0%" y1="0%" y2="100%">
+               <stop offset="0%" stop-color="#1dafaf"/>
+               <stop offset="20%" stop-color="#1d8baf" />
+               <stop offset="40%" stop-color="#1d66af" />
+               <stop offset="60%" stop-color="#1d41af"  />
+               <stop offset="80%" stop-color="#411daf" />
+               <stop offset="100%" stop-color="#661daf" />
+            </linearGradient>
             <linearGradient id="weather" x1="0%" x2="0%" y1="0%" y2="100%">
                <stop offset="0%" stop-color="#FF0000"/>
                <stop offset="25%" stop-color="#D9FF00" />
@@ -1166,6 +1258,20 @@ async def generate_map(
                <text x="120" y="885" font-family="Arial" font-size="30px" fill="#ffffff" id="text250">-10°C</text>
             </g>
 
+            <g id="RADIATION_GRADIENT" visibility="{"visible" if show_radiation_info else "hidden"}">
+               <rect x="60" y="685" width="50" height="30" fill="#000000" id="rect2441" />
+               <rect x="60" y="730" width="50" height="220" fill="url(#radiation)" id="rect244" />
+               <text x="70" y="645" font-family="Arial" font-size="30px" fill="#ffffff" id="text246">γ-Радіація</text>
+               <text x="230" y="645" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">(нЗв/год)</text>
+               <text x="130" y="705" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">нема даних</text>
+               <text x="130" y="745" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">0-100</text>
+               <text x="130" y="785" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">101-200</text>
+               <text x="130" y="825" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">201-300</text>
+               <text x="130" y="865" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">301-500</text>
+               <text x="130" y="905" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">501-2000</text>
+               <text x="130" y="945" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">2000+</text>
+            </g>
+
             <g id="FLAG_JAAM">
                <text x="110" y="58" font-family="Arial" font-size="50px" fill="#ffffff" id="text256">JAAM</text>
                <text x="110" y="85" font-family="Arial" font-size="22px" fill="#ffffff" id="text257">Just Another</text>
@@ -1184,7 +1290,10 @@ async def generate_map(
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc))
+        await asyncio.gather(
+            svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc), svg_generator_radiation(mc)
+        )
+
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
