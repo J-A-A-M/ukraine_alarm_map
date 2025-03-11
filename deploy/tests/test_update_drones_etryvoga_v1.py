@@ -22,8 +22,7 @@ async def test_1():
     """
 
     mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True 
-
+    mock_mc.set.return_value = True
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
@@ -48,7 +47,6 @@ async def test_1():
         expected_result[2] = 1736935200
 
         mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
-
 
 
 @pytest.mark.asyncio
@@ -98,6 +96,7 @@ async def test_3():
     mock_mc.set.return_value = True
 
     for _, region in regions.items():
+
         def mock_get_cache_data_side_effect(mc, key, default=None):
             mock_responses = {
                 b"drones_etryvoga": {
@@ -131,8 +130,7 @@ async def test_4():
     """
 
     mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True 
-
+    mock_mc.set.return_value = True
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         drones_websocket_v2 = [[0, 1645674000]] * 26
@@ -154,7 +152,7 @@ async def test_4():
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-        
+
         expected_result = [1700000000] * 26
         expected_result[2] = 1739613600
 
@@ -172,8 +170,7 @@ async def test_5():
     """
 
     mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True 
-
+    mock_mc.set.return_value = True
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         drones_websocket_v2 = [[0, 1645674000]] * 26

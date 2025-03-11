@@ -82,4 +82,3 @@ async def test_2():
         expected_result[0] = 1740368400
 
         mock_mc.set.assert_awaited_with(b"missiles_websocket_v1", json.dumps(expected_result).encode("utf-8"))
-

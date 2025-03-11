@@ -338,6 +338,6 @@ async def test_8():
 
             expected_radiation = [0] * 26
 
-            expected_radiation[region_data["legacy_id"]-1] = 96
+            expected_radiation[region_data["legacy_id"] - 1] = 96
 
             mock_mc.set.assert_awaited_with(b"radiation_websocket_v1", json.dumps(expected_radiation).encode("utf-8"))

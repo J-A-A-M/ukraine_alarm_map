@@ -241,7 +241,6 @@ async def test_6():
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-
     with (
         patch("updater.updater.get_cache_data", mock_get_cache_data),
         patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
