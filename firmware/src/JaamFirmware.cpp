@@ -3985,7 +3985,14 @@ void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
     LOG.println("No sensors available, disabling climate sensor options");
     // remove climate sensor options from display optins list
-    DISPLAY_MODES[6].ignore = true;
+    for (int i = 0; i < DISPLAY_MODE_OPTIONS_MAX; i++) {
+      if (DISPLAY_MODES[i].id == 4) {
+        LOG.print("Display mode disabled: ");
+        LOG.println(DISPLAY_MODES[i].name);
+        DISPLAY_MODES[i].ignore = true;
+        break;
+      }
+    }
     // change display mode to "changing" if it's not available
     if (isInIgnoreList(settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX)) {
       saveDisplayMode(9);
