@@ -2350,6 +2350,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_shift_alert_animations", settings.getBool(ENABLE_SHIFT_ANIMATIONS), "Незалежнні анімації тривог для кожного регіону");
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
@@ -2783,6 +2784,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", HOME_ALERT_TIME, saveShowHomeAlarmTime) || saved;
   saved = saveInt(request->getParam("alarms_notify_mode", true), ALARMS_NOTIFY_MODE) || saved;
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
+  saved = saveBool(request->getParam("enable_shift_alert_animations", true), "enable_shift_alert_animations", ENABLE_SHIFT_ANIMATIONS) || saved;
+  
   saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", ENABLE_MISSILES) || saved;
   saved = saveBool(request->getParam("enable_drones", true), "enable_drones", ENABLE_DRONES) || saved;
   saved = saveBool(request->getParam("enable_ballistic", true), "enable_ballistic", ENABLE_BALLISTIC) || saved;
@@ -3394,11 +3397,11 @@ CRGB processAlarms(
   return hue;
 }
 
-float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
+float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime, long etalonTime) {
   float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
   float minBrightness = fixedMaxBrightness * 0.01f;
-  int progress = micros() % (fadeTime * 1000);
-  int halfBlinkTime = fadeTime * 500;
+  int progress = etalonTime % fadeTime;
+  int halfBlinkTime = fadeTime * 0.5;
   float blinkBrightness;
   if (progress < halfBlinkTime) {
     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
@@ -3481,7 +3484,7 @@ int processEnergy(int status) {
 }
 
 void mapReconnect() {
-  float localBrightness = getFadeInFadeOutBrightness(settings.getInt(CURRENT_BRIGHTNESS) / 200.0f, settings.getInt(ALERT_BLINK_TIME) * 1000);
+  float localBrightness = getFadeInFadeOutBrightness(settings.getInt(CURRENT_BRIGHTNESS) / 200.0f, settings.getInt(ALERT_BLINK_TIME) * 1000, millis());
   CRGB hue = fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS));
   for (uint16_t i = 0; i < 26; i++) {
     strip[i] = hue;
@@ -3514,12 +3517,19 @@ void mapAlarms() {
   float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float extrafastBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
-  if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
-    blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000);
-    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667);
-    extrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334);
-  }
+  float localblinkBrightness = blinkBrightness;
+  float localnotificationBrightness = notificationBrightness;
+  float localextrafastBrightness = extrafastBrightness;
+  int animationShift = 0;
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    if (settings.getBool(ENABLE_SHIFT_ANIMATIONS)){
+      animationShift = led_to_alerts[i].second+(i*25);
+    }
+    if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
+      localblinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, animationShift+millis());
+      localnotificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, animationShift+millis());
+      localextrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, animationShift+millis());
+    }
     strip[i] = processAlarms(
       led_to_alerts[i].first,
       led_to_alerts[i].second,
@@ -3533,13 +3543,14 @@ void mapAlarms() {
       led_to_missiles_notifications[i],
       led_to_drones_notifications[i],
       i,
-      blinkBrightness,
-      notificationBrightness,
-      extrafastBrightness,
+      localblinkBrightness,
+      localnotificationBrightness,
+      localextrafastBrightness,
       false
     );
   }
   if (isBgStripEnabled()) {
+    
     // same as for local district
     int localDistrictLedCount = homeDistrictMapping.first; // get count of leds in local district
     if (localDistrictLedCount <= 0) {
@@ -3547,6 +3558,14 @@ void mapAlarms() {
       fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
     } else {
       int localDistrictLed = homeDistrictMapping.second[0]; // get first led in local district
+      if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
+        if (settings.getBool(ENABLE_SHIFT_ANIMATIONS)){
+          animationShift = led_to_alerts[localDistrictLed].second;
+        }
+        blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, animationShift+millis());
+        notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, animationShift+millis());
+        extrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, animationShift+millis());
+      }
       fill_solid(
         bg_strip,
         settings.getInt(BG_LED_COUNT),
