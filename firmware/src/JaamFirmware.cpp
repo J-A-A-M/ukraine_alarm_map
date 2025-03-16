@@ -3399,15 +3399,18 @@ CRGB processAlarms(
 
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime, long etalonTime) {
   float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
-  float minBrightness = fixedMaxBrightness * 0.01f;
+  float minBrightness = fixedMaxBrightness * 0.4f;
+  float halfBlinkTime = fadeTime * 0.5f;
+  
   int progress = etalonTime % fadeTime;
-  int halfBlinkTime = fadeTime * 0.5;
   float blinkBrightness;
+  
   if (progress < halfBlinkTime) {
     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
   } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
+    blinkBrightness = mapf(progress, halfBlinkTime, fadeTime, fixedMaxBrightness, minBrightness);
   }
+  
   return blinkBrightness;
 }
 
@@ -3520,15 +3523,16 @@ void mapAlarms() {
   float localblinkBrightness = blinkBrightness;
   float localnotificationBrightness = notificationBrightness;
   float localextrafastBrightness = extrafastBrightness;
-  int animationShift = 0;
+  int animationShift = millis();
+  int localAnimationShift = animationShift;
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     if (settings.getBool(ENABLE_SHIFT_ANIMATIONS)){
-      animationShift = led_to_alerts[i].second+(i*25);
+      localAnimationShift = animationShift + (led_to_alerts[i].second % 1000) + (led_to_missiles[i].second % 1000) + (led_to_drones[i].second % 1000) + (led_to_ballistic[i].second % 1000);
     }
     if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
-      localblinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, animationShift+millis());
-      localnotificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, animationShift+millis());
-      localextrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, animationShift+millis());
+      localblinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, localAnimationShift);
+      localnotificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, localAnimationShift);
+      localextrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, localAnimationShift);
     }
     strip[i] = processAlarms(
       led_to_alerts[i].first,
@@ -3558,13 +3562,13 @@ void mapAlarms() {
       fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), CRGB::Black);
     } else {
       int localDistrictLed = homeDistrictMapping.second[0]; // get first led in local district
+      if (settings.getBool(ENABLE_SHIFT_ANIMATIONS)){
+        localAnimationShift = animationShift + (led_to_alerts[localDistrictLed].second % 1000) + (led_to_missiles[localDistrictLed].second % 1000) + (led_to_drones[localDistrictLed].second % 1000) + (led_to_ballistic[localDistrictLed].second % 1000);
+      }
       if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
-        if (settings.getBool(ENABLE_SHIFT_ANIMATIONS)){
-          animationShift = led_to_alerts[localDistrictLed].second;
-        }
-        blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, animationShift+millis());
-        notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, animationShift+millis());
-        extrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, animationShift+millis());
+        localblinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000, localAnimationShift);
+        localnotificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667, localAnimationShift);
+        localextrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334, localAnimationShift);
       }
       fill_solid(
         bg_strip,
@@ -3582,9 +3586,9 @@ void mapAlarms() {
           led_to_missiles_notifications[localDistrictLed],
           led_to_drones_notifications[localDistrictLed],
           localDistrictLed,
-          blinkBrightness,
-          notificationBrightness,
-          extrafastBrightness,
+          localblinkBrightness,
+          localnotificationBrightness,
+          localextrafastBrightness,
           true
         )
       );

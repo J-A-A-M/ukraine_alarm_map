@@ -840,14 +840,14 @@ async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
         shared_data.test_id = 12
 
-    alerts_v2 = [[0, 1736935200]] * 26
-    alerts_v3 = [[0, 1736935200]] * 26
+    alerts_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(300, 600)}"] for _ in range(26)]
+    alerts_v3 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(300, 600)}"] for _ in range(26)]
     weather = [0] * 26
     explosion = [0] * 26
     missile = [0] * 26
     drone = [0] * 26
-    missile_v2 = [[0, 1736935200]] * 26
-    drone_v2 = [[0, 1736935200]] * 26
+    missile_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(0, 600)}"] for _ in range(26)]
+    drone_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(0, 3000)}"] for _ in range(26)]
     ballistic_v2 = [[0, 1736935200]] * 26
     energy = [[3, 1736935200]] * 26
     radiation = [100] * 26
