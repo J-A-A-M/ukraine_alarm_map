@@ -7,6 +7,7 @@ import secrets
 import string
 import datetime
 import aiohttp
+import time
 
 from aiomcache import Client
 from geoip2 import database, errors
@@ -840,14 +841,14 @@ async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
         shared_data.test_id = 12
 
-    alerts_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(300, 600)}"] for _ in range(26)]
-    alerts_v3 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(300, 600)}"] for _ in range(26)]
+    alerts_v2 = [[0, f"{int(time.time()) - random.randint(300, 600)}"] for _ in range(26)]
+    alerts_v3 = [[0, f"{int(time.time()) - random.randint(300, 600)}"] for _ in range(26)]
     weather = [0] * 26
     explosion = [0] * 26
     missile = [0] * 26
     drone = [0] * 26
-    missile_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(0, 600)}"] for _ in range(26)]
-    drone_v2 = [[0, f"{int(datetime.datetime.now().timestamp()) - random.randint(0, 3000)}"] for _ in range(26)]
+    missile_v2 = [[0, f"{int(time.time()) - random.randint(0, 600)}"] for _ in range(26)]
+    drone_v2 = [[0, f"{int(time.time()) - random.randint(0, 3000)}"] for _ in range(26)]
     ballistic_v2 = [[0, 1736935200]] * 26
     energy = [[3, 1736935200]] * 26
     radiation = [100] * 26
@@ -857,60 +858,60 @@ async def get_data_from_memcached_test(shared_data):
         if region_id == shared_data.test_id:
             alert = 1
             temp = 30
-            expl = int(datetime.datetime.now().timestamp())
+            expl = int(time.time())
 
             alerts_v2[circular_offset_index(region_id - 1, 0)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
+                f"{int(time.time())-3600}",
             ]
             alerts_v3[circular_offset_index(region_id - 1, 0)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
+                f"{int(time.time())-3600}",
             ]
             alerts_v2[circular_offset_index(region_id - 1, -1)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             alerts_v3[circular_offset_index(region_id - 1, -1)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             alerts_v2[circular_offset_index(region_id - 1, -2)] = [
                 "0",
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             alerts_v3[circular_offset_index(region_id - 1, -2)] = [
                 "0",
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             missile_v2[circular_offset_index(region_id - 1, -3)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
+                f"{int(time.time())-3600}",
             ]
             missile[circular_offset_index(region_id - 1, -4)] = expl
             drone_v2[circular_offset_index(region_id - 1, -5)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
+                f"{int(time.time())-3600}",
             ]
             drone[circular_offset_index(region_id - 1, -6)] = expl
             ballistic_v2[circular_offset_index(region_id - 1, -7)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
+                f"{int(time.time())-3600}",
             ]
             ballistic_v2[circular_offset_index(region_id - 1, -8)] = [
                 str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
 
             explosion[circular_offset_index(region_id - 1, -9)] = expl
             weather[circular_offset_index(region_id - 1, 0)] = temp
             energy[circular_offset_index(region_id - 1, 0)] = [
                 "9",
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             energy[circular_offset_index(region_id - 1, -1)] = [
                 "4",
-                f"{int(datetime.datetime.now().timestamp())-60}",
+                f"{int(time.time())-60}",
             ]
             radiation[circular_offset_index(region_id - 1, 0)] = 2000
 
