@@ -84,6 +84,7 @@ def convert_region_ids(key_value, initial_key, result_key):
     for region_name, region_data in regions.items():
         if region_data[initial_key] == key_value and not region_data.get("skip"):
             return region_name, region_data[result_key]
+    return None, None
 
 
 def get_current_datetime():
@@ -93,6 +94,14 @@ def get_current_datetime():
 def get_current_timestamp():
     return int(datetime.datetime.now(datetime.UTC).timestamp())
 
+def get_legacy_state_id(region_id, regions_cache):
+    try:
+        state_id = regions_cache[region_id]["stateId"]
+        state_name = regions_cache[state_id]["regionName"]
+        legacy_state_id = regions[state_name]["legacy_id"]
+        return legacy_state_id
+    except KeyError:   
+        return None
 
 async def check_states(data, cache):
     index = 0
@@ -147,9 +156,9 @@ async def update_alerts_websocket_v1(mc, run_once=False):
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
                     region_type = active_alert["regionType"]
-                    state_id = regions_cache[region_id]["stateId"]
-                    state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions[state_name]["legacy_id"]
+                    legacy_state_id = get_legacy_state_id(region_id, regions_cache)
+                    if not legacy_state_id:
+                        continue
                     alert_type = active_alert["type"]
                     if alert_type in ["AIR"] and region_type in ["State", "District"]:
                         alerts[legacy_state_id - 1] = 1
@@ -186,9 +195,9 @@ async def update_alerts_websocket_v2(mc, run_once=False):
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
                     region_type = active_alert["regionType"]
-                    state_id = regions_cache[region_id]["stateId"]
-                    state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions[state_name]["legacy_id"]
+                    legacy_state_id = get_legacy_state_id(region_id, regions_cache)
+                    if not legacy_state_id:
+                        continue
                     alert_type = active_alert["type"]
                     alert_start_time = active_alert["lastUpdate"]
                     alert_start_time = int(
@@ -236,9 +245,9 @@ async def update_alerts_websocket_v3(mc, run_once=False):
                 for active_alert in alert["activeAlerts"]:
                     region_id = active_alert["regionId"]
                     region_type = active_alert["regionType"]
-                    state_id = regions_cache[region_id]["stateId"]
-                    state_name = regions_cache[state_id]["regionName"]
-                    legacy_state_id = regions[state_name]["legacy_id"]
+                    legacy_state_id = get_legacy_state_id(region_id, regions_cache)
+                    if not legacy_state_id:
+                        continue
                     alert_type = active_alert["type"]
                     alert_start_time = active_alert["lastUpdate"]
                     alert_start_time = int(
@@ -343,7 +352,6 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
 
             for _, state_data in regions.items():
                 legacy_state_id = state_data["legacy_id"]
-                legacy_state_id_str = str(legacy_state_id)
                 state_id = state_data["id"]
                 state_id_str = str(state_id)
                 if state_id_str in cache["states"]:
@@ -415,6 +423,8 @@ async def alert_reasons_v1(mc, alert_type, cache_key, default_value):
     for reason in reasons:
         state_id = reason["parentRegionId"]
         _, legacy_state_id = convert_region_ids(int(state_id), "id", "legacy_id")
+        if not legacy_state_id:
+            continue
 
         if alert_type in reason["alertTypes"] and alerts_websocket_data[legacy_state_id - 1] == 1:
             alerts[legacy_state_id - 1] = [1, calculate_reason_date(websocket_data, legacy_state_id)]
