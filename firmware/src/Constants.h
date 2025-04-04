@@ -360,4 +360,4 @@ static const size_t MAX_JSON_SIZE = 6000; // 6KB
 
 // Макрос для генерації switch-case для кожного піна
 #define GENERATE_PIN_CASE(pin) \
-    case pin: FastLED.addLeds<NEOPIXEL, pin>(const_cast<CRGB*>(leds), pixelcount); break;
+    case pin: FastLED.addLeds<WS2812, pin, RGB>(const_cast<CRGB*>(leds), pixelcount); break;
