@@ -1,6 +1,6 @@
 import pytest
 import json
-from unittest.mock import Mock, AsyncMock, patch, call
+from unittest.mock import AsyncMock, patch
 from aiomcache import Client
 from updater.updater import update_global_notifications_v1
 
