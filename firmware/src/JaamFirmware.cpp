@@ -70,6 +70,7 @@ enum SoundType {
   ALERT_OFF,
   EXPLOSIONS,
   BALLISTIC,
+  GLOBAL_NOTIFICATION,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -152,6 +153,22 @@ float   cpuTemp;
 float   usedHeapSize;
 float   freeHeapSize;
 int     wifiSignal;
+
+enum GlobalNotificationType {
+  IS_MIG,
+  IS_STRATEGIC,
+  IS_MIG_MISSILES,
+  IS_BALLISTIC_MISSILES,
+  IS_STRATEGIC_MISSILES  
+};
+
+std::map<char, bool> GlobalNotifications = {
+  {IS_MIG, false},
+  {IS_STRATEGIC, false},
+  {IS_MIG_MISSILES, false},
+  {IS_BALLISTIC_MISSILES, false},
+  {IS_STRATEGIC_MISSILES, false}
+};
 
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
@@ -314,6 +331,9 @@ void playMelody(SoundType type) {
     case BALLISTIC:
       playMelody(MELODIES[settings.getInt(MELODY_ON_BALLISTIC)]);
       break;
+    case GLOBAL_NOTIFICATION:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_GLOBAL_NOTIFICATION)]);
+      break; 
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -400,6 +420,8 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_EXPLOSION);
     case BALLISTIC:
       return settings.getBool(SOUND_ON_BALLISTIC);
+    case GLOBAL_NOTIFICATION:
+      return settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -2400,6 +2422,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
   addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_global_notification", settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION), "Звукове сповіщення при глобальному сповіщенні", "window.disableElement(\"melody_on_global_notification\", !this.checked);");
+  addSelectBox(response, "melody_on_global_notification", "Мелодія при глобальному сповіщенні", settings.getInt(MELODY_ON_GLOBAL_NOTIFICATION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2818,6 +2842,8 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
   saved = saveBool(request->getParam("sound_on_ballistic", true), "sound_on_ballistic", SOUND_ON_BALLISTIC) || saved;
   saved = saveInt(request->getParam("melody_on_ballistic", true), MELODY_ON_BALLISTIC) || saved;
+  saved = saveBool(request->getParam("sound_on_global_notification", true), "sound_on_global_notification", SOUND_ON_GLOBAL_NOTIFICATION) || saved;
+  saved = saveInt(request->getParam("melody_on_global_notification", true), MELODY_ON_GLOBAL_NOTIFICATION) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
@@ -3103,6 +3129,44 @@ void checkHomeDistrictAlerts() {
   }
 }
 
+void processGlobalNotifications(const JsonDocument& data) {
+  if (GlobalNotifications[IS_MIG] != data["mig"]) {
+    GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
+    if (GlobalNotifications[IS_MIG] > 0) {
+      showServiceMessage("МІГ-31к", "Глобальна тривога!", 10000);
+      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+    }
+  }
+  if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
+    GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
+    if (GlobalNotifications[IS_STRATEGIC] > 0) {
+      showServiceMessage("Стратегічна авіація", "Глобальна тривога!", 10000);
+      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+    }
+  }
+  if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
+    GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
+    if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
+      showServiceMessage("Кінжал!", "Глобальна тривога!", 10000);
+      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+    }
+  }
+  if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
+    GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
+    if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
+      showServiceMessage("Крилаті ракети!", "Глобальна тривога!", 10000);
+      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+    }
+  }
+  if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
+    GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
+    if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
+      showServiceMessage("Балістика!", "Глобальна тривога!", 10000);
+      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+    }
+  }
+}
+
 //--Websocket process start
 
 void onMessageCallback(WebsocketsMessage message) {
@@ -3177,6 +3241,9 @@ void onMessageCallback(WebsocketsMessage message) {
       LOG.println("Successfully parsed radiation data");
       remapRadiation();
       ha.setHomeRadiation(id_to_radiation[settings.getInt(HOME_DISTRICT)]);
+    } else if (payload == "global_notifications") {
+      processGlobalNotifications(data["global_notifications"]);
+      LOG.println("Successfully parsed global notifications");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);

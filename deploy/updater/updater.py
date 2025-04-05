@@ -535,6 +535,31 @@ async def update_radiation_websocket_v1(mc, run_once=False):
         if run_once:
             break
 
+async def update_global_notifications_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            cache = await get_cache_data(mc, b"ws_alerts", {})
+            websocket = await get_cache_data(mc, b"notifications_websocket_v1", {})
+            notifications = cache.get("mapNotifications", {})
+            data = {
+                'mig': 1 if notifications.get("hasMig") else 0,
+                'ships': 1 if notifications.get("hasBoats") else 0,
+                'tactical': 1 if notifications.get("hasTacticalAviation") else 0,
+                'strategic': 1 if notifications.get("hasStrategicAviation") else 0,
+                'ballistic_missiles': 1 if notifications.get("hasBallistics") else 0,
+                'mig_missiles': 1 if notifications.get("migRockets") else 0,
+                'ships_missiles': 1 if notifications.get("boatsRockets") else 0,
+                'tactical_missiles': 1 if notifications.get("tacticalAviationRockets") else 0,
+                'strategic_missiles': 1 if notifications.get("strategicAviationRockets") else 0       
+            }
+            await store_websocket_data(mc, data, websocket, "notifications_websocket_v1", b"notifications_websocket_v1")
+        except Exception as e:  
+            logger.error(f"update_notifications_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
 
 async def main():
     mc = Client(memcached_host, 11211)
@@ -553,6 +578,7 @@ async def main():
             update_ballistic_websocket_v2(mc),
             update_energy_websocket_v1(mc),
             update_radiation_websocket_v1(mc),
+            update_global_notifications_v1(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
