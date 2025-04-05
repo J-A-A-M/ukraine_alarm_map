@@ -22,10 +22,7 @@ async def test_1():
     mock_mc.set.return_value = True
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_alerts": {},
-            b"notifications_websocket_v1": {}
-        }
+        mock_responses = {b"ws_alerts": {}, b"notifications_websocket_v1": {}}
         return mock_responses.get(key, default)
 
     mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
@@ -34,16 +31,16 @@ async def test_1():
         await update_global_notifications_v1(mock_mc, run_once=True)
 
         expected_result = {
-                'mig': 0,
-                'ships': 0,
-                'tactical': 0,
-                'strategic': 0,
-                'ballistic_missiles': 0,
-                'mig_missiles': 0,
-                'ships_missiles': 0,
-                'tactical_missiles': 0,
-                'strategic_missiles': 0       
-            }
+            "mig": 0,
+            "ships": 0,
+            "tactical": 0,
+            "strategic": 0,
+            "ballistic_missiles": 0,
+            "mig_missiles": 0,
+            "ships_missiles": 0,
+            "tactical_missiles": 0,
+            "strategic_missiles": 0,
+        }
 
         mock_mc.set.assert_awaited_with(b"notifications_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
@@ -63,16 +60,16 @@ async def test_2():
         mock_responses = {
             b"ws_alerts": {},
             b"notifications_websocket_v1": {
-                'mig': 0,
-                'ships': 0,
-                'tactical': 0,
-                'strategic': 0,
-                'ballistic_missiles': 0,
-                'mig_missiles': 0,
-                'ships_missiles': 0,
-                'tactical_missiles': 0,
-                'strategic_missiles': 0       
-            }
+                "mig": 0,
+                "ships": 0,
+                "tactical": 0,
+                "strategic": 0,
+                "ballistic_missiles": 0,
+                "mig_missiles": 0,
+                "ships_missiles": 0,
+                "tactical_missiles": 0,
+                "strategic_missiles": 0,
+            },
         }
         return mock_responses.get(key, default)
 
@@ -107,20 +104,20 @@ async def test_3():
                     "migRockets": True,
                     "boatsRockets": True,
                     "tacticalAviationRockets": True,
-                    "strategicAviationRockets": True  
-                }    
+                    "strategicAviationRockets": True,
+                }
             },
             b"notifications_websocket_v1": {
-                'mig': 0,
-                'ships': 0,
-                'tactical': 0,
-                'strategic': 0,
-                'ballistic_missiles': 0,
-                'mig_missiles': 0,
-                'ships_missiles': 0,
-                'tactical_missiles': 0,
-                'strategic_missiles': 0       
-            }
+                "mig": 0,
+                "ships": 0,
+                "tactical": 0,
+                "strategic": 0,
+                "ballistic_missiles": 0,
+                "mig_missiles": 0,
+                "ships_missiles": 0,
+                "tactical_missiles": 0,
+                "strategic_missiles": 0,
+            },
         }
         return mock_responses.get(key, default)
 
@@ -130,15 +127,15 @@ async def test_3():
         await update_global_notifications_v1(mock_mc, run_once=True)
 
         expected_result = {
-                'mig': 1,
-                'ships': 1,
-                'tactical': 1,
-                'strategic': 1,
-                'ballistic_missiles': 1,
-                'mig_missiles': 1,
-                'ships_missiles': 1,
-                'tactical_missiles': 1,
-                'strategic_missiles': 1       
-            }
+            "mig": 1,
+            "ships": 1,
+            "tactical": 1,
+            "strategic": 1,
+            "ballistic_missiles": 1,
+            "mig_missiles": 1,
+            "ships_missiles": 1,
+            "tactical_missiles": 1,
+            "strategic_missiles": 1,
+        }
 
         mock_mc.set.assert_awaited_with(b"notifications_websocket_v1", json.dumps(expected_result).encode("utf-8"))

@@ -94,14 +94,16 @@ def get_current_datetime():
 def get_current_timestamp():
     return int(datetime.datetime.now(datetime.UTC).timestamp())
 
+
 def get_legacy_state_id(region_id, regions_cache):
     try:
         state_id = regions_cache[region_id]["stateId"]
         state_name = regions_cache[state_id]["regionName"]
         legacy_state_id = regions[state_name]["legacy_id"]
         return legacy_state_id
-    except KeyError:   
+    except KeyError:
         return None
+
 
 async def check_states(data, cache):
     index = 0
@@ -535,6 +537,7 @@ async def update_radiation_websocket_v1(mc, run_once=False):
         if run_once:
             break
 
+
 async def update_global_notifications_v1(mc, run_once=False):
     while True:
         try:
@@ -543,18 +546,18 @@ async def update_global_notifications_v1(mc, run_once=False):
             websocket = await get_cache_data(mc, b"notifications_websocket_v1", {})
             notifications = cache.get("mapNotifications", {})
             data = {
-                'mig': 1 if notifications.get("hasMig") else 0,
-                'ships': 1 if notifications.get("hasBoats") else 0,
-                'tactical': 1 if notifications.get("hasTacticalAviation") else 0,
-                'strategic': 1 if notifications.get("hasStrategicAviation") else 0,
-                'ballistic_missiles': 1 if notifications.get("hasBallistics") else 0,
-                'mig_missiles': 1 if notifications.get("migRockets") else 0,
-                'ships_missiles': 1 if notifications.get("boatsRockets") else 0,
-                'tactical_missiles': 1 if notifications.get("tacticalAviationRockets") else 0,
-                'strategic_missiles': 1 if notifications.get("strategicAviationRockets") else 0       
+                "mig": 1 if notifications.get("hasMig") else 0,
+                "ships": 1 if notifications.get("hasBoats") else 0,
+                "tactical": 1 if notifications.get("hasTacticalAviation") else 0,
+                "strategic": 1 if notifications.get("hasStrategicAviation") else 0,
+                "ballistic_missiles": 1 if notifications.get("hasBallistics") else 0,
+                "mig_missiles": 1 if notifications.get("migRockets") else 0,
+                "ships_missiles": 1 if notifications.get("boatsRockets") else 0,
+                "tactical_missiles": 1 if notifications.get("tacticalAviationRockets") else 0,
+                "strategic_missiles": 1 if notifications.get("strategicAviationRockets") else 0,
             }
             await store_websocket_data(mc, data, websocket, "notifications_websocket_v1", b"notifications_websocket_v1")
-        except Exception as e:  
+        except Exception as e:
             logger.error(f"update_notifications_websocket_v1: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
         if run_once:

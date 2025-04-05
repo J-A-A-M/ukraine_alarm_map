@@ -101,6 +101,7 @@ class AlertVersion:
     v3 = 3
     v4 = 4
 
+
 def bin_sort(bin):
     if bin.startswith("latest"):
         return (100, 0, 0, 0)
@@ -404,7 +405,10 @@ async def alerts_data(
                         logger.debug(f"{client_ip}:{chip_id} <<< new radiation")
                         client["radiation"] = shared_data.radiation_v1
                     if client["global_notifications"] != shared_data.global_notifications_v1:
-                        payload = '{"payload": "global_notifications", "global_notifications": %s}' % shared_data.global_notifications_v1
+                        payload = (
+                            '{"payload": "global_notifications", "global_notifications": %s}'
+                            % shared_data.global_notifications_v1
+                        )
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new global_notifications")
                         client["global_notifications"] = shared_data.global_notifications_v1
@@ -837,15 +841,15 @@ async def get_data_from_memcached_test(shared_data):
     radiation = [100] * 26
 
     global_notifications_v1 = {
-        'mig': 0,
-        'ships': 0,
-        'tactical': 0,
-        'strategic': 0,
-        'ballistic_missiles': 0,
-        'mig_missiles': 0,
-        'ships_missiles': 0,
-        'tactical_missiles': 0,
-        'strategic_missiles': 0       
+        "mig": 0,
+        "ships": 0,
+        "tactical": 0,
+        "strategic": 0,
+        "ballistic_missiles": 0,
+        "mig_missiles": 0,
+        "ships_missiles": 0,
+        "tactical_missiles": 0,
+        "strategic_missiles": 0,
     }
     random_key = random.choice(list(global_notifications_v1.keys()))
     global_notifications_v1[random_key] = 1
@@ -1024,7 +1028,9 @@ async def get_data_from_memcached(mc):
         drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
         drones_cashed_data_v2 = drones_cached_v2.decode("utf-8") if drones_cached_v2 else "[]"
         ballistic_cashed_data_v2 = ballistic_cached_v2.decode("utf-8") if ballistic_cached_v2 else "[]"
-        global_notifications_cached_v1 = global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
+        global_notifications_cached_v1 = (
+            global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
+        )
 
     weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
     energy_cached_data_v1 = energy_cached_v1.decode("utf-8") if energy_cached_v1 else "[]"

@@ -298,7 +298,7 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
             "activeAlerts": [
                 {"regionId": "170", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
-        }
+        },
     ]
     mock_get_regions.return_value = districts
     mock_get_cache_data.return_value = []
@@ -342,7 +342,7 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
             "activeAlerts": [
                 {"regionId": "170", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
-        }
+        },
     ]
     mock_get_regions.return_value = districts
     mock_get_cache_data.return_value = []
