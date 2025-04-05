@@ -70,7 +70,11 @@ enum SoundType {
   ALERT_OFF,
   EXPLOSIONS,
   BALLISTIC,
-  GLOBAL_NOTIFICATION,
+  CRITICAL_MIG,
+  CRITICAL_STRATEGIC,
+  CRITICAL_MIG_MISSILES,
+  CRITICAL_BALLISTIC_MISSILES,
+  CRITICAL_STRATEGIC_MISSILES,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -331,9 +335,21 @@ void playMelody(SoundType type) {
     case BALLISTIC:
       playMelody(MELODIES[settings.getInt(MELODY_ON_BALLISTIC)]);
       break;
-    case GLOBAL_NOTIFICATION:
-      playMelody(MELODIES[settings.getInt(MELODY_ON_GLOBAL_NOTIFICATION)]);
+    case CRITICAL_MIG:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG)]);
       break; 
+    case CRITICAL_STRATEGIC:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC)]);
+      break;
+    case CRITICAL_MIG_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES)]);
+      break;
+    case CRITICAL_BALLISTIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES)]);
+      break;
+    case CRITICAL_STRATEGIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES)]);
+      break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -420,8 +436,16 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_EXPLOSION);
     case BALLISTIC:
       return settings.getBool(SOUND_ON_BALLISTIC);
-    case GLOBAL_NOTIFICATION:
-      return settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION);
+    case CRITICAL_MIG:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG);
+    case CRITICAL_STRATEGIC:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC);
+    case CRITICAL_MIG_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES);
+    case CRITICAL_BALLISTIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES);
+    case CRITICAL_STRATEGIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -2422,8 +2446,16 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
   addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_global_notification", settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION), "Звукове сповіщення при глобальному сповіщенні", "window.disableElement(\"melody_on_global_notification\", !this.checked);");
-  addSelectBox(response, "melody_on_global_notification", "Мелодія при глобальному сповіщенні", settings.getInt(MELODY_ON_GLOBAL_NOTIFICATION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_GLOBAL_NOTIFICATION), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic", "Мелодія при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig_missiles", settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", "window.disableElement(\"melody_on_critical_mig_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig_missiles", "Мелодія при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»", settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_ballistic_missiles", settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Балістика'", "window.disableElement(\"melody_on_critical_ballistic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_ballistic_missiles", "Мелодія при критичному сповіщенні 'Балістика", settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic_missiles", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск крилатих ракет'", "window.disableElement(\"melody_on_critical_strategic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic_missiles", "Мелодія при критичному сповіщенні 'Запуск крилатих ракет", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2842,8 +2874,16 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
   saved = saveBool(request->getParam("sound_on_ballistic", true), "sound_on_ballistic", SOUND_ON_BALLISTIC) || saved;
   saved = saveInt(request->getParam("melody_on_ballistic", true), MELODY_ON_BALLISTIC) || saved;
-  saved = saveBool(request->getParam("sound_on_global_notification", true), "sound_on_global_notification", SOUND_ON_GLOBAL_NOTIFICATION) || saved;
-  saved = saveInt(request->getParam("melody_on_global_notification", true), MELODY_ON_GLOBAL_NOTIFICATION) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig", true), "sound_on_critical_mig", SOUND_ON_CRITICAL_MIG) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig", true), MELODY_ON_CRITICAL_MIG) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic", true), "sound_on_critical_strategic", SOUND_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic", true), MELODY_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig_missiles", true), "sound_on_critical_mig_missiles", SOUND_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig_missiles", true), MELODY_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_ballistic_missiles", true), "sound_on_critical_ballistic_missiles", SOUND_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_ballistic_missiles", true), MELODY_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic_missiles", true), "sound_on_critical_strategic_missiles", SOUND_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic_missiles", true), MELODY_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
@@ -3133,36 +3173,36 @@ void processGlobalNotifications(const JsonDocument& data) {
   if (GlobalNotifications[IS_MIG] != data["mig"]) {
     GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
     if (GlobalNotifications[IS_MIG] > 0) {
-      showServiceMessage("МІГ-31к", "Глобальна тривога!", 10000);
-      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+      showServiceMessage("МІГ-31к", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_MIG)) playMelody(CRITICAL_MIG);
     }
   }
   if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
     GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
     if (GlobalNotifications[IS_STRATEGIC] > 0) {
-      showServiceMessage("Стратегічна авіація", "Глобальна тривога!", 10000);
-      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+      showServiceMessage("Стратегічна авіація", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_STRATEGIC)) playMelody(CRITICAL_STRATEGIC);
     }
   }
   if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
     GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
     if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
-      showServiceMessage("Кінжал!", "Глобальна тривога!", 10000);
-      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+      showServiceMessage("Кинджал!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_MIG_MISSILES)) playMelody(CRITICAL_MIG_MISSILES);
     }
   }
   if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
     GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
     if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
-      showServiceMessage("Крилаті ракети!", "Глобальна тривога!", 10000);
-      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+      showServiceMessage("Крилаті ракети!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_STRATEGIC_MISSILES)) playMelody(CRITICAL_STRATEGIC_MISSILES);
     }
   }
   if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
     GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
     if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
-      showServiceMessage("Балістика!", "Глобальна тривога!", 10000);
-      if (needToPlaySound(GLOBAL_NOTIFICATION)) playMelody(GLOBAL_NOTIFICATION);
+      showServiceMessage("Балістика!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_BALLISTIC_MISSILES)) playMelody(CRITICAL_BALLISTIC_MISSILES);
     }
   }
 }
