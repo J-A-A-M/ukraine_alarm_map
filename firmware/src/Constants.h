@@ -41,7 +41,7 @@ static const char HELLDIVERS[]           PROGMEM = "Helldivers:d=4,o=5,b=120:8f,
 static const char SIREN5[]               PROGMEM = "Siren5:d=16,o=5,b=200:c6,f6,c7,c6,f6,c7,c6,f6,c7,8p,c,f,c6,c,f,c6,c,f,c6";
 static const char SIREN6[]               PROGMEM = "Siren6:d=16,o=6,b=160:8d,p,2d,p,8d,p,2d,p,8d,p,2d";
 static const char SIREN7[]               PROGMEM = "Siren7:d=4,o=5,b=140:16c,16e,16g,16a,16c,16e,16g,16a,16c,16e,16g,16a";
-static const char SIREN8[]               PROGMEM = "Siren8:d=4,o=6,b=125:16d,8d,16d,32c7,32d7,32e7,8d,8d,32d7,32e7,32f7,16d,8c,32c,32d,32e,8p,32d,32e,32f,8p,32e,32f,32g,8p,32d7,32e7,32f7,32g7";
+static const char SIREN8[]               PROGMEM = "Siren8:=8,o=5,b=300:c,e,g,c,e,g,c,e,g,c6,e6,g6,c6,e6,g6,c6,e6,g6,c7,e7,g7,c7,e7,g7,c7,e7,g7";
 
 static const char CLOCK_BEEP[]           PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
 static const char MOS_BEEP[]             PROGMEM = "MosBeep:d=4,o=4,b=250:g";
