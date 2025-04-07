@@ -2273,7 +2273,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракента небезпека, балістика", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракетна небезпека", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
     addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
@@ -2317,7 +2317,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
-  addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
+  //addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2396,13 +2396,13 @@ void handleModes(AsyncWebServerRequest* request) {
     addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
-  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
-  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
-  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
+  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
+  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
+  //addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
@@ -2444,8 +2444,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
-  addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
+  //(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
+  //addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
   addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
@@ -3442,11 +3442,16 @@ CRGB processAlarms(
   }
 
   // missiles  has fouth priority
-  if (settings.getBool(ENABLE_MISSILES)) {
+  if (settings.getBool(ENABLE_MISSILES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (missile_status) {
       case ALERT:
-        colorSwitch = settings.getInt(COLOR_MISSILES);
-        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        if (currentTime - missile_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
         return hue;
     }
   }
@@ -3459,11 +3464,16 @@ CRGB processAlarms(
   }
 
   // drones has six priority
-  if (settings.getBool(ENABLE_DRONES)) {
+  if (settings.getBool(ENABLE_DRONES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (drone_status) {
       case ALERT:
-        colorSwitch = settings.getInt(COLOR_DRONES);
-        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        if (currentTime - drone_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
         return hue;
     }
   }
