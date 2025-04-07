@@ -3511,17 +3511,41 @@ CRGB processAlarms(
   return hue;
 }
 
+// float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
+//   float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+//   float minBrightness = fixedMaxBrightness * 0.01f;
+//   int progress = micros() % (fadeTime * 1000);
+//   int halfBlinkTime = fadeTime * 500;
+//   float blinkBrightness;
+//   if (progress < halfBlinkTime) {
+//     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
+//   } else {
+//     blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
+//   }
+//   return blinkBrightness;
+// }
+
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  // Ensure max brightness is not below minimum threshold
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness)
+                              ? minBlinkBrightness
+                              : maxBrightness;
+
   float minBrightness = fixedMaxBrightness * 0.01f;
-  int progress = micros() % (fadeTime * 1000);
-  int halfBlinkTime = fadeTime * 500;
-  float blinkBrightness;
-  if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
-  } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
-  }
+  float amplitude = fixedMaxBrightness - minBrightness;
+
+  // Current position in the cycle (from 0 to fadeTime * 1000 microseconds)
+  unsigned long progress = micros() % (fadeTime * 1000);
+
+  // Normalized progress (0.0 to 1.0)
+  float t = (float)progress / (fadeTime * 1000.0f);
+
+  // Parabolic curve: -4(x - 0.5)^2 + 1 -> ranges from 0 to 1
+  float curve = -4.0f * (t - 0.5f) * (t - 0.5f) + 1.0f;
+
+  // Scale the curve to brightness range
+  float blinkBrightness = minBrightness + amplitude * curve;
+
   return blinkBrightness;
 }
 
