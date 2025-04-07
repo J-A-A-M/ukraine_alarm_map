@@ -389,11 +389,11 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones2"] = shared_data.drones_v2
-                    if client["kab2"] != shared_data.kab_v2:
-                        payload = '{"payload": "kab2", "kab": %s}' % shared_data.kab_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new kab")
-                        client["kab2"] = shared_data.kab_v2
+                    # if client["kab2"] != shared_data.kab_v2:
+                    #     payload = '{"payload": "kab2", "kab": %s}' % shared_data.kab_v2
+                    #     await websocket.send(payload)
+                    #     logger.debug(f"{client_ip}:{chip_id} <<< new kab")
+                    #     client["kab2"] = shared_data.kab_v2
                     if client["energy"] != shared_data.energy_v1:
                         payload = '{"payload": "energy", "energy": %s}' % shared_data.energy_v1
                         await websocket.send(payload)
