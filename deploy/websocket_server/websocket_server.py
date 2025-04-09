@@ -76,9 +76,10 @@ class SharedData:
         self.missiles_v2 = "[]"
         self.drones_v1 = "[]"
         self.drones_v2 = "[]"
-        self.ballistic_v2 = "[]"
+        self.kab_v2 = "[]"
         self.energy_v1 = "[]"
         self.radiation_v1 = "[]"
+        self.global_notifications_v1 = "{}"
         self.bins = "[]"
         self.test_bins = "[]"
         self.s3_bins = "[]"
@@ -99,36 +100,6 @@ class AlertVersion:
     v2 = 2
     v3 = 3
     v4 = 4
-
-
-regions = {
-    "Закарпатська область": {"id": 11, "legacy_id": 1},
-    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
-    "Тернопільська область": {"id": 21, "legacy_id": 3},
-    "Львівська область": {"id": 27, "legacy_id": 4},
-    "Волинська область": {"id": 8, "legacy_id": 5},
-    "Рівненська область": {"id": 5, "legacy_id": 6},
-    "Житомирська область": {"id": 10, "legacy_id": 7},
-    "Київська область": {"id": 14, "legacy_id": 8},
-    "Чернігівська область": {"id": 25, "legacy_id": 9},
-    "Сумська область": {"id": 20, "legacy_id": 10},
-    "Харківська область": {"id": 22, "legacy_id": 11},
-    "Луганська область": {"id": 16, "legacy_id": 12},
-    "Донецька область": {"id": 28, "legacy_id": 13},
-    "Запорізька область": {"id": 12, "legacy_id": 14},
-    "Херсонська область": {"id": 23, "legacy_id": 15},
-    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
-    "Одеська область": {"id": 18, "legacy_id": 17},
-    "Миколаївська область": {"id": 17, "legacy_id": 18},
-    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
-    "Полтавська область": {"id": 19, "legacy_id": 20},
-    "Черкаська область": {"id": 24, "legacy_id": 21},
-    "Кіровоградська область": {"id": 15, "legacy_id": 22},
-    "Вінницька область": {"id": 4, "legacy_id": 23},
-    "Хмельницька область": {"id": 3, "legacy_id": 24},
-    "Чернівецька область": {"id": 26, "legacy_id": 25},
-    "м. Київ": {"id": 31, "legacy_id": 26},
-}
 
 
 def bin_sort(bin):
@@ -418,11 +389,11 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones2"] = shared_data.drones_v2
-                    if client["ballistic2"] != shared_data.ballistic_v2:
-                        payload = '{"payload": "ballistic2", "ballistic": %s}' % shared_data.ballistic_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new ballistic")
-                        client["ballistic2"] = shared_data.ballistic_v2
+                    # if client["kab2"] != shared_data.kab_v2:
+                    #     payload = '{"payload": "kab2", "kab": %s}' % shared_data.kab_v2
+                    #     await websocket.send(payload)
+                    #     logger.debug(f"{client_ip}:{chip_id} <<< new kab")
+                    #     client["kab2"] = shared_data.kab_v2
                     if client["energy"] != shared_data.energy_v1:
                         payload = '{"payload": "energy", "energy": %s}' % shared_data.energy_v1
                         await websocket.send(payload)
@@ -433,6 +404,14 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new radiation")
                         client["radiation"] = shared_data.radiation_v1
+                    if client["global_notifications"] != shared_data.global_notifications_v1:
+                        payload = (
+                            '{"payload": "global_notifications", "global_notifications": %s}'
+                            % shared_data.global_notifications_v1
+                        )
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new global_notifications")
+                        client["global_notifications"] = shared_data.global_notifications_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
@@ -562,9 +541,10 @@ async def echo(websocket: ServerConnection):
             "missiles2": "[]",
             "drones": "[]",
             "drones2": "[]",
-            "ballistic2": "[]",
+            "kab2": "[]",
             "energy": "[]",
             "radiation": "[]",
+            "global_notifications": "{}",
             "bins": "[]",
             "test_bins": "[]",
             "firmware": "unknown",
@@ -673,9 +653,10 @@ async def update_shared_data(shared_data: SharedData, mc):
             missiles_v2,
             drones_v1,
             drones_v2,
-            ballistic_v2,
+            kab_v2,
             energy_v1,
             radiation_v1,
+            global_notifications_v1,
             bins,
             test_bins,
             s3_bins,
@@ -750,11 +731,11 @@ async def update_shared_data(shared_data: SharedData, mc):
             logger.error(f"error in drones_v2: {e}")
 
         try:
-            if ballistic_v2 != shared_data.ballistic_v2:
-                shared_data.ballistic_v2 = ballistic_v2
-                logger.debug(f"ballistic_v2 updated: {ballistic_v2}")
+            if kab_v2 != shared_data.kab_v2:
+                shared_data.kab_v2 = kab_v2
+                logger.debug(f"kab_v2 updated: {kab_v2}")
         except Exception as e:
-            logger.error(f"error in ballistic_v2: {e}")
+            logger.error(f"error in kab_v2: {e}")
 
         try:
             if energy_v1 != shared_data.energy_v1:
@@ -769,6 +750,13 @@ async def update_shared_data(shared_data: SharedData, mc):
                 logger.debug(f"radiation_v1 updated: {radiation_v1}")
         except Exception as e:
             logger.error(f"error in radiation_v1: {e}")
+
+        try:
+            if global_notifications_v1 != shared_data.global_notifications_v1:
+                shared_data.global_notifications_v1 = global_notifications_v1
+                logger.debug(f"global_notifications_v1 updated: {global_notifications_v1}")
+        except Exception as e:
+            logger.error(f"error in global_notifications_v1: {e}")
 
         try:
             if bins != shared_data.bins:
@@ -848,76 +836,89 @@ async def get_data_from_memcached_test(shared_data):
     drone = [0] * 26
     missile_v2 = [[0, 1736935200]] * 26
     drone_v2 = [[0, 1736935200]] * 26
-    ballistic_v2 = [[0, 1736935200]] * 26
+    kab_v2 = [[0, 1736935200]] * 26
     energy = [[3, 1736935200]] * 26
     radiation = [100] * 26
 
-    for region_name, data in regions.items():
-        region_id = data["legacy_id"]
-        if region_id == shared_data.test_id:
-            alert = 1
-            temp = 30
-            expl = int(datetime.datetime.now().timestamp())
+    global_notifications_v1 = {
+        "mig": 0,
+        "ships": 0,
+        "tactical": 0,
+        "strategic": 0,
+        "ballistic_missiles": 0,
+        "mig_missiles": 0,
+        "ships_missiles": 0,
+        "tactical_missiles": 0,
+        "strategic_missiles": 0,
+    }
+    random_key = random.choice(list(global_notifications_v1.keys()))
+    global_notifications_v1[random_key] = 1
 
-            alerts_v2[circular_offset_index(region_id - 1, 0)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
-            ]
-            alerts_v3[circular_offset_index(region_id - 1, 0)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
-            ]
-            alerts_v2[circular_offset_index(region_id - 1, -1)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            alerts_v3[circular_offset_index(region_id - 1, -1)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            alerts_v2[circular_offset_index(region_id - 1, -2)] = [
-                "0",
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            alerts_v3[circular_offset_index(region_id - 1, -2)] = [
-                "0",
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            missile_v2[circular_offset_index(region_id - 1, -3)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
-            ]
-            missile[circular_offset_index(region_id - 1, -4)] = expl
-            drone_v2[circular_offset_index(region_id - 1, -5)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
-            ]
-            drone[circular_offset_index(region_id - 1, -6)] = expl
-            ballistic_v2[circular_offset_index(region_id - 1, -7)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-3600}",
-            ]
-            ballistic_v2[circular_offset_index(region_id - 1, -8)] = [
-                str(alert),
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
+    region_id = shared_data.test_id
 
-            explosion[circular_offset_index(region_id - 1, -9)] = expl
-            weather[circular_offset_index(region_id - 1, 0)] = temp
-            energy[circular_offset_index(region_id - 1, 0)] = [
-                "9",
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            energy[circular_offset_index(region_id - 1, -1)] = [
-                "4",
-                f"{int(datetime.datetime.now().timestamp())-60}",
-            ]
-            radiation[circular_offset_index(region_id - 1, 0)] = 2000
+    expl = int(datetime.datetime.now().timestamp())
 
-        else:
-            alert = 0
-            temp = 0
-            expl = 0
+    alerts_v2[circular_offset_index(region_id - 1, 0)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, 0)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    alerts_v2[circular_offset_index(region_id - 1, -1)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, -1)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v2[circular_offset_index(region_id - 1, -2)] = [
+        "0",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, -2)] = [
+        "0",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    missile_v2[circular_offset_index(region_id - 1, -3)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    missile_v2[circular_offset_index(region_id - 1, -4)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    missile[circular_offset_index(region_id - 1, -5)] = expl
+    drone_v2[circular_offset_index(region_id - 1, -6)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    drone_v2[circular_offset_index(region_id - 1, -7)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    drone[circular_offset_index(region_id - 1, -8)] = expl
+    kab_v2[circular_offset_index(region_id - 1, -9)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    kab_v2[circular_offset_index(region_id - 1, -10)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    explosion[circular_offset_index(region_id - 1, -11)] = expl
+    weather[circular_offset_index(region_id - 1, 0)] = 30
+    energy[circular_offset_index(region_id - 1, 0)] = [
+        "9",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    energy[circular_offset_index(region_id - 1, -1)] = [
+        "4",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    radiation[circular_offset_index(region_id - 1, 0)] = 2000
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
@@ -931,9 +932,10 @@ async def get_data_from_memcached_test(shared_data):
         json.dumps(missile_v2),
         json.dumps(drone),
         json.dumps(drone_v2),
-        json.dumps(ballistic_v2),
+        json.dumps(kab_v2),
         json.dumps(energy),
         json.dumps(radiation),
+        json.dumps(global_notifications_v1),
         '["latest.bin"]',
         '["latest_beta.bin"]',
         '["latest.bin"]',
@@ -953,9 +955,10 @@ async def get_data_from_memcached(mc):
     missiles_cached_v2 = await mc.get(b"missiles_websocket_v2")
     drones_cached_v1 = await mc.get(b"drones_websocket_v1")
     drones_cached_v2 = await mc.get(b"drones_websocket_v2")
-    ballistic_cached_v2 = await mc.get(b"ballistic_websocket_v2")
+    kab_cached_v2 = await mc.get(b"kab_websocket_v2")
     energy_cached_v1 = await mc.get(b"energy_websocket_v1")
     radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
+    global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
     s3_bins_cached = await mc.get(b"s3_bins")
@@ -969,10 +972,11 @@ async def get_data_from_memcached(mc):
         alerts_v3 = []
         missiles_v2 = []
         drones_v2 = []
-        ballistic_v2 = []
+        kab_v2 = []
         explosions_v1 = [0] * 26
         missiles_v1 = [0] * 26
         drones_v1 = [0] * 26
+        global_notifications_v1 = {}
         for i in range(26):
             alerts_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
@@ -1000,7 +1004,7 @@ async def get_data_from_memcached(mc):
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 ]
             )
-            ballistic_v2.append(
+            kab_v2.append(
                 [
                     random.randint(0, 1),
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1020,7 +1024,8 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2 = json.dumps(missiles_v2[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
         drones_cashed_data_v2 = json.dumps(drones_v2[:26])
-        ballistic_cashed_data_v2 = json.dumps(ballistic_v2[:26])
+        kab_cashed_data_v2 = json.dumps(kab_v2[:26])
+        global_notifications_cached_v1 = json.dumps(global_notifications_v1)
     else:
         alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
         alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
@@ -1030,7 +1035,10 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
         drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
         drones_cashed_data_v2 = drones_cached_v2.decode("utf-8") if drones_cached_v2 else "[]"
-        ballistic_cashed_data_v2 = ballistic_cached_v2.decode("utf-8") if ballistic_cached_v2 else "[]"
+        kab_cashed_data_v2 = kab_cached_v2.decode("utf-8") if kab_cached_v2 else "[]"
+        global_notifications_cached_v1 = (
+            global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
+        )
 
     weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
     energy_cached_data_v1 = energy_cached_v1.decode("utf-8") if energy_cached_v1 else "[]"
@@ -1052,9 +1060,10 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2,
         drones_cashed_data_v1,
         drones_cashed_data_v2,
-        ballistic_cashed_data_v2,
+        kab_cashed_data_v2,
         energy_cached_data_v1,
         radiation_cached_data_v1,
+        global_notifications_cached_v1,
         bins_cached_data,
         test_bins_cached_data,
         s3_bins_cached_data,

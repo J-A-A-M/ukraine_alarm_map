@@ -70,6 +70,11 @@ enum SoundType {
   ALERT_OFF,
   EXPLOSIONS,
   BALLISTIC,
+  CRITICAL_MIG,
+  CRITICAL_STRATEGIC,
+  CRITICAL_MIG_MISSILES,
+  CRITICAL_BALLISTIC_MISSILES,
+  CRITICAL_STRATEGIC_MISSILES,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -152,6 +157,22 @@ float   cpuTemp;
 float   usedHeapSize;
 float   freeHeapSize;
 int     wifiSignal;
+
+enum GlobalNotificationType {
+  IS_MIG,
+  IS_STRATEGIC,
+  IS_MIG_MISSILES,
+  IS_BALLISTIC_MISSILES,
+  IS_STRATEGIC_MISSILES  
+};
+
+std::map<char, bool> GlobalNotifications = {
+  {IS_MIG, false},
+  {IS_STRATEGIC, false},
+  {IS_MIG_MISSILES, false},
+  {IS_BALLISTIC_MISSILES, false},
+  {IS_STRATEGIC_MISSILES, false}
+};
 
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
@@ -314,6 +335,21 @@ void playMelody(SoundType type) {
     case BALLISTIC:
       playMelody(MELODIES[settings.getInt(MELODY_ON_BALLISTIC)]);
       break;
+    case CRITICAL_MIG:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG)]);
+      break; 
+    case CRITICAL_STRATEGIC:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC)]);
+      break;
+    case CRITICAL_MIG_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES)]);
+      break;
+    case CRITICAL_BALLISTIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES)]);
+      break;
+    case CRITICAL_STRATEGIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES)]);
+      break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -400,6 +436,16 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_EXPLOSION);
     case BALLISTIC:
       return settings.getBool(SOUND_ON_BALLISTIC);
+    case CRITICAL_MIG:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG);
+    case CRITICAL_STRATEGIC:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC);
+    case CRITICAL_MIG_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES);
+    case CRITICAL_BALLISTIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES);
+    case CRITICAL_STRATEGIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -2227,7 +2273,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракента небезпека, балістика", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи, дрони, ракетна небезпека", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
     addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
@@ -2271,7 +2317,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
-  addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
+  //addSlider(response, "color_ballistic", "Загроза балістики", settings.getInt(COLOR_BALLISTIC), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2350,13 +2396,13 @@ void handleModes(AsyncWebServerRequest* request) {
     addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
   }
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
-  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
-  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
-  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
+  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
+  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
+  //addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати сповіщення про загрозу балістики");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
@@ -2398,8 +2444,18 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
-  addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
+  //(response, "sound_on_ballistic", settings.getBool(SOUND_ON_BALLISTIC), "Звукове сповіщення при балістиці у домашньому регіоні", "window.disableElement(\"melody_on_ballistic\", !this.checked);");
+  //addSelectBox(response, "melody_on_ballistic", "Мелодія при балістиці у домашньому регіоні", settings.getInt(MELODY_ON_BALLISTIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_BALLISTIC), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic", "Мелодія при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig_missiles", settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", "window.disableElement(\"melody_on_critical_mig_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig_missiles", "Мелодія при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»", settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_ballistic_missiles", settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Балістика'", "window.disableElement(\"melody_on_critical_ballistic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_ballistic_missiles", "Мелодія при критичному сповіщенні 'Балістика", settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic_missiles", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск крилатих ракет'", "window.disableElement(\"melody_on_critical_strategic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic_missiles", "Мелодія при критичному сповіщенні 'Запуск крилатих ракет", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2818,6 +2874,16 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
   saved = saveBool(request->getParam("sound_on_ballistic", true), "sound_on_ballistic", SOUND_ON_BALLISTIC) || saved;
   saved = saveInt(request->getParam("melody_on_ballistic", true), MELODY_ON_BALLISTIC) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig", true), "sound_on_critical_mig", SOUND_ON_CRITICAL_MIG) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig", true), MELODY_ON_CRITICAL_MIG) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic", true), "sound_on_critical_strategic", SOUND_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic", true), MELODY_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig_missiles", true), "sound_on_critical_mig_missiles", SOUND_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig_missiles", true), MELODY_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_ballistic_missiles", true), "sound_on_critical_ballistic_missiles", SOUND_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_ballistic_missiles", true), MELODY_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic_missiles", true), "sound_on_critical_strategic_missiles", SOUND_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic_missiles", true), MELODY_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
@@ -3103,6 +3169,44 @@ void checkHomeDistrictAlerts() {
   }
 }
 
+void processGlobalNotifications(const JsonDocument& data) {
+  if (GlobalNotifications[IS_MIG] != data["mig"]) {
+    GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
+    if (GlobalNotifications[IS_MIG] > 0) {
+      showServiceMessage("МІГ-31к", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_MIG)) playMelody(CRITICAL_MIG);
+    }
+  }
+  if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
+    GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
+    if (GlobalNotifications[IS_STRATEGIC] > 0) {
+      showServiceMessage("Стратегічна авіація", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_STRATEGIC)) playMelody(CRITICAL_STRATEGIC);
+    }
+  }
+  if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
+    GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
+    if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
+      showServiceMessage("Кинджал!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_MIG_MISSILES)) playMelody(CRITICAL_MIG_MISSILES);
+    }
+  }
+  if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
+    GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
+    if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
+      showServiceMessage("Крилаті ракети!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_STRATEGIC_MISSILES)) playMelody(CRITICAL_STRATEGIC_MISSILES);
+    }
+  }
+  if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
+    GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
+    if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
+      showServiceMessage("Балістика!", "Критичне сповіщення!", 10000);
+      if (needToPlaySound(CRITICAL_BALLISTIC_MISSILES)) playMelody(CRITICAL_BALLISTIC_MISSILES);
+    }
+  }
+}
+
 //--Websocket process start
 
 void onMessageCallback(WebsocketsMessage message) {
@@ -3177,6 +3281,9 @@ void onMessageCallback(WebsocketsMessage message) {
       LOG.println("Successfully parsed radiation data");
       remapRadiation();
       ha.setHomeRadiation(id_to_radiation[settings.getInt(HOME_DISTRICT)]);
+    } else if (payload == "global_notifications") {
+      processGlobalNotifications(data["global_notifications"]);
+      LOG.println("Successfully parsed global notifications");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3335,11 +3442,16 @@ CRGB processAlarms(
   }
 
   // missiles  has fouth priority
-  if (settings.getBool(ENABLE_MISSILES)) {
+  if (settings.getBool(ENABLE_MISSILES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (missile_status) {
       case ALERT:
-        colorSwitch = settings.getInt(COLOR_MISSILES);
-        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        if (currentTime - missile_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
         return hue;
     }
   }
@@ -3352,11 +3464,16 @@ CRGB processAlarms(
   }
 
   // drones has six priority
-  if (settings.getBool(ENABLE_DRONES)) {
+  if (settings.getBool(ENABLE_DRONES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (drone_status) {
       case ALERT:
-        colorSwitch = settings.getInt(COLOR_DRONES);
-        hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        if (currentTime - drone_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
         return hue;
     }
   }
@@ -3394,17 +3511,41 @@ CRGB processAlarms(
   return hue;
 }
 
+// float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
+//   float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+//   float minBrightness = fixedMaxBrightness * 0.01f;
+//   int progress = micros() % (fadeTime * 1000);
+//   int halfBlinkTime = fadeTime * 500;
+//   float blinkBrightness;
+//   if (progress < halfBlinkTime) {
+//     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
+//   } else {
+//     blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
+//   }
+//   return blinkBrightness;
+// }
+
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  // Ensure max brightness is not below minimum threshold
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness)
+                              ? minBlinkBrightness
+                              : maxBrightness;
+
   float minBrightness = fixedMaxBrightness * 0.01f;
-  int progress = micros() % (fadeTime * 1000);
-  int halfBlinkTime = fadeTime * 500;
-  float blinkBrightness;
-  if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
-  } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
-  }
+  float amplitude = fixedMaxBrightness - minBrightness;
+
+  // Current position in the cycle (from 0 to fadeTime * 1000 microseconds)
+  unsigned long progress = micros() % (fadeTime * 1000);
+
+  // Normalized progress (0.0 to 1.0)
+  float t = (float)progress / (fadeTime * 1000.0f);
+
+  // Parabolic curve: -4(x - 0.5)^2 + 1 -> ranges from 0 to 1
+  float curve = -4.0f * (t - 0.5f) * (t - 0.5f) + 1.0f;
+
+  // Scale the curve to brightness range
+  float blinkBrightness = minBrightness + amplitude * curve;
+
   return blinkBrightness;
 }
 
