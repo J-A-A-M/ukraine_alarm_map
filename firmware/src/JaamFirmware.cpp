@@ -140,6 +140,8 @@ bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
 bool    alarmNow = false;
+bool    alarmDronesNow = false;
+bool    alarmMissilesNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 long    homeBallisticTime = 0;
@@ -1763,7 +1765,7 @@ void displayCycle() {
   }
 
   // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
-  if (alarmNow && settings.getInt(HOME_ALERT_TIME) == 1) {
+  if (alarmNow && settings.getBool(HOME_ALERT_TIME)) {
     showHomeAlertInfo();
     return;
   }
@@ -2397,7 +2399,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
   if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати на екрані тривалість тривоги у домашньому регіоні");
+    addCheckbox(response, "home_alert_time", settings.getBool(HOME_ALERT_TIME), "Показувати на екрані тривалість тривоги у домашньому регіоні");
   }
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
@@ -3144,15 +3146,19 @@ void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
   long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
   long localHomeBallistic = id_to_ballistic[settings.getInt(HOME_DISTRICT)].second;
-  long localHomeMissiles = checkBiggestTime(
-    id_to_missiles[settings.getInt(HOME_DISTRICT)],
-    id_to_missiles_notifications[settings.getInt(HOME_DISTRICT)]
-  );
-  long localHomeDrones = checkBiggestTime(
-    id_to_drones[settings.getInt(HOME_DISTRICT)], 
-    id_to_drones_notifications[settings.getInt(HOME_DISTRICT)]
-  );
   bool localAlarmNow = ledStatus == 1;
+  bool localAlarmDronesNow = isLocalAlarmNow(
+    id_to_drones[settings.getInt(HOME_DISTRICT)],
+    id_to_drones_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
+  bool localAlarmMissilesNow = isLocalAlarmNow(
+    id_to_missiles[settings.getInt(HOME_DISTRICT)],
+    id_to_missiles_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
@@ -3182,16 +3188,16 @@ void checkHomeDistrictAlerts() {
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
-  if (settings.getBool(ENABLE_MISSILES) && localHomeMissiles != homeMissilesTime) {
-    homeMissilesTime = localHomeMissiles;
-    if (homeMissilesTime > 0 && timeClient.unixGMT() - homeMissilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (alarmMissilesNow != localAlarmMissilesNow && settings.getBool(ENABLE_MISSILES)) {
+    alarmMissilesNow = localAlarmMissilesNow;
+    if (alarmMissilesNow) {
       showServiceMessage("Ракети!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
-  if (settings.getBool(ENABLE_DRONES) && localHomeDrones != homeDronesTime) {
-    homeDronesTime = localHomeDrones;
-    if (homeDronesTime > 0 && timeClient.unixGMT() - homeDronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (alarmDronesNow != localAlarmDronesNow && settings.getBool(ENABLE_DRONES)) {
+    alarmDronesNow = localAlarmDronesNow;
+    if (alarmDronesNow) {
       showServiceMessage("БПЛА!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
@@ -4271,7 +4277,7 @@ void initHA() {
     mapHaDisplayModes();
     ha.initDisplayModeSensor(haDisplayModeMap.second[settings.getInt(DISPLAY_MODE)], displayModes.second, displayModes.first, saveDisplayMode, transformFromHaDisplayMode);
     ha.initDisplayModeToggleSensor(nextDisplayMode);
-    ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
+    ha.initShowHomeAlarmTimeSensor(settings.getBool(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }
   auto alarmModes = getNames(AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, true);
   ha.initAutoAlarmModeSensor(getIndexById(AUTO_ALARM_MODES, settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES_COUNT), alarmModes.second, alarmModes.first, saveAutoAlarmMode, transformFromHaAutoAlarmMode);
