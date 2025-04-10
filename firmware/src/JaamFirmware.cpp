@@ -481,6 +481,10 @@ void servicePin(ServiceLed type, uint8_t status, bool force) {
       case UPD_AVAILABLE:
         pin = settings.getInt(UPD_AVAILABLE_PIN);
         // this service led will be handled in the main loop for animation
+#if TEST_MODE
+        // show in test mode only
+        service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
+#endif
         break;
     }
     if (pin > 0 && settings.getInt(LEGACY) == 0) {
@@ -947,11 +951,13 @@ void checkServicePins() {
       } else {
         servicePin(DATA, HIGH, true);
       }
+#if FW_UPDATE_ENABLED
       if (fwUpdateAvailable) {
         servicePin(UPD_AVAILABLE, HIGH, true);
       } else {
         servicePin(UPD_AVAILABLE, LOW, true);
       }
+#endif
     } else {
       servicePin(POWER, LOW, true);
       servicePin(WIFI, LOW, true);
@@ -4353,7 +4359,7 @@ void runSelfTests() {
   servicePin(WIFI, HIGH, true);
   servicePin(DATA, HIGH, true);
   servicePin(HA, HIGH, true);
-  servicePin(RESERVED, HIGH, true);
+  servicePin(UPD_AVAILABLE, HIGH, true);
   showLocalTemp();
   sleep(2);
   showLocalHum();
@@ -4368,7 +4374,7 @@ void runSelfTests() {
 
 void serviceLedUpdAvailableHandler() {
   if (!isServiceStripEnabled()) return;
-
+#if FW_UPDATE_ENABLED
   if (fwUpdateAvailable && settings.getBool(SERVICE_DIODES_MODE)) {
     int scaledBrightness = (settings.getInt(BRIGHTNESS_SERVICE) == 0) ? 0 : round(max(settings.getInt(BRIGHTNESS_SERVICE), minBrightness) * 255.0f / 100.0f * brightnessFactor);
     float updateBrightness = getFadeInFadeOutBrightness(scaledBrightness, 1500);
@@ -4377,6 +4383,7 @@ void serviceLedUpdAvailableHandler() {
     service_strip[4] = CRGB::Black;
   }
   FastLED.show();
+#endif
 }
 
 void syncTimePeriodically() {
