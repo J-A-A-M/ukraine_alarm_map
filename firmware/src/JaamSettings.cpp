@@ -45,7 +45,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {WIFI_PIN, {"wifip", -1}},
     {DATA_PIN, {"datap", -1}},
     {HA_PIN, {"hap", -1}},
-    {RESERVED_PIN, {"resp", -1}},
+    {UPD_AVAILABLE_PIN, {"resp", -1}},
     {ALERT_CLEAR_PIN_MODE, {"acpm", 0}},
     {HA_MQTT_PORT, {"ha_mqttport", 1883}},
     {CURRENT_BRIGHTNESS, {"cbr", 50}},

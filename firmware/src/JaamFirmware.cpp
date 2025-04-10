@@ -59,7 +59,7 @@ enum ServiceLed {
   WIFI,
   DATA,
   HA,
-  RESERVED
+  UPD_AVAILABLE
 };
 
 enum SoundType {
@@ -478,9 +478,13 @@ void servicePin(ServiceLed type, uint8_t status, bool force) {
         pin = settings.getInt(HA_PIN);
         service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
-      case RESERVED:
-        pin = settings.getInt(RESERVED_PIN);
+      case UPD_AVAILABLE:
+        pin = settings.getInt(UPD_AVAILABLE_PIN);
+        // this service led will be handled in the main loop for animation
+#if TEST_MODE
+        // show in test mode only
         service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
+#endif
         break;
     }
     if (pin > 0 && settings.getInt(LEGACY) == 0) {
@@ -856,6 +860,7 @@ void saveLatestFirmware() {
   }
   latestFirmware = firmware;
   fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
+  servicePin(UPD_AVAILABLE, fwUpdateAvailable ? HIGH : LOW, false);
   fillFwVersion(newFwVersion, latestFirmware);
   LOG.printf("Latest firmware version: %s\n", newFwVersion);
   LOG.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
@@ -930,7 +935,6 @@ void doUpdate() {
 void checkServicePins() {
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
     if (settings.getInt(SERVICE_DIODES_MODE)) {
-      // LOG.println("Dioded enabled");
       servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(WIFI, LOW, true);
@@ -947,12 +951,19 @@ void checkServicePins() {
       } else {
         servicePin(DATA, HIGH, true);
       }
+#if FW_UPDATE_ENABLED
+      if (fwUpdateAvailable) {
+        servicePin(UPD_AVAILABLE, HIGH, true);
+      } else {
+        servicePin(UPD_AVAILABLE, LOW, true);
+      }
+#endif
     } else {
-      // LOG.println("Dioded disables");
       servicePin(POWER, LOW, true);
       servicePin(WIFI, LOW, true);
       servicePin(HA, LOW, true);
       servicePin(DATA, LOW, true);
+      servicePin(UPD_AVAILABLE, LOW, true);
     }
   }
 }
@@ -3901,7 +3912,7 @@ void initLegacy() {
     settings.saveInt(WIFI_PIN, 14, false);
     settings.saveInt(DATA_PIN, 25, false);
     settings.saveInt(HA_PIN, 26, false);
-    settings.saveInt(RESERVED_PIN, 27, false);
+    settings.saveInt(UPD_AVAILABLE_PIN, 27, false);
 
     settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
@@ -3918,6 +3929,7 @@ void initLegacy() {
     pinMode(settings.getInt(WIFI_PIN), OUTPUT);
     pinMode(settings.getInt(DATA_PIN), OUTPUT);
     pinMode(settings.getInt(HA_PIN), OUTPUT);
+    pinMode(settings.getInt(UPD_AVAILABLE_PIN), OUTPUT);
 
     servicePin(POWER, HIGH, false);
 
@@ -4347,7 +4359,7 @@ void runSelfTests() {
   servicePin(WIFI, HIGH, true);
   servicePin(DATA, HIGH, true);
   servicePin(HA, HIGH, true);
-  servicePin(RESERVED, HIGH, true);
+  servicePin(UPD_AVAILABLE, HIGH, true);
   showLocalTemp();
   sleep(2);
   showLocalHum();
@@ -4359,6 +4371,20 @@ void runSelfTests() {
   displayMessage("Please test buttons");
 }
 #endif
+
+void serviceLedUpdAvailableHandler() {
+  if (!isServiceStripEnabled()) return;
+#if FW_UPDATE_ENABLED
+  if (fwUpdateAvailable && settings.getBool(SERVICE_DIODES_MODE)) {
+    int scaledBrightness = (settings.getInt(BRIGHTNESS_SERVICE) == 0) ? 0 : round(max(settings.getInt(BRIGHTNESS_SERVICE), minBrightness) * 255.0f / 100.0f * brightnessFactor);
+    float updateBrightness = getFadeInFadeOutBrightness(scaledBrightness, 1500);
+    service_strip[4] = CRGB(CRGB::White).nscale8_video(updateBrightness);
+  } else {
+    service_strip[4] = CRGB::Black;
+  }
+  FastLED.show();
+#endif
+}
 
 void syncTimePeriodically() {
   syncTime(2);
@@ -4427,4 +4453,5 @@ void loop() {
   }
 #endif
   buttons.tick();
+  serviceLedUpdAvailableHandler();
 }
