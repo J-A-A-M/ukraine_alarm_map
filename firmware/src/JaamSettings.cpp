@@ -108,6 +108,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {SOUND_ON_CRITICAL_BALLISTIC_MISSILES, {"socrbm", 1}},
     {MELODY_ON_CRITICAL_BALLISTIC_MISSILES, {"mocrbm", 28}},
     {CRITICAL_NOTIFICATIONS_DISPLAY_TIME, {"crndt", 30}},
+    {ENABLE_CRITICAL_NOTIFICATIONS, {"ecn", 1}},
     {SOUND_ON_EVERY_HOUR, {"soeh", 0}},
     {SOUND_ON_BUTTON_CLICK, {"sobc", 0}},
     {MUTE_SOUND_ON_NIGHT, {"mson", 0}},

@@ -145,8 +145,6 @@ bool    alarmMissilesNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 long    homeBallisticTime = 0;
-long    homeMissilesTime = 0;
-long    homeDronesTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
 short   clockBeepInterval = -1;
@@ -2357,13 +2355,26 @@ void handleModes(AsyncWebServerRequest* request) {
   if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
   addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT);
   }
+  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   addSelectBox(response, "map_mode", "Режим мапи", settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT);
-  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
-  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
+  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_critical_notifications", settings.getBool(ENABLE_CRITICAL_NOTIFICATIONS), "Увімкнути критичні сповіщення (Міг, Кинджал, Стратегічна авіація, Крилаті ракети, Балістика)");
+  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
+  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
+  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати загрозу балістики");
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
+  
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
+    addCheckbox(response, "home_alert_time", settings.getBool(HOME_ALERT_TIME), "Показувати на екрані тривалість тривоги у домашньому регіоні");
     addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні). УВАГА - ресурс роботи дисплея суттєво зменшиться");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
+    addSlider(response, "critical_notifications_display_time", "Тривалість відображення критичних і локальних сповіщень на дисплеї", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME), 5, 120, 5, " с.");
     response->println("Відображати в режимі \"Перемикання\":<br><br>");
     addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
     if (climate.isAnySensorAvailable()) {
@@ -2388,6 +2399,8 @@ void handleModes(AsyncWebServerRequest* request) {
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MIN_TEMP), -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MAX_TEMP), 11, 40, 1, "°C");
   addSlider(response, "radiation_max", "Верхній рівень радіації (режим 'Радіація')", settings.getInt(RADIATION_MAX), 110, 2000, 10, " нЗв/год");
+  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
+  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (buttons.isButton1Enabled()) {
     addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
     addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
@@ -2396,23 +2409,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
   }
-  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
-  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
-  if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.getBool(HOME_ALERT_TIME), "Показувати на екрані тривалість тривоги у домашньому регіоні");
-  }
-  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
-  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
-  addCheckbox(response, "enable_ballistic", settings.getBool(ENABLE_BALLISTIC), "Показувати загрозу балістики");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  if (display.isDisplayAvailable()) {
-    addSlider(response, "critical_notifications_display_time", "Тривалість відображення критичних сповіщень на дислеї", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME), 5, 120, 5, " с.");
-  }
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
-  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
+  
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
     addCheckbox(response, "service_diodes_mode", settings.getInt(SERVICE_DIODES_MODE), "Ввімкнути сервісні діоди");
   }
@@ -2854,6 +2851,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("alert_off_time", true), ALERT_OFF_TIME) || saved;
   saved = saveInt(request->getParam("explosion_time", true), EXPLOSION_TIME) || saved;
   saved = saveInt(request->getParam("critical_notifications_display_time", true), CRITICAL_NOTIFICATIONS_DISPLAY_TIME) || saved;
+  saved = saveBool(request->getParam("enable_critical_notifications", true), "enable_critical_notifications", ENABLE_CRITICAL_NOTIFICATIONS) || saved;
   saved = saveInt(request->getParam("alert_blink_time", true), ALERT_BLINK_TIME) || saved;
   saved = saveInt(request->getParam("alarms_auto_switch", true), ALARMS_AUTO_SWITCH, saveAutoAlarmMode) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", SERVICE_DIODES_MODE, NULL, checkServicePins) || saved;
@@ -3205,39 +3203,41 @@ void checkHomeDistrictAlerts() {
 }
 
 void processGlobalNotifications(const JsonDocument& data) {
-  if (GlobalNotifications[IS_MIG] != data["mig"]) {
-    GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
-    if (GlobalNotifications[IS_MIG] > 0) {
-      showServiceMessage("МІГ-31к", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(CRITICAL_MIG)) playMelody(CRITICAL_MIG);
+  if (settings.getBool(ENABLE_CRITICAL_NOTIFICATIONS)) {
+    if (GlobalNotifications[IS_MIG] != data["mig"]) {
+      GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
+      if (GlobalNotifications[IS_MIG] > 0) {
+        showServiceMessage("МІГ-31к", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_MIG)) playMelody(CRITICAL_MIG);
+      }
     }
-  }
-  if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
-    GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
-    if (GlobalNotifications[IS_STRATEGIC] > 0) {
-      showServiceMessage("Стратегічна авіація", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(CRITICAL_STRATEGIC)) playMelody(CRITICAL_STRATEGIC);
+    if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
+      GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
+      if (GlobalNotifications[IS_STRATEGIC] > 0) {
+        showServiceMessage("Стратегічна авіація", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_STRATEGIC)) playMelody(CRITICAL_STRATEGIC);
+      }
     }
-  }
-  if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
-    GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
-    if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
-      showServiceMessage("Кинджал!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(CRITICAL_MIG_MISSILES)) playMelody(CRITICAL_MIG_MISSILES);
+    if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
+      GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
+      if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
+        showServiceMessage("Кинджал!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_MIG_MISSILES)) playMelody(CRITICAL_MIG_MISSILES);
+      }
     }
-  }
-  if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
-    GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
-    if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
-      showServiceMessage("Крилаті ракети!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(CRITICAL_STRATEGIC_MISSILES)) playMelody(CRITICAL_STRATEGIC_MISSILES);
+    if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
+      GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
+      if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
+        showServiceMessage("Крилаті ракети!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_STRATEGIC_MISSILES)) playMelody(CRITICAL_STRATEGIC_MISSILES);
+      }
     }
-  }
-  if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
-    GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
-    if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
-      showServiceMessage("Балістика!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(CRITICAL_BALLISTIC_MISSILES)) playMelody(CRITICAL_BALLISTIC_MISSILES);
+    if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
+      GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
+      if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
+        showServiceMessage("Балістика!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_BALLISTIC_MISSILES)) playMelody(CRITICAL_BALLISTIC_MISSILES);
+      }
     }
   }
 }
