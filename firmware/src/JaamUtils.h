@@ -230,6 +230,18 @@ static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), s
   return remaped;
 }
 
+
+/**
+* Fuction to check what alert last time to use in home district alarm calculation for specific alert
+*/
+static int checkBiggestTime(std::pair<int, long int> state, long notification_time) {
+  if (state.first == 0) {
+    return max(state.second, notification_time);
+  } else {
+    return state.second;
+  }
+}
+
 static float mapf(float value, float istart, float istop, float ostart, float ostop) {
   return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
