@@ -3188,16 +3188,16 @@ void checkHomeDistrictAlerts() {
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
-  if (alarmMissilesNow != localAlarmMissilesNow && settings.getBool(ENABLE_MISSILES)) {
+  if (alarmMissilesNow != localAlarmMissilesNow) {
     alarmMissilesNow = localAlarmMissilesNow;
-    if (alarmMissilesNow) {
+    if (alarmMissilesNow && settings.getBool(ENABLE_MISSILES)) {
       showServiceMessage("Ракети!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
-  if (alarmDronesNow != localAlarmDronesNow && settings.getBool(ENABLE_DRONES)) {
+  if (alarmDronesNow != localAlarmDronesNow) {
     alarmDronesNow = localAlarmDronesNow;
-    if (alarmDronesNow) {
+    if (alarmDronesNow && settings.getBool(ENABLE_DRONES)) {
       showServiceMessage("БПЛА!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
