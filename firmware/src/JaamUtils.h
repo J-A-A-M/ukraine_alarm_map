@@ -230,6 +230,21 @@ static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), s
   return remaped;
 }
 
+
+/**
+* Fuction to check what alert last time to use in home district alarm calculation for specific alert
+* @param state state alarm with status and time of last status change
+* @param notification time of last notification
+* @param current_time timeClient.unixGMT()
+* @param period time in seconds where status cant be changes
+*/
+static bool isLocalAlarmNow(std::pair<int, long int> state, long notification, int current_time, int period) {
+  if (state.first == 1) {
+    return true;
+  }
+  return current_time - notification < period;
+}
+
 static float mapf(float value, float istart, float istop, float ostart, float ostop) {
   return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
