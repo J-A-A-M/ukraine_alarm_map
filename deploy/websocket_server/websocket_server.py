@@ -76,7 +76,8 @@ class SharedData:
         self.missiles_v2 = "[]"
         self.drones_v1 = "[]"
         self.drones_v2 = "[]"
-        self.kab_v2 = "[]"
+        self.kabs_v1 = "[]"
+        self.kabs_v2 = "[]"
         self.energy_v1 = "[]"
         self.radiation_v1 = "[]"
         self.global_notifications_v1 = "{}"
@@ -389,11 +390,16 @@ async def alerts_data(
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones2"] = shared_data.drones_v2
-                    # if client["kab2"] != shared_data.kab_v2:
-                    #     payload = '{"payload": "kab2", "kab": %s}' % shared_data.kab_v2
-                    #     await websocket.send(payload)
-                    #     logger.debug(f"{client_ip}:{chip_id} <<< new kab")
-                    #     client["kab2"] = shared_data.kab_v2
+                    if client["kabs"] != shared_data.kabs_v1:
+                        payload = '{"payload": "kabs", "kabs": %s}' % shared_data.kabs_v1
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs notification")
+                        client["kabs"] = shared_data.kabs_v1
+                    if client["kabs2"] != shared_data.kabs_v2:
+                        payload = '{"payload": "kabs2", "kabs": %s}' % shared_data.kabs_v2
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs")
+                        client["kabs2"] = shared_data.kabs_v2
                     if client["energy"] != shared_data.energy_v1:
                         payload = '{"payload": "energy", "energy": %s}' % shared_data.energy_v1
                         await websocket.send(payload)
@@ -541,7 +547,8 @@ async def echo(websocket: ServerConnection):
             "missiles2": "[]",
             "drones": "[]",
             "drones2": "[]",
-            "kab2": "[]",
+            "kabs": "[]",
+            "kabs2": "[]",
             "energy": "[]",
             "radiation": "[]",
             "global_notifications": "{}",
@@ -653,7 +660,8 @@ async def update_shared_data(shared_data: SharedData, mc):
             missiles_v2,
             drones_v1,
             drones_v2,
-            kab_v2,
+            kabs_v1,
+            kabs_v2,
             energy_v1,
             radiation_v1,
             global_notifications_v1,
@@ -731,11 +739,18 @@ async def update_shared_data(shared_data: SharedData, mc):
             logger.error(f"error in drones_v2: {e}")
 
         try:
-            if kab_v2 != shared_data.kab_v2:
-                shared_data.kab_v2 = kab_v2
-                logger.debug(f"kab_v2 updated: {kab_v2}")
+            if kabs_v1 != shared_data.kabs_v1:
+                shared_data.kabs_v1 = kabs_v1
+                logger.debug(f"kabs_v1 updated: {kabs_v1}")
         except Exception as e:
-            logger.error(f"error in kab_v2: {e}")
+            logger.error(f"error in kabs_v1: {e}")
+
+        try:
+            if kabs_v2 != shared_data.kabs_v2:
+                shared_data.kabs_v2 = kabs_v2
+                logger.debug(f"kabs_v2 updated: {kabs_v2}")
+        except Exception as e:
+            logger.error(f"error in kabs_v2: {e}")
 
         try:
             if energy_v1 != shared_data.energy_v1:
@@ -834,6 +849,7 @@ async def get_data_from_memcached_test(shared_data):
     explosion = [0] * 26
     missile = [0] * 26
     drone = [0] * 26
+    kab = [0] * 26
     missile_v2 = [[0, 1736935200]] * 26
     drone_v2 = [[0, 1736935200]] * 26
     kab_v2 = [[0, 1736935200]] * 26
@@ -908,7 +924,8 @@ async def get_data_from_memcached_test(shared_data):
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    explosion[circular_offset_index(region_id - 1, -11)] = expl
+    kab[circular_offset_index(region_id - 1, -11)] = expl
+    explosion[circular_offset_index(region_id - 1, -12)] = expl
     weather[circular_offset_index(region_id - 1, 0)] = 30
     energy[circular_offset_index(region_id - 1, 0)] = [
         "9",
@@ -932,6 +949,7 @@ async def get_data_from_memcached_test(shared_data):
         json.dumps(missile_v2),
         json.dumps(drone),
         json.dumps(drone_v2),
+        json.dumps(kab),
         json.dumps(kab_v2),
         json.dumps(energy),
         json.dumps(radiation),
@@ -955,7 +973,8 @@ async def get_data_from_memcached(mc):
     missiles_cached_v2 = await mc.get(b"missiles_websocket_v2")
     drones_cached_v1 = await mc.get(b"drones_websocket_v1")
     drones_cached_v2 = await mc.get(b"drones_websocket_v2")
-    kab_cached_v2 = await mc.get(b"kab_websocket_v2")
+    kabs_cached_v1 = await mc.get(b"kabs_websocket_v1")
+    kabs_cached_v2 = await mc.get(b"kabs_websocket_v2")
     energy_cached_v1 = await mc.get(b"energy_websocket_v1")
     radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
     global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
@@ -972,10 +991,11 @@ async def get_data_from_memcached(mc):
         alerts_v3 = []
         missiles_v2 = []
         drones_v2 = []
-        kab_v2 = []
+        kabs_v2 = []
         explosions_v1 = [0] * 26
         missiles_v1 = [0] * 26
         drones_v1 = [0] * 26
+        kabs_v1 = [0] * 26
         global_notifications_v1 = {}
         for i in range(26):
             alerts_v1.append(random.randint(0, 3))
@@ -1004,7 +1024,7 @@ async def get_data_from_memcached(mc):
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 ]
             )
-            kab_v2.append(
+            kabs_v2.append(
                 [
                     random.randint(0, 1),
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1016,6 +1036,8 @@ async def get_data_from_memcached(mc):
         missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
         drone_index = random.randint(0, 25)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
+        kab_index = random.randint(0, 25)
+        kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(alerts_v1[:26])
         alerts_cached_data_v2 = json.dumps(alerts_v2[:26])
         alerts_cached_data_v2 = json.dumps(alerts_v3[:26])
@@ -1024,7 +1046,8 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2 = json.dumps(missiles_v2[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
         drones_cashed_data_v2 = json.dumps(drones_v2[:26])
-        kab_cashed_data_v2 = json.dumps(kab_v2[:26])
+        kabs_cashed_data_v1 = json.dumps(kabs_v1[:26])
+        kabs_cashed_data_v2 = json.dumps(kabs_v2[:26])
         global_notifications_cached_v1 = json.dumps(global_notifications_v1)
     else:
         alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
@@ -1035,7 +1058,8 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
         drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
         drones_cashed_data_v2 = drones_cached_v2.decode("utf-8") if drones_cached_v2 else "[]"
-        kab_cashed_data_v2 = kab_cached_v2.decode("utf-8") if kab_cached_v2 else "[]"
+        kabs_cashed_data_v1 = kabs_cached_v1.decode("utf-8") if kabs_cached_v1 else "[]"
+        kabs_cashed_data_v2 = kabs_cached_v2.decode("utf-8") if kabs_cached_v2 else "[]"
         global_notifications_cached_v1 = (
             global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
         )
@@ -1060,7 +1084,8 @@ async def get_data_from_memcached(mc):
         missiles_cashed_data_v2,
         drones_cashed_data_v1,
         drones_cashed_data_v2,
-        kab_cashed_data_v2,
+        kabs_cashed_data_v1,
+        kabs_cashed_data_v2,
         energy_cached_data_v1,
         radiation_cached_data_v1,
         global_notifications_cached_v1,

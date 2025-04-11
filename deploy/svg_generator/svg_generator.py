@@ -68,7 +68,7 @@ COLOR_SAFE_BEGIN = "#BBFF33"
 COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
-COLOR_BALLISTIC = "#f9ff33"
+COLOR_KABS = "#f9ff33"
 COLOR_ENERGY_UNKNOWN = "#000000"
 COLOR_ENERGY_OK = "#55a349"
 COLOR_ENERGY_WARNING = "#f9ac1a"
@@ -180,6 +180,7 @@ async def svg_generator_alerts(mc):
             drones_notifications_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
             missiles_notifications_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
             explosions_notifications_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
+            kabs_notifications_cache = await get_etryvoga(mc, b"kabs_etryvoga", {"states": {}})
             websocket_cache = await get_cache_data(mc, b"ws_info", {"reasons": []})
             regions_cache = await get_regions(mc, b"regions_api", {})
 
@@ -233,7 +234,14 @@ async def svg_generator_alerts(mc):
                 state_id = reason["parentRegionId"]
                 state_name = get_region_name("id", int(state_id))
                 if "Ballistic" in reason["alertTypes"]:
-                    alerts_svg_data[state_name] = COLOR_BALLISTIC
+                    alerts_svg_data[state_name] = COLOR_KABS
+
+            for region_id, region_data in kabs_notifications_cache["states"].items():
+                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                if time_diff < 180:
+                    alerts_svg_data[state_name] = COLOR_KABS
 
             for region_id, region_data in explosions_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
@@ -1228,8 +1236,8 @@ async def generate_map(
                <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека</text>
                <circle cx="50" cy="880" r="20" fill="{COLOR_DRONES}" id="circle248" />
                <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА</text>             
-               <circle cx="50" cy="930" r="20" fill="{COLOR_BALLISTIC}" id="circle252" />
-               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза балістики</text>
+               <circle cx="50" cy="930" r="20" fill="{COLOR_KABS}" id="circle252" />
+               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза КАБ</text>
                <circle cx="50" cy="980" r="20" fill="{COLOR_EXPLOSIVES}" id="circle240" />
                <text x="75" y="985" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>

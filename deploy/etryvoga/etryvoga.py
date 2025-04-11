@@ -133,10 +133,11 @@ async def get_etryvoga_data(mc):
                 b"explosions_etryvoga",
                 b"missiles_etryvoga",
                 b"drones_etryvoga",
+                b"kabs_etryvoga",
             ]
             cached_data = await asyncio.gather(*(mc.get(key) for key in cache_keys))
 
-            districts_slug_cached, explosions_cached, missiles_cached, drones_cached = cached_data
+            districts_slug_cached, explosions_cached, missiles_cached, drones_cached, kabs_cached = cached_data
 
             if districts_slug_cached:
                 districts_slug_cached = json.loads(districts_slug_cached)
@@ -157,6 +158,11 @@ async def get_etryvoga_data(mc):
                 drones_cached_data = json.loads(drones_cached.decode("utf-8"))
             else:
                 drones_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
+
+            if kabs_cached:
+                kabs_cached_data = json.loads(kabs_cached.decode("utf-8"))
+            else:
+                kabs_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
 
             last_id = None
 
@@ -199,6 +205,8 @@ async def get_etryvoga_data(mc):
                                 missiles_cached_data["states"][state_id] = region_data
                             case "DRONE" | "RECON_DRONE":
                                 drones_cached_data["states"][state_id] = region_data
+                            case "KAB":
+                                kabs_cached_data["states"][state_id] = region_data
                             case _:
                                 pass
                         last_id = current_hex
@@ -213,11 +221,14 @@ async def get_etryvoga_data(mc):
                     missiles_cached_data["info"]["last_update"] = get_current_datetime()
                     drones_cached_data["info"]["last_id"] = last_id
                     drones_cached_data["info"]["last_update"] = get_current_datetime()
+                    kabs_cached_data["info"]["last_id"] = last_id
+                    kabs_cached_data["info"]["last_update"] = get_current_datetime()
                     logger.debug("store etryvoga data")
                     await asyncio.gather(
                         mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
                         mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
                         mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
+                        mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
                         mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
                         mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8")),
                         service_is_fine(mc, b"etryvoga_api_last_call"),
