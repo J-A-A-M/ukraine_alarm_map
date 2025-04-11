@@ -69,7 +69,6 @@ enum SoundType {
   ALERT_ON,
   ALERT_OFF,
   EXPLOSIONS,
-  KAB,
   CRITICAL_MIG,
   CRITICAL_STRATEGIC,
   CRITICAL_MIG_MISSILES,
@@ -108,8 +107,8 @@ std::map<int, long>                 id_to_drones_notifications; //regionId to mi
 std::map<int, long>                 led_to_drones_notifications; // ledPosition to missils time
 std::map<int, std::pair<int, long>> id_to_drones; //regionId to drones state and time
 std::map<int, std::pair<int, long>> led_to_drones; // ledPosition to drones state and time
-std::map<int, std::pair<int, long>> id_to_kab; //regionId to kab state and time
-std::map<int, std::pair<int, long>> led_to_kab; // ledPosition to kab state and time
+std::map<int, std::pair<int, long>> id_to_kabs; //regionId to kabs state and time
+std::map<int, std::pair<int, long>> led_to_kabs; // ledPosition to kabs state and time
 std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
 std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
 std::map<int, int>                id_to_radiation; //regionId to radiation
@@ -335,9 +334,6 @@ void playMelody(SoundType type) {
     case EXPLOSIONS:
       playMelody(MELODIES[settings.getInt(MELODY_ON_EXPLOSION)]);
       break;
-    case KAB:
-      playMelody(MELODIES[settings.getInt(MELODY_ON_KAB)]);
-      break;
     case CRITICAL_MIG:
       playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG)]);
       break; 
@@ -437,8 +433,6 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_ALERT_END);
     case EXPLOSIONS:
       return settings.getBool(SOUND_ON_EXPLOSION);
-    case KAB:
-      return settings.getBool(SOUND_ON_KAB);
     case CRITICAL_MIG:
       return settings.getBool(SOUND_ON_CRITICAL_MIG);
     case CRITICAL_STRATEGIC:
@@ -1275,9 +1269,9 @@ void remapDrones() {
   led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
 }
 
-void remapKab() {
+void remapKabs() {
   auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_kab = mapLeds(ledMapping, id_to_kab, combiHandler);
+  led_to_kabs = mapLeds(ledMapping, id_to_kabs, combiHandler);
 }
 
 float linearFloatCombiModeHandler(float value1, float value2) {
@@ -1917,7 +1911,7 @@ void initLedMapping() {
   remapMissiles();
   remapDronesNotifications();
   remapDrones();
-  remapKab();
+  remapKabs();
   remapHomeDistrict();
   remapEnergy();
   remapRadiation();
@@ -2331,7 +2325,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
-  addSlider(response, "color_kab", "Загроза КАБ", settings.getInt(COLOR_KAB), 0, 360, 1, "", false, true);
+  addSlider(response, "color_kabs", "Загроза КАБ", settings.getInt(COLOR_KABS), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2374,10 +2368,10 @@ void handleModes(AsyncWebServerRequest* request) {
   addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
   addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
   addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
-  addCheckbox(response, "enable_kab", settings.getBool(ENABLE_KAB), "Показувати загрозу КАБ");
+  addCheckbox(response, "enable_kabs", settings.getBool(ENABLE_KABS), "Показувати загрозу КАБ");
   addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА, КАБ та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
   addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
   
   if (display.isDisplayAvailable()) {
@@ -2458,10 +2452,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_alert_end", settings.getBool(SOUND_ON_ALERT_END), "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах, БПЛА, ракетах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
+  addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
   addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах, БПЛА, ракетах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_kab", settings.getBool(SOUND_ON_KAB), "Звукове сповіщення при КАБ у домашньому регіоні", "window.disableElement(\"melody_on_kab\", !this.checked);");
-  addSelectBox(response, "melody_on_kab", "Мелодія при КАБ у домашньому регіоні", settings.getInt(MELODY_ON_KAB), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_KAB), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
   addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
@@ -2818,7 +2810,7 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_alert_over", true), COLOR_ALERT_OVER) || saved;
   saved = saveInt(request->getParam("color_explosion", true), COLOR_EXPLOSION) || saved;
   saved = saveInt(request->getParam("color_missiles", true), COLOR_MISSILES) || saved;
-  saved = saveInt(request->getParam("color_kab", true), COLOR_KAB) || saved;
+  saved = saveInt(request->getParam("color_kabs", true), COLOR_KABS) || saved;
   saved = saveInt(request->getParam("color_drones", true), COLOR_DRONES) || saved;
   saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
   saved = saveInt(request->getParam("color_bg_neighbor_alert", true), COLOR_BG_NEIGHBOR_ALERT) || saved;
@@ -2857,7 +2849,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
   saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", ENABLE_MISSILES) || saved;
   saved = saveBool(request->getParam("enable_drones", true), "enable_drones", ENABLE_DRONES) || saved;
-  saved = saveBool(request->getParam("enable_kab", true), "enable_kab", ENABLE_KAB) || saved;
+  saved = saveBool(request->getParam("enable_kabs", true), "enable_kabs", ENABLE_KABS) || saved;
   saved = saveInt(request->getParam("alert_on_time", true), ALERT_ON_TIME) || saved;
   saved = saveInt(request->getParam("alert_off_time", true), ALERT_OFF_TIME) || saved;
   saved = saveInt(request->getParam("explosion_time", true), EXPLOSION_TIME) || saved;
@@ -2890,8 +2882,6 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_alert_end", true), MELODY_ON_ALERT_END) || saved;
   saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", SOUND_ON_EXPLOSION) || saved;
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
-  saved = saveBool(request->getParam("sound_on_kab", true), "sound_on_kab", SOUND_ON_KAB) || saved;
-  saved = saveInt(request->getParam("melody_on_kab", true), MELODY_ON_KAB) || saved;
   saved = saveBool(request->getParam("sound_on_critical_mig", true), "sound_on_critical_mig", SOUND_ON_CRITICAL_MIG) || saved;
   saved = saveInt(request->getParam("melody_on_critical_mig", true), MELODY_ON_CRITICAL_MIG) || saved;
   saved = saveBool(request->getParam("sound_on_critical_strategic", true), "sound_on_critical_strategic", SOUND_ON_CRITICAL_STRATEGIC) || saved;
@@ -3154,7 +3144,7 @@ void alertPinCycle() {
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
   long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
-  long localHomeKab = id_to_kab[settings.getInt(HOME_DISTRICT)].second;
+  long localHomeKabs = id_to_kabs[settings.getInt(HOME_DISTRICT)].second;
   bool localAlarmNow = ledStatus == 1;
   bool localAlarmDronesNow = isLocalAlarmNow(
     id_to_drones[settings.getInt(HOME_DISTRICT)],
@@ -3183,11 +3173,11 @@ void checkHomeDistrictAlerts() {
     }
     ha.setAlarmAtHome(alarmNow);
   }
-  if (settings.getBool(ENABLE_KAB) && localHomeKab != homeKabTime) {
-    homeKabTime = localHomeKab;
+  if (settings.getBool(ENABLE_KABS) && localHomeKabs != homeKabTime) {
+    homeKabTime = localHomeKabs;
     if (homeKabTime > 0 && timeClient.unixGMT() - homeKabTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
       showServiceMessage("КАБ!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(KAB)) playMelody(KAB);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
   if (settings.getBool(ENABLE_EXPLOSIONS) && localHomeExplosions != homeExplosionTime) {
@@ -3307,12 +3297,12 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
-    } else if (payload == "kab2") {
+    } else if (payload == "kabs2") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_kab[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["kab"][i][0], (long) data["kab"][i][1]);
+        id_to_kabs[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["kabs"][i][0], (long) data["kabs"][i][1]);
       }
-      LOG.println("Successfully parsed kab data");
-      remapKab();
+      LOG.println("Successfully parsed kabs data");
+      remapKabs();
     } else if (payload == "energy") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_energy[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["energy"][i][0], (long) data["energy"][i][1]);
@@ -3465,15 +3455,15 @@ CRGB processAlarms(
     return hue;
   }
 
-  // kab has second priority
-  if (settings.getBool(ENABLE_KAB)) {
+  // kabs has second priority
+  if (settings.getBool(ENABLE_KABS)) {
     switch (kab_status) {
       case ALERT:
         if (currentTime - kab_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
-          colorSwitch = settings.getInt(COLOR_KAB);
+          colorSwitch = settings.getInt(COLOR_KABS);
           hue = fromHue(colorSwitch, extrafastBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
         } else {
-          colorSwitch = settings.getInt(COLOR_KAB);
+          colorSwitch = settings.getInt(COLOR_KABS);
           hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
         }
         return hue;
@@ -3714,8 +3704,8 @@ void mapAlarms() {
       led_to_missiles[i].second,
       led_to_drones[i].first,
       led_to_drones[i].second,
-      led_to_kab[i].first,
-      led_to_kab[i].second,
+      led_to_kabs[i].first,
+      led_to_kabs[i].second,
       led_to_explosions_notifications[i],
       led_to_missiles_notifications[i],
       led_to_drones_notifications[i],
@@ -3744,8 +3734,8 @@ void mapAlarms() {
           led_to_missiles[localDistrictLed].second,
           led_to_drones[localDistrictLed].first,
           led_to_drones[localDistrictLed].second,
-          led_to_kab[localDistrictLed].first,
-          led_to_kab[localDistrictLed].second,
+          led_to_kabs[localDistrictLed].first,
+          led_to_kabs[localDistrictLed].second,
           led_to_explosions_notifications[localDistrictLed],
           led_to_missiles_notifications[localDistrictLed],
           led_to_drones_notifications[localDistrictLed],

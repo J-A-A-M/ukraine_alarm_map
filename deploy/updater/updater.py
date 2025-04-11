@@ -343,6 +343,19 @@ async def update_explosions_etryvoga_v1(mc, run_once=False):
             break
 
 
+async def update_kabs_etryvoga_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            await ertyvoga_v1(mc, "kabs_etryvoga", "kabs_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_kabs_etryvoga_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+
 async def update_weather_openweathermap_v1(mc, run_once=False):
     while True:
         try:
@@ -459,13 +472,13 @@ async def update_missiles_websocket_v2(mc, run_once=False):
             break
 
 
-async def update_kab_websocket_v2(mc, run_once=False):
+async def update_kabs_websocket_v2(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await alert_reasons_v1(mc, "Ballistic", b"kab_websocket_v2", [[0, 1645674000]] * 26)
+            await alert_reasons_v1(mc, "Ballistic", b"kabs_websocket_v2", [[0, 1645674000]] * 26)
         except Exception as e:
-            logger.error(f"update_kab_websocket_v2: {str(e)}")
+            logger.error(f"update_kabs_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
         if run_once:
             break
@@ -578,7 +591,7 @@ async def main():
             update_alerts_historical_v1(mc),
             update_drones_websocket_v2(mc),
             update_missiles_websocket_v2(mc),
-            update_kab_websocket_v2(mc),
+            update_kabs_websocket_v2(mc),
             update_energy_websocket_v1(mc),
             update_radiation_websocket_v1(mc),
             update_global_notifications_v1(mc),
