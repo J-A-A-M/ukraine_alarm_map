@@ -587,6 +587,7 @@ async def main():
             update_drones_etryvoga_v1(mc),
             update_missiles_etryvoga_v1(mc),
             update_explosions_etryvoga_v1(mc),
+            update_kabs_etryvoga_v1(mc),
             update_weather_openweathermap_v1(mc),
             update_alerts_historical_v1(mc),
             update_drones_websocket_v2(mc),

@@ -101,6 +101,8 @@ std::map<int, long>                 id_to_explosions_notifications; //regionId t
 std::map<int, long>                 led_to_explosions_notifications; // ledPosition to explosion time
 std::map<int, long>                 id_to_missiles_notifications; //regionId to missiles time
 std::map<int, long>                 led_to_missiles_notifications; // ledPosition to missils time
+std::map<int, long>                 id_to_kabs_notifications; //regionId to kabs time
+std::map<int, long>                 led_to_kabs_notifications; // ledPosition to kabs time
 std::map<int, std::pair<int, long>> id_to_missiles; //regionId to missiles state and time
 std::map<int, std::pair<int, long>> led_to_missiles; // ledPosition to missiles state and time
 std::map<int, long>                 id_to_drones_notifications; //regionId to missiles time
@@ -141,9 +143,9 @@ int     prevMapMode = 1;
 bool    alarmNow = false;
 bool    alarmDronesNow = false;
 bool    alarmMissilesNow = false;
+bool    alarmKabsNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
-long    homeKabTime = 0;
 bool    minuteOfSilence = false;
 bool    uaAnthemPlaying = false;
 short   clockBeepInterval = -1;
@@ -1319,6 +1321,11 @@ void remapDronesNotifications() {
   led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
 }
 
+void remapKabsNotifications() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
+  led_to_kabs_notifications = mapLeds(ledMapping, id_to_kabs_notifications, combiHandler);
+}
+
 void remapHomeDistrict() {
   homeDistrictMapping = ledMapping(settings.getInt(HOME_DISTRICT));
 }
@@ -1911,6 +1918,7 @@ void initLedMapping() {
   remapMissiles();
   remapDronesNotifications();
   remapDrones();
+  remapKabsNotifications();
   remapKabs();
   remapHomeDistrict();
   remapEnergy();
@@ -3144,7 +3152,6 @@ void alertPinCycle() {
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
   long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
-  long localHomeKabs = id_to_kabs[settings.getInt(HOME_DISTRICT)].second;
   bool localAlarmNow = ledStatus == 1;
   bool localAlarmDronesNow = isLocalAlarmNow(
     id_to_drones[settings.getInt(HOME_DISTRICT)],
@@ -3155,6 +3162,12 @@ void checkHomeDistrictAlerts() {
   bool localAlarmMissilesNow = isLocalAlarmNow(
     id_to_missiles[settings.getInt(HOME_DISTRICT)],
     id_to_missiles_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
+  bool localAlarmKabsNow = isLocalAlarmNow(
+    id_to_kabs[settings.getInt(HOME_DISTRICT)],
+    id_to_kabs_notifications[settings.getInt(HOME_DISTRICT)],
     timeClient.unixGMT(),
     settings.getInt(EXPLOSION_TIME) * 60
   );
@@ -3173,17 +3186,17 @@ void checkHomeDistrictAlerts() {
     }
     ha.setAlarmAtHome(alarmNow);
   }
-  if (settings.getBool(ENABLE_KABS) && localHomeKabs != homeKabTime) {
-    homeKabTime = localHomeKabs;
-    if (homeKabTime > 0 && timeClient.unixGMT() - homeKabTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
-      showServiceMessage("КАБ!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
-      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
-    }
-  }
   if (settings.getBool(ENABLE_EXPLOSIONS) && localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
     if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
       showServiceMessage("Вибухи!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+  if (alarmKabsNow != localAlarmKabsNow) {
+    alarmKabsNow = localAlarmKabsNow;
+    if (alarmKabsNow && settings.getBool(ENABLE_KABS)) {
+      showServiceMessage("КАБ!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
     }
   }
@@ -3297,6 +3310,12 @@ void onMessageCallback(WebsocketsMessage message) {
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
+    } else if (payload == "kabs") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_kabs_notifications[mapIndexToRegionId(i)] = data["kabs"][i];
+      }
+      LOG.println("Successfully parsed kabs notifications data");
+      remapKabsNotifications();
     } else if (payload == "kabs2") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_kabs[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["kabs"][i][0], (long) data["kabs"][i][1]);
@@ -3430,6 +3449,7 @@ CRGB processAlarms(
   int explosion_notification_time, 
   int missiles_notification_time, 
   int drones_notification_time, 
+  int kabs_notification_time, 
   int position, 
   float alertBrightness, 
   float notificationBrightness, 
@@ -3455,13 +3475,20 @@ CRGB processAlarms(
     return hue;
   }
 
-  // kabs has second priority
+  // kabs notifications has second priority
+  if (settings.getBool(ENABLE_KABS) && kabs_notification_time > 0 && currentTime - kabs_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    colorSwitch = settings.getInt(COLOR_KABS);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+    return hue;
+  }
+
+  // kabs has third priority
   if (settings.getBool(ENABLE_KABS)) {
     switch (kab_status) {
       case ALERT:
         if (currentTime - kab_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
           colorSwitch = settings.getInt(COLOR_KABS);
-          hue = fromHue(colorSwitch, extrafastBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
         } else {
           colorSwitch = settings.getInt(COLOR_KABS);
           hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
@@ -3470,14 +3497,14 @@ CRGB processAlarms(
     }
   }
 
-  // missiles notifications has third priority
+  // missiles notifications has fouth priority
   if (settings.getBool(ENABLE_MISSILES) && missiles_notification_time > 0 && currentTime - missiles_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_MISSILES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // missiles  has fouth priority
+  // missiles  has fifth priority
   if (settings.getBool(ENABLE_MISSILES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (missile_status) {
       case ALERT:
@@ -3492,14 +3519,14 @@ CRGB processAlarms(
     }
   }
 
-  // drones notifications has fifth priority
+  // drones notifications has sixth priority
   if (settings.getBool(ENABLE_DRONES) && drones_notification_time > 0 && currentTime - drones_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_DRONES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // drones has six priority
+  // drones has seventh priority
   if (settings.getBool(ENABLE_DRONES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     switch (drone_status) {
       case ALERT:
@@ -3709,6 +3736,7 @@ void mapAlarms() {
       led_to_explosions_notifications[i],
       led_to_missiles_notifications[i],
       led_to_drones_notifications[i],
+      led_to_kabs_notifications[i],
       i,
       blinkBrightness,
       notificationBrightness,
@@ -3739,6 +3767,7 @@ void mapAlarms() {
           led_to_explosions_notifications[localDistrictLed],
           led_to_missiles_notifications[localDistrictLed],
           led_to_drones_notifications[localDistrictLed],
+          led_to_kabs_notifications[localDistrictLed],
           localDistrictLed,
           blinkBrightness,
           notificationBrightness,
