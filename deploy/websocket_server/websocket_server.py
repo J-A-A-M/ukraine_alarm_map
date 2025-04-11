@@ -1037,7 +1037,7 @@ async def get_data_from_memcached(mc):
         drone_index = random.randint(0, 25)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
         kab_index = random.randint(0, 25)
-        kabs_v1[drone_index] = int(datetime.datetime.now().timestamp())
+        kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(alerts_v1[:26])
         alerts_cached_data_v2 = json.dumps(alerts_v2[:26])
         alerts_cached_data_v2 = json.dumps(alerts_v3[:26])
