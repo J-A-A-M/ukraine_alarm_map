@@ -140,6 +140,9 @@ char    currentFwVersion[25];
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
+int     volumeCurrent = 0;
+int     volumeDay = 0;
+int     volumeNight = 0;
 bool    alarmNow = false;
 bool    alarmDronesNow = false;
 bool    alarmMissilesNow = false;
@@ -1752,6 +1755,37 @@ void showNewFirmwareNotification() {
 }
 #endif
 
+void buzzerCycle() {
+#if BUZZER_ENABLED
+  if (isBuzzerEnabled()) {
+    int volumeLocal;
+    if (getNightModeType() > 0) {
+      volumeLocal = volumeNight;
+    } else {
+      volumeLocal = volumeDay;
+    }
+    if (volumeLocal != volumeCurrent) {
+      volumeCurrent = volumeLocal;
+      settings.saveInt(MELODY_VOLUME_CURRENT, volumeCurrent);
+      player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
+      LOG.printf("Set volume to: %d\n", volumeCurrent);
+    }
+  }
+#endif
+}
+
+void setCurrentVolume(int volume, Type settingType) {
+  switch (settingType) {
+    case MELODY_VOLUME_NIGHT:
+      volumeNight  = volume;
+      break;
+    case MELODY_VOLUME_DAY:
+      volumeDay  = volume;
+      break;
+  }
+  buzzerCycle();
+}
+
 void displayCycle() {
   if (!display.isDisplayAvailable()) return;
 
@@ -2476,7 +2510,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
   addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
-  addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
+  addSlider(response, "melody_volume_day", "Гучність мелодії вдень", settings.getInt(MELODY_VOLUME_DAY), 0, 100, 1, "%");
+  addSlider(response, "melody_volume_night", "Гучність мелодії вночі", settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
@@ -2904,13 +2939,12 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert",IGNORE_MUTE_ON_ALERT) || saved;
-  saved = saveInt(request->getParam("melody_volume", true), MELODY_VOLUME, NULL, []() {
-#if BUZZER_ENABLED
-  if (isBuzzerEnabled()) {
-    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
-  }
-#endif
-  }) || saved;
+  saved = saveInt(request->getParam("melody_volume_day", true), MELODY_VOLUME_DAY, NULL, []() {
+        setCurrentVolume(settings.getInt(MELODY_VOLUME_DAY), MELODY_VOLUME_DAY);
+      }) || saved;
+  saved = saveInt(request->getParam("melody_volume_night", true), MELODY_VOLUME_NIGHT, NULL, []() {
+        setCurrentVolume(settings.getInt(MELODY_VOLUME_NIGHT), MELODY_VOLUME_NIGHT);
+      }) || saved;
 
   request->send(redirectResponse(request, "/sounds", saved));
 }
@@ -4041,8 +4075,13 @@ void initButtons() {
 void initBuzzer() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
+    volumeCurrent = settings.getInt(MELODY_VOLUME_CURRENT);
+    volumeDay = settings.getInt(MELODY_VOLUME_DAY);
+    volumeNight = settings.getInt(MELODY_VOLUME_NIGHT);
     player = new MelodyPlayer(settings.getInt(BUZZER_PIN), 0, LOW);
-    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
+    player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255));
+    LOG.printf("Set initial volume to: %d\n", volumeCurrent);
+    
   }
 #endif
 }
@@ -4468,6 +4507,7 @@ void setup() {
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(displayCycle, 100);
+  asyncEngine.setInterval(buzzerCycle, 1000);
   asyncEngine.setInterval(wifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   #if FW_UPDATE_ENABLED
