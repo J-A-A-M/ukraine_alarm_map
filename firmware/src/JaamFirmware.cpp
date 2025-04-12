@@ -140,7 +140,7 @@ char    currentFwVersion[25];
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
-int     currentVolume = 0;
+int     volumeCurrent = 0;
 int     volumeDay = 0;
 int     volumeNight = 0;
 bool    alarmNow = false;
@@ -310,20 +310,6 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
   // Map the scaled value to the output range
   return (int)(scaled * (out_max - out_min) + out_min);
 }
-
-void setCurrentVolume(int volume, Type settingType) {
-  switch (settingType) {
-    case MELODY_VOLUME_NIGHT:
-      volumeNight = volume;
-      break;
-    case MELODY_VOLUME_DAY:
-      volumeDay = volume;
-      break;
-  }
-  //player->setVolume(expMap(settings.getInt(settingType), 0, 100, 0, 255));   
-  LOG.printf("Set volume to: %d\n", volume); 
-}
-
 
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
@@ -1772,19 +1758,32 @@ void showNewFirmwareNotification() {
 void buzzerCycle() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
-    int localVolume;
+    int volumeLocal;
     if (getNightModeType() > 0) {
-      localVolume = volumeNight;
+      volumeLocal = volumeNight;
     } else {
-      localVolume = volumeDay;
+      volumeLocal = volumeDay;
     }
-    if (localVolume != currentVolume) {
-      currentVolume = localVolume;
-      player->setVolume(expMap(currentVolume, 0, 100, 0, 255)); 
-      LOG.printf("Set cycle volume to: %d\n", currentVolume);
+    if (volumeLocal != volumeCurrent) {
+      volumeCurrent = volumeLocal;
+      settings.saveInt(MELODY_VOLUME_CURRENT, volumeCurrent);
+      player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
+      LOG.printf("Set volume to: %d\n", volumeCurrent);
     }
   }
 #endif
+}
+
+void setCurrentVolume(int volume, Type settingType) {
+  switch (settingType) {
+    case MELODY_VOLUME_NIGHT:
+      volumeNight  = volume;
+      break;
+    case MELODY_VOLUME_DAY:
+      volumeDay  = volume;
+      break;
+  }
+  buzzerCycle();
 }
 
 void displayCycle() {
@@ -2941,18 +2940,14 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert",IGNORE_MUTE_ON_ALERT) || saved;
   saved = saveInt(request->getParam("melody_volume_day", true), MELODY_VOLUME_DAY, NULL, []() {
-    #if BUZZER_ENABLED
       if (isBuzzerEnabled()) {
         setCurrentVolume(settings.getInt(MELODY_VOLUME_DAY), MELODY_VOLUME_DAY);
       }
-    #endif
       }) || saved;
       saved = saveInt(request->getParam("melody_volume_night", true), MELODY_VOLUME_NIGHT, NULL, []() {
-    #if BUZZER_ENABLED
       if (isBuzzerEnabled()) {
         setCurrentVolume(settings.getInt(MELODY_VOLUME_NIGHT), MELODY_VOLUME_NIGHT);
       }
-    #endif
       }) || saved;
 
   request->send(redirectResponse(request, "/sounds", saved));
@@ -4084,11 +4079,13 @@ void initButtons() {
 void initBuzzer() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
-    player = new MelodyPlayer(settings.getInt(BUZZER_PIN), 0, LOW);
-    player->setVolume(expMap(settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 0, 255));
-    LOG.printf("Set initial volume to: %d\n", settings.getInt(MELODY_VOLUME_NIGHT));
+    volumeCurrent = settings.getInt(MELODY_VOLUME_CURRENT);
     volumeDay = settings.getInt(MELODY_VOLUME_DAY);
     volumeNight = settings.getInt(MELODY_VOLUME_NIGHT);
+    player = new MelodyPlayer(settings.getInt(BUZZER_PIN), 0, LOW);
+    player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255));
+    LOG.printf("Set initial volume to: %d\n", volumeCurrent);
+    
   }
 #endif
 }
@@ -4514,7 +4511,7 @@ void setup() {
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(displayCycle, 100);
-  asyncEngine.setInterval(buzzerCycle, 500);
+  asyncEngine.setInterval(buzzerCycle, 1000);
   asyncEngine.setInterval(wifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   #if FW_UPDATE_ENABLED
