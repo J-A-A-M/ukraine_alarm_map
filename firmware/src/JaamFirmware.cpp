@@ -2940,14 +2940,10 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert",IGNORE_MUTE_ON_ALERT) || saved;
   saved = saveInt(request->getParam("melody_volume_day", true), MELODY_VOLUME_DAY, NULL, []() {
-      if (isBuzzerEnabled()) {
         setCurrentVolume(settings.getInt(MELODY_VOLUME_DAY), MELODY_VOLUME_DAY);
-      }
       }) || saved;
-      saved = saveInt(request->getParam("melody_volume_night", true), MELODY_VOLUME_NIGHT, NULL, []() {
-      if (isBuzzerEnabled()) {
+  saved = saveInt(request->getParam("melody_volume_night", true), MELODY_VOLUME_NIGHT, NULL, []() {
         setCurrentVolume(settings.getInt(MELODY_VOLUME_NIGHT), MELODY_VOLUME_NIGHT);
-      }
       }) || saved;
 
   request->send(redirectResponse(request, "/sounds", saved));
