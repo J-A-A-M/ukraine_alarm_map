@@ -111,7 +111,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {SOUND_ON_BUTTON_CLICK, {"sobc", 0}},
     {MUTE_SOUND_ON_NIGHT, {"mson", 0}},
     {MELODY_VOLUME_DAY, {"mv", 100}},
-    {MELODY_VOLUME_NIGHT, {"mvn", 20}},
+    {MELODY_VOLUME_NIGHT, {"mvn", 30}},
     {MELODY_VOLUME_CURRENT, {"mvc", 100}},
     {INVERT_DISPLAY, {"invd", 0}},
     {DIM_DISPLAY_ON_NIGHT, {"ddon", 1}},
