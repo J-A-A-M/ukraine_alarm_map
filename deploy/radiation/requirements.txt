@@ -1,0 +1,2 @@
+aiomcache==0.8.2
+aiohttp_socks==0.10.1

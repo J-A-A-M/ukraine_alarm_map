@@ -69,14 +69,24 @@ class SharedData:
     def __init__(self):
         self.alerts_v1 = "[]"
         self.alerts_v2 = "[]"
-        self.alerts_full = {}
+        self.alerts_v3 = "[]"
         self.weather_v1 = "[]"
-        self.weather_full = {}
         self.explosions_v1 = "[]"
         self.missiles_v1 = "[]"
+        self.missiles_v2 = "[]"
         self.drones_v1 = "[]"
+        self.drones_v2 = "[]"
+        self.kabs_v1 = "[]"
+        self.kabs_v2 = "[]"
+        self.energy_v1 = "[]"
+        self.radiation_v1 = "[]"
+        self.global_notifications_v1 = "{}"
         self.bins = "[]"
         self.test_bins = "[]"
+        self.s3_bins = "[]"
+        self.s3_test_bins = "[]"
+        self.c3_bins = "[]"
+        self.c3_test_bins = "[]"
         self.clients = {}
         self.trackers = {}
         self.blocked_ips = []
@@ -90,36 +100,7 @@ class AlertVersion:
     v1 = 1
     v2 = 2
     v3 = 3
-
-
-regions = {
-    "Закарпатська область": {"id": 11, "legacy_id": 1},
-    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
-    "Тернопільська область": {"id": 21, "legacy_id": 3},
-    "Львівська область": {"id": 27, "legacy_id": 4},
-    "Волинська область": {"id": 8, "legacy_id": 5},
-    "Рівненська область": {"id": 5, "legacy_id": 6},
-    "Житомирська область": {"id": 10, "legacy_id": 7},
-    "Київська область": {"id": 14, "legacy_id": 8},
-    "Чернігівська область": {"id": 25, "legacy_id": 9},
-    "Сумська область": {"id": 20, "legacy_id": 10},
-    "Харківська область": {"id": 22, "legacy_id": 11},
-    "Луганська область": {"id": 16, "legacy_id": 12},
-    "Донецька область": {"id": 28, "legacy_id": 13},
-    "Запорізька область": {"id": 12, "legacy_id": 14},
-    "Херсонська область": {"id": 23, "legacy_id": 15},
-    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
-    "Одеська область": {"id": 18, "legacy_id": 17},
-    "Миколаївська область": {"id": 17, "legacy_id": 18},
-    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
-    "Полтавська область": {"id": 19, "legacy_id": 20},
-    "Черкаська область": {"id": 24, "legacy_id": 21},
-    "Кіровоградська область": {"id": 15, "legacy_id": 22},
-    "Вінницька область": {"id": 4, "legacy_id": 23},
-    "Хмельницька область": {"id": 3, "legacy_id": 24},
-    "Чернівецька область": {"id": 26, "legacy_id": 25},
-    "м. Київ": {"id": 31, "legacy_id": 26},
-}
+    v4 = 4
 
 
 def bin_sort(bin):
@@ -261,64 +242,72 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
-        chip_id = get_chip_id(client, client_id)
+        try:
+            chip_id = get_chip_id(client, client_id)
 
-        logger.debug(f"{client_ip}:{chip_id} >>> {message}")
+            logger.debug(f"{client_ip}:{chip_id} >>> {message}")
 
-        def split_message(message):
-            parts = message.split(":", 1)  # Split at most into 2 parts
-            header = parts[0]
-            data = parts[1] if len(parts) > 1 else ""
-            return header, data
+            def split_message(message):
+                parts = message.split(":", 1)  # Split at most into 2 parts
+                header = parts[0]
+                data = parts[1] if len(parts) > 1 else ""
+                return header, data
 
-        header, data = split_message(message)
-        match header:
-            # case "district":
-            #     district_data = await district_data_v1(int(data))
-            #     payload = json.dumps(district_data).encode("utf-8")
-            #     await websocket.send(payload)
-            #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
-            case "firmware":
-                client["firmware"] = data
-                parts = data.split("_", 1)
-                if google_stat_send:
-                    tracker.store.set_user_property("firmware_v", parts[0])
-                    tracker.store.set_user_property("identifier", parts[1])
-                logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
-            case "user_info":
-                json_data = json.loads(data)
-                if google_stat_send:
-                    for key, value in json_data.items():
-                        tracker.store.set_user_property(key, value)
-            case "chip_id":
-                client["chip_id"] = data
-                logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
-                if google_stat_send:
-                    tracker.client_id = data
-                    tracker.store.set_session_parameter("session_id", f"{data}_{datetime.datetime.now().timestamp()}")
-                    tracker.store.set_user_property("user_id", data)
-                    tracker.store.set_user_property("chip_id", data)
-                    tracker.store.set_user_property("country", country)
-                    tracker.store.set_user_property("region", region)
-                    tracker.store.set_user_property("city", city)
-                    tracker.store.set_user_property("ip", client_ip)
-                    online_event = tracker.create_new_event("status")
-                    online_event.set_event_param("online", "true")
-                    await send_google_stat(tracker, online_event)
-                logger.debug(f"{client_ip}:{data} >>> chip_id saved")
-            case "settings":
-                json_data = json.loads(data)
-                if google_stat_send:
-                    settings_event = tracker.create_new_event("settings")
-                    for key, value in json_data.items():
-                        settings_event.set_event_param(key, value)
-                    await send_google_stat(tracker, settings_event)
-                    logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
-            case _:
-                logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
+            header, data = split_message(message)
+            match header:
+                # case "district":
+                #     district_data = await district_data_v1(int(data))
+                #     payload = json.dumps(district_data).encode("utf-8")
+                #     await websocket.send(payload)
+                #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
+                case "firmware":
+                    client["firmware"] = data
+                    parts = data.split("_", 1)
+                    if google_stat_send:
+                        tracker.store.set_user_property("firmware_v", parts[0])
+                        tracker.store.set_user_property("identifier", parts[1])
+                    logger.debug(f"{client_ip}:{chip_id} >>> firmware saved")
+                case "user_info":
+                    json_data = json.loads(data)
+                    if google_stat_send:
+                        for key, value in json_data.items():
+                            tracker.store.set_user_property(key, value)
+                case "chip_id":
+                    client["chip_id"] = data
+                    logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
+                    if google_stat_send:
+                        tracker.client_id = data
+                        tracker.store.set_session_parameter(
+                            "session_id", f"{data}_{datetime.datetime.now().timestamp()}"
+                        )
+                        tracker.store.set_user_property("user_id", data)
+                        tracker.store.set_user_property("chip_id", data)
+                        tracker.store.set_user_property("country", country)
+                        tracker.store.set_user_property("region", region)
+                        tracker.store.set_user_property("city", city)
+                        tracker.store.set_user_property("ip", client_ip)
+                        online_event = tracker.create_new_event("status")
+                        online_event.set_event_param("online", "true")
+                        await send_google_stat(tracker, online_event)
+                    logger.debug(f"{client_ip}:{data} >>> chip_id saved")
+                case "settings":
+                    json_data = json.loads(data)
+                    if google_stat_send:
+                        settings_event = tracker.create_new_event("settings")
+                        for key, value in json_data.items():
+                            settings_event.set_event_param(key, value)
+                        await send_google_stat(tracker, settings_event)
+                        logger.debug(f"{client_ip}:{chip_id} >>> settings analytics sent")
+                case _:
+                    logger.debug(f"{client_ip}:{chip_id} !!! unknown data request")
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! message_handler Exception - {e}")
+            break
 
 
-async def alerts_data(websocket: ServerConnection, client, client_id, client_ip, shared_data, alert_version):
+async def alerts_data(
+    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
+):
     while True:
         try:
             chip_id = await get_client_chip_id(client)
@@ -332,19 +321,31 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v1
                 case AlertVersion.v2:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
                     if client["alerts"] != shared_data.alerts_v2:
                         payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                 case AlertVersion.v3:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
                     if client["alerts"] != shared_data.alerts_v2:
                         payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
                         client["alerts"] = shared_data.alerts_v2
                     if client["missiles"] != shared_data.missiles_v1:
-                        missiles = json.dumps([int(rocket) for rocket in json.loads(shared_data.missiles_v1)])
+                        missiles = json.dumps([int(missile) for missile in json.loads(shared_data.missiles_v1)])
                         payload = '{"payload": "missiles", "missiles": %s}' % missiles
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
@@ -355,19 +356,75 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                         await websocket.send(payload)
                         logger.debug(f"{client_ip}:{chip_id} <<< new drones")
                         client["drones"] = shared_data.drones_v1
-            if client["explosions"] != shared_data.explosions_v1:
-                explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
-                payload = '{"payload": "explosions", "explosions": %s}' % explosions
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
-                client["explosions"] = shared_data.explosions_v1
+                case AlertVersion.v4:
+                    if client["explosions"] != shared_data.explosions_v1:
+                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
+                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
+                        client["explosions"] = shared_data.explosions_v1
+                    if client["alerts"] != shared_data.alerts_v2:
+                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
+                        client["alerts"] = shared_data.alerts_v2
+                    if client["missiles"] != shared_data.missiles_v1:
+                        missiles = json.dumps([int(missile) for missile in json.loads(shared_data.missiles_v1)])
+                        payload = '{"payload": "missiles", "missiles": %s}' % missiles
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles notification")
+                        client["missiles"] = shared_data.missiles_v1
+                    if client["drones"] != shared_data.drones_v1:
+                        drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
+                        payload = '{"payload": "drones", "drones": %s}' % drones
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new drones notification")
+                        client["drones"] = shared_data.drones_v1
+                    if client["missiles2"] != shared_data.missiles_v2:
+                        payload = '{"payload": "missiles2", "missiles": %s}' % shared_data.missiles_v2
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
+                        client["missiles2"] = shared_data.missiles_v2
+                    if client["drones2"] != shared_data.drones_v2:
+                        payload = '{"payload": "drones2", "drones": %s}' % shared_data.drones_v2
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new drones")
+                        client["drones2"] = shared_data.drones_v2
+                    if client["kabs"] != shared_data.kabs_v1:
+                        payload = '{"payload": "kabs", "kabs": %s}' % shared_data.kabs_v1
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs notification")
+                        client["kabs"] = shared_data.kabs_v1
+                    if client["kabs2"] != shared_data.kabs_v2:
+                        payload = '{"payload": "kabs2", "kabs": %s}' % shared_data.kabs_v2
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs")
+                        client["kabs2"] = shared_data.kabs_v2
+                    if client["energy"] != shared_data.energy_v1:
+                        payload = '{"payload": "energy", "energy": %s}' % shared_data.energy_v1
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new energy")
+                        client["energy"] = shared_data.energy_v1
+                    if client["radiation"] != shared_data.radiation_v1:
+                        payload = '{"payload": "radiation", "radiation": %s}' % shared_data.radiation_v1
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new radiation")
+                        client["radiation"] = shared_data.radiation_v1
+                    if client["global_notifications"] != shared_data.global_notifications_v1:
+                        payload = (
+                            '{"payload": "global_notifications", "global_notifications": %s}'
+                            % shared_data.global_notifications_v1
+                        )
+                        await websocket.send(payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< new global_notifications")
+                        client["global_notifications"] = shared_data.global_notifications_v1
             if client["weather"] != shared_data.weather_v1:
                 weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
                 payload = '{"payload":"weather","weather":%s}' % weather
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
-            if client["bins"] != shared_data.bins:
+            if client["bins"] != shared_data.bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -377,7 +434,7 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
-            if client["test_bins"] != shared_data.test_bins:
+            if client["test_bins"] != shared_data.test_bins and "-s3" not in firmware and "-c3" not in firmware:
                 temp_bins = list(json.loads(shared_data.test_bins))
                 if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
                     temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
@@ -387,12 +444,44 @@ async def alerts_data(websocket: ServerConnection, client, client_id, client_ip,
                 await websocket.send(payload)
                 logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
                 client["test_bins"] = shared_data.test_bins
+            if client["bins"] != shared_data.s3_bins and "-s3" in firmware:
+                temp_bins = list(json.loads(shared_data.s3_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "bins", "bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new s3_bins")
+                client["bins"] = shared_data.s3_bins
+            if client["test_bins"] != shared_data.s3_test_bins and "-s3" in firmware:
+                temp_bins = list(json.loads(shared_data.s3_test_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new s3_test_bins")
+                client["test_bins"] = shared_data.s3_test_bins
+            if client["bins"] != shared_data.c3_bins and "-c3" in firmware:
+                temp_bins = list(json.loads(shared_data.c3_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "bins", "bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new c3_bins")
+                client["bins"] = shared_data.c3_bins
+            if client["test_bins"] != shared_data.c3_test_bins and "-c3" in firmware:
+                temp_bins = list(json.loads(shared_data.c3_test_bins))
+                temp_bins.sort(key=bin_sort, reverse=True)
+                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
+                await websocket.send(payload)
+                logger.debug(f"{client_ip}:{chip_id} <<< new c3_test_bins")
+                client["test_bins"] = shared_data.c3_test_bins
+
             await asyncio.sleep(0.5)
         except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
             break
         except FirmwareTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+            break
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
             break
 
 
@@ -421,6 +510,9 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
                 logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
                 continue
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
+            break
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! ping_pong Exception - {e}")
             break
 
 
@@ -452,7 +544,14 @@ async def echo(websocket: ServerConnection):
             "weather": "[]",
             "explosions": "[]",
             "missiles": "[]",
+            "missiles2": "[]",
             "drones": "[]",
+            "drones2": "[]",
+            "kabs": "[]",
+            "kabs2": "[]",
+            "energy": "[]",
+            "radiation": "[]",
+            "global_notifications": "{}",
             "bins": "[]",
             "test_bins": "[]",
             "firmware": "unknown",
@@ -488,6 +587,12 @@ async def echo(websocket: ServerConnection):
             case "/data_v3":
                 producer_task = asyncio.create_task(
                     alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case "/data_v4":
+                producer_task = asyncio.create_task(
+                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v4),
                     name=f"alerts_data_{client_id}",
                 )
 
@@ -542,37 +647,30 @@ async def echo(websocket: ServerConnection):
         logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
-# async def district_data_v1(district_id):
-#     alerts_cached_data = shared_data.alerts_full
-#     weather_cached_data = shared_data.weather_full
-
-#     for region, data in regions.items():
-#         if data["legacy_id"] == district_id:
-#             region_id = data["legacy_id"]
-
-#     datetime = alerts_cached_data[region_id]["lastUpdate"]
-#     alerts_cached_data[region]["changed"] = int(datetime.timestamp())
-
-#     return {
-#         "payload": "district",
-#         "district": {**{"name": region}, **alerts_cached_data[region], **weather_cached_data[region]},
-#     }
-
-
-async def update_shared_data(shared_data, mc):
+async def update_shared_data(shared_data: SharedData, mc):
     while True:
         logger.debug("memcache check")
         (
             alerts_v1,
             alerts_v2,
+            alerts_v3,
             weather_v1,
             explosions_v1,
             missiles_v1,
+            missiles_v2,
             drones_v1,
+            drones_v2,
+            kabs_v1,
+            kabs_v2,
+            energy_v1,
+            radiation_v1,
+            global_notifications_v1,
             bins,
             test_bins,
-            alerts_full,
-            weather_full,
+            s3_bins,
+            s3_test_bins,
+            c3_bins,
+            c3_test_bins,
         ) = (
             await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
@@ -590,6 +688,13 @@ async def update_shared_data(shared_data, mc):
                 logger.debug(f"alerts_v2 updated: {alerts_v2}")
         except Exception as e:
             logger.error(f"error in alerts_v2: {e}")
+
+        try:
+            if alerts_v3 != shared_data.alerts_v3:
+                shared_data.alerts_v3 = alerts_v3
+                logger.debug(f"alerts_v3 updated: {alerts_v3}")
+        except Exception as e:
+            logger.error(f"error in alerts_v3: {e}")
 
         try:
             if weather_v1 != shared_data.weather_v1:
@@ -613,11 +718,60 @@ async def update_shared_data(shared_data, mc):
             logger.error(f"error in missiles_v1: {e}")
 
         try:
+            if missiles_v2 != shared_data.missiles_v2:
+                shared_data.missiles_v2 = missiles_v2
+                logger.debug(f"missiles_v2 updated: {missiles_v2}")
+        except Exception as e:
+            logger.error(f"error in missiles_v2: {e}")
+
+        try:
             if drones_v1 != shared_data.drones_v1:
                 shared_data.drones_v1 = drones_v1
                 logger.debug(f"drones_v1 updated: {drones_v1}")
         except Exception as e:
             logger.error(f"error in drones_v1: {e}")
+
+        try:
+            if drones_v2 != shared_data.drones_v2:
+                shared_data.drones_v2 = drones_v2
+                logger.debug(f"drones_v2 updated: {drones_v2}")
+        except Exception as e:
+            logger.error(f"error in drones_v2: {e}")
+
+        try:
+            if kabs_v1 != shared_data.kabs_v1:
+                shared_data.kabs_v1 = kabs_v1
+                logger.debug(f"kabs_v1 updated: {kabs_v1}")
+        except Exception as e:
+            logger.error(f"error in kabs_v1: {e}")
+
+        try:
+            if kabs_v2 != shared_data.kabs_v2:
+                shared_data.kabs_v2 = kabs_v2
+                logger.debug(f"kabs_v2 updated: {kabs_v2}")
+        except Exception as e:
+            logger.error(f"error in kabs_v2: {e}")
+
+        try:
+            if energy_v1 != shared_data.energy_v1:
+                shared_data.energy_v1 = energy_v1
+                logger.debug(f"energy_v1 updated: {energy_v1}")
+        except Exception as e:
+            logger.error(f"error in energy_v1: {e}")
+
+        try:
+            if radiation_v1 != shared_data.radiation_v1:
+                shared_data.radiation_v1 = radiation_v1
+                logger.debug(f"radiation_v1 updated: {radiation_v1}")
+        except Exception as e:
+            logger.error(f"error in radiation_v1: {e}")
+
+        try:
+            if global_notifications_v1 != shared_data.global_notifications_v1:
+                shared_data.global_notifications_v1 = global_notifications_v1
+                logger.debug(f"global_notifications_v1 updated: {global_notifications_v1}")
+        except Exception as e:
+            logger.error(f"error in global_notifications_v1: {e}")
 
         try:
             if bins != shared_data.bins:
@@ -634,18 +788,32 @@ async def update_shared_data(shared_data, mc):
             logger.error(f"error in test_bins: {e}")
 
         try:
-            if alerts_full != shared_data.alerts_full:
-                shared_data.alerts_full = alerts_full
-                logger.debug(f"alerts_full updated")
+            if s3_bins != shared_data.s3_bins:
+                shared_data.s3_bins = s3_bins
+                logger.debug(f"s3 bins updated: {s3_bins}")
         except Exception as e:
-            logger.error(f"error in alerts_full: {e}")
+            logger.error(f"error in s3 bins: {e}")
 
         try:
-            if weather_full != shared_data.weather_full:
-                shared_data.weather_full = weather_full
-                logger.debug(f"weather_full updated")
+            if s3_test_bins != shared_data.s3_test_bins:
+                shared_data.s3_test_bins = s3_test_bins
+                logger.debug(f"s3 test bins updated: {s3_test_bins}")
         except Exception as e:
-            logger.error(f"error in weather_full: {e}")
+            logger.error(f"error in s3 test_bins: {e}")
+
+        try:
+            if c3_bins != shared_data.c3_bins:
+                shared_data.c3_bins = c3_bins
+                logger.debug(f"c3 bins updated: {c3_bins}")
+        except Exception as e:
+            logger.error(f"error in c3 bins: {e}")
+
+        try:
+            if c3_test_bins != shared_data.c3_test_bins:
+                shared_data.c3_test_bins = c3_test_bins
+                logger.debug(f"c3 test bins updated: {c3_test_bins}")
+        except Exception as e:
+            logger.error(f"error in c3 test_bins: {e}")
 
         await asyncio.sleep(memcache_fetch_interval)
 
@@ -673,71 +841,190 @@ def circular_offset_index(n, offset, total=26):
 
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
-        shared_data.test_id = 1
+        shared_data.test_id = 12
 
-    alerts = [[0, 1736935200]] * 26
+    alerts_v2 = [[0, 1736935200]] * 26
+    alerts_v3 = [[0, 1736935200]] * 26
     weather = [0] * 26
     explosion = [0] * 26
     missile = [0] * 26
     drone = [0] * 26
+    kab = [0] * 26
+    missile_v2 = [[0, 1736935200]] * 26
+    drone_v2 = [[0, 1736935200]] * 26
+    kab_v2 = [[0, 1736935200]] * 26
+    energy = [[3, 1736935200]] * 26
+    radiation = [100] * 26
 
-    for region_name, data in regions.items():
-        region_id = data["legacy_id"]
-        if region_id == shared_data.test_id:
-            alert = 1
-            temp = 30
-            expl = int(datetime.datetime.now().timestamp())
-        else:
-            alert = 0
-            temp = 0
-            expl = 0
-        alerts[circular_offset_index(region_id - 1, 0)] = [
-            str(alert),
-            f"{int(datetime.datetime.now().timestamp())-3600}",
-        ]
-        explosion[circular_offset_index(region_id - 1, -1)] = expl
-        missile[circular_offset_index(region_id - 1, -2)] = expl
-        drone[circular_offset_index(region_id - 1, -3)] = expl
-        weather[circular_offset_index(region_id - 1, 0)] = temp
+    global_notifications_v1 = {
+        "mig": 0,
+        "ships": 0,
+        "tactical": 0,
+        "strategic": 0,
+        "ballistic_missiles": 0,
+        "mig_missiles": 0,
+        "ships_missiles": 0,
+        "tactical_missiles": 0,
+        "strategic_missiles": 0,
+    }
+    random_key = random.choice(list(global_notifications_v1.keys()))
+    global_notifications_v1[random_key] = 1
+
+    region_id = shared_data.test_id
+
+    expl = int(datetime.datetime.now().timestamp())
+
+    alerts_v2[circular_offset_index(region_id - 1, 0)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, 0)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    alerts_v2[circular_offset_index(region_id - 1, -1)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, -1)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v2[circular_offset_index(region_id - 1, -2)] = [
+        "0",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    alerts_v3[circular_offset_index(region_id - 1, -2)] = [
+        "0",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    missile_v2[circular_offset_index(region_id - 1, -3)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    missile_v2[circular_offset_index(region_id - 1, -4)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    missile[circular_offset_index(region_id - 1, -5)] = expl
+    drone_v2[circular_offset_index(region_id - 1, -6)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    drone_v2[circular_offset_index(region_id - 1, -7)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    drone[circular_offset_index(region_id - 1, -8)] = expl
+    kab_v2[circular_offset_index(region_id - 1, -9)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-3600}",
+    ]
+    kab_v2[circular_offset_index(region_id - 1, -10)] = [
+        str(1),
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    kab[circular_offset_index(region_id - 1, -11)] = expl
+    explosion[circular_offset_index(region_id - 1, -12)] = expl
+    weather[circular_offset_index(region_id - 1, 0)] = 30
+    energy[circular_offset_index(region_id - 1, 0)] = [
+        "9",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    energy[circular_offset_index(region_id - 1, -1)] = [
+        "4",
+        f"{int(datetime.datetime.now().timestamp())-60}",
+    ]
+    radiation[circular_offset_index(region_id - 1, 0)] = 2000
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
     return (
         "{}",
-        json.dumps(alerts),
+        json.dumps(alerts_v2),
+        json.dumps(alerts_v3),
         json.dumps(weather),
         json.dumps(explosion),
         json.dumps(missile),
+        json.dumps(missile_v2),
         json.dumps(drone),
+        json.dumps(drone_v2),
+        json.dumps(kab),
+        json.dumps(kab_v2),
+        json.dumps(energy),
+        json.dumps(radiation),
+        json.dumps(global_notifications_v1),
         '["latest.bin"]',
         '["latest_beta.bin"]',
-        "{}",
-        "{}",
+        '["latest.bin"]',
+        '["latest_beta.bin"]',
+        '["latest.bin"]',
+        '["latest_beta.bin"]',
     )
 
 
 async def get_data_from_memcached(mc):
     alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
     alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
+    alerts_cached_v3 = await mc.get(b"alerts_websocket_v3")
     weather_cached_v1 = await mc.get(b"weather_websocket_v1")
     explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
     missiles_cached_v1 = await mc.get(b"missiles_websocket_v1")
+    missiles_cached_v2 = await mc.get(b"missiles_websocket_v2")
     drones_cached_v1 = await mc.get(b"drones_websocket_v1")
+    drones_cached_v2 = await mc.get(b"drones_websocket_v2")
+    kabs_cached_v1 = await mc.get(b"kabs_websocket_v1")
+    kabs_cached_v2 = await mc.get(b"kabs_websocket_v2")
+    energy_cached_v1 = await mc.get(b"energy_websocket_v1")
+    radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
+    global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
-    alerts_full_cached = await mc.get(b"alerts_historical_v1")
-    weather_full_cached = await mc.get(b"weather_openweathermap")
+    s3_bins_cached = await mc.get(b"s3_bins")
+    s3_test_bins_cached = await mc.get(b"s3_test_bins")
+    c3_bins_cached = await mc.get(b"c3_bins")
+    c3_test_bins_cached = await mc.get(b"c3_test_bins")
 
     if random_mode:
-        values_v1 = []
-        values_v2 = []
+        alerts_v1 = []
+        alerts_v2 = []
+        alerts_v3 = []
+        missiles_v2 = []
+        drones_v2 = []
+        kabs_v2 = []
         explosions_v1 = [0] * 26
         missiles_v1 = [0] * 26
         drones_v1 = [0] * 26
+        kabs_v1 = [0] * 26
+        global_notifications_v1 = {}
         for i in range(26):
-            values_v1.append(random.randint(0, 3))
+            alerts_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
-            values_v2.append(
+            alerts_v2.append(
+                [
+                    random.randint(0, 1),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
+            )
+            alerts_v3.append(
+                [
+                    random.randint(0, 2),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
+            )
+            missiles_v2.append(
+                [
+                    random.randint(0, 1),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
+            )
+            drones_v2.append(
+                [
+                    random.randint(0, 1),
+                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
+            )
+            kabs_v2.append(
                 [
                     random.randint(0, 1),
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -749,71 +1036,65 @@ async def get_data_from_memcached(mc):
         missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
         drone_index = random.randint(0, 25)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
-        alerts_cached_data_v1 = json.dumps(values_v1[:26])
-        alerts_cached_data_v2 = json.dumps(values_v2[:26])
+        kab_index = random.randint(0, 25)
+        kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
+        alerts_cached_data_v1 = json.dumps(alerts_v1[:26])
+        alerts_cached_data_v2 = json.dumps(alerts_v2[:26])
+        alerts_cached_data_v2 = json.dumps(alerts_v3[:26])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
         missiles_cashed_data_v1 = json.dumps(missiles_v1[:26])
+        missiles_cashed_data_v2 = json.dumps(missiles_v2[:26])
         drones_cashed_data_v1 = json.dumps(drones_v1[:26])
+        drones_cashed_data_v2 = json.dumps(drones_v2[:26])
+        kabs_cashed_data_v1 = json.dumps(kabs_v1[:26])
+        kabs_cashed_data_v2 = json.dumps(kabs_v2[:26])
+        global_notifications_cached_v1 = json.dumps(global_notifications_v1)
     else:
-        if alerts_cached_v1:
-            alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8")
-        else:
-            alerts_cached_data_v1 = "[]"
-        if alerts_cached_v2:
-            alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8")
-        else:
-            alerts_cached_data_v2 = "[]"
+        alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
+        alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
+        alerts_cached_data_v3 = alerts_cached_v2.decode("utf-8") if alerts_cached_v3 else "[]"
+        explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
+        missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
+        missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
+        drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
+        drones_cashed_data_v2 = drones_cached_v2.decode("utf-8") if drones_cached_v2 else "[]"
+        kabs_cashed_data_v1 = kabs_cached_v1.decode("utf-8") if kabs_cached_v1 else "[]"
+        kabs_cashed_data_v2 = kabs_cached_v2.decode("utf-8") if kabs_cached_v2 else "[]"
+        global_notifications_cached_v1 = (
+            global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
+        )
 
-        if explosions_cached_v1:
-            explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8")
-        else:
-            explosions_cashed_data_v1 = "[]"
+    weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
+    energy_cached_data_v1 = energy_cached_v1.decode("utf-8") if energy_cached_v1 else "[]"
+    radiation_cached_data_v1 = radiation_cached_v1.decode("utf-8") if radiation_cached_v1 else "[]"
+    bins_cached_data = bins_cached.decode("utf-8") if bins_cached else "[]"
+    test_bins_cached_data = test_bins_cached.decode("utf-8") if test_bins_cached else "[]"
+    s3_bins_cached_data = s3_bins_cached.decode("utf-8") if s3_bins_cached else "[]"
+    s3_test_bins_cached_data = s3_test_bins_cached.decode("utf-8") if s3_test_bins_cached else "[]"
+    c3_bins_cached_data = c3_bins_cached.decode("utf-8") if c3_bins_cached else "[]"
+    c3_test_bins_cached_data = c3_test_bins_cached.decode("utf-8") if c3_test_bins_cached else "[]"
 
-        if missiles_cached_v1:
-            missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8")
-        else:
-            missiles_cashed_data_v1 = "[]"
-
-        if drones_cached_v1:
-            drones_cashed_data_v1 = drones_cached_v1.decode("utf-8")
-        else:
-            drones_cashed_data_v1 = "[]"
-
-    if weather_cached_v1:
-        weather_cached_data_v1 = weather_cached_v1.decode("utf-8")
-    else:
-        weather_cached_data_v1 = "[]"
-
-    if bins_cached:
-        bins_cached_data = bins_cached.decode("utf-8")
-    else:
-        bins_cached_data = "[]"
-
-    if test_bins_cached:
-        test_bins_cached_data = test_bins_cached.decode("utf-8")
-    else:
-        test_bins_cached_data = "[]"
-
-    if alerts_full_cached:
-        alerts_full_cached_data = json.loads(alerts_full_cached.decode("utf-8"))
-    else:
-        alerts_full_cached_data = {}
-
-    if weather_full_cached:
-        weather_full_cached_data = json.loads(weather_full_cached.decode("utf-8"))
-    else:
-        weather_full_cached_data = {}
     return (
         alerts_cached_data_v1,
         alerts_cached_data_v2,
+        alerts_cached_data_v3,
         weather_cached_data_v1,
         explosions_cashed_data_v1,
         missiles_cashed_data_v1,
+        missiles_cashed_data_v2,
         drones_cashed_data_v1,
+        drones_cashed_data_v2,
+        kabs_cashed_data_v1,
+        kabs_cashed_data_v2,
+        energy_cached_data_v1,
+        radiation_cached_data_v1,
+        global_notifications_cached_v1,
         bins_cached_data,
         test_bins_cached_data,
-        alerts_full_cached_data,
-        weather_full_cached_data,
+        s3_bins_cached_data,
+        s3_test_bins_cached_data,
+        c3_bins_cached_data,
+        c3_test_bins_cached_data,
     )
 
 

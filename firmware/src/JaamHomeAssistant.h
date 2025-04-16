@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #if HA_ENABLED
 #include <ArduinoHA.h>
 #endif
@@ -47,6 +46,8 @@ public:
     void initLightLevelSensor(float currentLightLevel);
     void initHomeTemperatureSensor();
     void initNightModeSensor(bool currentState, bool (*onChange)(bool newState));
+    void initHomeEnergySensor();
+    void initHomeRadiationSensor();
 
     void setUptime(int uptime);
     void setWifiSignal(int wifiSignal);
@@ -74,5 +75,7 @@ public:
     void setLightLevel(float lightLevel);
     void setHomeTemperature(float homeTemperature);
     void setNightMode(bool nightMode);
+    void setHomeEnergy(int homeEnergy);
+    void setHomeRadiation(int homeRadiation);
 };
     

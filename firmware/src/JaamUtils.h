@@ -1,4 +1,6 @@
 #include "Constants.h"
+#include "JaamLogs.h"
+#include <string>
 
 struct Firmware {
   int major = 0;
@@ -38,19 +40,31 @@ static Firmware parseFirmwareVersion(const char* version) {
 }
 
 static void fillFwVersion(char* result, Firmware firmware) {
-  char patch[10] = "";
+  std::string version = std::to_string(firmware.major) + "." + std::to_string(firmware.minor);
+
   if (firmware.patch > 0) {
-    sprintf(patch, ".%d", firmware.patch);
+    version += "." + std::to_string(firmware.patch);
   }
-  char beta[10] = "";
+
   if (firmware.isBeta) {
-    sprintf(beta, "-b%d", firmware.betaBuild);
+    version += "-b" + std::to_string(firmware.betaBuild);
   }
-#if LITE
-  sprintf(result, "%d.%d%s%s-lite", firmware.major, firmware.minor, patch, beta);
-#else
-  sprintf(result, "%d.%d%s%s", firmware.major, firmware.minor, patch, beta);
+
+#if ARDUINO_ESP32S3_DEV
+  version += "-s3";
+#elif ARDUINO_ESP32C3_DEV
+  version += "-c3";
 #endif
+
+#if LITE
+  version += "-lite";
+#endif
+
+#if TEST_MODE
+  version += "-test";
+#endif
+
+  strcpy(result, version.c_str());
 }
 
 #if FW_UPDATE_ENABLED
@@ -174,6 +188,11 @@ static int rgb2hue(uint8_t red, uint8_t green, uint8_t blue) {
   } else if (max == b) {
     h = 60 * ((r - g) / delta + 4);
   }
+
+  if (h < 0) {
+    h += 360;
+  }
+
   return round(h);
 }
 
@@ -209,6 +228,21 @@ static std::map<int, V> mapLeds(std::pair<int, int*> (*ledsSequence)(int key), s
     delete[] ledList; // Free the allocated array
   }
   return remaped;
+}
+
+
+/**
+* Fuction to check what alert last time to use in home district alarm calculation for specific alert
+* @param state state alarm with status and time of last status change
+* @param notification time of last notification
+* @param current_time timeClient.unixGMT()
+* @param period time in seconds where status cant be changes
+*/
+static bool isLocalAlarmNow(std::pair<int, long int> state, long notification, int current_time, int period) {
+  if (state.first == 1) {
+    return true;
+  }
+  return current_time - notification < period;
 }
 
 static float mapf(float value, float istart, float istop, float ostart, float ostop) {

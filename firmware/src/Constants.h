@@ -1,14 +1,5 @@
-#include "Definitions.h"
 #include <Arduino.h>
 #include <map>
-#if TELNET_ENABLED
-#include <TelnetSpy.h>
-
-TelnetSpy SerialAndTelnet;
-#define LOG SerialAndTelnet
-#else
-#define LOG Serial
-#endif
 
 #define MAIN_LEDS_COUNT 26
 #define DISTRICTS_COUNT 26
@@ -41,17 +32,23 @@ static const char SHCHEDRYK[]            PROGMEM = "Shchedryk:d=8,o=5,b=180:4a,g
 static const char XMEN[]                 PROGMEM = "XMen:d=4,o=6,b=125:16d#4,16g4,16c5,16d#5,4d5,8c5,8g4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8g#4,4p,16d#4,16g4,16c5,16d#5,4d5,8c5,8d#5,2p,8d5,8c5,8g5,16g5,32a5,32b5,4c6";
 static const char AVENGERS[]             PROGMEM = "Avengers:d=16,o=6,b=70:4e4,4p.,16e4,16p,8e4,16p,16b4,4a4,4p,4g4,4f#4,16d4,16e4,8p,16e4,16f#4,8p,16d5,16e5,8p,16e5,16f#5,8p,4e4";
 static const char SIREN2[]               PROGMEM = "Siren2:d=4,o=5,b=200:a.,8g#,a.,8g#,a.,8g#";
+static const char SIREN3[]               PROGMEM = "Siren3:o=6,d=4,b=100:8b5,8d,8b5,8d,8b5,8d";
+static const char SIREN4[]               PROGMEM = "Siren4:o=5,d=4,b=200:16a,16b,16a,16b,16a,16b,16a,16b,16a,16b,16a,16b,16a,16b,16a,16b,16a,16b";
 static const char SQUIDGAME[]            PROGMEM = "SquidGame:d=32,o=4,b=200:8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,8f,32p,8f,32p,8f,32p,4d,32p,8d#.,4f.,4p.,4g,32p,8g.,32p,4g,32p,8c5.,32p,4a#,32p,8a.,4g,32p,8a.,4a#.,16p.,4a#.,16p.,4a#.";
 static const char BANDERA[]              PROGMEM = "Bandera:d=32,o=4,b=140:8e,32p,8e,8c5,8b,8a,32p,8a,4p,8c5,32p,8c5,8d5,8c5,4b.,32p,8b,32p,8b,8b,8b,8b,8e5,8d5,8c5,8b,4a,32p,8a.,16a,32p,8a,8a";
 static const char HUILO[]                PROGMEM = "Huilo:d=32,o=4,b=150:8e5,8p,4e5,4d5,2c5,2p5,8g,8c5,8d5,8e5,8d5,8c5,8e5,2a,2p,8g,8a,8b,8c5,8b,8a,8e,2f,2p,8e,8f,8e,8f,8e,8f,8f#,2g";
 static const char HELLDIVERS[]           PROGMEM = "Helldivers:d=4,o=5,b=120:8f,8e,8d,1a4,4a4,4p,4c.,1d,2p,8f,8e,8d,1f,8c.,32p,8c.,8d.,4a,8d,2g";
+static const char SIREN5[]               PROGMEM = "Siren5:d=16,o=5,b=200:c6,f6,c7,c6,f6,c7,c6,f6,c7,8p,c,f,c6,c,f,c6,c,f,c6";
+static const char SIREN6[]               PROGMEM = "Siren6:d=16,o=6,b=160:8d,p,2d,p,8d,p,2d,p,8d,p,2d";
+static const char SIREN7[]               PROGMEM = "Siren7:d=4,o=5,b=140:16c,16e,16g,16a,16c,16e,16g,16a,16c,16e,16g,16a";
+static const char SIREN8[]               PROGMEM = "Siren8:=8,o=5,b=300:c,e,g,c,e,g,c,e,g,c6,e6,g6,c6,e6,g6,c6,e6,g6,c7,e7,g7,c7,e7,g7,c7,e7,g7";
 
 static const char CLOCK_BEEP[]           PROGMEM = "ClockBeep:d=8,o=7,b=300:4g,32p,4g";
 static const char MOS_BEEP[]             PROGMEM = "MosBeep:d=4,o=4,b=250:g";
 static const char SINGLE_CLICK_SOUND[]   PROGMEM = "SingleClick:d=8,o=4,b=300:f";
 static const char LONG_CLICK_SOUND[]     PROGMEM = "LongClick:d=8,o=4,b=300:4f";
 
-#define MELODIES_COUNT 23
+#define MELODIES_COUNT 29
 static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   UA_ANTHEM,
   OI_U_LUZI,
@@ -75,7 +72,13 @@ static const char* MELODIES[MELODIES_COUNT] PROGMEM = {
   SQUIDGAME,
   BANDERA,
   HUILO,
-  HELLDIVERS
+  HELLDIVERS,
+  SIREN3,
+  SIREN4,
+  SIREN5,
+  SIREN6,
+  SIREN7,
+  SIREN8,
 };
 
 static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
@@ -84,8 +87,14 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {15, "Щедрик", false},
   {1, "Ой у лузі", false},
   {2, "Козацький марш", false},
-  {4, "Сирена", false},
+  {4, "Сирена 1", false},
   {18, "Сирена 2", false},
+  {23, "Сирена 3", false},
+  {24, "Сирена 4", false},
+  {25, "Сирена 5", false},
+  {26, "Сирена 6", false},
+  {27, "Сирена 7", false},
+  {28, "Сирена 8", false},
   {5, "Комунікатор", false},
   {3, "Гаррі Поттер", false},
   {6, "Зоряні війни", false},
@@ -94,8 +103,8 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {9, "Індіана Джонс", false},
   {10, "Назад у майбутнє", false},
   {11, "Kiss - I Was Made", false},
-  {12, "Русалонька", false},
-  {13, "Nokia tune", false},
+  {12, "Little Mermaid - Under the Sea", false},
+  {13, "Рінгтон Nokia", false},
   {14, "Пакмен", false},
   {16, "Люди Х", false},
   {17, "Месники", false},
@@ -227,21 +236,25 @@ static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
   {31, std::make_pair(1, (int*)D31)},
 };
 
-#define MAP_MODES_COUNT 6
+#define MAP_MODES_COUNT 8
 static SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
   {0, "Вимкнено", false},
   {1, "Тривога", false},
+  {6, "Енергосистема", false},
   {2, "Погода", false},
+  {7, "Радіація", false},
   {3, "Прапор", false},
   {4, "Випадкові кольори", false},
   {5, "Лампа", false},
 };
 
-#define DISPLAY_MODE_OPTIONS_MAX 6
+#define DISPLAY_MODE_OPTIONS_MAX 8
 static SettingListItem DISPLAY_MODES[DISPLAY_MODE_OPTIONS_MAX] = {
   {0, "Вимкнено", false},
   {1, "Годинник", false},
+  {5, "Енергосистема", false},
   {2, "Погода", false},
+  {6, "Радіація", false},
   {3, "Технічна інформація", false},
   {4, "Мікроклімат", false},
   {9, "Перемикання", false},
@@ -330,12 +343,33 @@ static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
   {64, "128x64", false}
 };
 
+#if ARDUINO_ESP32_DEV
 #define LEGACY_OPTIONS_COUNT 4
+#else
+#define LEGACY_OPTIONS_COUNT 2
+#endif
 static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
+#if ARDUINO_ESP32_DEV
+  {3, "Плата JAAM 2.x", false},
   {0, "Плата JAAM 1.3", false},
+#endif
   {1, "Початок на Закарпатті", false},
   {2, "Початок на Одещині", false},
-  {3, "Плата JAAM 2.x", false}
 };
 
 static const size_t MAX_JSON_SIZE = 6000; // 6KB
+
+// Визначення пінів для різних плат
+#if ARDUINO_ESP32_DEV
+    #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 16, 17, 18, 25, 26, 27, 32, 33}
+#elif ARDUINO_ESP32S3_DEV
+    #define SUPPORTED_LEDS_PINS {2, 4, 12, 13, 14, 15, 18, 21, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42}
+#elif ARDUINO_ESP32C3_DEV
+    #define SUPPORTED_LEDS_PINS {2, 3, 4, 5, 6, 7, 8, 9, 10, 18, 19, 20, 21}
+#else
+    #error "Платформа не підтримується!"
+#endif
+
+// Макрос для генерації switch-case для кожного піна
+#define GENERATE_PIN_CASE(pin) \
+    case pin: FastLED.addLeds<NEOPIXEL, pin>(const_cast<CRGB*>(leds), pixelcount); break;

@@ -34,6 +34,8 @@ char haLocalPressureID[28];
 char haLightLevelID[25];
 char haHomeTempID[23];
 char haNightModeID[24];
+char haHomeEnergyID[25];
+char haHomeRadiationID[29];
 
 HASensorNumber*  haUptime;
 HASensorNumber*  haWifiSignal;
@@ -62,6 +64,8 @@ HASensorNumber*  haLocalPressure;
 HASensorNumber*  haLightLevel;
 HASensorNumber*  haHomeTemp;
 HASwitch*        haNightMode;
+HASensor*        haHomeEnergy;
+HASensorNumber*  haHomeRadiation;
 
 const char* mqttServer;
 
@@ -89,7 +93,7 @@ void (*onMqqtConnectionStatusChanged)(bool connected);
 char configUrl[35];
 byte macAddress[6];
 
-#define SENSORS_COUNT 28
+#define SENSORS_COUNT 30
 
 char deviceUniqueID[15];
 
@@ -271,7 +275,8 @@ void JaamHomeAssistant::initMapModeSensor(int currentMapMode, const char* mapMod
   getHaOptions(mapModeOptions, mapModes, mapModesSize);
   haMapMode->setOptions(mapModeOptions);
   mapModeChanged = onChange;
-  haMapMode->onCommand([](int8_t index, HASelect* sender) { mapModeChanged(index); });
+  mapModeTransform = transform;
+  haMapMode->onCommand([](int8_t index, HASelect* sender) { mapModeChanged(mapModeTransform(index)); });
   haMapMode->setIcon("mdi:map");
   haMapMode->setName("Map Mode");
   haMapMode->setCurrentState(currentMapMode);
@@ -545,6 +550,28 @@ void JaamHomeAssistant::initNightModeSensor(bool currentState, bool (*onChange)(
 #endif
 }
 
+void JaamHomeAssistant::initHomeEnergySensor() {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haHomeEnergyID, "%s_home_energy", deviceUniqueID);
+  haHomeEnergy = new HASensor(haHomeEnergyID, HASensor::JsonAttributesFeature);
+  haHomeEnergy->setIcon("mdi:home-battery");
+  haHomeEnergy->setName("Home District Energy State");
+#endif
+}
+
+void JaamHomeAssistant::initHomeRadiationSensor() {
+#if HA_ENABLED
+  if (!haEnabled) return;
+  sprintf(haHomeRadiationID, "%s_home_radiation", deviceUniqueID);
+  haHomeRadiation = new HASensorNumber(haHomeRadiationID);
+  haHomeRadiation->setIcon("mdi:radioactive-circle");
+  haHomeRadiation->setName("Home District Radiation");
+  haHomeRadiation->setUnitOfMeasurement("nSv/h");
+  haHomeRadiation->setStateClass("measurement");
+#endif
+}
+
 void JaamHomeAssistant::setUptime(int uptime) {
 #if HA_ENABLED
   if (!haEnabled) return;
@@ -725,4 +752,37 @@ void JaamHomeAssistant::setNightMode(bool nightMode) {
   if (!haEnabled) return;
   haNightMode->setState(nightMode);
 #endif
+}
+
+void JaamHomeAssistant::setHomeEnergy(int homeEnergy) {
+  #if HA_ENABLED
+    if (!haEnabled) return;
+    switch (homeEnergy) {
+      case 0:
+        haHomeEnergy->setValue("Дані відсутні");
+        break;
+      case 3:
+        haHomeEnergy->setValue("Достатньо");
+        break;
+      case 4:
+        haHomeEnergy->setValue("Не вистачає");
+        break;
+      case 9:
+        haHomeEnergy->setValue("Відключення!");
+        break;
+      default:
+        haHomeEnergy->setValue("Невідомий статус");
+        break;
+    }
+    char json[15];
+    sprintf(json, "{\"status\": %d}", homeEnergy);
+    haHomeEnergy->setJsonAttributes(json);
+  #endif
+  }
+
+void JaamHomeAssistant::setHomeRadiation(int homeRadiation) {
+  #if HA_ENABLED
+    if (!haEnabled) return;
+    haHomeRadiation->setValue(homeRadiation);
+  #endif
 }

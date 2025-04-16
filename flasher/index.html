@@ -88,7 +88,7 @@
                         </div>
                     </esp-web-install-button>
                     <esp-web-install-button manifest="manifest-beta.json">
-                        <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.4 Beta 102</button>
+                        <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.4 Beta 115</button>
                         <span slot="unsupported"></span>
                         <span slot="not-allowed"></span>
                     </esp-web-install-button>
@@ -101,10 +101,9 @@
                 <div class='alert alert-primary'>
                     <ul>
                         <li><b>JAAM</b> - стабільна релізна <a href="https://github.com/J-A-A-M/ukraine_alarm_map/releases/latest">версія</a> прошивки</li>
-                        <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці.</li>
+                        <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці. Підтримуються чіпи ESP32, ESP32-S3, ESP32-C3</li>
                         <li><b>JAAM Lite</b> - "скорочена" версія прошивки. Видалено підтримку дисплею, Home Assistant, сенсорів освітлення та клімату, динаміка (buzzer), не підтримує оновлення через веб-інтерфейс</li>
                     </ul>
-
                 </div>
             </div>
             <!-- Отримання Release Notes -->
@@ -112,7 +111,7 @@
                 <div class="alert alert-info text-rigth" id="release-notes">Завантаження опису версії...</div>
                     <div class="text-center">
                         <button class="btn btn-info" onclick="fetchReleaseNotes('4.3.1')">Отримати опис JAAM 4.3.1</button>
-                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.4-b102')">Отримати опис JAAM 4.4 Beta 102</button>
+                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.4-b115')">Отримати опис JAAM 4.4 Beta 115</button>
                     </div>
             </div>
             <div class='by col-md-9 mt-2'>

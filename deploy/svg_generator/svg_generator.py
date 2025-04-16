@@ -7,6 +7,7 @@ import random
 import pytz
 import math
 import datetime
+import statistics
 from aiomcache import Client
 from zoneinfo import ZoneInfo
 
@@ -18,6 +19,7 @@ log_level = os.environ.get("LOGGING")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 loop_time = int(os.environ.get("SVG_PERIOD", 2))
+loop_time_long = int(os.environ.get("SVG_PERIOD_LONG", 60))
 min_temp = float(os.environ.get("MIN_TEMP", -10))
 max_temp = float(os.environ.get("MAX_TEMP", 30))
 
@@ -52,6 +54,8 @@ regions = {
     "HMELNYCKA": {"name": "Хмельницька область", "id": 3, "legacy_id": 24},
     "CHERNIVETSKA": {"name": "Чернівецька область", "id": 26, "legacy_id": 25},
     "KIYEW": {"name": "м. Київ", "id": 31, "legacy_id": 26},
+    "KHARKIV": {"name": "м. Харків та Харківська територіальна громада", "id": 1293, "legacy_id": 27},
+    "ZAPORIJJA": {"name": "м. Запоріжжя та Запорізька територіальна громада", "id": 564, "legacy_id": 28},
     "UNKNOWN": {"name": "Невідомо", "id": 1111, "legacy_id": 1111},
     "ALL": {"name": "Вся Україна", "id": 2222, "legacy_id": 2222},
     "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},
@@ -64,6 +68,11 @@ COLOR_SAFE_BEGIN = "#BBFF33"
 COLOR_MISSILES = "#9D00FF"
 COLOR_DRONES = "#FF00FF"
 COLOR_EXPLOSIVES = "#00FFFF"
+COLOR_KABS = "#f9ff33"
+COLOR_ENERGY_UNKNOWN = "#000000"
+COLOR_ENERGY_OK = "#55a349"
+COLOR_ENERGY_WARNING = "#f9ac1a"
+COLOR_ENERGY_OFFLINE = "#c82400"
 
 legacy_flag_leds = [
     60,
@@ -129,7 +138,13 @@ async def get_weather(mc, key_b, default_response={}):
     return await get_cache_data(mc, key_b, default_response={})
 
 
+async def get_energy(mc, key_b, default_response={}):
+    return await get_cache_data(mc, key_b, default_response={})
+
+
 def get_region_name(search_key, region_id):
+    if search_key == "name" and region_id == "Київ":
+        return "KIYEW"
     return next((name for name, data in regions.items() if data.get(search_key) == region_id), None)
 
 
@@ -155,15 +170,18 @@ async def svg_generator_alerts(mc):
     stored_data = {}
     while True:
         try:
+            logger.debug("start alerts map generaton")
             await asyncio.sleep(loop_time)
             local_time = get_current_datetime_formatted()
 
             alerts_svg_data = {}
 
             alerts_cache = await get_historical_alerts(mc, b"alerts_historical_v1", {})
-            drones_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
-            missiles_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
-            explosions_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
+            drones_notifications_cache = await get_etryvoga(mc, b"drones_etryvoga", {"states": {}})
+            missiles_notifications_cache = await get_etryvoga(mc, b"missiles_etryvoga", {"states": {}})
+            explosions_notifications_cache = await get_etryvoga(mc, b"explosions_etryvoga", {"states": {}})
+            kabs_notifications_cache = await get_etryvoga(mc, b"kabs_etryvoga", {"states": {}})
+            websocket_cache = await get_cache_data(mc, b"ws_info", {"reasons": []})
             regions_cache = await get_regions(mc, b"regions_api", {})
 
             for region_id, region_data in alerts_cache.items():
@@ -186,21 +204,46 @@ async def svg_generator_alerts(mc):
                     time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                     alerts_svg_data[state_name] = COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN
 
-            for region_id, region_data in drones_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Drones" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_DRONES
+
+            for region_id, region_data in drones_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_DRONES
 
-            for region_id, region_data in missiles_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Missile" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_MISSILES
+
+            for region_id, region_data in missiles_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
                 if time_diff < 180:
                     alerts_svg_data[state_name] = COLOR_MISSILES
 
-            for region_id, region_data in explosions_cache["states"].items():
+            for reason in websocket_cache["reasons"]:
+                state_id = reason["parentRegionId"]
+                state_name = get_region_name("id", int(state_id))
+                if "Ballistic" in reason["alertTypes"]:
+                    alerts_svg_data[state_name] = COLOR_KABS
+
+            for region_id, region_data in kabs_notifications_cache["states"].items():
+                time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                if time_diff < 180:
+                    alerts_svg_data[state_name] = COLOR_KABS
+
+            for region_id, region_data in explosions_notifications_cache["states"].items():
                 time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)
@@ -218,6 +261,7 @@ async def svg_generator_alerts(mc):
                 **alerts_svg_data,
             )
             stored_data = alerts_svg_data
+            logger.info("end alerts map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_alerts: {e}")
@@ -228,6 +272,7 @@ async def svg_generator_weather(mc):
     stored_data = {}
     while True:
         try:
+            logger.debug("start weather map generation")
             await asyncio.sleep(loop_time)
             local_time = get_current_datetime_formatted()
 
@@ -250,9 +295,109 @@ async def svg_generator_weather(mc):
                 **weather_svg_data,
             )
             stored_data = weather_svg_data
+            logger.info("end weather map generation")
 
         except Exception as e:
             logger.error(f"svg_generator_weather: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+
+
+async def svg_generator_energy(mc):
+    stored_data = {}
+    while True:
+        try:
+            logger.debug("start energy map generation")
+            await asyncio.sleep(loop_time)
+            local_time = get_current_datetime_formatted()
+
+            energy_svg_data = {}
+
+            energy_cache = await get_weather(mc, b"energy_ukrenergo", {"states": {}})
+            for region_id, region_data in energy_cache["states"].items():
+                state_id = int(region_id)
+                state_name = get_region_name("id", state_id)
+                match region_data["state"]["id"]:
+                    case 0:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                    case 3:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OK
+                    case 4:
+                        energy_svg_data[state_name] = COLOR_ENERGY_WARNING
+                    case 9:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
+                    case _:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+
+            if energy_svg_data == stored_data:
+                continue
+
+            file_path = os.path.join(shared_path, "energy_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_energy_info=True,
+                **energy_svg_data,
+            )
+            stored_data = energy_svg_data
+            logger.info("end energy map generation")
+
+        except Exception as e:
+            logger.error(f"svg_generator_energy: {e}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+
+
+async def svg_generator_radiation(mc):
+    stored_data = {}
+    while True:
+        try:
+            logger.debug("start radiation map generation")
+            await asyncio.sleep(loop_time_long)
+            local_time = get_current_datetime_formatted()
+
+            radiation_svg_data = {}
+
+            data_cache = await get_cache_data(
+                mc, b"radiation_data_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+            sensors_cache = await get_cache_data(
+                mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
+            )
+
+            temp_data = {}
+            for sensor_data in data_cache["states"]:
+                if sensor_data["is_old"]:
+                    continue
+
+                state_name = sensors_cache["states"].get(str(sensor_data["sensor_id"]), {}).get("region_name")
+                if not state_name:
+                    continue
+                if not temp_data.get(state_name):
+                    temp_data[state_name] = []
+                temp_data[state_name].append(sensor_data["gamma_nsv_h"])
+
+            for state_name, radiation_data in temp_data.items():
+                state_name = get_region_name("name", state_name)
+
+                if not state_name:
+                    continue
+
+                radiation_svg_data[state_name] = calculate_html_color_from_radiation(statistics.median(radiation_data))
+
+            if radiation_svg_data == stored_data:
+                continue
+
+            file_path = os.path.join(shared_path, "radiation_map.png")
+            await generate_map(
+                time=local_time,
+                output_file=file_path,
+                show_radiation_info=True,
+                **radiation_svg_data,
+            )
+            stored_data = radiation_svg_data
+            logger.info("end radiation map generation")
+
+        except Exception as e:
+            logger.error(f"svg_generator_radiation: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
 
 
@@ -296,6 +441,20 @@ async def generate_random():
     await asyncio.sleep(loop_time)
 
 
+def calculate_html_color_from_radiation(radiation):
+    min_rad = 100
+    max_rad = 2000
+    normalized_value = float(radiation - min_rad) / float(max_rad - min_rad)
+    if normalized_value > 1:
+        normalized_value = 1
+    if normalized_value < 0:
+        normalized_value = 0
+    hue = round(180 + normalized_value * (270 - 180))
+    hue %= 360
+
+    return calculate_hex(hue)
+
+
 def calculate_html_color_from_temp(temp):
     min_temp = -10
     max_temp = 30
@@ -306,6 +465,11 @@ def calculate_html_color_from_temp(temp):
         normalized_value = 0
     hue = round(275 + normalized_value * (0 - 275))
     hue %= 360
+
+    return calculate_hex(hue)
+
+
+def calculate_hex(hue):
     h = hue / 360.0
     s = 1.0
     v = 1.0
@@ -351,8 +515,16 @@ def calculate_html_color_from_temp(temp):
     return hex_color
 
 
-async def generate_map(time, output_file, show_alert_info=False, show_weather_info=False, **kwargs):
-    logger.debug("generate map start")
+async def generate_map(
+    time,
+    output_file,
+    show_alert_info=False,
+    show_weather_info=False,
+    show_energy_info=False,
+    show_radiation_info=False,
+    **kwargs,
+):
+    logger.debug("generator start")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
          enable-background="new 0 0 1546.93 1040.822" xml:space="preserve" inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
@@ -371,6 +543,14 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             </rdf:RDF>
          </metadata>
          <defs id="defs3670">
+            <linearGradient id="radiation" x1="0%" x2="0%" y1="0%" y2="100%">
+               <stop offset="0%" stop-color="#1dafaf"/>
+               <stop offset="20%" stop-color="#1d8baf" />
+               <stop offset="40%" stop-color="#1d66af" />
+               <stop offset="60%" stop-color="#1d41af"  />
+               <stop offset="80%" stop-color="#411daf" />
+               <stop offset="100%" stop-color="#661daf" />
+            </linearGradient>
             <linearGradient id="weather" x1="0%" x2="0%" y1="0%" y2="100%">
                <stop offset="0%" stop-color="#FF0000"/>
                <stop offset="25%" stop-color="#D9FF00" />
@@ -1044,22 +1224,42 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
             style="stroke:#2c2c2c;stroke-width:1;stroke-linecap:round;stroke-linejoin:round">
 
             <g id="ALERTS_LEGEND" visibility="{"visible" if show_alert_info else "hidden"}">
-               <circle cx="50" cy="630" r="20" fill="#ff5733" id="circle224" />
+               <circle cx="50" cy="630" r="20" fill="{COLOR_ALERT}" id="circle224" />
                <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- тривога</text>
-               <circle cx="50" cy="680" r="20" fill="#32cd32" id="circle228" />
+               <circle cx="50" cy="680" r="20" fill="{COLOR_SAFE}" id="circle228" />
                <text x="75" y="685" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- немає тривоги</text>
-               <circle cx="50" cy="730" r="20" fill="#ffa533" id="circle232" />
+               <circle cx="50" cy="730" r="20" fill="{COLOR_ALERT_BEGIN}" id="circle232" />
                <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- оголошено тривогу (до 5 хв. тому)</text>
-               <circle cx="50" cy="780" r="20" fill="#bbff33" id="circle236" />
+               <circle cx="50" cy="780" r="20" fill="{COLOR_SAFE_BEGIN}" id="circle236" />
                <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- оголошено відбій (до 5 хв. тому)</text>
-               <circle cx="50" cy="830" r="20" fill="#9d00ff" id="circle244" />
-               <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека (до 3 хв. тому)</text>
-               <circle cx="50" cy="880" r="20" fill="#ff00ff" id="circle248" />
-               <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА (до 3 хв. тому)</text>
-               <circle cx="50" cy="930" r="20" fill="#00ffff" id="circle240" />
-               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
+               <circle cx="50" cy="830" r="20" fill="{COLOR_MISSILES}" id="circle244" />
+               <text x="75" y="835" font-family="Arial" font-size="22px" fill="#ffffff" id="text247">- ракетна небезпека</text>
+               <circle cx="50" cy="880" r="20" fill="{COLOR_DRONES}" id="circle248" />
+               <text x="75" y="885" font-family="Arial" font-size="22px" fill="#ffffff" id="text249">- загроза БПЛА</text>             
+               <circle cx="50" cy="930" r="20" fill="{COLOR_KABS}" id="circle252" />
+               <text x="75" y="935" font-family="Arial" font-size="22px" fill="#ffffff" id="text251">- загроза КАБ</text>
+               <circle cx="50" cy="980" r="20" fill="{COLOR_EXPLOSIVES}" id="circle240" />
+               <text x="75" y="985" font-family="Arial" font-size="22px" fill="#ffffff" id="text242">- ЗМІ повідомляють про вибухи (до 3 хв. тому)</text>
             </g>
 
+            <g id="ENERGY_LEGEND" visibility="{"visible" if show_energy_info else "hidden"}">
+               <circle cx="50" cy="630" r="20" fill="{COLOR_ENERGY_UNKNOWN}" id="circle224" />
+               <text x="75" y="635" font-family="Arial" font-size="22px" fill="#ffffff" id="text226">- Нема даних</text>
+               <circle cx="50" cy="680" r="20" fill="{COLOR_ENERGY_OK}" id="circle228" />
+               <text x="75" y="685" font-family="Arial" font-size="22px" fill="#ffffff" id="text230">- Електроенергії вистачає</text>
+               <circle cx="50" cy="730" r="20" fill="{COLOR_ENERGY_WARNING}" id="circle232" />
+               <text x="75" y="735" font-family="Arial" font-size="22px" fill="#ffffff" id="text234">- Електроенергії не вистачає</text>
+               <circle cx="50" cy="780" r="20" fill="{COLOR_ENERGY_OFFLINE}" id="circle236" />
+               <text x="75" y="785" font-family="Arial" font-size="22px" fill="#ffffff" id="text238">- Застосовуються аварійні відключення</text>
+            </g>
+
+            <g transform="translate(60,20) scale(0.5)">
+               <path d="M-81.25 1.25h162.5v172.5a31.25 31.25 0 0 1-18.578029 28.565428L0 228.867475l-62.671971-27.802047A31.25 31.25 0 0 1-81.25 172.5z" fill="#005bbb" stroke="#ffd500" stroke-width="2.5"/>
+               <path d="M5.985561 78.82382a104.079383 104.079383 0 0 0 14.053598 56.017033 55 55 0 0 1-13.218774 70.637179A20 20 0 0 0 0 212.5a20 20 0 0 0-6.820384-7.021968 55 55 0 0 1-13.218774-70.637179A104.079383 104.079383 0 0 0-5.98556 78.82382l-1.599642-45.260519A30.103986 30.103986 0 0 1 0 12.5a30.103986 30.103986 0 0 1 7.585202 21.063301zM5 193.624749a45 45 0 0 0 6.395675-53.75496A114.079383 114.079383 0 0 1 0 112.734179a114.079383 114.079383 0 0 1-11.395675 27.13561A45 45 0 0 0-5 193.624749V162.5H5z" fill="#ffd500" stroke="#000000" stroke-width="2" />
+               <path id="a" d="M27.779818 75.17546A62.64982 62.64982 0 0 1 60 27.5v145H0l-5-10a22.5 22.5 0 0 1 17.560976-21.95122l14.634147-3.292683a10 10 0 1 0-4.427443-19.503751zm5.998315 34.353887a20 20 0 0 1-4.387889 37.482848l-14.634146 3.292683A12.5 12.5 0 0 0 5 162.5h45V48.265462a52.64982 52.64982 0 0 0-12.283879 28.037802zM42 122.5h10v10H42z"  fill="#ffd500" stroke="#000000" stroke-width="2" />
+               <use xlink:href="#a" transform="scale(-1 1)"/>
+            </g>
+               
             <g id="WEATHER_GRADIENT" visibility="{"visible" if show_weather_info else "hidden"}">
                <rect x="60" y="630" width="50" height="250" fill="url(#weather)" id="rect244" />
                <text x="130" y="643" font-family="Arial" font-size="30px" fill="#ffffff" id="text246">30°C</text>
@@ -1067,10 +1267,24 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
                <text x="120" y="885" font-family="Arial" font-size="30px" fill="#ffffff" id="text250">-10°C</text>
             </g>
 
+            <g id="RADIATION_GRADIENT" visibility="{"visible" if show_radiation_info else "hidden"}">
+               <rect x="60" y="685" width="50" height="30" fill="#000000" id="rect2441" />
+               <rect x="60" y="730" width="50" height="220" fill="url(#radiation)" id="rect244" />
+               <text x="70" y="645" font-family="Arial" font-size="30px" fill="#ffffff" id="text246">γ-Радіація</text>
+               <text x="230" y="645" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">(нЗв/год)</text>
+               <text x="130" y="705" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">нема даних</text>
+               <text x="130" y="745" font-family="Arial" font-size="20px" fill="#ffffff" id="text246">0-100</text>
+               <text x="130" y="785" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">101-200</text>
+               <text x="130" y="825" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">201-300</text>
+               <text x="130" y="865" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">301-500</text>
+               <text x="130" y="905" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">501-2000</text>
+               <text x="130" y="945" font-family="Arial" font-size="20px" fill="#ffffff" id="text248">2000+</text>
+            </g>
+
             <g id="FLAG_JAAM">
-               <text x="123.36918" y="995.97467" font-family="Arial" font-size="36px" fill="#ffffff" id="text256">JAAM</text>
-               <rect x="40" y="960" width="60" height="20" fill="#005bbb" id="rect252" />
-               <rect x="40" y="980" width="60" height="20" fill="#fedf00" id="rect254" />
+               <text x="110" y="58" font-family="Arial" font-size="50px" fill="#ffffff" id="text256">JAAM</text>
+               <text x="110" y="85" font-family="Arial" font-size="22px" fill="#ffffff" id="text257">Just Another</text>
+               <text x="110" y="105" font-family="Arial" font-size="22px" fill="#ffffff" id="text258">Alert Map</text>
             </g>
 
             <text x="1205.0197" y="993.53314" font-family="Arial" font-size="26px" fill="#ffffff" id="TIMESTAMP">{time}</text>
@@ -1079,13 +1293,16 @@ async def generate_map(time, output_file, show_alert_info=False, show_weather_in
     """
 
     cairosvg.svg2png(bytestring=svg_data, write_to=output_file, scale=1.5)
-    logger.debug("generate map complete")
+    logger.debug("generator complete")
 
 
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(svg_generator_alerts(mc), svg_generator_weather(mc))
+        await asyncio.gather(
+            svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc), svg_generator_radiation(mc)
+        )
+
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 

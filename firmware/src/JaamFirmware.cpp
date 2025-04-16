@@ -1,4 +1,3 @@
-#include "Definitions.h"
 #include "JaamUtils.h"
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
@@ -29,8 +28,6 @@
 #endif
 #include <esp_task_wdt.h>
 
-const PROGMEM char* VERSION = "4.3.1";
-
 JaamSettings settings;
 Firmware currentFirmware;
 #if FW_UPDATE_ENABLED
@@ -52,6 +49,7 @@ JaamLightSensor   lightSensor;
 JaamClimateSensor climate;
 JaamHomeAssistant ha;
 std::pair<std::map<int, int>, std::map<int, int>> haDisplayModeMap;
+std::pair<std::map<int, int>, std::map<int, int>> haMapModeMap;
 #if BUZZER_ENABLED
 MelodyPlayer* player;
 #endif
@@ -61,7 +59,7 @@ enum ServiceLed {
   WIFI,
   DATA,
   HA,
-  RESERVED
+  UPD_AVAILABLE
 };
 
 enum SoundType {
@@ -71,6 +69,11 @@ enum SoundType {
   ALERT_ON,
   ALERT_OFF,
   EXPLOSIONS,
+  CRITICAL_MIG,
+  CRITICAL_STRATEGIC,
+  CRITICAL_MIG_MISSILES,
+  CRITICAL_BALLISTIC_MISSILES,
+  CRITICAL_STRATEGIC_MISSILES,
   SINGLE_CLICK,
   LONG_CLICK
 };
@@ -94,12 +97,24 @@ std::map<int, std::pair<int, long>> id_to_alerts; //regionId to alert state and 
 std::map<int, std::pair<int, long>> led_to_alerts; // ledPosition to alert state and time
 std::map<int, float>                id_to_weather; //regionId to temperature
 std::map<int, float>                led_to_weather; // ledPosition to temperature
-std::map<int, long>                 id_to_explosions; //regionId to explosion time
-std::map<int, long>                 led_to_explosions; // ledPosition to explosion time
-std::map<int, long>                 id_to_missiles; //regionId to missiles time
-std::map<int, long>                 led_to_missiles; // ledPosition to missils time
-std::map<int, long>                 id_to_drones; //regionId to missiles time
-std::map<int, long>                 led_to_drones; // ledPosition to missils time
+std::map<int, long>                 id_to_explosions_notifications; //regionId to explosion time
+std::map<int, long>                 led_to_explosions_notifications; // ledPosition to explosion time
+std::map<int, long>                 id_to_missiles_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_missiles_notifications; // ledPosition to missils time
+std::map<int, long>                 id_to_kabs_notifications; //regionId to kabs time
+std::map<int, long>                 led_to_kabs_notifications; // ledPosition to kabs time
+std::map<int, std::pair<int, long>> id_to_missiles; //regionId to missiles state and time
+std::map<int, std::pair<int, long>> led_to_missiles; // ledPosition to missiles state and time
+std::map<int, long>                 id_to_drones_notifications; //regionId to missiles time
+std::map<int, long>                 led_to_drones_notifications; // ledPosition to missils time
+std::map<int, std::pair<int, long>> id_to_drones; //regionId to drones state and time
+std::map<int, std::pair<int, long>> led_to_drones; // ledPosition to drones state and time
+std::map<int, std::pair<int, long>> id_to_kabs; //regionId to kabs state and time
+std::map<int, std::pair<int, long>> led_to_kabs; // ledPosition to kabs state and time
+std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
+std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
+std::map<int, int>                id_to_radiation; //regionId to radiation
+std::map<int, int>                led_to_radiation; // ledPosition to radiation
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
@@ -125,7 +140,13 @@ char    currentFwVersion[25];
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
+int     volumeCurrent = 0;
+int     volumeDay = 0;
+int     volumeNight = 0;
 bool    alarmNow = false;
+bool    alarmDronesNow = false;
+bool    alarmMissilesNow = false;
+bool    alarmKabsNow = false;
 bool    pinAlarmNow = false;
 long    homeExplosionTime = 0;
 bool    minuteOfSilence = false;
@@ -143,6 +164,22 @@ float   usedHeapSize;
 float   freeHeapSize;
 int     wifiSignal;
 
+enum GlobalNotificationType {
+  IS_MIG,
+  IS_STRATEGIC,
+  IS_MIG_MISSILES,
+  IS_BALLISTIC_MISSILES,
+  IS_STRATEGIC_MISSILES  
+};
+
+std::map<char, bool> GlobalNotifications = {
+  {IS_MIG, false},
+  {IS_STRATEGIC, false},
+  {IS_MIG_MISSILES, false},
+  {IS_BALLISTIC_MISSILES, false},
+  {IS_STRATEGIC_MISSILES, false}
+};
+
 int     ledsBrightnessLevels[BR_LEVELS_COUNT]; // Array containing LEDs brightness values
 int     currentDimDisplay = 0;
 
@@ -151,6 +188,7 @@ int     currentDimDisplay = 0;
 // 2 - Climate Temperature
 // 3 - Climate Humidity
 // 4 - Climate Pressure
+// 5 - Energy monitoring
 int     currentDisplayToggleMode = 0;
 int     currentDisplayToggleIndex = 0;
 
@@ -190,6 +228,7 @@ bool isBuzzerEnabled() {
 bool isAnalogLightSensorEnabled() {
   return settings.getInt(LIGHT_SENSOR_PIN) > -1;
 }
+
 
 CRGB fromRgb(int r, int g, int b, float brightness) {
   // use brightnessFactor as a multiplier to get scaled brightness
@@ -300,6 +339,21 @@ void playMelody(SoundType type) {
     case EXPLOSIONS:
       playMelody(MELODIES[settings.getInt(MELODY_ON_EXPLOSION)]);
       break;
+    case CRITICAL_MIG:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG)]);
+      break; 
+    case CRITICAL_STRATEGIC:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC)]);
+      break;
+    case CRITICAL_MIG_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES)]);
+      break;
+    case CRITICAL_BALLISTIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES)]);
+      break;
+    case CRITICAL_STRATEGIC_MISSILES:
+      playMelody(MELODIES[settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES)]);
+      break;
     case REGULAR:
       playMelody(CLOCK_BEEP);
       break;
@@ -384,6 +438,16 @@ bool needToPlaySound(SoundType type) {
       return settings.getBool(SOUND_ON_ALERT_END);
     case EXPLOSIONS:
       return settings.getBool(SOUND_ON_EXPLOSION);
+    case CRITICAL_MIG:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG);
+    case CRITICAL_STRATEGIC:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC);
+    case CRITICAL_MIG_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES);
+    case CRITICAL_BALLISTIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES);
+    case CRITICAL_STRATEGIC_MISSILES:
+      return settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES);
     case REGULAR:
       return settings.getBool(SOUND_ON_EVERY_HOUR);
     case SINGLE_CLICK:
@@ -416,9 +480,13 @@ void servicePin(ServiceLed type, uint8_t status, bool force) {
         pin = settings.getInt(HA_PIN);
         service_strip[3] = status ? CRGB(CRGB::Yellow).nscale8_video(scaledBrightness) : CRGB::Black;
         break;
-      case RESERVED:
-        pin = settings.getInt(RESERVED_PIN);
+      case UPD_AVAILABLE:
+        pin = settings.getInt(UPD_AVAILABLE_PIN);
+        // this service led will be handled in the main loop for animation
+#if TEST_MODE
+        // show in test mode only
         service_strip[4] = status ? CRGB(CRGB::White).nscale8_video(scaledBrightness) : CRGB::Black;
+#endif
         break;
     }
     if (pin > 0 && settings.getInt(LEGACY) == 0) {
@@ -703,7 +771,7 @@ bool saveMapMode(int newMapMode) {
   settings.saveInt(MAP_MODE, newMapMode);
   reportSettingsChange("map_mode", newMapMode);
   ha.setLampState(newMapMode == 5);
-  ha.setMapMode(newMapMode);
+  ha.setMapMode(haMapModeMap.second[newMapMode]);
   const char* mapModeName = getNameById(MAP_MODES, newMapMode, MAP_MODES_COUNT);
   ha.setMapModeCurrent(mapModeName);
   showServiceMessage(mapModeName, "Режим мапи:");
@@ -713,7 +781,7 @@ bool saveMapMode(int newMapMode) {
 }
 
 int transformFromHaMapMode(int newIndex) {
-  return MAP_MODES[newIndex].id;
+  return haMapModeMap.first[newIndex];
 }
 
 int transformFromHaDisplayMode(int newIndex) {
@@ -794,6 +862,7 @@ void saveLatestFirmware() {
   }
   latestFirmware = firmware;
   fwUpdateAvailable = firstIsNewer(latestFirmware, currentFirmware);
+  servicePin(UPD_AVAILABLE, fwUpdateAvailable ? HIGH : LOW, false);
   fillFwVersion(newFwVersion, latestFirmware);
   LOG.printf("Latest firmware version: %s\n", newFwVersion);
   LOG.println(fwUpdateAvailable ? "New fw available!" : "No new firmware available");
@@ -833,7 +902,13 @@ void downloadAndUpdateFw(const char* binFileName, bool isBeta) {
     "http://%s:%d%s%s",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(UPDATE_SERVER_PORT),
+  #if ARDUINO_ESP32_DEV
     isBeta ? "/beta/" : "/",
+  #elif ARDUINO_ESP32S3_DEV
+    isBeta ? "/beta/s3/" : "/s3/",
+  #elif ARDUINO_ESP32C3_DEV
+    isBeta ? "/beta/c3/" : "/c3/",
+  #endif
     binFileName
   );
 
@@ -862,7 +937,6 @@ void doUpdate() {
 void checkServicePins() {
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
     if (settings.getInt(SERVICE_DIODES_MODE)) {
-      // LOG.println("Dioded enabled");
       servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
         servicePin(WIFI, LOW, true);
@@ -879,12 +953,19 @@ void checkServicePins() {
       } else {
         servicePin(DATA, HIGH, true);
       }
+#if FW_UPDATE_ENABLED
+      if (fwUpdateAvailable) {
+        servicePin(UPD_AVAILABLE, HIGH, true);
+      } else {
+        servicePin(UPD_AVAILABLE, LOW, true);
+      }
+#endif
     } else {
-      // LOG.println("Dioded disables");
       servicePin(POWER, LOW, true);
       servicePin(WIFI, LOW, true);
       servicePin(HA, LOW, true);
       servicePin(DATA, LOW, true);
+      servicePin(UPD_AVAILABLE, LOW, true);
     }
   }
 }
@@ -1183,34 +1264,69 @@ void remapAlerts() {
   led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
 }
 
-float weatherCombiModeHandler(float kyiv, float kyivObl) {
-  // return average value of Kyiv and Kyiv Oblast
-  return (kyiv + kyivObl) / 2.0f;
-}
-
-void remapWeather() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? weatherCombiModeHandler : NULL;
-  led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
-}
-
-long expMisDroneCombiModeHandler(long kyiv, long kyivObl) {
-  // return nearest by time
-  return max(kyiv, kyivObl);
-}
-
-void remapExplosions() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
-  led_to_explosions = mapLeds(ledMapping, id_to_explosions, combiHandler);
-}
-
 void remapMissiles() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
   led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
 }
 
 void remapDrones() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? expMisDroneCombiModeHandler : NULL;
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
   led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
+}
+
+void remapKabs() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_kabs = mapLeds(ledMapping, id_to_kabs, combiHandler);
+}
+
+float linearFloatCombiModeHandler(float value1, float value2) {
+  // return average value of two values
+  return (value1 + value2) / 2.0f;
+}
+
+int linearIntCombiModeHandler(int value1, int value2) {
+  // return average value of two values
+  return (value1 + value2) / 2;
+}
+
+void remapWeather() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearFloatCombiModeHandler : NULL;
+  led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
+}
+
+void remapRadiation() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearIntCombiModeHandler : NULL;
+  led_to_radiation = mapLeds(ledMapping, id_to_radiation, combiHandler);
+}
+
+void remapEnergy() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
+  led_to_energy = mapLeds(ledMapping, id_to_energy, combiHandler);
+}
+
+long maxCombiModeHandler(long value1, long value2) {
+  // return nearest by time
+  return max(value1, value2);
+}
+
+void remapExplosionsNotifications() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
+  led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, combiHandler);
+}
+
+void remapMissilesNotifications() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
+  led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, combiHandler);
+}
+
+void remapDronesNotifications() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
+  led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
+}
+
+void remapKabsNotifications() {
+  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
+  led_to_kabs_notifications = mapLeds(ledMapping, id_to_kabs_notifications, combiHandler);
 }
 
 void remapHomeDistrict() {
@@ -1302,6 +1418,9 @@ bool saveHomeDistrict(int newHomeDistrict) {
   LOG.printf("home_district commited to preferences: %s\n", homeDistrictName);
   ha.setHomeDistrict(homeDistrictName);
   ha.setMapModeCurrent(getNameById(MAP_MODES, getCurrentMapMode(), MAP_MODES_COUNT));
+  ha.setHomeTemperature(id_to_weather[newHomeDistrict]);
+  ha.setHomeEnergy(id_to_energy[newHomeDistrict].first);
+  ha.setHomeRadiation(id_to_radiation[newHomeDistrict]);
   showServiceMessage(homeDistrictName, "Домашній регіон:", 2000);
   remapHomeDistrict();
   return true;
@@ -1365,7 +1484,42 @@ void showTemp() {
   int regionId = settings.getInt(HOME_DISTRICT);
   char message[10];
   sprintf(message, "%.1f%cC", id_to_weather[regionId], (char)128);
-  displayMessage(message, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT));
+  displayMessage(message, getNameById(DISTRICTS, regionId, DISTRICTS_COUNT));
+}
+
+void showRadiation() {
+  int regionId = settings.getInt(HOME_DISTRICT);
+  char title[38];
+  char message[35];
+  sprintf(message, "%d", id_to_radiation[regionId]);
+  displayMessage(message, "Радіація (нЗв/год)");
+}
+
+void showEnergy() {
+  int regionId = settings.getInt(HOME_DISTRICT);
+  int status = id_to_energy[regionId].first;
+  char title[38];
+  char message[35];
+  strcpy(title, "Стан енергосистеми");
+
+  switch (status) {
+    case 0:
+      strcpy(message, "Дані відсутні");
+      break;
+    case 3:
+      strcpy(message, "Достатньо");
+      break;
+    case 4:
+      strcpy(message, "Не вистачає");
+      break;
+    case 9:
+      strcpy(message, "Відключення!");
+      break;
+    default:
+      strcpy(message, "Невідомий статус");
+      break;
+    }
+  displayMessage(message, title);
 }
 
 void showTechInfo() {
@@ -1482,8 +1636,21 @@ int getNextToggleMode(int periodIndex) {
       // show local pressure
       return 4;
     }
-    // else show time
   case 4:
+    // enegry status
+    if (settings.getBool(TOGGLE_MODE_ENERGY)) {
+      // show grid status
+      return 5;
+    }
+    // else show time
+  case 5:
+    // radiation status
+    if (settings.getBool(TOGGLE_MODE_RADIATION)) {
+      // show radiation status
+      return 6;
+    }
+    // else show time
+  case 6:
   default:
     return 0;
   }
@@ -1515,6 +1682,14 @@ void showToggleModes() {
     // Display Climate Pressure
     showLocalPressure();
     break;
+  case 5:
+    // Display UkrEnergo Status
+    showEnergy();
+    break;
+  case 6:
+    // Display SaveEcoBot Radiation Status
+    showRadiation();
+    break;
   default:
     break;
   }
@@ -1540,6 +1715,14 @@ void displayByMode(int mode) {
     // Display Climate info from sensor
     case 4:
       showClimate();
+      break;
+    // Display UkrEnergo Status
+    case 5:
+      showEnergy();
+      break;
+    // Display SaveEcoBot Radiation Status
+    case 6:
+      showRadiation();
       break;
     // Display Mode Switching
     case 9:
@@ -1572,6 +1755,37 @@ void showNewFirmwareNotification() {
 }
 #endif
 
+void buzzerCycle() {
+#if BUZZER_ENABLED
+  if (isBuzzerEnabled()) {
+    int volumeLocal;
+    if (getNightModeType() > 0) {
+      volumeLocal = volumeNight;
+    } else {
+      volumeLocal = volumeDay;
+    }
+    if (volumeLocal != volumeCurrent) {
+      volumeCurrent = volumeLocal;
+      settings.saveInt(MELODY_VOLUME_CURRENT, volumeCurrent);
+      player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
+      LOG.printf("Set volume to: %d\n", volumeCurrent);
+    }
+  }
+#endif
+}
+
+void setCurrentVolume(int volume, Type settingType) {
+  switch (settingType) {
+    case MELODY_VOLUME_NIGHT:
+      volumeNight  = volume;
+      break;
+    case MELODY_VOLUME_DAY:
+      volumeDay  = volume;
+      break;
+  }
+  buzzerCycle();
+}
+
 void displayCycle() {
   if (!display.isDisplayAvailable()) return;
 
@@ -1595,7 +1809,7 @@ void displayCycle() {
   }
 
   // Show Home Alert Time Info if enabled in settings and alarm in home district is enabled (Priority - 1)
-  if (alarmNow && settings.getInt(HOME_ALERT_TIME) == 1) {
+  if (alarmNow && settings.getBool(HOME_ALERT_TIME)) {
     showHomeAlertInfo();
     return;
   }
@@ -1733,10 +1947,16 @@ void initLedMapping() {
   remapFlag();
   remapAlerts();
   remapWeather();
-  remapExplosions();
+  remapExplosionsNotifications();
+  remapMissilesNotifications();
   remapMissiles();
+  remapDronesNotifications();
   remapDrones();
+  remapKabsNotifications();
+  remapKabs();
   remapHomeDistrict();
+  remapEnergy();
+  remapRadiation();
 }
 
 //--Web server start
@@ -1746,7 +1966,7 @@ int sliderIndex = 1;
 int selectIndex = 1;
 int inputFieldIndex = 1;
 
-void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
+void addCheckbox(Print* response, const char* name, bool isChecked, const char* label, const char* onChanges = NULL, bool disabled = false) {
   response->print("<div class='form-group form-check'>");
   response->print("<input name='");
   response->print(name);
@@ -1768,7 +1988,7 @@ void addCheckbox(AsyncResponseStream* response, const char* name, bool isChecked
 
 template <typename V>
 
-void addSlider(AsyncResponseStream* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
+void addSlider(Print* response, const char* name, const char* label, V value, V min, V max, V step = 1, const char* unitOfMeasurement = "", bool disabled = false, bool needColorBox = false) {
   response->print(label);
   response->print(": <span id='sv");
   response->print(sliderIndex);
@@ -1822,7 +2042,7 @@ void addSlider(AsyncResponseStream* response, const char* name, const char* labe
   sliderIndex++;
 }
 
-void addSelectBox(AsyncResponseStream* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
+void addSelectBox(Print* response, const char* name, const char* label, int setting, SettingListItem options[], int optionsCount, bool disabled = false, const char* onChanges = NULL) {
   response->print(label);
   response->print(": <select name='");
   response->print(name);
@@ -1852,7 +2072,7 @@ void addSelectBox(AsyncResponseStream* response, const char* name, const char* l
   selectIndex++;
 }
 
-void addInputText(AsyncResponseStream* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
+void addInputText(Print* response, const char* name, const char* label, const char* type, const char* value, int maxLength = -1) {
   response->print(label);
   response->print(": <input type='");
   response->print(type);
@@ -1875,7 +2095,7 @@ void addInputText(AsyncResponseStream* response, const char* name, const char* l
 
 template <typename V>
 
-void addCard(AsyncResponseStream* response, const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
+void addCard(Print* response, const char* title, V value, const char* unitOfMeasurement = "", int size = 1, int precision = 1) {
   response->print("<div class='col-auto mb-2'>");
   response->print("<div class='card' style='width: 15rem; height: 9rem;'>");
   response->print("<div class='card-header d-flex'>");
@@ -1905,7 +2125,7 @@ void addCard(AsyncResponseStream* response, const char* title, V value, const ch
   response->print("</div>");
 }
 
-void addHeader(AsyncResponseStream* response) {
+void addHeader(Print* response) {
   response->println("<!DOCTYPE html>");
   response->println("<html lang='uk'>");
   response->println("<head>");
@@ -1948,6 +2168,12 @@ void addHeader(AsyncResponseStream* response) {
       break;
     case 5:
       response->print("lamp_map.png");
+      break;
+    case 6:
+      response->print("energy_map.png");
+      break;
+    case 7:
+      response->print("radiation_map.png");
       break;
     default:
       response->print("alerts_map.png");
@@ -2003,7 +2229,7 @@ void addHeader(AsyncResponseStream* response) {
   response->println("</div>");
 }
 
-void addLinks(AsyncResponseStream* response) {
+void addLinks(Print* response) {
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<a href='/brightness' class='btn btn-success'>Яскравість</a>");
@@ -2023,7 +2249,7 @@ void addLinks(AsyncResponseStream* response) {
   response->println("</div>");
 }
 
-void addFooter(AsyncResponseStream* response) {
+void addFooter(Print* response) {
   response->println("<div class='position-fixed bottom-0 right-0 p-3' style='z-index: 5; right: 0; bottom: 0;'>");
   response->println("<div id='saved-toast' class='toast hide' role='alert' aria-live='assertive' aria-atomic='true' data-delay='2000'>");
   response->println("<div class='toast-body'>");
@@ -2072,7 +2298,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2097,7 +2323,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addSlider(response, "brightness_clear", "Області без тривог", settings.getInt(BRIGHTNESS_CLEAR), 0, 100, 1, "%");
   addSlider(response, "brightness_new_alert", "Нові тривоги", settings.getInt(BRIGHTNESS_NEW_ALERT), 0, 100, 1, "%");
   addSlider(response, "brightness_alert_over", "Відбій тривог", settings.getInt(BRIGHTNESS_ALERT_OVER), 0, 100, 1, "%");
-  addSlider(response, "brightness_explosion", "Вибухи", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
+  addSlider(response, "brightness_explosion", "Вибухи, БПЛА, ракетна небезпека, КАБ", settings.getInt(BRIGHTNESS_EXPLOSION), 0, 100, 1, "%");
   addSlider(response, "brightness_home_district", "Домашній регіон", settings.getInt(BRIGHTNESS_HOME_DISTRICT), 0, 100, 1, "%");
   if (isBgStripEnabled()) {
     addSlider(response, "brightness_bg", "Фонова LED-стрічка", settings.getInt(BRIGHTNESS_BG), 0, 100, 1, "%");
@@ -2127,7 +2353,7 @@ void handleColors(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2141,6 +2367,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addSlider(response, "color_alert_over", "Відбій тривог", settings.getInt(COLOR_ALERT_OVER), 0, 360, 1, "", false, true);
   addSlider(response, "color_explosion", "Вибухи", settings.getInt(COLOR_EXPLOSION), 0, 360, 1, "", false, true);
   addSlider(response, "color_missiles", "Ракетна небезпека", settings.getInt(COLOR_MISSILES), 0, 360, 1, "", false, true);
+  addSlider(response, "color_kabs", "Загроза КАБ", settings.getInt(COLOR_KABS), 0, 360, 1, "", false, true);
   addSlider(response, "color_drones", "Загроза БПЛА", settings.getInt(COLOR_DRONES), 0, 360, 1, "", false, true);
   addSlider(response, "color_home_district", "Домашній регіон", settings.getInt(COLOR_HOME_DISTRICT), 0, 360, 1, "", false, true);
   if (isBgStripEnabled()) {
@@ -2164,7 +2391,7 @@ void handleModes(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2175,20 +2402,35 @@ void handleModes(AsyncWebServerRequest* request) {
   if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
   addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT);
   }
+  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   addSelectBox(response, "map_mode", "Режим мапи", settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT);
-  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
-  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
+  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
+  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
+  addCheckbox(response, "enable_critical_notifications", settings.getBool(ENABLE_CRITICAL_NOTIFICATIONS), "Увімкнути критичні сповіщення (Міг, Кинджал, Стратегічна авіація, Крилаті ракети, Балістика)");
+  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати вибухи");
+  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати ракетну небезпеку");
+  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати загрозу БПЛА");
+  addCheckbox(response, "enable_kabs", settings.getBool(ENABLE_KABS), "Показувати загрозу КАБ");
+  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "explosion_time", "Тривалість відображення початку ракетної небезпеки, БПЛА, КАБ та інформації про вибухи", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
+  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
+  
   if (display.isDisplayAvailable()) {
     addSelectBox(response, "display_mode", "Режим дисплея", settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, false);
-    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні)");
+    addCheckbox(response, "home_alert_time", settings.getBool(HOME_ALERT_TIME), "Показувати на екрані тривалість тривоги у домашньому регіоні");
+    addCheckbox(response, "invert_display", settings.getBool(INVERT_DISPLAY), "Інвертувати дисплей (темний шрифт на світлому фоні). УВАГА - ресурс роботи дисплея суттєво зменшиться");
     addSlider(response, "display_mode_time", "Час перемикання дисплея", settings.getInt(DISPLAY_MODE_TIME), 1, 60, 1, " с.");
+    addSlider(response, "critical_notifications_display_time", "Тривалість відображення критичних і локальних сповіщень на дисплеї", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME), 5, 120, 5, " с.");
+    response->println("Відображати в режимі \"Перемикання\":<br><br>");
+    addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
     if (climate.isAnySensorAvailable()) {
-      response->println("Відображати в режимі \"Перемикання\":<br><br>");
-      addCheckbox(response, "toggle_mode_weather", settings.getBool(TOGGLE_MODE_WEATHER), "Погоду у домашньому регіоні");
       if (climate.isTemperatureAvailable()) addCheckbox(response, "toggle_mode_temp", settings.getBool(TOGGLE_MODE_TEMP), "Температуру в приміщенні");
-      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість");
+      if (climate.isHumidityAvailable()) addCheckbox(response, "toggle_mode_hum", settings.getBool(TOGGLE_MODE_HUM), "Вологість в приміщенні");
       if (climate.isPressureAvailable()) addCheckbox(response, "toggle_mode_press", settings.getBool(TOGGLE_MODE_PRESS), "Тиск");
     }
+    addCheckbox(response, "toggle_mode_energy", settings.getBool(TOGGLE_MODE_ENERGY), "Стан енергосистем у домашньому регіоні");
+    addCheckbox(response, "toggle_mode_radiation", settings.getBool(TOGGLE_MODE_RADIATION), "Середній рівень радіації у домашньому регіоні");
   }
   addSlider(response, "day_start", "Початок дня", settings.getInt(DAY_START), 0, 24, 1, " година");
   addSlider(response, "night_start", "Початок ночі", settings.getInt(NIGHT_START), 0, 24, 1, " година");
@@ -2203,6 +2445,9 @@ void handleModes(AsyncWebServerRequest* request) {
   }
   addSlider(response, "weather_min_temp", "Нижній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MIN_TEMP), -20, 10, 1, "°C");
   addSlider(response, "weather_max_temp", "Верхній рівень температури (режим 'Погода')", settings.getInt(WEATHER_MAX_TEMP), 11, 40, 1, "°C");
+  addSlider(response, "radiation_max", "Верхній рівень радіації (режим 'Радіація')", settings.getInt(RADIATION_MAX), 110, 2000, 10, " нЗв/год");
+  addSlider(response, "color_lamp", "Колір режиму \"Лампа\"", rgb2hue(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B)), 0, 360, 1, "", false, true);
+  addSlider(response, "brightness_lamp", "Яскравість режиму \"Лампа\"", settings.getInt(HA_LIGHT_BRIGHTNESS), 0, 100, 1, "%");
   if (buttons.isButton1Enabled()) {
     addSelectBox(response, "button_mode", "Режим кнопки (Single Click)", settings.getInt(BUTTON_1_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
     addSelectBox(response, "button_mode_long", "Режим кнопки (Long Click)", settings.getInt(BUTTON_1_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
@@ -2211,19 +2456,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "button2_mode", "Режим кнопки 2 (Single Click)", settings.getInt(BUTTON_2_MODE), SINGLE_CLICK_OPTIONS, SINGLE_CLICK_OPTIONS_MAX, NULL);
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
   }
-  addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
-  if (display.isDisplayAvailable()) {
-    addCheckbox(response, "home_alert_time", settings.getInt(HOME_ALERT_TIME), "Показувати тривалість тривоги у домашньому регіоні");
-  }
-  addSelectBox(response, "alarms_notify_mode", "Відображення на мапі нових тривог, відбою, вибухів та інших загроз", settings.getInt(ALARMS_NOTIFY_MODE), ALERT_NOTIFY_OPTIONS, ALERT_NOTIFY_OPTIONS_COUNT);
-  addCheckbox(response, "enable_explosions", settings.getBool(ENABLE_EXPLOSIONS), "Показувати сповіщення про вибухи");
-  addCheckbox(response, "enable_missiles", settings.getBool(ENABLE_MISSILES), "Показувати сповіщення про ракетну небезпеку");
-  addCheckbox(response, "enable_drones", settings.getBool(ENABLE_DRONES), "Показувати сповіщення про загрозу БПЛА");
-  addSlider(response, "alert_on_time", "Тривалість відображення початку тривоги", settings.getInt(ALERT_ON_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "alert_off_time", "Тривалість відображення відбою", settings.getInt(ALERT_OFF_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "explosion_time", "Тривалість відображення інформації про вибухи, ракети та БПЛА", settings.getInt(EXPLOSION_TIME), 1, 10, 1, " хв.", settings.getInt(ALARMS_NOTIFY_MODE) == 0);
-  addSlider(response, "alert_blink_time", "Тривалість анімації зміни яскравості", settings.getInt(ALERT_BLINK_TIME), 1, 5, 1, " с.", settings.getInt(ALARMS_NOTIFY_MODE) != 2);
-  addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
+  
   if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
     addCheckbox(response, "service_diodes_mode", settings.getInt(SERVICE_DIODES_MODE), "Ввімкнути сервісні діоди");
   }
@@ -2261,13 +2494,24 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_alert_end", settings.getBool(SOUND_ON_ALERT_END), "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
   addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
-  addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
+  addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic", "Мелодія при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_mig_missiles", settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", "window.disableElement(\"melody_on_critical_mig_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_mig_missiles", "Мелодія при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»", settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_ballistic_missiles", settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Балістика'", "window.disableElement(\"melody_on_critical_ballistic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_ballistic_missiles", "Мелодія при критичному сповіщенні 'Балістика", settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestSound(this.value);");
+  addCheckbox(response, "sound_on_critical_strategic_missiles", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск крилатих ракет'", "window.disableElement(\"melody_on_critical_strategic_missiles\", !this.checked);");
+  addSelectBox(response, "melody_on_critical_strategic_missiles", "Мелодія при критичному сповіщенні 'Запуск крилатих ракет", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestSound(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
   addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
-  addSlider(response, "melody_volume", "Гучність мелодії", settings.getInt(MELODY_VOLUME), 0, 100, 1, "%");
+  addSlider(response, "melody_volume_day", "Гучність мелодії вдень", settings.getInt(MELODY_VOLUME_DAY), 0, 100, 1, "%");
+  addSlider(response, "melody_volume_night", "Гучність мелодії вночі", settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 1, "%");
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
@@ -2288,7 +2532,9 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  int local_home_district = settings.getInt(HOME_DISTRICT);
+
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2302,7 +2548,8 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
   addCard(response, "WiFi сигнал", wifiSignal, "dBm");
-  addCard(response, getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT), id_to_weather[settings.getInt(HOME_DISTRICT) ], "°C");
+  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_weather[local_home_district], "°C");
+  addCard(response, getNameById(DISTRICTS, local_home_district, DISTRICTS_COUNT), id_to_radiation[local_home_district], " нЗв/год", 2, 0);
   if (ha.isHaEnabled()) {
     addCard(response, "Home Assistant", haConnected ? "Підключено" : "Відключено", "", 2);
   }
@@ -2338,7 +2585,7 @@ void handleDev(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2420,7 +2667,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
   selectIndex = 1;
   inputFieldIndex = 1;
 
-  AsyncResponseStream* response = request->beginResponseStream("text/html");
+  AsyncResponseStream* response = request->beginResponseStream(asyncsrv::T_text_html);
 
   addHeader(response);
   addLinks(response);
@@ -2566,9 +2813,9 @@ void handleUpdate(AsyncWebServerRequest* request) {
 }
 #endif
 
-AsyncWebServerResponse* redirectResponce(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
+AsyncWebServerResponse* redirectResponse(AsyncWebServerRequest* request, const char* location, bool saved, bool reboot = false, bool restore = false, bool restoreError = false) {
   AsyncWebServerResponse* response = request->beginResponse(302);
-  response->addHeader("Location", location);
+  response->addHeader(asyncsrv::T_LOCATION, location);
   response->addHeader("Set-Cookie", "scroll=true");
   if (saved) response->addHeader("Set-Cookie", "saved=true");
   if (restore) response->addHeader("Set-Cookie", "restore=true");
@@ -2595,7 +2842,7 @@ void handleSaveBrightness(AsyncWebServerRequest *request) {
 
   if (saved) autoBrightnessUpdate();
 
-  request->send(redirectResponce(request, "/brightness", saved));
+  request->send(redirectResponse(request, "/brightness", saved));
 }
 
 void handleSaveColors(AsyncWebServerRequest* request) {
@@ -2606,11 +2853,12 @@ void handleSaveColors(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("color_alert_over", true), COLOR_ALERT_OVER) || saved;
   saved = saveInt(request->getParam("color_explosion", true), COLOR_EXPLOSION) || saved;
   saved = saveInt(request->getParam("color_missiles", true), COLOR_MISSILES) || saved;
+  saved = saveInt(request->getParam("color_kabs", true), COLOR_KABS) || saved;
   saved = saveInt(request->getParam("color_drones", true), COLOR_DRONES) || saved;
   saved = saveInt(request->getParam("color_home_district", true), COLOR_HOME_DISTRICT) || saved;
   saved = saveInt(request->getParam("color_bg_neighbor_alert", true), COLOR_BG_NEIGHBOR_ALERT) || saved;
 
-  request->send(redirectResponce(request, "/colors", saved));
+  request->send(redirectResponse(request, "/colors", saved));
 }
 
 void handleSaveModes(AsyncWebServerRequest* request) {
@@ -2621,6 +2869,8 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("home_district", true), HOME_DISTRICT, saveHomeDistrict) || saved;
   saved = saveInt(request->getParam("display_mode_time", true), DISPLAY_MODE_TIME) || saved;
   saved = saveBool(request->getParam("toggle_mode_weather", true), "toggle_mode_weather", TOGGLE_MODE_WEATHER) || saved;
+  saved = saveBool(request->getParam("toggle_mode_energy", true), "toggle_mode_energy", TOGGLE_MODE_ENERGY) || saved;
+  saved = saveBool(request->getParam("toggle_mode_radiation", true), "toggle_mode_radiation", TOGGLE_MODE_RADIATION) || saved;
   saved = saveBool(request->getParam("toggle_mode_temp", true), "toggle_mode_temp", TOGGLE_MODE_TEMP) || saved;
   saved = saveBool(request->getParam("toggle_mode_hum", true), "toggle_mode_hum", TOGGLE_MODE_HUM) || saved;
   saved = saveBool(request->getParam("toggle_mode_press", true), "toggle_mode_press", TOGGLE_MODE_PRESS) || saved;
@@ -2629,6 +2879,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveFloat(request->getParam("pressure_correction", true), PRESSURE_CORRECTION, NULL, climateSensorCycle) || saved;
   saved = saveInt(request->getParam("weather_min_temp", true), WEATHER_MIN_TEMP) || saved;
   saved = saveInt(request->getParam("weather_max_temp", true), WEATHER_MAX_TEMP) || saved;
+  saved = saveInt(request->getParam("radiation_max", true), RADIATION_MAX) || saved;
   saved = saveInt(request->getParam("button_mode", true), BUTTON_1_MODE) || saved;
   saved = saveInt(request->getParam("button2_mode", true), BUTTON_2_MODE) || saved;
   saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
@@ -2641,9 +2892,12 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("enable_explosions", true), "enable_explosions", ENABLE_EXPLOSIONS) || saved;
   saved = saveBool(request->getParam("enable_missiles", true), "enable_missiles", ENABLE_MISSILES) || saved;
   saved = saveBool(request->getParam("enable_drones", true), "enable_drones", ENABLE_DRONES) || saved;
+  saved = saveBool(request->getParam("enable_kabs", true), "enable_kabs", ENABLE_KABS) || saved;
   saved = saveInt(request->getParam("alert_on_time", true), ALERT_ON_TIME) || saved;
   saved = saveInt(request->getParam("alert_off_time", true), ALERT_OFF_TIME) || saved;
   saved = saveInt(request->getParam("explosion_time", true), EXPLOSION_TIME) || saved;
+  saved = saveInt(request->getParam("critical_notifications_display_time", true), CRITICAL_NOTIFICATIONS_DISPLAY_TIME) || saved;
+  saved = saveBool(request->getParam("enable_critical_notifications", true), "enable_critical_notifications", ENABLE_CRITICAL_NOTIFICATIONS) || saved;
   saved = saveInt(request->getParam("alert_blink_time", true), ALERT_BLINK_TIME) || saved;
   saved = saveInt(request->getParam("alarms_auto_switch", true), ALARMS_AUTO_SWITCH, saveAutoAlarmMode) || saved;
   saved = saveBool(request->getParam("service_diodes_mode", true), "service_diodes_mode", SERVICE_DIODES_MODE, NULL, checkServicePins) || saved;
@@ -2659,7 +2913,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
     saved = saveLampRgb(rgb.r, rgb.g, rgb.b) || saved;
   }
 
-  request->send(redirectResponce(request, "/modes", saved));
+  request->send(redirectResponse(request, "/modes", saved));
 }
 
 void handleSaveSounds(AsyncWebServerRequest* request) {
@@ -2671,23 +2925,32 @@ void handleSaveSounds(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("melody_on_alert_end", true), MELODY_ON_ALERT_END) || saved;
   saved = saveBool(request->getParam("sound_on_explosion", true), "sound_on_explosion", SOUND_ON_EXPLOSION) || saved;
   saved = saveInt(request->getParam("melody_on_explosion", true), MELODY_ON_EXPLOSION) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig", true), "sound_on_critical_mig", SOUND_ON_CRITICAL_MIG) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig", true), MELODY_ON_CRITICAL_MIG) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic", true), "sound_on_critical_strategic", SOUND_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic", true), MELODY_ON_CRITICAL_STRATEGIC) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_mig_missiles", true), "sound_on_critical_mig_missiles", SOUND_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_mig_missiles", true), MELODY_ON_CRITICAL_MIG_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_ballistic_missiles", true), "sound_on_critical_ballistic_missiles", SOUND_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_ballistic_missiles", true), MELODY_ON_CRITICAL_BALLISTIC_MISSILES) || saved;
+  saved = saveBool(request->getParam("sound_on_critical_strategic_missiles", true), "sound_on_critical_strategic_missiles", SOUND_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
+  saved = saveInt(request->getParam("melody_on_critical_strategic_missiles", true), MELODY_ON_CRITICAL_STRATEGIC_MISSILES) || saved;
   saved = saveBool(request->getParam("sound_on_every_hour", true), "sound_on_every_hour", SOUND_ON_EVERY_HOUR) || saved;
   saved = saveBool(request->getParam("sound_on_button_click", true), "sound_on_button_click", SOUND_ON_BUTTON_CLICK) || saved;
   saved = saveBool(request->getParam("mute_sound_on_night", true), "mute_sound_on_night", MUTE_SOUND_ON_NIGHT) || saved;
   saved = saveBool(request->getParam("ignore_mute_on_alert", true), "ignore_mute_on_alert",IGNORE_MUTE_ON_ALERT) || saved;
-  saved = saveInt(request->getParam("melody_volume", true), MELODY_VOLUME, NULL, []() {
-#if BUZZER_ENABLED
-  if (isBuzzerEnabled()) {
-    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
-  }
-#endif
-  }) || saved;
+  saved = saveInt(request->getParam("melody_volume_day", true), MELODY_VOLUME_DAY, NULL, []() {
+        setCurrentVolume(settings.getInt(MELODY_VOLUME_DAY), MELODY_VOLUME_DAY);
+      }) || saved;
+  saved = saveInt(request->getParam("melody_volume_night", true), MELODY_VOLUME_NIGHT, NULL, []() {
+        setCurrentVolume(settings.getInt(MELODY_VOLUME_NIGHT), MELODY_VOLUME_NIGHT);
+      }) || saved;
 
-  request->send(redirectResponce(request, "/sounds", saved));
+  request->send(redirectResponse(request, "/sounds", saved));
 }
 
 void handleRefreshTelemetry(AsyncWebServerRequest* request) {
-  request->send(redirectResponce(request, "/telemetry", false));
+  request->send(redirectResponse(request, "/telemetry", false));
 }
 
 void handleSaveDev(AsyncWebServerRequest* request) {
@@ -2723,7 +2986,7 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   if (reboot) {
     rebootDevice(3000, true);
   }
-  request->send(redirectResponce(request, "/dev", false, reboot));
+  request->send(redirectResponse(request, "/dev", false, reboot));
 }
 
 void handleBackup(AsyncWebServerRequest* request) {
@@ -2761,7 +3024,7 @@ void handleRestore(AsyncWebServerRequest *request) {
   }
   jsonBody.clear();
   LOG.printf("Setting restored: %s\n", restored ? "true" : "false");
-  request->send(redirectResponce(request, "/dev", false, false, restored, !restored));
+  request->send(redirectResponse(request, "/dev", false, false, restored, !restored));
 }
 
 #if FW_UPDATE_ENABLED
@@ -2770,7 +3033,7 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
   saved = saveBool(request->getParam("new_fw_notification", true), "new_fw_notification", NEW_FW_NOTIFICATION) || saved;
   saved = saveInt(request->getParam("fw_update_channel", true), FW_UPDATE_CHANNEL, NULL, saveLatestFirmware) || saved;
 
-  request->send(redirectResponce(request, "/firmware", saved));
+  request->send(redirectResponse(request, "/firmware", saved));
 }
 #endif
 
@@ -2785,8 +3048,12 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 }
 #endif
 
+LoggingMiddleware loggerMiddleware;
+
 void setupRouting() {
   LOG.println("Init WebServer");
+  loggerMiddleware.setOutput(LOG);
+  webserver.addMiddleware(&loggerMiddleware);
   webserver.on("/", HTTP_GET, handleRoot);
   webserver.on("/brightness", HTTP_GET, handleBrightness);
   webserver.on("/saveBrightness", HTTP_POST, handleSaveBrightness);
@@ -2918,8 +3185,26 @@ void alertPinCycle() {
 
 void checkHomeDistrictAlerts() {
   int ledStatus = id_to_alerts[settings.getInt(HOME_DISTRICT)].first;
-  long localHomeExplosions = id_to_explosions[settings.getInt(HOME_DISTRICT)];
+  long localHomeExplosions = id_to_explosions_notifications[settings.getInt(HOME_DISTRICT)];
   bool localAlarmNow = ledStatus == 1;
+  bool localAlarmDronesNow = isLocalAlarmNow(
+    id_to_drones[settings.getInt(HOME_DISTRICT)],
+    id_to_drones_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
+  bool localAlarmMissilesNow = isLocalAlarmNow(
+    id_to_missiles[settings.getInt(HOME_DISTRICT)],
+    id_to_missiles_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
+  bool localAlarmKabsNow = isLocalAlarmNow(
+    id_to_kabs[settings.getInt(HOME_DISTRICT)],
+    id_to_kabs_notifications[settings.getInt(HOME_DISTRICT)],
+    timeClient.unixGMT(),
+    settings.getInt(EXPLOSION_TIME) * 60
+  );
   const char* districtName = getNameById(DISTRICTS, settings.getInt(HOME_DISTRICT), DISTRICTS_COUNT);
   if (localAlarmNow != alarmNow) {
     alarmNow = localAlarmNow;
@@ -2935,11 +3220,72 @@ void checkHomeDistrictAlerts() {
     }
     ha.setAlarmAtHome(alarmNow);
   }
-  if (localHomeExplosions != homeExplosionTime) {
+  if (settings.getBool(ENABLE_EXPLOSIONS) && localHomeExplosions != homeExplosionTime) {
     homeExplosionTime = localHomeExplosions;
     if (homeExplosionTime > 0 && timeClient.unixGMT() - homeExplosionTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
-      showServiceMessage("Вибухи!", districtName, 5000);
+      showServiceMessage("Вибухи!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
       if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+  if (alarmKabsNow != localAlarmKabsNow) {
+    alarmKabsNow = localAlarmKabsNow;
+    if (alarmKabsNow && settings.getBool(ENABLE_KABS)) {
+      showServiceMessage("КАБ!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+  if (alarmMissilesNow != localAlarmMissilesNow) {
+    alarmMissilesNow = localAlarmMissilesNow;
+    if (alarmMissilesNow && settings.getBool(ENABLE_MISSILES)) {
+      showServiceMessage("Ракети!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+  if (alarmDronesNow != localAlarmDronesNow) {
+    alarmDronesNow = localAlarmDronesNow;
+    if (alarmDronesNow && settings.getBool(ENABLE_DRONES)) {
+      showServiceMessage("БПЛА!", districtName, settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+      if (needToPlaySound(EXPLOSIONS)) playMelody(EXPLOSIONS);
+    }
+  }
+}
+
+void processGlobalNotifications(const JsonDocument& data) {
+  if (settings.getBool(ENABLE_CRITICAL_NOTIFICATIONS)) {
+    if (GlobalNotifications[IS_MIG] != data["mig"]) {
+      GlobalNotifications[IS_MIG] = data["mig"].as<bool>();
+      if (GlobalNotifications[IS_MIG] > 0) {
+        showServiceMessage("МІГ-31к", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_MIG)) playMelody(CRITICAL_MIG);
+      }
+    }
+    if (GlobalNotifications[IS_STRATEGIC] != data["strategic"]) {
+      GlobalNotifications[IS_STRATEGIC] = data["strategic"].as<bool>();
+      if (GlobalNotifications[IS_STRATEGIC] > 0) {
+        showServiceMessage("Стратегічна авіація", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_STRATEGIC)) playMelody(CRITICAL_STRATEGIC);
+      }
+    }
+    if (GlobalNotifications[IS_MIG_MISSILES] != data["mig_missiles"]) {
+      GlobalNotifications[IS_MIG_MISSILES] = data["mig_missiles"].as<bool>();
+      if (GlobalNotifications[IS_MIG_MISSILES] > 0) {
+        showServiceMessage("Кинджал!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_MIG_MISSILES)) playMelody(CRITICAL_MIG_MISSILES);
+      }
+    }
+    if (GlobalNotifications[IS_STRATEGIC_MISSILES] != data["strategic_missiles"]) {
+      GlobalNotifications[IS_STRATEGIC_MISSILES] = data["strategic_missiles"].as<bool>();
+      if (GlobalNotifications[IS_STRATEGIC_MISSILES] > 0) {
+        showServiceMessage("Крилаті ракети!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_STRATEGIC_MISSILES)) playMelody(CRITICAL_STRATEGIC_MISSILES);
+      }
+    }
+    if (GlobalNotifications[IS_BALLISTIC_MISSILES] != data["ballistic_missiles"]) {
+      GlobalNotifications[IS_BALLISTIC_MISSILES] = data["ballistic_missiles"].as<bool>();
+      if (GlobalNotifications[IS_BALLISTIC_MISSILES] > 0) {
+        showServiceMessage("Балістика!", "Критичне сповіщення!", settings.getInt(CRITICAL_NOTIFICATIONS_DISPLAY_TIME) * 1000);
+        if (needToPlaySound(CRITICAL_BALLISTIC_MISSILES)) playMelody(CRITICAL_BALLISTIC_MISSILES);
+      }
     }
   }
 }
@@ -2970,22 +3316,63 @@ void onMessageCallback(WebsocketsMessage message) {
       ha.setHomeTemperature(id_to_weather[settings.getInt(HOME_DISTRICT) ]);
     } else if (payload == "explosions") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_explosions[mapIndexToRegionId(i)] = data["explosions"][i];
+        id_to_explosions_notifications[mapIndexToRegionId(i)] = data["explosions"][i];
       }
-      LOG.println("Successfully parsed explosions data");
-      remapExplosions();
+      LOG.println("Successfully parsed explosions notifications data");
+      remapExplosionsNotifications();
     } else if (payload == "missiles") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_missiles[mapIndexToRegionId(i)] = data["missiles"][i];
+        id_to_missiles_notifications[mapIndexToRegionId(i)] = data["missiles"][i];
+      }
+      LOG.println("Successfully parsed missiles notifications data");
+      remapMissilesNotifications();
+    } else if (payload == "missiles2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_missiles[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["missiles"][i][0], (long) data["missiles"][i][1]);
       }
       LOG.println("Successfully parsed missiles data");
       remapMissiles();
     } else if (payload == "drones") {
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
-        id_to_drones[mapIndexToRegionId(i)] = data["drones"][i];
+        id_to_drones_notifications[mapIndexToRegionId(i)] = data["drones"][i];
+      }
+      LOG.println("Successfully parsed drones notifications data");
+      remapDronesNotifications();
+    } else if (payload == "drones2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_drones[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["drones"][i][0], (long) data["drones"][i][1]);
       }
       LOG.println("Successfully parsed drones data");
       remapDrones();
+    } else if (payload == "kabs") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_kabs_notifications[mapIndexToRegionId(i)] = data["kabs"][i];
+      }
+      LOG.println("Successfully parsed kabs notifications data");
+      remapKabsNotifications();
+    } else if (payload == "kabs2") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_kabs[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["kabs"][i][0], (long) data["kabs"][i][1]);
+      }
+      LOG.println("Successfully parsed kabs data");
+      remapKabs();
+    } else if (payload == "energy") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_energy[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["energy"][i][0], (long) data["energy"][i][1]);
+      }
+      LOG.println("Successfully parsed energy data");
+      remapEnergy();
+      ha.setHomeEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first);
+    } else if (payload == "radiation") {
+      for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
+        id_to_radiation[mapIndexToRegionId(i)] = data["radiation"][i];
+      }
+      LOG.println("Successfully parsed radiation data");
+      remapRadiation();
+      ha.setHomeRadiation(id_to_radiation[settings.getInt(HOME_DISTRICT)]);
+    } else if (payload == "global_notifications") {
+      processGlobalNotifications(data["global_notifications"]);
+      LOG.println("Successfully parsed global notifications");
 #if FW_UPDATE_ENABLED
     } else if (payload == "bins") {
       fillBinList(data, "bins", bin_list, &binsCount);
@@ -3030,7 +3417,7 @@ void socketConnect() {
   char webSocketUrl[100];
   sprintf(
     webSocketUrl,
-    "ws://%s:%d/data_v3",
+    "ws://%s:%d/data_v4",
     settings.getString(WS_SERVER_HOST),
     settings.getInt(WS_SERVER_PORT)
   );
@@ -3088,7 +3475,22 @@ void websocketProcess() {
 
 //--Map processing start
 
-CRGB processAlarms(int led, long time, int expTime, int missilesTime, int dronesTime, int position, float alertBrightness, float notificationBrightness, bool isBgStrip) {
+CRGB processAlarms(
+  int alert_status, long alert_time, 
+  int missile_status, long missile_time, 
+  int drone_status, long drone_time, 
+  int kab_status, long kab_time, 
+  int explosion_notification_time, 
+  int missiles_notification_time, 
+  int drones_notification_time, 
+  int kabs_notification_time, 
+  int position, 
+  float alertBrightness, 
+  float notificationBrightness, 
+  float extrafastBrightness, 
+  bool isBgStrip
+) {
+
   CRGB hue;
   float localBrightnessAlert = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_ALERT) / 100.0f;
   float localBrightnessClear = isBgStrip ? settings.getInt(BRIGHTNESS_BG) / 100.0f : settings.getInt(BRIGHTNESS_CLEAR) / 100.0f;
@@ -3101,29 +3503,81 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
   unix_t currentTime = timeClient.unixGMT();
 
   // explosions has highest priority
-  if (settings.getBool(ENABLE_EXPLOSIONS) && expTime > 0 && currentTime - expTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  if (settings.getBool(ENABLE_EXPLOSIONS) && explosion_notification_time > 0 && currentTime - explosion_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_EXPLOSION);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // missiles has second priority
-  if (settings.getBool(ENABLE_MISSILES) && missilesTime > 0 && currentTime - missilesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  // kabs notifications has second priority
+  if (settings.getBool(ENABLE_KABS) && kabs_notification_time > 0 && currentTime - kabs_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    colorSwitch = settings.getInt(COLOR_KABS);
+    hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+    return hue;
+  }
+
+  // kabs has third priority
+  if (settings.getBool(ENABLE_KABS)) {
+    switch (kab_status) {
+      case ALERT:
+        if (currentTime - kab_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+          colorSwitch = settings.getInt(COLOR_KABS);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_KABS);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
+        return hue;
+    }
+  }
+
+  // missiles notifications has fouth priority
+  if (settings.getBool(ENABLE_MISSILES) && missiles_notification_time > 0 && currentTime - missiles_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_MISSILES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  // drones has third priority
-  if (settings.getBool(ENABLE_DRONES) && dronesTime > 0 && currentTime - dronesTime < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+  // missiles  has fifth priority
+  if (settings.getBool(ENABLE_MISSILES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    switch (missile_status) {
+      case ALERT:
+        if (currentTime - missile_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_MISSILES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
+        return hue;
+    }
+  }
+
+  // drones notifications has sixth priority
+  if (settings.getBool(ENABLE_DRONES) && drones_notification_time > 0 && currentTime - drones_notification_time < settings.getInt(EXPLOSION_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
     colorSwitch = settings.getInt(COLOR_DRONES);
     hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
     return hue;
   }
 
-  switch (led) {
+  // drones has seventh priority
+  if (settings.getBool(ENABLE_DRONES) && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+    switch (drone_status) {
+      case ALERT:
+        if (currentTime - drone_time < settings.getInt(EXPLOSION_TIME) * 60) {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, notificationBrightness * settings.getInt(BRIGHTNESS_EXPLOSION));
+        } else {
+          colorSwitch = settings.getInt(COLOR_DRONES);
+          hue = fromHue(colorSwitch, settings.getInt(CURRENT_BRIGHTNESS) * localBrightnessAlert);
+        }
+        return hue;
+    }
+  }
+
+  switch (alert_status) {
     case ALERT:
-      if (currentTime - time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      if (currentTime - alert_time < settings.getInt(ALERT_ON_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_NEW_ALERT);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_NEW_ALERT));
       } else {
@@ -3132,7 +3586,7 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
       }
       break;
     case CLEAR:
-      if (currentTime - time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
+      if (currentTime - alert_time < settings.getInt(ALERT_OFF_TIME) * 60 && settings.getInt(ALARMS_NOTIFY_MODE) > 0) {
         colorSwitch = settings.getInt(COLOR_ALERT_OVER);
         hue = fromHue(colorSwitch, alertBrightness * settings.getInt(BRIGHTNESS_ALERT_OVER));
       } else {
@@ -3154,17 +3608,41 @@ CRGB processAlarms(int led, long time, int expTime, int missilesTime, int drones
   return hue;
 }
 
+// float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
+//   float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+//   float minBrightness = fixedMaxBrightness * 0.01f;
+//   int progress = micros() % (fadeTime * 1000);
+//   int halfBlinkTime = fadeTime * 500;
+//   float blinkBrightness;
+//   if (progress < halfBlinkTime) {
+//     blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
+//   } else {
+//     blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
+//   }
+//   return blinkBrightness;
+// }
+
 float getFadeInFadeOutBrightness(float maxBrightness, long fadeTime) {
-  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness) ? minBlinkBrightness : maxBrightness;
+  // Ensure max brightness is not below minimum threshold
+  float fixedMaxBrightness = (maxBrightness > 0.0f && maxBrightness < minBlinkBrightness)
+                              ? minBlinkBrightness
+                              : maxBrightness;
+
   float minBrightness = fixedMaxBrightness * 0.01f;
-  int progress = micros() % (fadeTime * 1000);
-  int halfBlinkTime = fadeTime * 500;
-  float blinkBrightness;
-  if (progress < halfBlinkTime) {
-    blinkBrightness = mapf(progress, 0, halfBlinkTime, minBrightness, fixedMaxBrightness);
-  } else {
-    blinkBrightness = mapf(progress, halfBlinkTime + 1, halfBlinkTime * 2, fixedMaxBrightness, minBrightness);
-  }
+  float amplitude = fixedMaxBrightness - minBrightness;
+
+  // Current position in the cycle (from 0 to fadeTime * 1000 microseconds)
+  unsigned long progress = micros() % (fadeTime * 1000);
+
+  // Normalized progress (0.0 to 1.0)
+  float t = (float)progress / (fadeTime * 1000.0f);
+
+  // Parabolic curve: -4(x - 0.5)^2 + 1 -> ranges from 0 to 1
+  float curve = -4.0f * (t - 0.5f) * (t - 0.5f) + 1.0f;
+
+  // Scale the curve to brightness range
+  float blinkBrightness = minBrightness + amplitude * curve;
+
   return blinkBrightness;
 }
 
@@ -3210,6 +3688,36 @@ int processWeather(float temp) {
   return hue;
 }
 
+int processRadiation(int rad) {
+  float maxRad = settings.getInt(RADIATION_MAX);
+
+  float normalizedValue = float(rad - 100) / float(maxRad - 100);
+
+  if (normalizedValue > 1) {
+    normalizedValue = 1;
+  }
+  if (normalizedValue < 0) {
+    normalizedValue = 0;
+  }
+
+  int hue = round(180 + normalizedValue * (320 - 180));  
+  hue %= 360;
+
+  return hue;
+}
+
+int processEnergy(int status) {
+  int hue = 0;
+  if (status == 3) {
+    hue = 100;
+  } else if (status == 4) {
+    hue = 30;
+  } else if (status == 9) {
+    hue = 15;
+  }
+  return hue;
+}
+
 void mapReconnect() {
   float localBrightness = getFadeInFadeOutBrightness(settings.getInt(CURRENT_BRIGHTNESS) / 200.0f, settings.getInt(ALERT_BLINK_TIME) * 1000);
   CRGB hue = fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS));
@@ -3217,8 +3725,8 @@ void mapReconnect() {
     strip[i] = hue;
   }
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(64, localBrightness * settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3234,8 +3742,8 @@ void mapOff() {
 void mapLamp() {
   fill_solid(strip, MAIN_LEDS_COUNT, fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS)));
   if (isBgStripEnabled()) {
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromRgb(settings.getInt(HA_LIGHT_R), settings.getInt(HA_LIGHT_G), settings.getInt(HA_LIGHT_B), settings.getInt(HA_LIGHT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3243,20 +3751,30 @@ void mapLamp() {
 void mapAlarms() {
   float blinkBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   float notificationBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
+  float extrafastBrightness = settings.getInt(CURRENT_BRIGHTNESS) / 100.0f;
   if (settings.getInt(ALARMS_NOTIFY_MODE) == 2) {
     blinkBrightness = getFadeInFadeOutBrightness(blinkBrightness, settings.getInt(ALERT_BLINK_TIME) * 1000);
-    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 500);
+    notificationBrightness = getFadeInFadeOutBrightness(notificationBrightness, settings.getInt(ALERT_BLINK_TIME) * 667);
+    extrafastBrightness = getFadeInFadeOutBrightness(extrafastBrightness, settings.getInt(ALERT_BLINK_TIME) * 334);
   }
   for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
     strip[i] = processAlarms(
       led_to_alerts[i].first,
       led_to_alerts[i].second,
-      led_to_explosions[i],
-      led_to_missiles[i],
-      led_to_drones[i],
+      led_to_missiles[i].first,
+      led_to_missiles[i].second,
+      led_to_drones[i].first,
+      led_to_drones[i].second,
+      led_to_kabs[i].first,
+      led_to_kabs[i].second,
+      led_to_explosions_notifications[i],
+      led_to_missiles_notifications[i],
+      led_to_drones_notifications[i],
+      led_to_kabs_notifications[i],
       i,
       blinkBrightness,
       notificationBrightness,
+      extrafastBrightness,
       false
     );
   }
@@ -3274,12 +3792,20 @@ void mapAlarms() {
         processAlarms(
           led_to_alerts[localDistrictLed].first,
           led_to_alerts[localDistrictLed].second,
-          led_to_explosions[localDistrictLed],
-          led_to_missiles[localDistrictLed],
-          led_to_drones[localDistrictLed],
+          led_to_missiles[localDistrictLed].first,
+          led_to_missiles[localDistrictLed].second,
+          led_to_drones[localDistrictLed].first,
+          led_to_drones[localDistrictLed].second,
+          led_to_kabs[localDistrictLed].first,
+          led_to_kabs[localDistrictLed].second,
+          led_to_explosions_notifications[localDistrictLed],
+          led_to_missiles_notifications[localDistrictLed],
+          led_to_drones_notifications[localDistrictLed],
+          led_to_kabs_notifications[localDistrictLed],
           localDistrictLed,
           blinkBrightness,
           notificationBrightness,
+          extrafastBrightness,
           true
         )
       );
@@ -3294,8 +3820,45 @@ void mapWeather() {
   }
   if (isBgStripEnabled()) {
     // same as for local district
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) ]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processWeather(id_to_weather[settings.getInt(HOME_DISTRICT) ]), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
+  }
+  FastLED.show();
+}
+
+void mapRadiation() {
+  int current_brightness = settings.getInt(CURRENT_BRIGHTNESS);
+  int local_home_district = settings.getInt(HOME_DISTRICT);
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    int brightness = 0;
+    int rad = led_to_radiation[i];
+    if (rad > 0) {
+      brightness = current_brightness;
+    }
+    strip[i] = fromHue(processRadiation(led_to_radiation[i]), brightness);
+  }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processRadiation(id_to_radiation[local_home_district]), current_brightness * brightness_factor));
+  }
+  FastLED.show();
+}
+
+void mapEnergy() {
+  int current_brightness = settings.getInt(CURRENT_BRIGHTNESS);
+  for (uint16_t i = 0; i < MAIN_LEDS_COUNT; i++) {
+    int brightness = 0;
+    int hue = led_to_energy[i].first;
+    if (hue > 0) {
+      brightness = current_brightness;
+    }
+    strip[i] = fromHue(processEnergy(hue), brightness);
+  }
+  if (isBgStripEnabled()) {
+    // same as for local district
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(processEnergy(id_to_energy[settings.getInt(HOME_DISTRICT)].first), settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3306,8 +3869,8 @@ void mapFlag() {
   }
   if (isBgStripEnabled()) {
       // 180 - blue color
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(180, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror));
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    fill_solid(bg_strip, settings.getInt(BG_LED_COUNT), fromHue(180, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor));
   }
   FastLED.show();
 }
@@ -3319,8 +3882,8 @@ void mapRandom() {
   if (isBgStripEnabled()) {
     int bgRandomLed = random(settings.getInt(BG_LED_COUNT));
     int bgRandomColor = random(360);
-    float brightness_factror = settings.getInt(BRIGHTNESS_BG) / 100.0f;
-    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factror);
+    float brightness_factor = settings.getInt(BRIGHTNESS_BG) / 100.0f;
+    bg_strip[bgRandomLed] = fromHue(bgRandomColor, settings.getInt(CURRENT_BRIGHTNESS) * brightness_factor);
   }
   FastLED.show();
 }
@@ -3349,6 +3912,12 @@ void mapCycle() {
       break;
     case 5:
       mapLamp();
+      break;
+    case 6:
+      mapEnergy();
+      break;
+    case 7:
+      mapRadiation();
       break;
     case 1000:
       mapReconnect();
@@ -3425,15 +3994,13 @@ void initLegacy() {
 #endif
   switch (settings.getInt(LEGACY)) {
   case 0:
-    LOG.println("Mode: jaam 1");
+    LOG.println("Mode: jaam 1");    
 
-    pinMode(settings.getInt(POWER_PIN), OUTPUT);
-    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
-    pinMode(settings.getInt(DATA_PIN), OUTPUT);
-    pinMode(settings.getInt(HA_PIN), OUTPUT);
-    //pinMode(settings.reservedpin, OUTPUT);
-
-    servicePin(POWER, HIGH, false);
+    settings.saveInt(POWER_PIN, 12, false);
+    settings.saveInt(WIFI_PIN, 14, false);
+    settings.saveInt(DATA_PIN, 25, false);
+    settings.saveInt(HA_PIN, 26, false);
+    settings.saveInt(UPD_AVAILABLE_PIN, 27, false);
 
     settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
@@ -3445,6 +4012,15 @@ void initLegacy() {
     settings.saveInt(DISPLAY_MODEL, 1, false);
     settings.saveInt(DISPLAY_HEIGHT, 64, false);
     settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
+
+    pinMode(settings.getInt(POWER_PIN), OUTPUT);
+    pinMode(settings.getInt(WIFI_PIN), OUTPUT);
+    pinMode(settings.getInt(DATA_PIN), OUTPUT);
+    pinMode(settings.getInt(HA_PIN), OUTPUT);
+    pinMode(settings.getInt(UPD_AVAILABLE_PIN), OUTPUT);
+
+    servicePin(POWER, HIGH, false);
+
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -3499,8 +4075,13 @@ void initButtons() {
 void initBuzzer() {
 #if BUZZER_ENABLED
   if (isBuzzerEnabled()) {
+    volumeCurrent = settings.getInt(MELODY_VOLUME_CURRENT);
+    volumeDay = settings.getInt(MELODY_VOLUME_DAY);
+    volumeNight = settings.getInt(MELODY_VOLUME_NIGHT);
     player = new MelodyPlayer(settings.getInt(BUZZER_PIN), 0, LOW);
-    player->setVolume(expMap(settings.getInt(MELODY_VOLUME), 0, 100, 0, 255));
+    player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255));
+    LOG.printf("Set initial volume to: %d\n", volumeCurrent);
+    
   }
 #endif
 }
@@ -3520,56 +4101,78 @@ void initClearPin() {
 }
 
 void initFastledStrip(uint8_t pin, const CRGB *leds, int pixelcount) {
-  switch (pin)
-  {
-  case 2:
-    FastLED.addLeds<NEOPIXEL, 2>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 4:
-    FastLED.addLeds<NEOPIXEL, 4>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 12:
-    FastLED.addLeds<NEOPIXEL, 12>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 13:
-    FastLED.addLeds<NEOPIXEL, 13>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 14:
-    FastLED.addLeds<NEOPIXEL, 14>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 15:
-    FastLED.addLeds<NEOPIXEL, 15>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 16:
-    FastLED.addLeds<NEOPIXEL, 16>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 17:
-    FastLED.addLeds<NEOPIXEL, 17>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 18:
-    FastLED.addLeds<NEOPIXEL, 18>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 25:
-    FastLED.addLeds<NEOPIXEL, 25>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 26:
-    FastLED.addLeds<NEOPIXEL, 26>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 27:
-    FastLED.addLeds<NEOPIXEL, 27>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 32:
-    FastLED.addLeds<NEOPIXEL, 32>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  case 33:
-    FastLED.addLeds<NEOPIXEL, 33>(const_cast<CRGB*>(leds), pixelcount);
-    break;
-  default:
-    LOG.print("This PIN is not supported for LEDs: ");
-    LOG.println(pin);
-    break;
-  }
+    bool isSupported = false;
+
+    // Перевірка, чи пін входить до підтримуваних
+    for (auto supportedPin : SUPPORTED_LEDS_PINS) {
+        if (pin == supportedPin) {
+            isSupported = true;
+            break;
+        }
+    }
+
+    if (!isSupported) {
+        LOG.print("This PIN is not supported for LEDs: ");
+        LOG.println(pin);
+        return;
+    }
+
+    switch (pin) {
+      #if ARDUINO_ESP32_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(16)
+        GENERATE_PIN_CASE(17)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(25)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(27)
+        GENERATE_PIN_CASE(32)
+        GENERATE_PIN_CASE(33)
+      #elif ARDUINO_ESP32S3_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(12)
+        GENERATE_PIN_CASE(13)
+        GENERATE_PIN_CASE(14)
+        GENERATE_PIN_CASE(15)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(21)
+        GENERATE_PIN_CASE(26)
+        GENERATE_PIN_CASE(33)
+        GENERATE_PIN_CASE(34)
+        GENERATE_PIN_CASE(35)
+        GENERATE_PIN_CASE(36)
+        GENERATE_PIN_CASE(37)
+        GENERATE_PIN_CASE(38)
+        GENERATE_PIN_CASE(39)
+        GENERATE_PIN_CASE(40)
+        GENERATE_PIN_CASE(41)
+        GENERATE_PIN_CASE(42)
+      #elif ARDUINO_ESP32C3_DEV
+        GENERATE_PIN_CASE(2)
+        GENERATE_PIN_CASE(3)
+        GENERATE_PIN_CASE(4)
+        GENERATE_PIN_CASE(5)
+        GENERATE_PIN_CASE(6)
+        GENERATE_PIN_CASE(7)
+        GENERATE_PIN_CASE(10)
+        GENERATE_PIN_CASE(18)
+        GENERATE_PIN_CASE(19)
+        GENERATE_PIN_CASE(20)
+        GENERATE_PIN_CASE(21)
+      #endif
+      default:
+        LOG.print("Error: Unexpected pin configuration for this board: ");
+        LOG.println(pin);
+        break;
+    }
 }
+
 
 void initStrip() {
   LOG.println("Init leds");
@@ -3625,12 +4228,22 @@ void initDisplayOptions() {
 
 void initDisplayModes() {
   if (!climate.isAnySensorAvailable()) {
+    LOG.println("No sensors available, disabling climate sensor options");
     // remove climate sensor options from display optins list
-    DISPLAY_MODES[4].ignore = true;
+    for (int i = 0; i < DISPLAY_MODE_OPTIONS_MAX; i++) {
+      if (DISPLAY_MODES[i].id == 4) {
+        LOG.print("Display mode disabled: ");
+        LOG.println(DISPLAY_MODES[i].name);
+        DISPLAY_MODES[i].ignore = true;
+        break;
+      }
+    }
     // change display mode to "changing" if it's not available
     if (isInIgnoreList(settings.getInt(DISPLAY_MODE), DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX)) {
       saveDisplayMode(9);
     }
+  } else {
+    LOG.println("Climate sensor is available");
   }
 }
 
@@ -3695,6 +4308,19 @@ void mapHaDisplayModes() {
   haDisplayModeMap = std::make_pair(mapHaToId, mapIdToHa);
 }
 
+void mapHaMapModes() {
+  std::map<int, int> mapHaToId = {};
+  std::map<int, int> mapIdToHa = {};
+  int haIndex = 0;
+  for (int i = 0; i < MAP_MODES_COUNT; i++) {
+    if (MAP_MODES[i].ignore) continue;
+    mapHaToId[haIndex] = MAP_MODES[i].id;
+    mapIdToHa[MAP_MODES[i].id] = haIndex;
+    haIndex++;
+  }
+  haMapModeMap = std::make_pair(mapHaToId, mapIdToHa);
+}
+
 void initHA() {
   if (shouldWifiReconnect) return;
 
@@ -3714,13 +4340,14 @@ void initHA() {
   ha.initDayBrightnessSensor(settings.getInt(BRIGHTNESS_DAY), saveDayBrightness);
   ha.initNightBrightnessSensor(settings.getInt(BRIGHTNESS_NIGHT), saveNightBrightness);
   auto mapModes = getNames(MAP_MODES, MAP_MODES_COUNT, true);
+  mapHaMapModes();
   ha.initMapModeSensor(getIndexById(MAP_MODES, settings.getInt(MAP_MODE), MAP_MODES_COUNT), mapModes.second, mapModes.first, saveMapMode, transformFromHaMapMode);
   if (display.isDisplayAvailable()) {
     auto displayModes = getNames(DISPLAY_MODES, DISPLAY_MODE_OPTIONS_MAX, true);
     mapHaDisplayModes();
     ha.initDisplayModeSensor(haDisplayModeMap.second[settings.getInt(DISPLAY_MODE)], displayModes.second, displayModes.first, saveDisplayMode, transformFromHaDisplayMode);
     ha.initDisplayModeToggleSensor(nextDisplayMode);
-    ha.initShowHomeAlarmTimeSensor(settings.getInt(HOME_ALERT_TIME), saveShowHomeAlarmTime);
+    ha.initShowHomeAlarmTimeSensor(settings.getBool(HOME_ALERT_TIME), saveShowHomeAlarmTime);
   }
   auto alarmModes = getNames(AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT, true);
   ha.initAutoAlarmModeSensor(getIndexById(AUTO_ALARM_MODES, settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES_COUNT), alarmModes.second, alarmModes.first, saveAutoAlarmMode, transformFromHaAutoAlarmMode);
@@ -3748,6 +4375,8 @@ void initHA() {
   }
   ha.initHomeTemperatureSensor();
   ha.initNightModeSensor(nightMode, saveNightMode);
+  ha.initHomeEnergySensor();
+  ha.initHomeRadiationSensor();
 
   ha.connectToMqtt(settings.getInt(HA_MQTT_PORT), settings.getString(HA_MQTT_USER), settings.getString(HA_MQTT_PASSWORD), onMqttStateChanged);
 }
@@ -3823,7 +4452,7 @@ void runSelfTests() {
   servicePin(WIFI, HIGH, true);
   servicePin(DATA, HIGH, true);
   servicePin(HA, HIGH, true);
-  servicePin(RESERVED, HIGH, true);
+  servicePin(UPD_AVAILABLE, HIGH, true);
   showLocalTemp();
   sleep(2);
   showLocalHum();
@@ -3835,6 +4464,20 @@ void runSelfTests() {
   displayMessage("Please test buttons");
 }
 #endif
+
+void serviceLedUpdAvailableHandler() {
+  if (!isServiceStripEnabled()) return;
+#if FW_UPDATE_ENABLED
+  if (fwUpdateAvailable && settings.getBool(SERVICE_DIODES_MODE)) {
+    int scaledBrightness = (settings.getInt(BRIGHTNESS_SERVICE) == 0) ? 0 : round(max(settings.getInt(BRIGHTNESS_SERVICE), minBrightness) * 255.0f / 100.0f * brightnessFactor);
+    float updateBrightness = getFadeInFadeOutBrightness(scaledBrightness, 1500);
+    service_strip[4] = CRGB(CRGB::White).nscale8_video(updateBrightness);
+  } else {
+    service_strip[4] = CRGB::Black;
+  }
+  FastLED.show();
+#endif
+}
 
 void syncTimePeriodically() {
   syncTime(2);
@@ -3864,6 +4507,7 @@ void setup() {
   asyncEngine.setInterval(connectStatuses, 60000);
   asyncEngine.setInterval(mapCycle, 1000);
   asyncEngine.setInterval(displayCycle, 100);
+  asyncEngine.setInterval(buzzerCycle, 1000);
   asyncEngine.setInterval(wifiReconnect, 1000);
   asyncEngine.setInterval(autoBrightnessUpdate, 1000);
   #if FW_UPDATE_ENABLED
@@ -3903,4 +4547,5 @@ void loop() {
   }
 #endif
   buttons.tick();
+  serviceLedUpdAvailableHandler();
 }

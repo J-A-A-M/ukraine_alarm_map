@@ -1,6 +1,6 @@
 #include "JaamLightSensor.h"
 #include <Arduino.h>
-#include "Constants.h"
+#include "JaamLogs.h"
 
 #if BH1750_ENABLED
 BH1750_WE *bh1750;

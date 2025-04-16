@@ -133,6 +133,10 @@ async def update(request):
     return FileResponse(f'{shared_path}/{request.path_params["filename"]}.bin')
 
 
+async def update_board(request):
+    return FileResponse(f'{shared_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
+
+
 async def update_beta(request):
     if request.path_params["filename"] == "latest_beta":
         filenames = sorted(
@@ -160,12 +164,8 @@ async def update_beta(request):
     return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
 
 
-async def spiffs_update(request):
-    return FileResponse(f'{shared_path}/spiffs/{request.path_params["filename"]}.bin')
-
-
-async def spiffs_update_beta(request):
-    return FileResponse(f'{shared_beta_path}/spiffs/{request.path_params["filename"]}.bin')
+async def update_beta_board(request):
+    return FileResponse(f'{shared_beta_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
 
 
 async def update_cache():
@@ -184,8 +184,48 @@ async def update_cache():
             if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
         ]
     )
+    # s3_filenames = sorted(
+    #     [
+    #         file
+    #         for file in os.listdir(f"{shared_path}/s3/")
+    #         if (os.path.isfile(os.path.join(f"{shared_path}/s3/", file)) and file.endswith(".bin"))
+    #     ],
+    #     key=bin_sort,
+    #     reverse=True,
+    # )
+    s3_beta_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_beta_path}/s3/")
+            if (os.path.isfile(os.path.join(f"{shared_beta_path}/s3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
+    # c3_filenames = sorted(
+    #     [
+    #         file
+    #         for file in os.listdir(f"{shared_path}/c3/")
+    #         if (os.path.isfile(os.path.join(f"{shared_path}/c3/", file)) and file.endswith(".bin"))
+    #     ],
+    #     key=bin_sort,
+    #     reverse=True,
+    # )
+    c3_beta_filenames = sorted(
+        [
+            file
+            for file in os.listdir(f"{shared_beta_path}/c3/")
+            if (os.path.isfile(os.path.join(f"{shared_beta_path}/c3/", file)) and file.endswith(".bin"))
+        ],
+        key=bin_sort,
+        reverse=True,
+    )
     await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
     await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
+    # await mc.set(b"s3_bins", json.dumps(s3_filenames).encode("utf-8"))
+    await mc.set(b"s3_test_bins", json.dumps(s3_beta_filenames).encode("utf-8"))
+    # await mc.set(b"c3_bins", json.dumps(c3_filenames).encode("utf-8"))
+    await mc.set(b"c3_test_bins", json.dumps(c3_beta_filenames).encode("utf-8"))
 
 
 app = Starlette(
@@ -196,13 +236,13 @@ app = Starlette(
         Route("/list", list),
         Route("/betalist", list_beta),
         Route("/{filename}.bin", update),
-        Route("/spiffs/{filename}.bin", spiffs_update),
         Route("/beta/{filename}.bin", update_beta),
-        Route("/beta/spiffs/{filename}.bin", spiffs_update_beta),
+        Route("/{board}/{filename}.bin", update_board),
+        Route("/beta/{board}/{filename}.bin", update_beta_board),
     ],
 )
 
 
 if __name__ == "__main__":
     asyncio.run(update_cache())
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips=["*"])
