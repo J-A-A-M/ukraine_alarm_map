@@ -116,7 +116,7 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
 
 #if DFPLAYER_PRO_ENABLED
 #define TRACKS_COUNT 14
-static const String TRACKS[TRACKS_COUNT] PROGMEM = {
+static const char* const TRACKS[TRACKS_COUNT] PROGMEM = {
   "/01.mp3",
   "/02.mp3",
   "/03.mp3",
