@@ -65,6 +65,7 @@ runs:
         sed -i 's/>Встановити JAAM [0-9.]* Beta [0-9]*</>Встановити JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/>Отримати опис JAAM [0-9.]* Beta [0-9]*</>Отримати опис JAAM ${{ inputs.version }} Beta ${{ inputs.beta_build }}</' ${{ github.workspace }}/flasher/index.html
         sed -i 's/"version": ".*",/"version": "${{ inputs.version }}-b${{ inputs.beta_build }}",/' ${{ github.workspace }}/flasher/manifest-beta.json
+        sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}'\''\)/fetchReleaseNotes('\''${{ inputs.version }}'\''\)/' ${{ github.workspace }}/flasher/index.html
         sed -i 's/fetchReleaseNotes('\''[0-9]\{1,\}\.[0-9]\{1,\}-b[0-9]\{1,\}'\''/fetchReleaseNotes('\''${{ inputs.version }}-b${{ inputs.beta_build }}'\''/' ${{ github.workspace }}/flasher/index.html
     - name: Change lite version in flasher
       if: ${{ inputs.lite_binary_path != '' }}
