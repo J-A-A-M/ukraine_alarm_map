@@ -46,6 +46,13 @@ function playTestSound(soundId = 4) {
     xhttp.send();
 }
 
+function playTestTrack(soundId = 1) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.open('GET', '/playTestTrackById/?id='.concat(soundId), true);
+    xhttp.send();
+}
+
+
 function disableElement(targetName, disable) {
     document.getElementsByName(targetName).forEach((elem) => {
         elem.disabled = disable;
