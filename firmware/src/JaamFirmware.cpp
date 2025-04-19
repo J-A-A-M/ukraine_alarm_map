@@ -238,7 +238,7 @@ bool isBuzzerEnabled() {
 }
 
 bool isDFPlayerEnabled() {
-  return settings.getInt(DF_RX_PIN) > -1 && settings.getInt(DF_TX_PIN) > -1;
+  return settings.getInt(DF_RX_PIN) > -1 && settings.getInt(DF_TX_PIN) > -1 && dfPlayerConnected;
 }
 
 bool isAnalogLightSensorEnabled() {
@@ -276,6 +276,7 @@ int getIndexById(SettingListItem list[], int id, int size) {
 }
 
 String getTrackById(int id) {
+#if DFPLAYER_PRO_ENABLED
   if (isDFPlayerEnabled()) {
     for (int i = 0; i < totalFiles; i++) {
       if (dynamicTrackNames[i].id == id) {
@@ -283,6 +284,7 @@ String getTrackById(int id) {
       }
     }
   }
+#endif
   return "";
 }
 
@@ -2545,6 +2547,7 @@ void handleSounds(AsyncWebServerRequest* request) {
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
+#if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
   addCheckbox(response, "sound_on_min_of_sl", settings.getBool(SOUND_ON_MIN_OF_SL), "Відтворювати звуки під час \"Xвилини мовчання\"");
   addCheckbox(response, "sound_on_alert", settings.getBool(SOUND_ON_ALERT), "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
   if (isBuzzerEnabled()) addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні (буззер)", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
@@ -2576,6 +2579,7 @@ void handleSounds(AsyncWebServerRequest* request) {
   addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
   addSlider(response, "melody_volume_day", "Гучність мелодії вдень", settings.getInt(MELODY_VOLUME_DAY), 0, 100, 1, "%");
   addSlider(response, "melody_volume_night", "Гучність мелодії вночі", settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 1, "%");
+#endif
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
   response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
   response->println("</div>");
@@ -3142,7 +3146,7 @@ void handlePlayTestTrackById(AsyncWebServerRequest* request) {
       showServiceMessage(getNameById(dynamicTrackNames, trackId, totalFiles), "Трек");
       request->send(200, "text/plain", "Test track played!");
     } else {
-      request->send(400, "text/plain", "Missing 'name' parameter");
+      request->send(400, "text/plain", "Missing 'id' parameter");
     }
   } else {
     request->send(503, "text/plain", "DFPlayer not available");
@@ -3789,7 +3793,7 @@ void checkMinuteOfSilence() {
     }
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
     // play UA Anthem when min of silence ends
-    if ((isBuzzerEnabled() || isDFPlayerEnabled) && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
+    if ((isBuzzerEnabled() || isDFPlayerEnabled()) && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
       playMelody(MIN_OF_SILINCE_END);
       uaAnthemPlaying = true;
     }
@@ -4393,6 +4397,7 @@ void initDisplay() {
 }
 
 int findTrackIndex(int fileNumber) {
+#if DFPLAYER_PRO_ENABLED
   char trackName[10];
   sprintf(trackName, "/%02d.mp3", fileNumber);
   
@@ -4401,7 +4406,8 @@ int findTrackIndex(int fileNumber) {
       return i;
     }
   }
-  return -1; // якщо не знайдено
+#endif
+  return -1;
 }
 
 void initDfplayer() {
@@ -4427,7 +4433,8 @@ void initDfplayer() {
     }
     LOG.println("DFPlayer RX OK!");
 
-    dfplayer.setVol(2); 
+    dfplayer.setVol(2);
+    delay(500); 
     if (dfplayer.getVol() != 2) {
       LOG.println("DFPlayer TX Fail!");
       return;
@@ -4448,8 +4455,6 @@ void initDfplayer() {
     delay(500);
 
     dfplayer.setLED(false);
-
-    playTrack("/14.mp3");
 
     totalFiles = dfplayer.getTotalFile();
     LOG.print("The number of files available to play: ");
