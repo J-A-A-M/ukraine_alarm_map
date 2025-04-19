@@ -114,6 +114,42 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
 };
 #endif
 
+#if DFPLAYER_PRO_ENABLED
+#define TRACKS_COUNT 14
+static const String TRACKS[TRACKS_COUNT] PROGMEM = {
+  "/01.mp3",
+  "/02.mp3",
+  "/03.mp3",
+  "/04.mp3",
+  "/05.mp3",
+  "/06.mp3",
+  "/07.mp3",
+  "/08.mp3",
+  "/09.mp3",
+  "/10.mp3",
+  "/11.mp3",
+  "/12.mp3",
+  "/13.mp3",
+  "/14.mp3"
+};
+
+static SettingListItem TRACK_NAMES[TRACKS_COUNT] PROGMEM = {
+  {0, "Сирена 1", false},
+  {1, "Сирена 2", false},
+  {2, "Сирена 3", false},
+  {3, "Сирена 4", false},
+  {4, "Сирена 5", false},
+  {5, "Сирена 6", false},
+  {6, "Сирена 7", false},
+  {7, "Сирена 8", false},
+  {8, "Сирена 9", false},
+  {9, "Сирена 10", false},
+  {10, "Сирена повітряної тривоги", false},
+  {11, "Beep Beep", false},
+  {12, "Click", false},
+  {13, "Good morning, Vietnam", false}
+};
+#endif
 
 static const int WDT_TIMEOUT = 15; // seconds
 static const int CLEAR = 0;
