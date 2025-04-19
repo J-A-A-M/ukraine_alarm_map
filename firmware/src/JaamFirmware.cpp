@@ -2579,9 +2579,11 @@ void handleSounds(AsyncWebServerRequest* request) {
   addCheckbox(response, "ignore_mute_on_alert", settings.getBool(IGNORE_MUTE_ON_ALERT), "Сигнали тривоги навіть у нічний час", NULL, !settings.getBool(MUTE_SOUND_ON_NIGHT));
   addSlider(response, "melody_volume_day", "Гучність мелодії вдень", settings.getInt(MELODY_VOLUME_DAY), 0, 100, 1, "%");
   addSlider(response, "melody_volume_night", "Гучність мелодії вночі", settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 1, "%");
-#endif
+
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
-  response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест динаміка</button>");
+  if (isBuzzerEnabled()) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест буззера</button>");
+  if (dfPlayerConnected) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestTrack();' aria-expanded='false'>Тест DF Player Pro</button>");
+#endif
   response->println("</div>");
   response->println("</div>");
   response->println("</form>");
@@ -4434,7 +4436,7 @@ void initDfplayer() {
       
     }
     LOG.println("DFPlayer RX OK!");
-
+    showServiceMessage("DFPlayer PRO", "Підключено:", 2000);
     dfplayer.setVol(2);
     delay(500); 
     if (dfplayer.getVol() != 2) {
