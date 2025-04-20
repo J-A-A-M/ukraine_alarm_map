@@ -369,10 +369,11 @@ void playMelody(SoundType type) {
   switch (type) {
   case MIN_OF_SILINCE:
     playMelody(MOS_BEEP);
-    playTrack("/13.mp3");
+    playTrack(DF_CLOCK_TICK);
     break;
   case MIN_OF_SILINCE_END:
     playMelody(UA_ANTHEM);
+    playTrack(DF_UA_ANTHEM);
     break;
   case ALERT_ON:
     playMelody(MELODIES[settings.getInt(MELODY_ON_ALERT)]);
@@ -408,15 +409,15 @@ void playMelody(SoundType type) {
     break;
   case REGULAR:
     playMelody(CLOCK_BEEP);
-    playTrack("/12.mp3");
+    playTrack(DF_CLOCK_BEEP);
     break;
   case SINGLE_CLICK:
     playMelody(SINGLE_CLICK_SOUND);
-    playTrack("/13.mp3");
+    playTrack(DF_CLOCK_TICK);
     break;
   case LONG_CLICK:
     playMelody(LONG_CLICK_SOUND);
-    playTrack("/12.mp3");
+    playTrack(DF_CLOCK_TICK);
     break;
   }
 #endif
@@ -4404,9 +4405,7 @@ int findTrackIndex(int fileNumber) {
   sprintf(trackName, "/%02d.mp3", fileNumber);
 
   for (int i = 0; i < TRACKS_COUNT; i++) {
-    char buffer[15];
-    strcpy_P(buffer, (PGM_P)pgm_read_ptr(&TRACKS[i]));
-    if (strcmp(buffer, trackName) == 0) {
+    if (TRACKS[i] == String(trackName)) {
       return i;
     }
   }

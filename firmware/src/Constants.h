@@ -115,39 +115,51 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
 #endif
 
 #if DFPLAYER_PRO_ENABLED
-#define TRACKS_COUNT 14
-static const char* const TRACKS[TRACKS_COUNT] PROGMEM = {
-  "/01.mp3",
-  "/02.mp3",
-  "/03.mp3",
-  "/04.mp3",
-  "/05.mp3",
-  "/06.mp3",
-  "/07.mp3",
-  "/08.mp3",
-  "/09.mp3",
-  "/10.mp3",
-  "/11.mp3",
-  "/12.mp3",
-  "/13.mp3",
-  "/14.mp3"
+static const String DF_CLOCK_BEEP = "/01.mp3";
+static const String DF_CLOCK_TICK = "/02.mp3";
+static const String DF_UA_ANTHEM = "/03.mp3";
+static const String DF_SIREN_1 = "/04.mp3";
+static const String DF_SIREN_2 = "/05.mp3";
+static const String DF_SIREN_3 = "/06.mp3";
+static const String DF_SIREN_4 = "/07.mp3";
+static const String DF_SIREN_5 = "/08.mp3";
+static const String DF_SIREN_6 = "/09.mp3";
+static const String DF_SIREN_7 = "/10.mp3";
+static const String DF_SIREN_8 = "/11.mp3";
+static const String DF_SIREN_9 = "/12.mp3";
+static const String DF_SIREN_10 = "/13.mp3";
+static const String DF_THE_HOBBIT = "/14.mp3";
+static const String DF_THE_MATRIX = "/15.mp3";
+static const String DF_AVENGERS = "/16.mp3";
+static const String DF_TERMINATOR_SHORT = "/17.mp3";
+static const String DF_PIRATES_OF_THE_CARRIBEAN = "/18.mp3";
+static const String DF_SIREN_11 = "/19.mp3";
+static const String DF_NOTIFICATION_NEWS = "/20.mp3";
+static const String DF_GOOd_MORNING_VIETNAM = "/21.mp3";
+static const String DF_NOTIFICATION_R2D2 = "/22.mp3";
+static const String DF_NOTIFICATION_STARTREK = "/23.mp3";
+static const String DF_AIR_RAID_1 = "/24.mp3";
+static const String DF_CAROL_OF_THE_BELLS = "/25.mp3";
+static const String DF_NOTIFICATION_BACK_TO_THE_FUTURE = "/26.mp3";
+static const String DF_IMPERIAL_MARCH = "/27.mp3";
+static const String DF_GOOD_BAD_UGLY = "/28.mp3";
+static const String DF_HARRY_POTTER = "/29.mp3";
+static const String DF_MARCH = "/30.mp3";
+static const String DF_MANDALORIAN_CALL = "/31.mp3";
+static const String DF_MARIO = "/32.mp3";
+static const String DF_PACMAN = "/33.mp3"; 
+
+#define TRACKS_COUNT 3
+static const String TRACKS[TRACKS_COUNT] = {
+  DF_CLOCK_TICK,
+  DF_CLOCK_BEEP,
+  DF_UA_ANTHEM
 };
 
 static SettingListItem TRACK_NAMES[TRACKS_COUNT] PROGMEM = {
-  {0, "Сирена 1", false},
-  {1, "Сирена 2", false},
-  {2, "Сирена 3", false},
-  {3, "Сирена 4", false},
-  {4, "Сирена 5", false},
-  {5, "Сирена 6", false},
-  {6, "Сирена 7", false},
-  {7, "Сирена 8", false},
-  {8, "Сирена 9", false},
-  {9, "Сирена 10", false},
-  {10, "Сирена повітряної тривоги", false},
-  {11, "Beep Beep", false},
-  {12, "Click", false},
-  {13, "Good morning, Vietnam", false}
+  {0, "Годинникова стрілка", false},
+  {1, "Годинник", false},
+  {2, "Гімн України", false}
 };
 #endif
 
