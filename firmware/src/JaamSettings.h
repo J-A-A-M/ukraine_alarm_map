@@ -73,6 +73,7 @@ enum Type {
     HA_LIGHT_R,
     HA_LIGHT_G,
     HA_LIGHT_B,
+    SOUND_SOURCE,
     SOUND_ON_MIN_OF_SL,
     SOUND_ON_ALERT,
     MELODY_ON_ALERT,

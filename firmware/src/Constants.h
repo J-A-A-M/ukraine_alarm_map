@@ -163,6 +163,14 @@ static SettingListItem TRACK_NAMES[TRACKS_COUNT] PROGMEM = {
 };
 #endif
 
+#if BUZZER_ENABLED && DFPLAYER_PRO_ENABLED
+#define SOUND_SOURCES_COUNT 2
+static SettingListItem SOUND_SOURCES[SOUND_SOURCES_COUNT] PROGMEM = {
+  {0, "Buzzer", false},
+  {1, "DF Player Pro", false}
+};
+#endif
+
 static const int WDT_TIMEOUT = 15; // seconds
 static const int CLEAR = 0;
 static const int ALERT = 1;

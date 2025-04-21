@@ -90,6 +90,7 @@ std::map<Type, SettingItemInt> intSettings = {
     {HA_LIGHT_R, {"ha_lr", 215}},
     {HA_LIGHT_G, {"ha_lg", 7}},
     {HA_LIGHT_B, {"ha_lb", 255}},
+    {SOUND_SOURCE, {"ss", 0}},
     {SOUND_ON_MIN_OF_SL, {"somos", 0}},
     {SOUND_ON_ALERT, {"soa", 0}},
     {MELODY_ON_ALERT, {"moa", 4}},
