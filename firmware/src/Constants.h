@@ -150,7 +150,7 @@ static const String DF_MARIO = "/32.mp3";
 static const String DF_PACMAN = "/33.mp3"; 
 
 #define TRACKS_COUNT 3
-static const String TRACKS[TRACKS_COUNT] = {
+static String TRACKS[TRACKS_COUNT] = {
   DF_CLOCK_TICK,
   DF_CLOCK_BEEP,
   DF_UA_ANTHEM

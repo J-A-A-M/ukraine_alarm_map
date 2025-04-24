@@ -341,7 +341,7 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
   return (int)(scaled * (out_max - out_min) + out_min);
 }
 
-int expMapLinear(int x, int in_min, int in_max, int out_min, int out_max) {
+int linMap(int x, int in_min, int in_max, int out_min, int out_max) {
   float normalized = (float)(x - in_min) / (in_max - in_min);
   float scaled = pow(normalized, 2);
   return (int)(scaled * (out_max - out_min) + out_min);
@@ -1823,7 +1823,7 @@ void volumeCycle() {
       player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
     }
     if (dfPlayerConnected) {
-      dfplayer.setVol(expMapLinear(volumeCurrent, 0, 100, 0, 20));
+      dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 20));
     }
     LOG.printf("Set volume to: %d\n", volumeCurrent);
   }
@@ -4412,11 +4412,10 @@ void initDisplay() {
 
 int findTrackIndex(int fileNumber) {
 #if DFPLAYER_PRO_ENABLED
-  char trackName[10];
-  sprintf(trackName, "/%02d.mp3", fileNumber);
+  String trackName = String("/") + (fileNumber < 10 ? "0" : "") + String(fileNumber) + ".mp3";
 
   for (int i = 0; i < TRACKS_COUNT; i++) {
-    if (TRACKS[i] == String(trackName)) {
+    if (TRACKS[i] == trackName) {
       return i;
     }
   }
@@ -4459,7 +4458,7 @@ void initDfplayer() {
 
     dfplayer.setVol(0); 
     dfplayer.switchFunction(dfplayer.MUSIC);
-    dfplayer.setVol(expMapLinear(volumeCurrent, 0, 100, 0, 20));
+    dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 20));
     LOG.print("Volume: ");
     LOG.println(dfplayer.getVol());
 
@@ -4489,15 +4488,14 @@ void initDfplayer() {
         dynamicTracks[i] = TRACKS[foundIndex];
         dynamicTrackNames[i] = TRACK_NAMES[foundIndex];
       } else {
-        char trackPath[10];
-        sprintf(trackPath, "/%02d.mp3", fileNumber);
-        dynamicTracks[i] = String(trackPath);
+        String trackPath = String("/") + (fileNumber < 10 ? "0" : "") + String(fileNumber) + ".mp3";
+        dynamicTracks[i] = trackPath;
 
-        char* trackName = new char[20];
-        sprintf(trackName, "Трек %d", fileNumber);
+        char buf[16];   
+        snprintf(buf, sizeof(buf), "%d", fileNumber);
 
         dynamicTrackNames[i].id = i;
-        dynamicTrackNames[i].name = trackName;
+        dynamicTrackNames[i].name = strdup(buf);
         dynamicTrackNames[i].ignore = false;
       }
     }
