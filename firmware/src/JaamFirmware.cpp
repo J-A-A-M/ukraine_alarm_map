@@ -63,6 +63,7 @@ DFRobot_DF1201S dfplayer;
 String* dynamicTracks;
 SettingListItem* dynamicTrackNames;
 int totalFiles = 0;
+int dfPlayerMaxVolume = 15;
 #endif
 
 enum ServiceLed {
@@ -339,10 +340,6 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
 
   // Map the scaled value to the output range
   return (int)(scaled * (out_max - out_min) + out_min);
-}
-
-int linMap(int x, int in_min, int in_max, int out_min, int out_max) {
-  return (int)((float)(x - in_min) / (in_max - in_min) * (out_max - out_min) + out_min);
 }
 
 void playMelody(const char* melodyRtttl) {
@@ -1821,7 +1818,7 @@ void volumeCycle() {
       player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
     }
     if (dfPlayerConnected) {
-      dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 15));
+      dfplayer.setVol(map(volumeCurrent, 0, 100, 0, dfPlayerMaxVolume));
     }
     LOG.printf("Set volume to: %d\n", volumeCurrent);
   }
@@ -3171,7 +3168,6 @@ void handlePlayTestTrackByFileName(AsyncWebServerRequest* request) {
       String trackName = request->getParam("name")->value();
       playTrack(trackName);
       showServiceMessage(trackName.c_str(), "Трек");
-      delay(2000);
       request->send(200, "text/plain", "Test track played!");
     } else {
       request->send(400, "text/plain", "Missing 'name' parameter");
@@ -4456,7 +4452,7 @@ void initDfplayer() {
 
     dfplayer.setVol(0); 
     dfplayer.switchFunction(dfplayer.MUSIC);
-    dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 15));
+    dfplayer.setVol(map(volumeCurrent, 0, 100, 0, dfPlayerMaxVolume));
     LOG.print("Volume: ");
     LOG.println(dfplayer.getVol());
 
