@@ -342,9 +342,7 @@ int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
 }
 
 int linMap(int x, int in_min, int in_max, int out_min, int out_max) {
-  float normalized = (float)(x - in_min) / (in_max - in_min);
-  float scaled = pow(normalized, 2);
-  return (int)(scaled * (out_max - out_min) + out_min);
+  return (int)((float)(x - in_min) / (in_max - in_min) * (out_max - out_min) + out_min);
 }
 
 void playMelody(const char* melodyRtttl) {
@@ -1823,7 +1821,7 @@ void volumeCycle() {
       player->setVolume(expMap(volumeCurrent, 0, 100, 0, 255)); 
     }
     if (dfPlayerConnected) {
-      dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 20));
+      dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 15));
     }
     LOG.printf("Set volume to: %d\n", volumeCurrent);
   }
@@ -4458,7 +4456,7 @@ void initDfplayer() {
 
     dfplayer.setVol(0); 
     dfplayer.switchFunction(dfplayer.MUSIC);
-    dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 20));
+    dfplayer.setVol(linMap(volumeCurrent, 0, 100, 0, 15));
     LOG.print("Volume: ");
     LOG.println(dfplayer.getVol());
 
