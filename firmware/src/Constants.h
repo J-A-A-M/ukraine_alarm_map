@@ -12,7 +12,6 @@ struct SettingListItem {
   bool ignore;
 };
 
-#if BUZZER_ENABLED
 static const char UA_ANTHEM[]            PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 static const char OI_U_LUZI[]            PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a4,2d.,4e,2f,2e,2d.";
 static const char COSSACKS_MARCH[]       PROGMEM = "CossacksMarch:d=32,o=5,b=200:2d.,8a4,8d,2f.,8d,8f,4d,8a4,8d,4f,8d,8f,4d,8a4,8d,4f,8d,8f,1d.";
@@ -112,9 +111,7 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {21, "ПТН ХЙЛ", false},
   {22, "Helldivers 2 - A cup of Liber-Tea", false}
 };
-#endif
 
-#if DFPLAYER_PRO_ENABLED
 static const String DF_CLOCK_BEEP = "/01.mp3";
 static const String DF_CLOCK_TICK = "/02.mp3";
 static const String DF_UA_ANTHEM = "/03.mp3";
@@ -161,15 +158,12 @@ static SettingListItem TRACK_NAMES[TRACKS_COUNT] PROGMEM = {
   {1, "Годинник", false},
   {2, "Гімн України", false}
 };
-#endif
 
-#if BUZZER_ENABLED && DFPLAYER_PRO_ENABLED
 #define SOUND_SOURCES_COUNT 2
 static SettingListItem SOUND_SOURCES[SOUND_SOURCES_COUNT] PROGMEM = {
   {0, "Buzzer", false},
   {1, "DF Player Pro", false}
 };
-#endif
 
 static const int WDT_TIMEOUT = 15; // seconds
 static const int CLEAR = 0;
