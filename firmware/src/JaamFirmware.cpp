@@ -112,19 +112,19 @@ std::map<int, std::pair<int, long>> id_to_kabs; //regionId to kabs state and tim
 std::map<int, std::pair<int, long>> led_to_kabs; // ledPosition to kabs state and time
 std::map<int, std::pair<int, long>> id_to_energy; //regionId to energy state and time
 std::map<int, std::pair<int, long>> led_to_energy; // ledPosition to energy state and time
-std::map<int, int>                id_to_radiation; //regionId to radiation
-std::map<int, int>                led_to_radiation; // ledPosition to radiation
+std::map<int, int>                  id_to_radiation; //regionId to radiation
+std::map<int, int>                  led_to_radiation; // ledPosition to radiation
 std::map<int, int>                  led_to_flag_color; // ledPosition to flag color
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
 
 std::pair<int, int*> (*ledMapping)(int key);
 
-bool      isFirstDataFetchCompleted = false;
+bool    isFirstDataFetchCompleted = false;
 
-float     brightnessFactor = 0.5f;
-int       minBrightness = 1;
-float     minBlinkBrightness = 0.05f;
+float   brightnessFactor = 0.5f;
+int     minBrightness = 1;
+float   minBlinkBrightness = 0.05f;
 
 bool    shouldWifiReconnect = false;
 bool    websocketReconnect = false;
@@ -139,9 +139,6 @@ char    currentFwVersion[25];
 bool    apiConnected;
 bool    haConnected;
 int     prevMapMode = 1;
-int     volumeCurrent = 0;
-int     volumeDay = 0;
-int     volumeNight = 0;
 bool    alarmNow = false;
 bool    alarmDronesNow = false;
 bool    alarmMissilesNow = false;
@@ -162,7 +159,6 @@ float   cpuTemp;
 float   usedHeapSize;
 float   freeHeapSize;
 int     wifiSignal;
-int     soundSource = -1;
 
 enum GlobalNotificationType {
   IS_MIG,
@@ -221,18 +217,6 @@ bool isClearPinEnabled() {
   return settings.getInt(CLEAR_PIN) > -1;
 }
 
-bool isBuzzerEnabled() {
-  return settings.getInt(BUZZER_PIN) > -1;
-}
-
-bool isDFPlayerEnabled() {
-  return settings.getInt(DF_RX_PIN) > -1 && settings.getInt(DF_TX_PIN) > -1;
-}
-
-bool isDFPlayerConnected() {
-  return sound.isDFPlayerConnected();
-}
-
 bool isAnalogLightSensorEnabled() {
   return settings.getInt(LIGHT_SENSOR_PIN) > -1;
 }
@@ -269,7 +253,7 @@ int getIndexById(SettingListItem list[], int id, int size) {
 
 String getTrackById(int id) {
 #if DFPLAYER_PRO_ENABLED
-  if (isDFPlayerConnected()) {
+  if (sound.isDFPlayerConnected()) {
     for (int i = 0; i < totalFiles; i++) {
       if (dynamicTrackNames[i].id == id) {
         return dynamicTracks[i];
@@ -325,16 +309,20 @@ void rebootDevice(int time = 2000, bool async = false) {
 
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
-  if (isBuzzerEnabled() && (soundSource == 0 || soundSource == 2)) {
+  if (sound.isBuzzerEnabled() && (sound.soundSource == 0 || sound.soundSource == 2)) {
     sound.playBuzzer(melodyRtttl);
+  } else {
+    LOG.println("Buzzer not enabled or sound source not valid (need 0 or 2): " + String(sound.soundSource));
   }
 #endif
 }
 
 void playTrack(String track) {
 #if DFPLAYER_PRO_ENABLED
-  if (track != "" && (soundSource == 1 || soundSource == 2)) {
+  if (track != "" && (sound.soundSource == 1 || sound.soundSource == 2)) {
     sound.playDFPlayer(track);
+  } else {
+    LOG.println("DFPlayer not enabled or sound source not valid (need 1 or 2): " + String(sound.soundSource));
   }
 #endif
 }
@@ -1785,41 +1773,37 @@ void showNewFirmwareNotification() {
 void volumeCycle() {
   int volumeLocal;
   if (getNightModeType() > 0) {
-    volumeLocal = volumeNight;
+    volumeLocal = sound.volumeNight;
   } else {
-    volumeLocal = volumeDay;
+    volumeLocal = sound.volumeDay;
   }
-  if (volumeLocal != volumeCurrent) {
-    volumeCurrent = volumeLocal;
-    settings.saveInt(MELODY_VOLUME_CURRENT, volumeCurrent);
+  if (volumeLocal != sound.volumeCurrent) {
+    sound.setVolumeCurrent(volumeLocal);
+    settings.saveInt(MELODY_VOLUME_CURRENT, volumeLocal);
     #if BUZZER_ENABLED
-    if (isBuzzerEnabled()) {
-      sound.setBuzzerVolume(volumeCurrent); 
+    if (sound.isBuzzerEnabled()) {
+      sound.setBuzzerVolume(volumeLocal); 
     }
     #endif
     #if DFPLAYER_PRO_ENABLED
-    if (isDFPlayerConnected()) {
-      sound.setDFPlayerVolume(volumeCurrent); 
+    if (sound.isDFPlayerConnected()) {
+      sound.setDFPlayerVolume(volumeLocal); 
     }
     #endif
-    LOG.printf("Set volume to: %d\n", volumeCurrent);
+    LOG.printf("Set volume to: %d\n", volumeLocal);
   }
 }
 
 void setCurrentVolume(int volume, Type settingType) {
   switch (settingType) {
     case MELODY_VOLUME_NIGHT:
-      volumeNight  = volume;
+      sound.setVolumeNight(volume);
       break;
     case MELODY_VOLUME_DAY:
-      volumeDay  = volume;
+      sound.setVolumeDay(volume);
       break;
   }
   volumeCycle();
-}
-
-void setSoundSource(int source) {
-  soundSource = source;
 }
 
 void displayCycle() {
@@ -2261,10 +2245,10 @@ void addHeader(Print* response) {
     response->print(climate.getSensorModel());
     response->println("</b>");
   }
-  if (isBuzzerEnabled()) {
+  if (sound.isBuzzerEnabled()) {
     response->println("</br>Буззер: <b>налаштовано</b>");;
   }
-  if (isDFPlayerConnected()) {
+  if (sound.isDFPlayerConnected()) {
     response->println("</br>DF Player Pro: <b>налаштовано</b>");;
   }
   response->println("</div>");
@@ -2278,7 +2262,7 @@ void addLinks(Print* response) {
   response->println("<a href='/colors' class='btn btn-success'>Кольори</a>");
   response->println("<a href='/modes' class='btn btn-success'>Режими</a>");
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
-  if (isBuzzerEnabled() || isDFPlayerConnected()) {
+  if (sound.isBuzzerEnabled() || sound.isDFPlayerConnected()) {
     response->println("<a href='/sounds' class='btn btn-success'>Звуки</a>");
   }
 #endif
@@ -2530,34 +2514,34 @@ void handleSounds(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
-  if (isBuzzerEnabled() && isDFPlayerConnected()) {
+  if (sound.isBuzzerEnabled() && sound.isDFPlayerConnected()) {
     addSelectBox(response, "sound_source", "Джерело звуку", settings.getInt(SOUND_SOURCE), SOUND_SOURCES, SOUND_SOURCES_COUNT);
   }
   addCheckbox(response, "sound_on_min_of_sl", settings.getBool(SOUND_ON_MIN_OF_SL), "Відтворювати звуки під час \"Xвилини мовчання\"");
   addCheckbox(response, "sound_on_alert", settings.getBool(SOUND_ON_ALERT), "Звукове сповіщення при тривозі у домашньому регіоні", "window.disableElement(\"melody_on_alert\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні (буззер)", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_alert", "Трек при тривозі у домашньому регіоні", settings.getInt(TRACK_ON_ALERT), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_ALERT), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_alert", "Мелодія при тривозі у домашньому регіоні (буззер)", settings.getInt(MELODY_ON_ALERT), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_alert", "Трек при тривозі у домашньому регіоні", settings.getInt(TRACK_ON_ALERT), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_ALERT), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_alert_end", settings.getBool(SOUND_ON_ALERT_END), "Звукове сповіщення при скасуванні тривоги у домашньому регіоні", "window.disableElement(\"melody_on_alert_end\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_alert_end", "Трек при скасуванні тривоги у домашньому регіоні", settings.getInt(TRACK_ON_ALERT_END), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_alert_end", "Мелодія при скасуванні тривоги у домашньому регіоні", settings.getInt(MELODY_ON_ALERT_END), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_alert_end", "Трек при скасуванні тривоги у домашньому регіоні", settings.getInt(TRACK_ON_ALERT_END), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_ALERT_END), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_explosion", settings.getBool(SOUND_ON_EXPLOSION), "Звукове сповіщення при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", "window.disableElement(\"melody_on_explosion\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_explosion", "Трек при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", settings.getInt(TRACK_ON_EXPLOSION), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_explosion", "Мелодія при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", settings.getInt(MELODY_ON_EXPLOSION), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_explosion", "Трек при вибухах, БПЛА, КАБ, ракетах у домашньому регіоні", settings.getInt(TRACK_ON_EXPLOSION), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_EXPLOSION), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_critical_mig", settings.getBool(SOUND_ON_CRITICAL_MIG), "Звукове сповіщення при критичному сповіщенні 'Зліт МІГ-31к'", "window.disableElement(\"melody_on_critical_mig\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_critical_mig", "Трек при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(TRACK_ON_CRITICAL_MIG), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_critical_mig", "Мелодія при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(MELODY_ON_CRITICAL_MIG), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_critical_mig", "Трек при критичному сповіщенні 'Зліт МІГ-31к'", settings.getInt(TRACK_ON_CRITICAL_MIG), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_MIG), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_critical_strategic", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "Звукове сповіщення при критичному сповіщенні 'Зліт стратегічної авіації'", "window.disableElement(\"melody_on_critical_strategic\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_critical_strategic", "Мелодія при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_critical_strategic", "Трек при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(TRACK_ON_CRITICAL_STRATEGIC), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_critical_strategic", "Мелодія при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_critical_strategic", "Трек при критичному сповіщенні 'Зліт стратегічної авіації'", settings.getInt(TRACK_ON_CRITICAL_STRATEGIC), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_critical_mig_missiles", settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", "window.disableElement(\"melody_on_critical_mig_missiles\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_critical_mig_missiles", "Мелодія при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_critical_mig_missiles", "Трек при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", settings.getInt(TRACK_ON_CRITICAL_MIG_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_critical_mig_missiles", "Мелодія при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", settings.getInt(MELODY_ON_CRITICAL_MIG_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_critical_mig_missiles", "Трек при критичному сповіщенні 'Запуск Х-47М2 «Кинджал»'", settings.getInt(TRACK_ON_CRITICAL_MIG_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_MIG_MISSILES), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_critical_ballistic_missiles", settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Балістика'", "window.disableElement(\"melody_on_critical_ballistic_missiles\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_critical_ballistic_missiles", "Мелодія при критичному сповіщенні 'Балістика'", settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_critical_ballistic_missiles", "Трек при критичному сповіщенні 'Балістика'", settings.getInt(TRACK_ON_CRITICAL_BALLISTIC_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_critical_ballistic_missiles", "Мелодія при критичному сповіщенні 'Балістика'", settings.getInt(MELODY_ON_CRITICAL_BALLISTIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_critical_ballistic_missiles", "Трек при критичному сповіщенні 'Балістика'", settings.getInt(TRACK_ON_CRITICAL_BALLISTIC_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_BALLISTIC_MISSILES), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_critical_strategic_missiles", settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "Звукове сповіщення при критичному сповіщенні 'Запуск крилатих ракет'", "window.disableElement(\"melody_on_critical_strategic_missiles\", !this.checked);");
-  if (isBuzzerEnabled() && soundSource == 0) addSelectBox(response, "melody_on_critical_strategic_missiles", "Мелодія при критичному сповіщенні 'Запуск крилатих ракет'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestSound(this.value);");
-  if (isDFPlayerConnected() && soundSource == 1) addSelectBox(response, "track_on_critical_strategic_missiles", "Трек при критичному сповіщенні 'Запуск крилатих ракет'", settings.getInt(TRACK_ON_CRITICAL_STRATEGIC_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestTrack(this.value);");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) addSelectBox(response, "melody_on_critical_strategic_missiles", "Мелодія при критичному сповіщенні 'Запуск крилатих ракет'", settings.getInt(MELODY_ON_CRITICAL_STRATEGIC_MISSILES), MELODY_NAMES, MELODIES_COUNT, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestSound(this.value);");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) addSelectBox(response, "track_on_critical_strategic_missiles", "Трек при критичному сповіщенні 'Запуск крилатих ракет'", settings.getInt(TRACK_ON_CRITICAL_STRATEGIC_MISSILES), dynamicTrackNames, totalFiles, !settings.getBool(SOUND_ON_CRITICAL_STRATEGIC_MISSILES), "window.playTestTrack(this.value);");
   addCheckbox(response, "sound_on_every_hour", settings.getBool(SOUND_ON_EVERY_HOUR), "Звукове сповіщення щогодини");
   addCheckbox(response, "sound_on_button_click", settings.getBool(SOUND_ON_BUTTON_CLICK), "Сигнали при натисканні кнопки");
   addCheckbox(response, "mute_sound_on_night", settings.getBool(MUTE_SOUND_ON_NIGHT), "Вимикати всі звуки у нічний час (налаштовується на вкладці \"Режими\")", "window.disableElement(\"ignore_mute_on_alert\", !this.checked);");
@@ -2566,8 +2550,8 @@ void handleSounds(AsyncWebServerRequest* request) {
   addSlider(response, "melody_volume_night", "Гучність мелодії вночі", settings.getInt(MELODY_VOLUME_NIGHT), 0, 100, 1, "%");
 
   response->println("<button type='submit' class='btn btn-info aria-expanded='false'>Зберегти налаштування</button>");
-  if (isBuzzerEnabled() && soundSource == 0) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест буззера</button>");
-  if (isDFPlayerConnected() && soundSource == 1) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestTrack();' aria-expanded='false'>Тест DF Player Pro</button>");
+  if (sound.isBuzzerEnabled() && sound.soundSource == 0) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestSound();' aria-expanded='false'>Тест буззера</button>");
+  if (sound.isDFPlayerConnected() && sound.soundSource == 1) response->println("<button type='button' class='btn btn-primary float-right' onclick='playTestTrack();' aria-expanded='false'>Тест DF Player Pro</button>");
 #endif
   response->println("</div>");
   response->println("</div>");
@@ -2977,7 +2961,7 @@ void handleSaveModes(AsyncWebServerRequest* request) {
 void handleSaveSounds(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveInt(request->getParam("sound_source", true), SOUND_SOURCE, NULL, []() {
-    setSoundSource(settings.getInt(SOUND_SOURCE));
+    sound.setSoundSource(settings.getInt(SOUND_SOURCE));
   }) || saved;
   saved = saveBool(request->getParam("sound_on_min_of_sl", true), "sound_on_min_of_sl", SOUND_ON_MIN_OF_SL) || saved;
   saved = saveBool(request->getParam("sound_on_alert", true), "sound_on_alert", SOUND_ON_ALERT) || saved;
@@ -3110,7 +3094,7 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 
 #if BUZZER_ENABLED
 void handlePlayTestSound(AsyncWebServerRequest* request) {
-  if (isBuzzerEnabled()) {
+  if (sound.isBuzzerEnabled()) {
     int soundId = request->getParam("id", false)->value().toInt();
     if (soundId < 0 || soundId >= MELODIES_COUNT) {
       request->send(400, "text/plain", "Invalid sound ID");
@@ -3125,7 +3109,7 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 
 #if DFPLAYER_PRO_ENABLED
 void handlePlayTestTrackById(AsyncWebServerRequest* request) {
-  if (isDFPlayerConnected()) {
+  if (sound.isDFPlayerConnected()) {
     if (request->hasParam("id")) {
       int trackId = request->getParam("id", false)->value().toInt();
       if (trackId < 0 || trackId >= totalFiles) {
@@ -3144,7 +3128,7 @@ void handlePlayTestTrackById(AsyncWebServerRequest* request) {
 }
 
 void handlePlayTestTrackByFileName(AsyncWebServerRequest* request) {
-  if (isDFPlayerConnected()) {
+  if (sound.isDFPlayerConnected()) {
     if (request->hasParam("name")) {
       String trackName = request->getParam("name")->value();
       playTrack(trackName);
@@ -3173,7 +3157,7 @@ void setupRouting() {
   webserver.on("/modes", HTTP_GET, handleModes);
   webserver.on("/saveModes", HTTP_POST, handleSaveModes);
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
-  if (isBuzzerEnabled() || isDFPlayerConnected()) {
+  if (sound.isBuzzerEnabled() || sound.isDFPlayerConnected()) {
     webserver.on("/sounds", HTTP_GET, handleSounds);
     webserver.on("/saveSounds", HTTP_POST, handleSaveSounds);
   }
@@ -3188,12 +3172,12 @@ void setupRouting() {
   webserver.on("/update", HTTP_POST, handleUpdate);
 #endif
 #if BUZZER_ENABLED
-  if (isBuzzerEnabled()) {
+  if (sound.isBuzzerEnabled()) {
     webserver.on("/playTestSound", HTTP_GET, handlePlayTestSound);
   }
 #endif
 #if DFPLAYER_PRO_ENABLED
-  if (isDFPlayerConnected()) {
+  if (sound.isDFPlayerConnected()) {
     webserver.on("/playTestTrackById", HTTP_GET, handlePlayTestTrackById);
     webserver.on("/playTestTrackByFileName", HTTP_GET, handlePlayTestTrackByFileName);
   }
@@ -3782,7 +3766,7 @@ void checkMinuteOfSilence() {
     }
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
     // play UA Anthem when min of silence ends
-    if ((isBuzzerEnabled() || isDFPlayerConnected()) && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
+    if ((sound.isBuzzerEnabled() || sound.isDFPlayerConnected()) && !minuteOfSilence && needToPlaySound(MIN_OF_SILINCE_END)) {
       playMelody(MIN_OF_SILINCE_END);
       uaAnthemPlaying = true;
     }
@@ -4067,15 +4051,15 @@ void calculateStates() {
   checkHomeDistrictAlerts();
 
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
-  if (isBuzzerEnabled() || isDFPlayerConnected()) {
+  if (sound.isBuzzerEnabled() || sound.isDFPlayerConnected()) {
     checkCurrentTimeAndPlaySound();
 
-    if(isBuzzerEnabled()) {
+    if(sound.isBuzzerEnabled()) {
       if (uaAnthemPlaying && !sound.isBuzzerPlaying()) {
         uaAnthemPlaying = false;
       }
     }
-    if(isDFPlayerConnected()) {
+    if(sound.isDFPlayerConnected()) {
       if (uaAnthemPlaying && !sound.isDFPlayerPlaying()) {
         uaAnthemPlaying = false;
       }
@@ -4389,31 +4373,29 @@ int findTrackIndex(int fileNumber) {
 
 void initSound() {
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
-  volumeCurrent = settings.getInt(MELODY_VOLUME_CURRENT);
-  volumeDay = settings.getInt(MELODY_VOLUME_DAY);
-  volumeNight = settings.getInt(MELODY_VOLUME_NIGHT);
+  sound.init(
+    settings.getInt(BUZZER_PIN), 
+    settings.getInt(DF_RX_PIN), 
+    settings.getInt(DF_TX_PIN),
+    settings.getInt(MELODY_VOLUME_CURRENT),
+    settings.getInt(MELODY_VOLUME_DAY),
+    settings.getInt(MELODY_VOLUME_NIGHT)
+  );
 #endif
 #if BUZZER_ENABLED
-  if (isBuzzerEnabled()) {  
-    sound.initBuzzer(
-      settings.getInt(BUZZER_PIN), 
-      volumeCurrent
-    );
+  if (sound.isBuzzerEnabled()) {  
+    sound.initBuzzer();
   }
 #endif
 #if DFPLAYER_PRO_ENABLED
-  if (isDFPlayerEnabled()) {
-    sound.initDFPlayer(
-      settings.getInt(DF_RX_PIN),
-      settings.getInt(DF_TX_PIN),
-      volumeCurrent
-    );
+  if (sound.isDFPlayerEnabled()) {
+    sound.initDFPlayer();
 
     totalFiles = sound.getDFPlayerFilesCount();
     if (totalFiles <= 0) {
       return;
     }
-    if (sound.isDFPlayerfilesLimit(totalFiles)) {
+    if (sound.isDFPlayerFilesLimitReached(totalFiles)) {
       LOG.printf("DFPlayer files limit reached: (%d/%d)\n", totalFiles, sound.maxFilesCount);
       return;
     }
@@ -4450,21 +4432,17 @@ void initSound() {
     }
   }
 #endif
-}
 
-void initSoundSource() {
-#if DFPLAYER_PRO_ENABLED || BUZZER_ENABLED
-  if (isBuzzerEnabled()) {
-    soundSource = 0;
+  if (sound.isBuzzerEnabled() && sound.isDFPlayerConnected()) {
+    sound.setSoundSource(settings.getInt(SOUND_SOURCE));
+  } else if (sound.isBuzzerEnabled()) {
+    sound.setSoundSource(0);
+  } else if (sound.isDFPlayerConnected()) {
+    sound.setSoundSource(1);
+  } else {
+    sound.setSoundSource(-1);
   }
-  if (isDFPlayerConnected()) {
-    soundSource = 1;
-  }
-  if (isBuzzerEnabled() && isDFPlayerConnected()) {
-    soundSource = settings.getInt(SOUND_SOURCE);
-  }
-  LOG.printf("Sound source: %d\n", soundSource);
-#endif
+  LOG.printf("Sound source: %d\n", sound.soundSource);
 }
 
 void initSensors() {
@@ -4703,7 +4681,6 @@ void setup() {
   initDisplay();
   initSensors();
   initSound();
-  initSoundSource();
 #if TEST_MODE
   runSelfTests();
 #else

@@ -25,29 +25,48 @@ class JaamSound {
         HardwareSerial dfSerial;
         DFRobot_DF1201S dfplayer;
         int dfPlayerMaxVolume;
-        
     #endif
+        int buzzerPin;
         bool dfConnected; 
+        int dfRxPin;
+        int dfTxPin;
+        
     public:
+        int volumeCurrent;
+        int volumeDay;
+        int volumeNight;
+        int soundSource;// 0 - Buzzer  1 - DFPlayer  2 - Any
     #if DFPLAYER_PRO_ENABLED
         int maxFilesCount;
-        JaamSound() : dfSerial(2), dfPlayerMaxVolume(15), dfConnected(false), maxFilesCount(50) {}
+        JaamSound() : 
+            dfSerial(2), 
+            dfPlayerMaxVolume(15), 
+            dfConnected(false), 
+            maxFilesCount(50) 
+        {}
     #else
-        JaamSound() {}
+        JaamSound() : buzzerPin(-1), dfRxPin(-1), dfTxPin(-1) {}
     #endif
+        void init(int buzzerPin, int rxPin, int txPin, int volCurrent, int volDay, int volNight);
+        void setVolumeCurrent(int volume);
+        void setVolumeDay(int volume);
+        void setVolumeNight(int volume);
+        void setSoundSource(int source);
     #if BUZZER_ENABLED
-        void initBuzzer(int buzzerPin, int volumeCurrent);
+        void initBuzzer();
         void playBuzzer(const char* melodyRtttl);
         void setBuzzerVolume(int volume);
     #endif
     #if DFPLAYER_PRO_ENABLED
-        void initDFPlayer(int rxPin, int txPin, int volumeCurrent);
+        void initDFPlayer();
         void playDFPlayer(String trackPath);
         void setDFPlayerVolume(int volume);
         int getDFPlayerFilesCount();
-        bool isDFPlayerfilesLimit(int totalFiles);
+        bool isDFPlayerFilesLimitReached(int totalFiles);
     #endif
+        bool isBuzzerEnabled();
         bool isBuzzerPlaying();
+        bool isDFPlayerEnabled();
         bool isDFPlayerPlaying();
         bool isDFPlayerConnected();
 };
