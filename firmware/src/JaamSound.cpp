@@ -36,11 +36,19 @@ void JaamSound::initBuzzer() {
 }
 
 void JaamSound::playBuzzer(const char* melodyRtttl) {
+    if (player == nullptr) {
+        LOG.println("Buzzer not initialised, cannot play melody");
+        return;
+    }
     Melody melody = MelodyFactory.loadRtttlString(melodyRtttl);
     player->playAsync(melody);
 }
 
 void JaamSound::setBuzzerVolume(int volume) {
+    if (player == nullptr) {
+        LOG.println("Buzzer not initialised, cannot set volume");
+        return;
+    }
     player->setVolume(expMap(volume, 0, 100, 0, 255));
     LOG.printf("Set buzzer volume to: %d\n", volume);
 }
@@ -67,14 +75,37 @@ bool JaamSound::isBuzzerPlaying() {
 #endif
 }
 
+int JaamSound::findTrackIndex(int number) {
+    #if DFPLAYER_PRO_ENABLED
+      String trackName = String("/") + (number < 10 ? "0" : "") + String(number) + ".mp3";
+    
+      for (int i = 0; i < TRACKS_COUNT; i++) {
+        if (TRACKS[i] == trackName) {
+          return i;
+        }
+      }
+    #endif
+      return -1;
+    }
+String JaamSound::getTrackById(int id) {
+    if (dfConnected) {
+        for (int i = 0; i < dfTotalFiles; i++) {
+            if (dynamicTrackNames[i].id == id) {
+            return dynamicTracks[i];
+            }
+        }
+    }
+    return "";
+}
+
 #if DFPLAYER_PRO_ENABLED
-bool JaamSound::isDFPlayerFilesLimitReached(int totalFiles) {
+bool JaamSound::isDFPlayerFilesLimitReached(int dfTotalFiles) {
     if (!dfConnected) {
         LOG.println("DFPlayer not connected, cannot check files limit");
         return false;
     }
-    if (totalFiles > maxFilesCount) {
-        LOG.printf("DFPlayer files limit reached: %d/%d\n", totalFiles, maxFilesCount);
+    if (dfTotalFiles > maxFilesCount) {
+        LOG.printf("DFPlayer files limit reached: %d/%d\n", dfTotalFiles, maxFilesCount);
         return true;
     }
     return false;
@@ -99,7 +130,10 @@ void JaamSound::initDFPlayer() {
       LOG.println("DFPlayer not found...");
       delay(1000);
       count++;
-      if (count > attempts) return;
+      if (count > attempts) {
+        LOG.println("DFPlayer init failed: max attempts reached");
+        return;
+      }
       
     }
     LOG.println("DFPlayer RX OK!");
@@ -125,6 +159,47 @@ void JaamSound::initDFPlayer() {
     delay(500);
 
     dfplayer.setLED(false);
+
+    dfTotalFiles = getDFPlayerFilesCount();
+    if (dfTotalFiles <= 0) {
+      return;
+    }
+    if (isDFPlayerFilesLimitReached(dfTotalFiles)) {
+      LOG.printf("DFPlayer files limit reached: (%d/%d)\n", dfTotalFiles, maxFilesCount);
+      return;
+    }
+
+    dynamicTracks = new String[dfTotalFiles];
+    dynamicTrackNames = new SettingListItem[dfTotalFiles];
+
+    for (int i = 0; i < dfTotalFiles; i++) {
+      int fileNumber = i + 1;
+
+      int foundIndex = findTrackIndex(fileNumber);
+
+      if (foundIndex >= 0) {
+        dynamicTracks[i] = TRACKS[foundIndex];
+        dynamicTrackNames[i] = TRACK_NAMES[foundIndex];
+      } else {
+        String trackPath = String("/") + (fileNumber < 10 ? "0" : "") + String(fileNumber) + ".mp3";
+        dynamicTracks[i] = trackPath;
+
+        char buf[16];   
+        snprintf(buf, sizeof(buf), "%d", fileNumber);
+
+        dynamicTrackNames[i].id = i;
+        dynamicTrackNames[i].name = strdup(buf);
+        dynamicTrackNames[i].ignore = false;
+      }
+    }
+
+    for (int i = 0; i < dfTotalFiles; i++) {
+      LOG.print(dynamicTrackNames[i].id);
+      LOG.print(": ");
+      LOG.print(dynamicTracks[i]);
+      LOG.print(" - ");
+      LOG.println(dynamicTrackNames[i].name);
+    }
 }
 
 void JaamSound::playDFPlayer(String trackPath) {

@@ -1,3 +1,6 @@
+#pragma once
+#include <cmath>
+#include "Constants.h"
 #if BUZZER_ENABLED
 #include <melody_player.h>
 #include <melody_factory.h>
@@ -32,21 +35,29 @@ class JaamSound {
         int dfTxPin;
         
     public:
+    #if DFPLAYER_PRO_ENABLED
+        int maxFilesCount;
+    #endif
+        int dfTotalFiles;
         int volumeCurrent;
         int volumeDay;
         int volumeNight;
         int soundSource;// 0 - Buzzer  1 - DFPlayer  2 - Any
-    #if DFPLAYER_PRO_ENABLED
-        int maxFilesCount;
+        String* dynamicTracks;
+        SettingListItem* dynamicTrackNames;
+
         JaamSound() : 
+        #if DFPLAYER_PRO_ENABLED
             dfSerial(2), 
-            dfPlayerMaxVolume(15), 
-            dfConnected(false), 
-            maxFilesCount(50) 
-        {}
-    #else
-        JaamSound() : buzzerPin(-1), dfRxPin(-1), dfTxPin(-1) {}
-    #endif
+            dfPlayerMaxVolume(15),
+            maxFilesCount(50), 
+        #endif
+            dfConnected(false),
+            dfTotalFiles(0),
+            buzzerPin(-1), 
+            dfRxPin(-1), 
+            dfTxPin(-1)
+        {};
         void init(int buzzerPin, int rxPin, int txPin, int volCurrent, int volDay, int volNight);
         void setVolumeCurrent(int volume);
         void setVolumeDay(int volume);
@@ -62,8 +73,10 @@ class JaamSound {
         void playDFPlayer(String trackPath);
         void setDFPlayerVolume(int volume);
         int getDFPlayerFilesCount();
-        bool isDFPlayerFilesLimitReached(int totalFiles);
+        bool isDFPlayerFilesLimitReached(int dfTotalFiles);
     #endif
+        String getTrackById(int id);
+        int findTrackIndex(int number);
         bool isBuzzerEnabled();
         bool isBuzzerPlaying();
         bool isDFPlayerEnabled();

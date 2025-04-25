@@ -1,3 +1,4 @@
+#pragma once
 #include <Arduino.h>
 #include <map>
 
@@ -144,7 +145,8 @@ static const String DF_HARRY_POTTER = "/29.mp3";
 static const String DF_MARCH = "/30.mp3";
 static const String DF_MANDALORIAN_CALL = "/31.mp3";
 static const String DF_MARIO = "/32.mp3";
-static const String DF_PACMAN = "/33.mp3"; 
+static const String DF_PACMAN = "/33.mp3";
+static const String DF_HELLDIVERS = "/34.mp3";  
 
 #define TRACKS_COUNT 3
 static String TRACKS[TRACKS_COUNT] = {
