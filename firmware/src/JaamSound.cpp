@@ -162,6 +162,7 @@ void JaamSound::initDFPlayer() {
 
     dfTotalFiles = getDFPlayerFilesCount();
     if (dfTotalFiles <= 0) {
+    LOG.printf("DFPlayer has no playable files\n");
       return;
     }
     if (isDFPlayerFilesLimitReached(dfTotalFiles)) {
