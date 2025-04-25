@@ -4413,6 +4413,10 @@ void initSound() {
     if (totalFiles <= 0) {
       return;
     }
+    if (sound.isDFPlayerfilesLimit(totalFiles)) {
+      LOG.printf("DFPlayer files limit reached: (%d/%d)\n", totalFiles, sound.maxFilesCount);
+      return;
+    }
     dynamicTracks = new String[totalFiles];
     dynamicTrackNames = new SettingListItem[totalFiles];
 

@@ -30,6 +30,17 @@ bool JaamSound::isBuzzerPlaying() {
 }
 
 #if DFPLAYER_PRO_ENABLED
+bool JaamSound::isDFPlayerfilesLimit(int totalFiles) {
+    if (!dfConnected) {
+        LOG.println("DFPlayer not connected, cannot check files limit");
+        return false;
+    }
+    if (totalFiles > maxFilesCount) {
+        LOG.printf("DFPlayer files limit reached: %d/%d\n", totalFiles, maxFilesCount);
+        return true;
+    }
+    return false;
+}
 void JaamSound::initDFPlayer(int rxPin, int txPin, int volumeCurrent) {
     int8_t attempts = 5;
     int8_t count = 1;
@@ -37,6 +48,13 @@ void JaamSound::initDFPlayer(int rxPin, int txPin, int volumeCurrent) {
 
     LOG.println("Init DFPlayer");
     LOG.printf("rx, tx: %d, %d\n", rxPin, txPin);
+
+    // Turn off the start prompt
+    dfSerial.print("AT+PROMPT=OFF\r\n");
+    delay(100);
+    while (dfSerial.available()) {
+        LOG.println(dfSerial.read());
+    }
 
     while (!dfplayer.begin(dfSerial)) {
       LOG.printf("Attempt #%d of %d\n", count, attempts);
@@ -63,7 +81,7 @@ void JaamSound::initDFPlayer(int rxPin, int txPin, int volumeCurrent) {
     LOG.print("Volume: ");
     LOG.println(dfplayer.getVol());
 
-    dfplayer.setPlayMode(dfplayer.ALLCYCLE);
+    dfplayer.setPlayMode(dfplayer.SINGLECYCLE);
     LOG.print("PlayMode: ");
     LOG.println(dfplayer.getPlayMode());
     delay(500);
