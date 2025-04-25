@@ -11,6 +11,18 @@
 #endif
 
 
+/**
+ * @brief Applies an exponential scaling transformation to an input value within a specified range.
+ *
+ * Maps the input value x from the range [in_min, in_max] to the output range [out_min, out_max] using a quadratic (exponential) curve. This is useful for non-linear scaling, such as adjusting perceived loudness or other parameters that benefit from exponential mapping.
+ *
+ * @param x Input value to be mapped.
+ * @param in_min Minimum value of the input range.
+ * @param in_max Maximum value of the input range.
+ * @param out_min Minimum value of the output range.
+ * @param out_max Maximum value of the output range.
+ * @return int The exponentially scaled value mapped to the output range.
+ */
 class JaamSound {
     private:
     #if BUZZER_ENABLED
