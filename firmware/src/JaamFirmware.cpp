@@ -4339,21 +4339,6 @@ void initDisplay() {
   initDisplayOptions();
 }
 
-int findTrackIndex(int fileNumber) {
-#if DFPLAYER_PRO_ENABLED
-  String trackName = String("/") + (fileNumber < 10 ? "0" : "") + String(fileNumber) + ".mp3";
-
-  for (int i = 0; i < TRACKS_COUNT; i++) {
-    if (TRACKS[i] == trackName) {
-      return i;
-    }
-  }
-#endif
-  return -1;
-}
-
-
-
 void initSound() {
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
   sound.init(
