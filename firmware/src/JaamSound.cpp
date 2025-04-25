@@ -1,30 +1,6 @@
 #include "JaamSound.h"
 #include "JaamLogs.h"
 
-#if BUZZER_ENABLED
-MelodyPlayer* player;
-
-int expMap(int x, int in_min, int in_max, int out_min, int out_max) {
-    // Apply exponential transformation to the original input value x
-    float normalized = (float)(x - in_min) / (in_max - in_min);
-    float scaled = pow(normalized, 2);
-  
-    // Map the scaled value to the output range
-    return (int)(scaled * (out_max - out_min) + out_min);
-}
-#endif
-#if DFPLAYER_PRO_ENABLED
-HardwareSerial dfSerial(2);
-DFRobot_DF1201S dfplayer;
-int dfPlayerMaxVolume = 15;
-bool dfConnected = false;
-#endif
-
-
-
-JaamSound::JaamSound() {
-}
-
 
 #if BUZZER_ENABLED
 void JaamSound::initBuzzer(int buzzerPin, int volumeCurrent) {
@@ -95,20 +71,32 @@ void JaamSound::initDFPlayer(int rxPin, int txPin, int volumeCurrent) {
     dfplayer.setLED(false);
 }
 
-void JaamSound::playDfPlayer(String trackPath) {
+void JaamSound::playDFPlayer(String trackPath) {
+    if (!dfConnected) {
+        LOG.println("DFPlayer not connected, cannot play track");
+        return;
+    }
     dfplayer.playSpecFile(trackPath);
     LOG.printf("Track played: %s (%s)\n", trackPath.c_str(), dfplayer.getFileName());
 }
 
 
 void JaamSound::setDFPlayerVolume(int volume) {
+    if (!dfConnected) {
+        LOG.println("DFPlayer not connected, cannot set volume");
+        return;
+    }
     dfplayer.setVol(map(volume, 0, 100, 0, dfPlayerMaxVolume));
     LOG.printf("Set DFPlayer volume to: %d\n", volume);
 }
 
 
 
-int JaamSound::getDfPlayerFilesCount() {
+int JaamSound::getDFPlayerFilesCount() {
+    if (!dfConnected) {
+        LOG.println("DFPlayer not connected, cannot get files count");
+        return 0;
+    }
     int filesCount = dfplayer.getTotalFile();
     LOG.printf("DFPlayer files count: %d\n", filesCount);
     return filesCount;

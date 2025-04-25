@@ -333,8 +333,8 @@ void playMelody(const char* melodyRtttl) {
 
 void playTrack(String track) {
 #if DFPLAYER_PRO_ENABLED
-  if (isDFPlayerConnected() && track != "" && (soundSource == 1 || soundSource == 2)) {
-    sound.playDfPlayer(track);
+  if (track != "" && (soundSource == 1 || soundSource == 2)) {
+    sound.playDFPlayer(track);
   }
 #endif
 }
@@ -4409,11 +4409,8 @@ void initSound() {
       volumeCurrent
     );
 
-    totalFiles = sound.getDfPlayerFilesCount();
-    LOG.print("The number of files available to play: ");
-    LOG.println(totalFiles);
+    totalFiles = sound.getDFPlayerFilesCount();
     if (totalFiles <= 0) {
-      LOG.println("No files found!");
       return;
     }
     dynamicTracks = new String[totalFiles];
