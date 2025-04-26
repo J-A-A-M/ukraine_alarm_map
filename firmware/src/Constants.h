@@ -1,3 +1,4 @@
+#pragma once
 #include <Arduino.h>
 #include <map>
 
@@ -12,7 +13,6 @@ struct SettingListItem {
   bool ignore;
 };
 
-#if BUZZER_ENABLED
 static const char UA_ANTHEM[]            PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
 static const char OI_U_LUZI[]            PROGMEM = "OiULuzi:d=32,o=5,b=200:2d,32p,2d,2f.,4d,4e,4f,4e,4d,2c#,2a4,2d.,4e,2f,2e,2d.";
 static const char COSSACKS_MARCH[]       PROGMEM = "CossacksMarch:d=32,o=5,b=200:2d.,8a4,8d,2f.,8d,8f,4d,8a4,8d,4f,8d,8f,4d,8a4,8d,4f,8d,8f,1d.";
@@ -112,8 +112,60 @@ static SettingListItem MELODY_NAMES[MELODIES_COUNT] PROGMEM = {
   {21, "ПТН ХЙЛ", false},
   {22, "Helldivers 2 - A cup of Liber-Tea", false}
 };
-#endif
 
+static const String DF_CLOCK_BEEP = "/01.mp3";
+static const String DF_CLOCK_TICK = "/02.mp3";
+static const String DF_UA_ANTHEM = "/03.mp3";
+static const String DF_SIREN_1 = "/04.mp3";
+static const String DF_SIREN_2 = "/05.mp3";
+static const String DF_SIREN_3 = "/06.mp3";
+static const String DF_SIREN_4 = "/07.mp3";
+static const String DF_SIREN_5 = "/08.mp3";
+static const String DF_SIREN_6 = "/09.mp3";
+static const String DF_SIREN_7 = "/10.mp3";
+static const String DF_SIREN_8 = "/11.mp3";
+static const String DF_SIREN_9 = "/12.mp3";
+static const String DF_SIREN_10 = "/13.mp3";
+static const String DF_THE_HOBBIT = "/14.mp3";
+static const String DF_THE_MATRIX = "/15.mp3";
+static const String DF_AVENGERS = "/16.mp3";
+static const String DF_TERMINATOR_SHORT = "/17.mp3";
+static const String DF_PIRATES_OF_THE_CARRIBEAN = "/18.mp3";
+static const String DF_SIREN_11 = "/19.mp3";
+static const String DF_NOTIFICATION_NEWS = "/20.mp3";
+static const String DF_GOOd_MORNING_VIETNAM = "/21.mp3";
+static const String DF_NOTIFICATION_R2D2 = "/22.mp3";
+static const String DF_NOTIFICATION_STARTREK = "/23.mp3";
+static const String DF_AIR_RAID_1 = "/24.mp3";
+static const String DF_CAROL_OF_THE_BELLS = "/25.mp3";
+static const String DF_NOTIFICATION_BACK_TO_THE_FUTURE = "/26.mp3";
+static const String DF_IMPERIAL_MARCH = "/27.mp3";
+static const String DF_GOOD_BAD_UGLY = "/28.mp3";
+static const String DF_HARRY_POTTER = "/29.mp3";
+static const String DF_MARCH = "/30.mp3";
+static const String DF_MANDALORIAN_CALL = "/31.mp3";
+static const String DF_MARIO = "/32.mp3";
+static const String DF_PACMAN = "/33.mp3";
+static const String DF_HELLDIVERS = "/34.mp3";  
+
+#define TRACKS_COUNT 3
+static String TRACKS[TRACKS_COUNT] = {
+  DF_CLOCK_TICK,
+  DF_CLOCK_BEEP,
+  DF_UA_ANTHEM
+};
+
+static SettingListItem TRACK_NAMES[TRACKS_COUNT] PROGMEM = {
+  {0, "Годинникова стрілка", false},
+  {1, "Годинник", false},
+  {2, "Гімн України", false}
+};
+
+#define SOUND_SOURCES_COUNT 2
+static SettingListItem SOUND_SOURCES[SOUND_SOURCES_COUNT] PROGMEM = {
+  {0, "Buzzer", false},
+  {1, "DF Player Pro", false}
+};
 
 static const int WDT_TIMEOUT = 15; // seconds
 static const int CLEAR = 0;
