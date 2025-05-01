@@ -53,7 +53,11 @@ docker rm map_bot_guard || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_bot_guard --restart unless-stopped --network=jaam -d --env ALLOWED_CHAT_IDS="$ALLOWED_CHAT_IDS" --env BOT_TOKEN="$BOT_TOKEN" --env LOGGING="$LOGGING" map_alerts
+docker run --name map_bot_guard --restart unless-stopped --network=jaam -d \
+    --env ALLOWED_CHAT_IDS="$ALLOWED_CHAT_IDS" \
+    --env BOT_TOKEN="$BOT_TOKEN" \
+    --env LOGGING="$LOGGING" \
+    map_bot_guard
 
 echo "Container deployed successfully!"
 
