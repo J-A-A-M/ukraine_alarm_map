@@ -1,0 +1,26 @@
+name: ⚖️ Deploy Bot Guard
+on: workflow_dispatch
+jobs:
+    deploy_bot_guard:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy Bot Guard
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_bot_guard.sh -a ${{ secrets.BOT_GUARD_ALLOWED_CHAT_IDS }} -b ${{ secrets.BOT_GUARD_TOKEN }}
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f
