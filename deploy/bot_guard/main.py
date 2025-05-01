@@ -3,6 +3,7 @@ import random
 import logging
 import asyncio
 import yaml
+import re
 from telegram import (
     Update,
     ChatPermissions,
@@ -214,13 +215,15 @@ if __name__ == "__main__":
             raise RuntimeError("BOT_TOKEN не заданий")
         app = Application.builder().token(token).build()
 
+        allowed = "|".join(map(lambda b: re.escape(b["label"]), PRIVATE_BUTTONS))
+
         app.add_handler(CommandHandler("start", start_command))
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
         app.add_handler(CallbackQueryHandler(handle_answer))
         app.add_handler(
             MessageHandler(
                 filters.ChatType.PRIVATE
-                & filters.Regex(r"^(" + "|".join(map(lambda b: b["label"], PRIVATE_BUTTONS)) + r")$"),
+                & filters.Regex(rf"^({allowed})$"),
                 handle_private_buttons,
             )
         )
