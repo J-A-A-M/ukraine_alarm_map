@@ -40,7 +40,7 @@ git pull
 
 # Moving to the deployment directory
 echo "Moving to deployment directory..."
-cd alerts
+cd bot_guard
 
 # Building Docker image
 echo "Building Docker image..."
