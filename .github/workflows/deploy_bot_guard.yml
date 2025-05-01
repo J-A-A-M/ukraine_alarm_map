@@ -1,5 +1,7 @@
 name: ⚖️ Deploy Bot Guard
 on: workflow_dispatch
+permissions:
+  contents: read
 jobs:
     deploy_bot_guard:
         runs-on: ubuntu-latest
