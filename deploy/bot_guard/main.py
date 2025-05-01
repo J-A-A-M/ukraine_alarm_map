@@ -23,16 +23,13 @@ from telegram.ext import (
 __version__ = "5"
 
 # --- ЛОГИ ---
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- ШЛЯХИ і ЗАВАНТАЖЕННЯ ---
-BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
-QUESTIONS_PATH   = os.path.join(BASE_DIR, "questions.yaml")
-CONFIG_PATH      = os.path.join(BASE_DIR, "config.yaml")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+QUESTIONS_PATH = os.path.join(BASE_DIR, "questions.yaml")
+CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
 
 logger.debug(f"BASE_DIR: {BASE_DIR}")
 logger.debug(f"QUESTIONS_PATH: {QUESTIONS_PATH}")
@@ -77,6 +74,7 @@ UNRESTRICTED = ChatPermissions(
 user_questions = {}  # user_id: {"answer": str, "message_id": int, "timer": asyncio.Task}
 logger.debug("Initialized user_questions store")
 
+
 async def delete_message_later(bot, chat_id, msg_id, delay):
     logger.debug(f"Scheduling delete for msg {msg_id} in chat {chat_id} after {delay}s")
     await asyncio.sleep(delay)
@@ -85,6 +83,7 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
         logger.info(f"[CLEANUP] Видалено повідомлення {msg_id} в чаті {chat_id}")
     except Exception as e:
         logger.warning(f"[CLEANUP ERROR] Не вдалося видалити повідомлення {msg_id}: {e}")
+
 
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
@@ -98,6 +97,7 @@ async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.leave_chat(chat.id)
         return False
     return True
+
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("new_member handler invoked")
@@ -115,26 +115,20 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         options = q.get("options", [])
         logger.debug(f"Selected question: {q['question']} with options {options} (answer={correct})")
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(opt, callback_data=f"{member.id}:{opt.strip().lower()}")]
-            for opt in options
-        ])
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(opt, callback_data=f"{member.id}:{opt.strip().lower()}")] for opt in options]
+        )
         sent = await context.bot.send_message(
             chat_id,
             f"{member.full_name}, щоб почати спілкування, обери правильну відповідь:\n❓ {q['question']}",
-            reply_markup=kb
+            reply_markup=kb,
         )
         logger.debug(f"Sent question message {sent.message_id} to {member.id}")
 
-        task = asyncio.create_task(
-            delete_message_later(context.bot, chat_id, sent.message_id, 60)
-        )
-        user_questions[member.id] = {
-            "answer": correct,
-            "message_id": sent.message_id,
-            "timer": task
-        }
+        task = asyncio.create_task(delete_message_later(context.bot, chat_id, sent.message_id, 60))
+        user_questions[member.id] = {"answer": correct, "message_id": sent.message_id, "timer": task}
         logger.debug(f"Stored session for user {member.id}")
+
 
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -177,6 +171,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     del user_questions[user.id]
     logger.debug(f"Session cleared for user {user.id}")
 
+
 async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     logger.info(f"handle_private_buttons with text '{text}'")
@@ -186,12 +181,13 @@ async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_T
             logger.debug(f"Replied to private button '{text}'")
             return
 
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     logger.info(f"start_command invoked in chat {chat.id} (type={chat.type})")
     if chat.type == "private":
         labels = [btn["label"] for btn in PRIVATE_BUTTONS]
-        keyboard = [labels[i:i+2] for i in range(0, len(labels), 2)]
+        keyboard = [labels[i : i + 2] for i in range(0, len(labels), 2)]
         markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
         await update.message.reply_text(
@@ -199,7 +195,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Вітаю тебе в проекті JAAM.\n\n"
             "Я допоможу тобі бути в курсі всіх новин або отримати допомогу.\n\n"
             "Вибери кнопку нижче, щоб продовжити.",
-            reply_markup=markup
+            reply_markup=markup,
         )
         logger.debug("Sent private menu keyboard")
     else:
@@ -207,7 +203,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Привіт! Додай мене в авторизовану групу.")
             logger.debug("Sent group instruction message")
 
+
 if __name__ == "__main__":
+
     def main():
         logger.info("🚀 Запуск бота")
         token = os.getenv("BOT_TOKEN")
@@ -219,12 +217,14 @@ if __name__ == "__main__":
         app.add_handler(CommandHandler("start", start_command))
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
         app.add_handler(CallbackQueryHandler(handle_answer))
-        app.add_handler(MessageHandler(
-            filters.ChatType.PRIVATE & filters.Regex(
-                r"^(" + "|".join(map(lambda b: b["label"], PRIVATE_BUTTONS)) + r")$"
-            ),
-            handle_private_buttons
-        ))
+        app.add_handler(
+            MessageHandler(
+                filters.ChatType.PRIVATE
+                & filters.Regex(r"^(" + "|".join(map(lambda b: b["label"], PRIVATE_BUTTONS)) + r")$"),
+                handle_private_buttons,
+            )
+        )
 
         app.run_polling()
+
     main()
