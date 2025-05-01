@@ -3,7 +3,7 @@
 # Default values
 ALLOWED_CHAT_IDS=""
 BOT_TOKEN=""
-LOGGING
+LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
