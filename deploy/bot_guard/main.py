@@ -222,8 +222,7 @@ if __name__ == "__main__":
         app.add_handler(CallbackQueryHandler(handle_answer))
         app.add_handler(
             MessageHandler(
-                filters.ChatType.PRIVATE
-                & filters.Regex(rf"^({allowed})$"),
+                filters.ChatType.PRIVATE & filters.Regex(rf"^({allowed})$"),
                 handle_private_buttons,
             )
         )
