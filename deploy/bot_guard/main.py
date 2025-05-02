@@ -143,18 +143,57 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
     new_status = cmu.new_chat_member.status
 
     if old_status in (ChatMember.LEFT, ChatMember.RESTRICTED) and new_status == ChatMember.MEMBER:
+        # Перевірка дозволеного чату
+        if not await check_allowed_chat(update, context):
+            return
+
         user = cmu.new_chat_member.user
+        chat_id = update.effective_chat.id
+
+        # Відправка повідомлення про приєднання
         if cmu.invite_link:
             via = f"через посилання `{cmu.invite_link.invite_link}`"
         else:
             via = "додана адміністратором"
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=(
-                f"👋 Користувач {user.mention_html()} приєднався до чату {via}."
-            ),
-            parse_mode="HTML",
+        # await context.bot.send_message(
+        #     chat_id=chat_id,
+        #     text=(
+        #         f"👋 Користувач {user.mention_html()} приєднався до чату {via}."
+        #     ),
+        #     parse_mode="HTML",
+        # )
+        logger.info(f"Користувач {user.mention_html()} приєднався до чату {via}.")
+
+        # Обмеження прав нового учасника
+        await context.bot.restrict_chat_member(
+            chat_id,
+            user.id,
+            RESTRICTED,
         )
+
+        # Відправка перевірочного питання
+        q = random.choice(QUESTIONS)
+        correct = q["answer"].strip().lower()
+        options = q.get("options", [])
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(opt, callback_data=f"{user.id}:{opt.strip().lower()}")] for opt in options]
+        )
+        sent = await context.bot.send_message(
+            chat_id,
+            f"{user.full_name}, щоб почати спілкування, обери правильну відповідь:\n❓ {q['question']}",
+            reply_markup=kb,
+        )
+
+        # Планування видалення питання
+        task = asyncio.create_task(
+            delete_message_later(context.bot, chat_id, sent.message_id, QUESTION_MESSAGES_DELAY)
+        )
+        user_questions[user.id] = {
+            "answer": correct,
+            "message_id": sent.message_id,
+            "timer": task,
+        }
+
 # --- Обробка відповіді ---
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -236,10 +275,10 @@ if __name__ == "__main__":
                 handle_private_buttons,
             )
         )
-        # Відстежуємо будь-які приєднання до чату
+        # Відстежуємо будь-які приєднання до чату та запитуємо питання
         app.add_handler(ChatMemberHandler(on_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
 
-        # Запускаємо бот з отриманням оновлень про повідомлення, callback_query та chat_member
+        # Запускаємо бот з оновленнями про message, callback_query, chat_member
         app.run_polling(allowed_updates=["message", "callback_query", "chat_member"])
 
     main()
