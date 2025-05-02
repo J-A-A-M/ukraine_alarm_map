@@ -36,6 +36,12 @@ logger.debug(f"BASE_DIR: {BASE_DIR}")
 logger.debug(f"QUESTIONS_PATH: {QUESTIONS_PATH}")
 logger.debug(f"CONFIG_PATH: {CONFIG_PATH}")
 
+# --- НАЛАШТУВАННЯ ---
+DELETE_MESSAGES_DELAY = os.getenv("DELETE_MESSAGES_DELAY", 10)
+QUESTION_MESSAGES_DELAY = os.getenv("QUESTION_MESSAGES_DELAY", 60)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_IDS = os.getenv("ALLOWED_CHAT_IDS", "")
+
 # Завантаження питань з YAML
 with open(QUESTIONS_PATH, "r", encoding="utf-8") as f:
     QUESTIONS = yaml.safe_load(f)
@@ -48,9 +54,8 @@ PRIVATE_BUTTONS = CONFIG.get("private_buttons", [])
 logger.debug(f"Private buttons: {PRIVATE_BUTTONS}")
 
 # --- Дозволені групи через ENV ---
-env_ids = os.getenv("ALLOWED_CHAT_IDS", "")
-if env_ids:
-    ALLOWED_CHAT_IDS = [int(x) for x in env_ids.split(",") if x.strip()]
+if CHAT_IDS:
+    ALLOWED_CHAT_IDS = [int(x) for x in CHAT_IDS.split(",") if x.strip()]
 else:
     ALLOWED_CHAT_IDS = []
 logger.debug(f"Allowed chat IDs (from ENV): {ALLOWED_CHAT_IDS}")
@@ -126,7 +131,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         logger.debug(f"Sent question message {sent.message_id} to {member.id}")
 
-        task = asyncio.create_task(delete_message_later(context.bot, chat_id, sent.message_id, 60))
+        task = asyncio.create_task(delete_message_later(context.bot, chat_id, sent.message_id, QUESTION_MESSAGES_DELAY))
         user_questions[member.id] = {"answer": correct, "message_id": sent.message_id, "timer": task}
         logger.debug(f"Stored session for user {member.id}")
 
@@ -168,7 +173,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"[WRONG ANSWER] User {user.id}")
 
     entry["timer"].cancel()
-    asyncio.create_task(delete_message_later(context.bot, chat.id, msg_id, 10))
+    asyncio.create_task(delete_message_later(context.bot, chat.id, msg_id, DELETE_MESSAGES_DELAY))
     del user_questions[user.id]
     logger.debug(f"Session cleared for user {user.id}")
 
@@ -192,10 +197,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
         await update.message.reply_text(
-            "Вітаю! Я — JAAM-бот.\n"
-            "Вітаю тебе в проекті JAAM.\n\n"
-            "Я допоможу тобі бути в курсі всіх новин або отримати допомогу.\n\n"
-            "Вибери кнопку нижче, щоб продовжити.",
+            "Я — JAAM-бот.\n"
+            "Вітаю Вас в проекті JAAM.\n\n"
+            "Я допоможу Вам бути в курсі всіх новин або отримати допомогу.\n\n"
+            "Виберіть кнопку нижче, щоб продовжити.",
             reply_markup=markup,
         )
         logger.debug("Sent private menu keyboard")
@@ -209,11 +214,10 @@ if __name__ == "__main__":
 
     def main():
         logger.info("🚀 Запуск бота")
-        token = os.getenv("BOT_TOKEN")
-        if not token:
+        if not BOT_TOKEN:
             logger.error("BOT_TOKEN не заданий")
             raise RuntimeError("BOT_TOKEN не заданий")
-        app = Application.builder().token(token).build()
+        app = Application.builder().token(BOT_TOKEN).build()
 
         allowed = "|".join(map(lambda b: re.escape(b["label"]), PRIVATE_BUTTONS))
 
