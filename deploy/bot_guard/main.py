@@ -24,7 +24,7 @@ from telegram.ext import (
 )
 
 # === Версія коду ===
-__version__ = "5"
+__version__ = "6"
 
 # --- ЛОГИ ---
 logging.basicConfig(
@@ -88,6 +88,21 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
     except Exception as e:
         logger.warning(f"[CLEANUP ERROR] Не вдалося видалити повідомлення {msg_id}: {e}")
 
+async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
+    await asyncio.sleep(delay)
+    # Видаляємо повідомлення з питання
+    try:
+        await bot.delete_message(chat_id, msg_id)
+        logger.info(f"[TIMEOUT] Видалено питання {msg_id} в чаті {chat_id}")
+    except Exception as e:
+        logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити питання {msg_id}: {e}")
+    # Видаляємо користувача з чату
+    try:
+        await bot.ban_chat_member(chat_id, user_id)
+        logger.info(f"[TIMEOUT] Видалений користувач {user_id} з чату {chat_id} через timeout відповіді")
+    except Exception as e:
+        logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити користувача {user_id}: {e}")
+
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
     logger.debug(f"check_allowed_chat: chat_id={chat.id}, type={chat.type}")
@@ -129,8 +144,9 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         logger.debug(f"Sent question message {sent.message_id} to {member.id}")
 
+        # Планування таймауту: якщо не відповість - буде видалений
         task = asyncio.create_task(
-            delete_message_later(context.bot, chat_id, sent.message_id, QUESTION_MESSAGES_DELAY)
+            handle_timeout(context.bot, chat_id, member.id, sent.message_id, QUESTION_MESSAGES_DELAY)
         )
         user_questions[member.id] = {"answer": correct, "message_id": sent.message_id, "timer": task}
         logger.debug(f"Stored session for user {member.id}")
@@ -143,35 +159,14 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
     new_status = cmu.new_chat_member.status
 
     if old_status in (ChatMember.LEFT, ChatMember.RESTRICTED) and new_status == ChatMember.MEMBER:
-        # Перевірка дозволеного чату
         if not await check_allowed_chat(update, context):
             return
 
         user = cmu.new_chat_member.user
         chat_id = update.effective_chat.id
 
-        # Відправка повідомлення про приєднання
-        if cmu.invite_link:
-            via = f"через посилання `{cmu.invite_link.invite_link}`"
-        else:
-            via = "додана адміністратором"
-        # await context.bot.send_message(
-        #     chat_id=chat_id,
-        #     text=(
-        #         f"👋 Користувач {user.mention_html()} приєднався до чату {via}."
-        #     ),
-        #     parse_mode="HTML",
-        # )
-        logger.info(f"Користувач {user.mention_html()} приєднався до чату {via}.")
+        await context.bot.restrict_chat_member(chat_id, user.id, RESTRICTED)
 
-        # Обмеження прав нового учасника
-        await context.bot.restrict_chat_member(
-            chat_id,
-            user.id,
-            RESTRICTED,
-        )
-
-        # Відправка перевірочного питання
         q = random.choice(QUESTIONS)
         correct = q["answer"].strip().lower()
         options = q.get("options", [])
@@ -184,9 +179,8 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=kb,
         )
 
-        # Планування видалення питання
         task = asyncio.create_task(
-            delete_message_later(context.bot, chat_id, sent.message_id, QUESTION_MESSAGES_DELAY)
+            handle_timeout(context.bot, chat_id, user.id, sent.message_id, QUESTION_MESSAGES_DELAY)
         )
         user_questions[user.id] = {
             "answer": correct,
@@ -221,6 +215,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("❌ Неправильно. Спробуйте пізніше.")
 
+    # Скасовуємо таймаут і видаляємо питання
     entry["timer"].cancel()
     asyncio.create_task(delete_message_later(context.bot, chat.id, entry["message_id"], DELETE_MESSAGES_DELAY))
     del user_questions[user.id]
@@ -256,6 +251,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Привіт! Якщо хочешь зі мною поспілкуватись - пиши в лічку.")
             logger.debug("Sent group instruction message")
 
+# --- Точка входу ---
 if __name__ == "__main__":
     def main():
         logger.info("🚀 Запуск бота")
