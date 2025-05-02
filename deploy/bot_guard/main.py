@@ -17,13 +17,14 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
+    ChatMemberHandler,
     filters,
 )
 
 # === Версія коду ===
 __version__ = "5"
 
-# --- ЛОГИ ---
+# --- ЛОГІНГ ---
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -32,35 +33,29 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 QUESTIONS_PATH = os.path.join(BASE_DIR, "questions.yaml")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.yaml")
 
-logger.debug(f"BASE_DIR: {BASE_DIR}")
-logger.debug(f"QUESTIONS_PATH: {QUESTIONS_PATH}")
-logger.debug(f"CONFIG_PATH: {CONFIG_PATH}")
-
-# --- НАЛАШТУВАННЯ ---
-DELETE_MESSAGES_DELAY = os.getenv("DELETE_MESSAGES_DELAY", 10)
-QUESTION_MESSAGES_DELAY = os.getenv("QUESTION_MESSAGES_DELAY", 60)
+# --- НАЛАШТУВАННЯ з ENV ---
+DELETE_MESSAGES_DELAY = int(os.getenv("DELETE_MESSAGES_DELAY", 10))
+QUESTION_MESSAGES_DELAY = int(os.getenv("QUESTION_MESSAGES_DELAY", 60))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_IDS = os.getenv("ALLOWED_CHAT_IDS", "")
 
-# Завантаження питань з YAML
+# Завантаження питань
 with open(QUESTIONS_PATH, "r", encoding="utf-8") as f:
     QUESTIONS = yaml.safe_load(f)
-logger.debug(f"Loaded {len(QUESTIONS)} questions from YAML")
 
-# Завантаження конфігу (тільки кнопки)
+# Завантаження приватних кнопок
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 PRIVATE_BUTTONS = CONFIG.get("private_buttons", [])
-logger.debug(f"Private buttons: {PRIVATE_BUTTONS}")
 
-# --- Дозволені групи через ENV ---
+# --- Дозволені групи ---
 if CHAT_IDS:
     ALLOWED_CHAT_IDS = [int(x) for x in CHAT_IDS.split(",") if x.strip()]
 else:
     ALLOWED_CHAT_IDS = []
-logger.debug(f"Allowed chat IDs (from ENV): {ALLOWED_CHAT_IDS}")
+logger.info(f"Allowed chat IDs: {ALLOWED_CHAT_IDS}")
 
-# --- ПРАВА ДОСТУПУ ---
+# --- ПРАВА ---
 RESTRICTED = ChatPermissions(can_send_messages=False)
 UNRESTRICTED = ChatPermissions(
     can_send_messages=True,
@@ -76,13 +71,11 @@ UNRESTRICTED = ChatPermissions(
     can_invite_users=True,
 )
 
-# --- Стан сеансів ---
-user_questions = {}  # user_id: {"answer": str, "message_id": int, "timer": asyncio.Task}
-logger.debug("Initialized user_questions store")
+# Сесії з питаннями
+user_questions = {}  # user_id -> {answer, message_id, timer}
 
 
 async def delete_message_later(bot, chat_id, msg_id, delay):
-    logger.debug(f"Scheduling delete for msg {msg_id} in chat {chat_id} after {delay}s")
     await asyncio.sleep(delay)
     try:
         await bot.delete_message(chat_id, msg_id)
@@ -93,18 +86,26 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
 
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
-    logger.debug(f"check_allowed_chat: chat_id={chat.id}, type={chat.type}")
     if chat.type != "private" and chat.id not in ALLOWED_CHAT_IDS:
-        logger.warning(f"Unauthorized group {chat.id}, leaving.")
         try:
-            await context.bot.send_message(chat.id, "⛔ Бот працює лише в авторизованих групах.")
-        except Exception:
-            logger.exception("Failed to send unauthorized message")
+            await context.bot.send_message(chat.id, "⛔ Бот працює тільки в авторизованих групах.")
+        except:
+            pass
         await context.bot.leave_chat(chat.id)
         return False
     return True
 
 
+# --- ГРУПА 0: видаляємо системні меседжі про join/leave
+async def delete_service_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.effective_message
+    try:
+        await context.bot.delete_message(msg.chat.id, msg.message_id)
+    except Exception as e:
+        logger.debug(f"Cannot delete service msg {msg.message_id}: {e}")
+
+
+# --- ГРУПА 1: класичне приєднання “натисканням”
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("new_member handler invoked")
     if not await check_allowed_chat(update, context):
@@ -116,26 +117,69 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Restricting new member {member.id} ({member.full_name}) in chat {chat_id}")
         await context.bot.restrict_chat_member(chat_id, member.id, RESTRICTED)
 
+        # Відправляємо питання
         q = random.choice(QUESTIONS)
         correct = q["answer"].strip().lower()
-        options = q.get("options", [])
-        logger.debug(f"Selected question: {q['question']} with options {options} (answer={correct})")
-
         kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(opt, callback_data=f"{member.id}:{opt.strip().lower()}")] for opt in options]
+            [
+                [InlineKeyboardButton(opt, callback_data=f"{member.id}:{opt.strip().lower()}")]
+                for opt in q.get("options", [])
+            ]
         )
         sent = await context.bot.send_message(
             chat_id,
-            f"{member.full_name}, щоб почати спілкування, обери правильну відповідь:\n❓ {q['question']}",
+            f"{member.full_name}, щоб почати — оберіть правильну відповідь:\n❓ {q['question']}",
             reply_markup=kb,
         )
-        logger.debug(f"Sent question message {sent.message_id} to {member.id}")
 
         task = asyncio.create_task(delete_message_later(context.bot, chat_id, sent.message_id, QUESTION_MESSAGES_DELAY))
-        user_questions[member.id] = {"answer": correct, "message_id": sent.message_id, "timer": task}
-        logger.debug(f"Stored session for user {member.id}")
+        user_questions[member.id] = {
+            "answer": correct,
+            "message_id": sent.message_id,
+            "timer": task,
+        }
 
 
+# --- ГРУПА 1: приєднання через API (joinChat, invite link) ---
+async def handle_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("chat_member handler invoked")
+    cm = update.chat_member
+    chat = update.effective_chat
+    old, new = cm.old_chat_member.status, cm.new_chat_member.status
+
+    if old in ("left", "kicked") and new == "member":
+        if not await check_allowed_chat(update, context):
+            logger.info("chat_member aborted: unauthorized chat")
+            return
+
+        user = cm.new_chat_member.user
+        logger.info(f"Restricting new member {user.id} in chat {chat.id}")
+        await context.bot.restrict_chat_member(chat.id, user.id, RESTRICTED)
+
+        # Повторюємо питання
+        q = random.choice(QUESTIONS)
+        correct = q["answer"].strip().lower()
+        kb = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(opt, callback_data=f"{user.id}:{opt.strip().lower()}")]
+                for opt in q.get("options", [])
+            ]
+        )
+        sent = await context.bot.send_message(
+            chat.id,
+            f"{user.full_name}, щоб почати — оберіть правильну відповідь:\n❓ {q['question']}",
+            reply_markup=kb,
+        )
+
+        task = asyncio.create_task(delete_message_later(context.bot, chat.id, sent.message_id, QUESTION_MESSAGES_DELAY))
+        user_questions[user.id] = {
+            "answer": correct,
+            "message_id": sent.message_id,
+            "timer": task,
+        }
+
+
+# --- Обробка відповіді ---
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -144,93 +188,88 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"handle_answer invoked by user {user.id} in chat {chat.id}")
 
     if chat.type != "private" and chat.id not in ALLOWED_CHAT_IDS:
-        logger.warning(f"Ignoring answer in unauthorized chat {chat.id}")
         return
 
-    user_id_str, answer = query.data.split(":", 1)
-    expected = int(user_id_str)
-    if user.id != expected:
-        logger.warning(f"User {user.id} attempted to answer question of {expected}")
+    uid_str, ans = query.data.split(":", 1)
+    if user.id != int(uid_str):
         await query.answer("⛔ Це не ваше питання.", show_alert=True)
         return
 
     entry = user_questions.get(user.id)
     if not entry:
-        logger.warning(f"No session entry for user {user.id}")
         await query.answer("⚠ Сеанс недійсний.", show_alert=True)
         return
 
-    correct = entry["answer"]
-    msg_id = entry["message_id"]
-    logger.debug(f"User answer='{answer}', correct='{correct}'")
-
-    if answer == correct:
+    if ans == entry["answer"]:
         await context.bot.restrict_chat_member(chat.id, user.id, UNRESTRICTED)
         await query.edit_message_text("✅ Правильно! Доступ відкрито.")
-        logger.info(f"[ACCESS GRANTED] User {user.id}")
     else:
-        await query.edit_message_text("❌ Неправильно. Спробуй пізніше.")
-        logger.info(f"[WRONG ANSWER] User {user.id}")
+        await query.edit_message_text("❌ Неправильно. Спробуйте пізніше.")
 
     entry["timer"].cancel()
-    asyncio.create_task(delete_message_later(context.bot, chat.id, msg_id, DELETE_MESSAGES_DELAY))
+    asyncio.create_task(delete_message_later(context.bot, chat.id, entry["message_id"], DELETE_MESSAGES_DELAY))
     del user_questions[user.id]
-    logger.debug(f"Session cleared for user {user.id}")
 
 
+# --- Приватні кнопки і /start ---
 async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     logger.info(f"handle_private_buttons with text '{text}'")
     for btn in PRIVATE_BUTTONS:
-        if text == btn["label"]:
+        if update.message.text == btn["label"]:
             await update.message.reply_text(btn["response"])
-            logger.debug(f"Replied to private button '{text}'")
             return
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    logger.info(f"start_command invoked in chat {chat.id} (type={chat.type})")
     if chat.type == "private":
-        labels = [btn["label"] for btn in PRIVATE_BUTTONS]
+        labels = [b["label"] for b in PRIVATE_BUTTONS]
         keyboard = [labels[i : i + 2] for i in range(0, len(labels), 2)]
-        markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
         await update.message.reply_text(
             "Я — JAAM-бот.\n"
             "Вітаю Вас в проекті JAAM.\n\n"
             "Я допоможу Вам бути в курсі всіх новин або отримати допомогу.\n\n"
             "Виберіть кнопку нижче, щоб продовжити.",
-            reply_markup=markup,
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
         )
-        logger.debug("Sent private menu keyboard")
     else:
         if await check_allowed_chat(update, context):
-            await update.message.reply_text("Привіт! Якщо хочешь зі мною поспілкуватись - пиши в лічку.")
-            logger.debug("Sent group instruction message")
+            await update.message.reply_text("Привіт! Напишіть мені в лічку.")
+
+
+def main():
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN не заданий")
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    # Група 0 — видалення сервісних повідомлень про приєднання/вихід
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS | filters.StatusUpdate.LEFT_CHAT_MEMBER,
+            delete_service_message,
+        ),
+        group=0,
+    )
+
+    # Група 1 — логіка запитань
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member), group=1)
+    app.add_handler(ChatMemberHandler(handle_chat_member, ChatMemberHandler.CHAT_MEMBER), group=1)
+
+    # Інші хендлери
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CallbackQueryHandler(handle_answer))
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE
+            & filters.Regex(rf"^({'|'.join(map(re.escape, [b['label'] for b in PRIVATE_BUTTONS]))})$"),
+            handle_private_buttons,
+        )
+    )
+
+    logger.info("🚀 Бот запущено")
+    app.run_polling()
 
 
 if __name__ == "__main__":
-
-    def main():
-        logger.info("🚀 Запуск бота")
-        if not BOT_TOKEN:
-            logger.error("BOT_TOKEN не заданий")
-            raise RuntimeError("BOT_TOKEN не заданий")
-        app = Application.builder().token(BOT_TOKEN).build()
-
-        allowed = "|".join(map(lambda b: re.escape(b["label"]), PRIVATE_BUTTONS))
-
-        app.add_handler(CommandHandler("start", start_command))
-        app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
-        app.add_handler(CallbackQueryHandler(handle_answer))
-        app.add_handler(
-            MessageHandler(
-                filters.ChatType.PRIVATE & filters.Regex(rf"^({allowed})$"),
-                handle_private_buttons,
-            )
-        )
-
-        app.run_polling()
-
     main()
