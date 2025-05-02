@@ -206,7 +206,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug("Sent private menu keyboard")
     else:
         if await check_allowed_chat(update, context):
-            await update.message.reply_text("Привіт! Додай мене в авторизовану групу.")
+            await update.message.reply_text("Привіт! Якщо хочешь зі мною поспілкуватись - пиши в лічку.")
             logger.debug("Sent group instruction message")
 
 
