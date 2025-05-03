@@ -34,7 +34,7 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_bot_guard.sh -a ${{ secrets.BOT_GUARD_ALLOWED_CHAT_IDS }} -b ${{ secrets.BOT_GUARD_TOKEN }} -с ${{ inputs.use_captcha }} -l ${{ inputs.logging }}
+                bash redeploy_bot_guard.sh -a ${{ secrets.BOT_GUARD_ALLOWED_CHAT_IDS }} -b ${{ secrets.BOT_GUARD_TOKEN }} -c ${{ inputs.use_captcha }} -l ${{ inputs.logging }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
