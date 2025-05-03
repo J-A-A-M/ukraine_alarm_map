@@ -39,7 +39,7 @@ DEBUG_LEVEL = os.environ.get("LOGGING") or "DEBUG"
 # --- ЛОГИ ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.WARNING,     # root-logger: лише WARNING+ для всіх пакетів
+    level=logging.WARNING,  # root-logger: лише WARNING+ для всіх пакетів
 )
 logger = logging.getLogger(__name__)
 logger.setLevel(DEBUG_LEVEL)  # цей файл: INFO
@@ -98,6 +98,7 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
     except Exception as e:
         logger.warning(f"[CLEANUP ERROR] Не вдалося видалити повідомлення {msg_id}: {e}")
 
+
 async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
     await asyncio.sleep(delay)
     # Видаляємо повідомлення з питання
@@ -112,6 +113,7 @@ async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
         logger.info(f"[TIMEOUT] Видалений користувач {user_id} з чату {chat_id} через timeout відповіді")
     except Exception as e:
         logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити користувача {user_id}: {e}")
+
 
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat

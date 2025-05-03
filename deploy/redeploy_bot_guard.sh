@@ -4,7 +4,7 @@
 ALLOWED_CHAT_IDS=""
 BOT_TOKEN=""
 LOGGING="INFO"
-USE_CAPTCHA = ""
+USE_CAPTCHA=""
 
 
 # Check for arguments
