@@ -4,6 +4,8 @@
 ALLOWED_CHAT_IDS=""
 BOT_TOKEN=""
 LOGGING="INFO"
+USE_CAPTCHA = ""
+
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -14,6 +16,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -b|--bot-token)
             BOT_TOKEN="$2"
+            shift 2
+            ;;
+        -c|--captcha)
+            USE_CAPTCHA="$2"
             shift 2
             ;;
         -l|--logging)
@@ -30,6 +36,7 @@ done
 echo "BOT GUARD"
 echo "ALLOWED_CHAT_IDS: $ALLOWED_CHAT_IDS"
 echo "BOT_TOKEN: $BOT_TOKEN"
+echo "USE_CAPTCHA: $USE_CAPTCHA"
 echo "LOGGING: $LOGGING"
 
 
@@ -56,6 +63,7 @@ echo "Deploying new container..."
 docker run --name map_bot_guard --restart unless-stopped --network=jaam -d \
     --env ALLOWED_CHAT_IDS="$ALLOWED_CHAT_IDS" \
     --env BOT_TOKEN="$BOT_TOKEN" \
+    --env USE_CAPTCHA="$USE_CAPTCHA" \
     --env LOGGING="$LOGGING" \
     map_bot_guard
 
