@@ -26,7 +26,7 @@ from telegram.ext import (
 )
 
 # === Версія коду ===
-__version__ = "20"
+__version__ = "24"
 
 # --- ШЛЯХИ і ЗАВАНТАЖЕННЯ ---
 BASE_PATH = os.path.dirname(__file__)
@@ -35,18 +35,16 @@ CONFIG_PATH = os.path.join(BASE_PATH, "config.yaml")
 FONT_PATH = os.path.join(BASE_PATH, "ArialUnicodeBold.ttf")
 DEBUG_LEVEL = os.environ.get("LOGGING") or "DEBUG"
 
-
 # --- ЛОГИ ---
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.WARNING,  # root-logger: лише WARNING+ для всіх пакетів
+    level=logging.WARNING,
 )
 logger = logging.getLogger(__name__)
-logger.setLevel(DEBUG_LEVEL)  # цей файл: INFO
+logger.setLevel(DEBUG_LEVEL)
 
 logger.debug(f"QUESTIONS_PATH: {QUESTIONS_PATH}")
 logger.debug(f"CONFIG_PATH: {CONFIG_PATH}")
-
 
 # --- НАЛАШТУВАННЯ ---
 DELETE_MESSAGES_DELAY = int(os.getenv("DELETE_MESSAGES_DELAY", 2))
@@ -55,12 +53,10 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_IDS = os.getenv("ALLOWED_CHAT_IDS", "")
 USE_CAPTCHA = os.getenv("USE_CAPTCHA", "false").lower() in ("true", "1", "yes")
 
-# Завантаження питань з YAML
 with open(QUESTIONS_PATH, "r", encoding="utf-8") as f:
     QUESTIONS = yaml.safe_load(f)
 logger.debug(f"Loaded {len(QUESTIONS)} questions from YAML")
 
-# Завантаження конфігу (тільки кнопки)
 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
     CONFIG = yaml.safe_load(f)
 PRIVATE_BUTTONS = CONFIG.get("private_buttons", [])
@@ -88,7 +84,6 @@ UNRESTRICTED = ChatPermissions(
     can_invite_users=True,
 )
 
-
 # --- УТИЛІТИ ---
 async def delete_message_later(bot, chat_id, msg_id, delay):
     await asyncio.sleep(delay)
@@ -98,22 +93,28 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
     except Exception as e:
         logger.warning(f"[CLEANUP ERROR] Не вдалося видалити повідомлення {msg_id}: {e}")
 
-
 async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
     await asyncio.sleep(delay)
-    # Видаляємо повідомлення з питання
     try:
         await bot.delete_message(chat_id, msg_id)
         logger.info(f"[TIMEOUT] Видалено питання {msg_id} в чаті {chat_id}")
     except Exception as e:
         logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити питання {msg_id}: {e}")
-    # Видаляємо користувача з чату
     try:
         await bot.ban_chat_member(chat_id, user_id)
         logger.info(f"[TIMEOUT] Видалений користувач {user_id} з чату {chat_id} через timeout відповіді")
     except Exception as e:
         logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити користувача {user_id}: {e}")
 
+async def delete_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Видаляє service messages: join/leave/invite notifications."""
+    try:
+        await context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id,
+        )
+    except Exception:
+        pass
 
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
@@ -127,42 +128,32 @@ async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return False
     return True
 
-
-# --- CAPTCHA ---
+# --- CAPTCHA & Питання ---
 alphabet_pool = list("абвгдежзийклмнопрстуфхцчшщьюяєії0123456789")
-
 
 def generate_captcha():
     text = "".join(random.choice(alphabet_pool) for _ in range(4))
     options = [text] + ["".join(random.choice(alphabet_pool) for _ in range(4)) for _ in range(5)]
     random.shuffle(options)
-
     width, height = 100, 50
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
 
-    font_path = FONT_PATH
-    # Бінарний пошук максимально великого шрифту
-    if font_path:
-        low, high, best = 8, height, 8
-        ratio = 0.9
-        while low <= high:
-            mid = (low + high) // 2
-            font = ImageFont.truetype(font_path, mid)
-            bbox = draw.textbbox((0, 0), text, font=font)
-            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            if tw <= width * ratio and th <= height * ratio:
-                best = mid
-                low = mid + 1
-            else:
-                high = mid - 1
-        font = ImageFont.truetype(font_path, best)
-        logger.info(f"generate_captcha: using font {font_path} size {best}")
-    else:
-        font = ImageFont.load_default()
-        logger.info("generate_captcha: using default font")
+    low, high, best = 8, height, 8
+    ratio = 0.9
+    while low <= high:
+        mid = (low + high) // 2
+        font = ImageFont.truetype(FONT_PATH, mid)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        if tw <= width * ratio and th <= height * ratio:
+            best = mid
+            low = mid + 1
+        else:
+            high = mid - 1
+    font = ImageFont.truetype(FONT_PATH, best)
+    logger.info(f"generate_captcha: size {best}")
 
-    # Центрування тексту
     bbox = draw.textbbox((0, 0), text, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
     x = (width - tw) // 2
@@ -174,12 +165,10 @@ def generate_captcha():
     buf.seek(0)
     return buf, text, options
 
-
 # --- Сесії ---
 user_questions = {}
 
-
-# --- СТАРІ ХЕНДЛЕРИ ---
+# --- Обробники нових учасників ---
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_allowed_chat(update, context):
         return
@@ -191,9 +180,9 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.restrict_chat_member(chat_id, m.id, RESTRICTED)
         q = random.choice(QUESTIONS)
         ans = q["answer"].strip().lower()
-        kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(opt, callback_data=f"{m.id}:{opt.strip().lower()}")] for opt in q.get("options", [])]
-        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(opt, callback_data=f"{m.id}:{opt.strip().lower()}")] for opt in q.get("options", [])
+        ])
         msg = await context.bot.send_message(
             chat_id,
             f"{m.full_name}, відповідайте:\n❓ {q['question']}",
@@ -207,24 +196,27 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ),
         }
 
-
 async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cm = update.chat_member
+    # Ігноруємо події, ініційовані ботом (зняття обмежень)
+    bot_user = await context.bot.get_me()
+    if cm.from_user and cm.from_user.id == bot_user.id:
+        return
     u = cm.new_chat_member.user
     if (
         cm.old_chat_member.status in (ChatMember.LEFT, ChatMember.RESTRICTED)
         and cm.new_chat_member.status == ChatMember.MEMBER
     ):
-        logger.info(f"[CHAT MEMBER] {u.full_name} в чаті {chat_id}")
+        logger.info(f"[CHAT MEMBER] {u.full_name} в чаті {update.effective_chat.id}")
         if u.id in user_questions:
             return
         chat_id = update.effective_chat.id
         await context.bot.restrict_chat_member(chat_id, u.id, RESTRICTED)
         q = random.choice(QUESTIONS)
         ans = q["answer"].strip().lower()
-        kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(opt, callback_data=f"{u.id}:{opt.strip().lower()}")] for opt in q.get("options", [])]
-        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(opt, callback_data=f"{u.id}:{opt.strip().lower()}")] for opt in q.get("options", [])
+        ])
         msg = await context.bot.send_message(
             chat_id,
             f"{u.full_name}, відповідайте:\n❓ {q['question']}",
@@ -238,8 +230,6 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
             ),
         }
 
-
-# --- НОВІ CAPTCHA ХЕНДЛЕРИ ---
 async def new_member_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_allowed_chat(update, context):
         return
@@ -265,15 +255,18 @@ async def new_member_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE)
             ),
         }
 
-
 async def on_chat_member_update_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cm = update.chat_member
+    # Ігноруємо події, ініційовані ботом (зняття обмежень)
+    bot_user = await context.bot.get_me()
+    if cm.from_user and cm.from_user.id == bot_user.id:
+        return
     u = cm.new_chat_member.user
     if (
         cm.old_chat_member.status in (ChatMember.LEFT, ChatMember.RESTRICTED)
         and cm.new_chat_member.status == ChatMember.MEMBER
     ):
-        logger.info(f"[CHAT MEMBER CAPTCHA] {u.full_name} в чаті {chat_id}")
+        logger.info(f"[CHAT MEMBER CAPTCHA] {u.full_name} в чаті {update.effective_chat.id}")
         if u.id in user_questions:
             return
         chat_id = update.effective_chat.id
@@ -294,7 +287,6 @@ async def on_chat_member_update_captcha(update: Update, context: ContextTypes.DE
             ),
         }
 
-
 # --- ОБРОБКА ВІДПОВІДІ ---
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -309,9 +301,23 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     entry = user_questions.get(user.id)
     if not entry:
         return await q.answer("⚠ Сеанс недійсний.", show_alert=True)
+    # if ans == entry["answer"]:
+    #     # 1) Отримуємо актуальний об'єкт чату з API
+    #     chat_obj = await context.bot.get_chat(chat.id)
+    #     # 2) Беремо дефолтні права з цього об'єкта
+    #     default_perms = chat_obj.permissions
+    #     # 3) Застосовуємо їх до користувача
+    #     await context.bot.restrict_chat_member(chat.id, user.id, default_perms)
+    #     res = "✅ Правильно! Доступ відкрито (повернуто права з налаштувань чату)."
+
     if ans == entry["answer"]:
-        await context.bot.restrict_chat_member(chat.id, user.id, UNRESTRICTED)
-        res = "✅ Правильно! Доступ відкрито."
+        # скасування обмежень: всі права = True
+        await context.bot.restrict_chat_member(
+            chat.id,
+            user.id,
+            ChatPermissions.all_permissions()
+        )
+        res = "✅ Правильно! Обмеження знято."
     else:
         res = "❌ Неправильно. Спробуйте пізніше."
     try:
@@ -319,12 +325,11 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.edit_message_caption(res)
         else:
             await q.edit_message_text(res)
-    except:
+    except Exception:
         pass
     entry["timer"].cancel()
     asyncio.create_task(delete_message_later(context.bot, chat.id, entry["message_id"], DELETE_MESSAGES_DELAY))
     del user_questions[user.id]
-
 
 # --- ПРИВАТНІ КНОПКИ ---
 async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -333,20 +338,19 @@ async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_T
         if text == btn["label"]:
             return await update.message.reply_text(btn["response"])
 
-
 # --- /start ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if chat.type == "private":
         labels = [b["label"] for b in PRIVATE_BUTTONS]
-        kb = [labels[i : i + 2] for i in range(0, len(labels), 2)]
+        kb = [labels[i:i+2] for i in range(0, len(labels), 2)]
         await update.message.reply_text(
-            "Я — JAAM-бот.\nВиберіть кнопку:", reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True)
+            "Я — JAAM-бот.\nВиберіть кнопку:",
+            reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True),
         )
     else:
         if await check_allowed_chat(update, context):
             await update.message.reply_text("Привіт! Пишіть в лічку.")
-
 
 # --- MAIN ---
 def main():
@@ -357,16 +361,39 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CallbackQueryHandler(handle_answer))
     app.add_handler(
-        MessageHandler(filters.ChatType.PRIVATE & filters.Regex(rf"^({labels_pattern})$"), handle_private_buttons)
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.Regex(rf"^({labels_pattern})$"),
+            handle_private_buttons,
+        )
     )
+    # Спочатку — верифікація новачків (питання або CAPTCHA)
     if USE_CAPTCHA:
-        app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member_captcha))
-        app.add_handler(ChatMemberHandler(on_chat_member_update_captcha, ChatMemberHandler.CHAT_MEMBER))
+        app.add_handler(
+            MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member_captcha),
+            group=0,
+        )
+        app.add_handler(
+            ChatMemberHandler(on_chat_member_update_captcha, ChatMemberHandler.CHAT_MEMBER),
+            group=0,
+        )
     else:
-        app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
-        app.add_handler(ChatMemberHandler(on_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
+        app.add_handler(
+            MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member),
+            group=0,
+        )
+        app.add_handler(
+            ChatMemberHandler(on_chat_member_update, ChatMemberHandler.CHAT_MEMBER),
+            group=0,
+        )
+    # Потім — лише видаляємо служ­бові join/leave-повідомлення
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS | filters.StatusUpdate.LEFT_CHAT_MEMBER,
+            delete_service_messages,
+        ),
+        group=1,
+    )
     app.run_polling(allowed_updates=["message", "callback_query", "chat_member"])
-
 
 if __name__ == "__main__":
     main()
