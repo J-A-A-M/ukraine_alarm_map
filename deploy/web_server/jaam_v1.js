@@ -40,12 +40,22 @@ if (urlParams.get('svd') === '1') {
     }, 2000);
 }
 
+/**
+ * Sends an asynchronous request to play a test sound with the specified ID.
+ *
+ * @param {number} [soundId=4] - The ID of the sound to play.
+ */
 function playTestSound(soundId = 4) {
     var xhttp = new XMLHttpRequest();
     xhttp.open('GET', '/playTestSound/?id='.concat(soundId), true);
     xhttp.send();
 }
 
+/**
+ * Sends an asynchronous request to play a test track with the specified sound ID.
+ *
+ * @param {number} [soundId=1] - The ID of the track to play.
+ */
 function playTestTrack(soundId = 1) {
     var xhttp = new XMLHttpRequest();
     xhttp.open('GET', '/playTestTrackById/?id='.concat(soundId), true);
@@ -53,6 +63,12 @@ function playTestTrack(soundId = 1) {
 }
 
 
+/**
+ * Enables or disables all elements with the specified name attribute.
+ *
+ * @param {string} targetName - The value of the name attribute for target elements.
+ * @param {boolean} disable - If true, disables the elements; if false, enables them.
+ */
 function disableElement(targetName, disable) {
     document.getElementsByName(targetName).forEach((elem) => {
         elem.disabled = disable;
