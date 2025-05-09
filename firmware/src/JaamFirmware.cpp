@@ -1279,9 +1279,7 @@ static std::map<int, V> mapLeds(std::vector<Area> ledsSequence, std::map<int, V>
 }
 
 
-void remapFlag() {
-  led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS);
-}
+
 
 std::pair<int, long> alertsCombiModeHandler(std::pair<int, long> city, std::pair<int, long> district) {
   // if state of City and District are 'alert', return oldest by time
@@ -1290,6 +1288,29 @@ std::pair<int, long> alertsCombiModeHandler(std::pair<int, long> city, std::pair
   if (city.first == 0 && district.first == 0) return city.second >= district.second ? city : district;
   // if one of the states is 0, return another
   return city.first == 0 ? district : city;
+}
+
+std::pair<int, long> cityToDistrictCombiModeHandler(std::pair<int, long> city, std::pair<int, long> district) {
+  return city;
+}
+
+float linearFloatCombiModeHandler(float value1, float value2) {
+  // return average value of two values
+  return (value1 + value2) / 2.0f;
+}
+
+int linearIntCombiModeHandler(int value1, int value2) {
+  // return average value of two values
+  return (value1 + value2) / 2;
+}
+
+int cityToDistrictCombiModeHandler(int value1, int value2) {
+  // return average value of two values
+  return value1;
+}
+
+void remapFlag() {
+  led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS, linearIntCombiModeHandler);
 }
 
 void remapAlerts() {
@@ -1308,26 +1329,16 @@ void remapKabs() {
   led_to_kabs = mapLeds(ledMapping, id_to_kabs, alertsCombiModeHandler);
 }
 
-float linearFloatCombiModeHandler(float value1, float value2) {
-  // return average value of two values
-  return (value1 + value2) / 2.0f;
-}
-
-int linearIntCombiModeHandler(int value1, int value2) {
-  // return average value of two values
-  return (value1 + value2) / 2;
-}
-
 void remapWeather() {
   led_to_weather = mapLeds(ledMapping, id_to_weather, linearFloatCombiModeHandler);
 }
 
 void remapRadiation() {
-  led_to_radiation = mapLeds(ledMapping, id_to_radiation, linearIntCombiModeHandler);
+  led_to_radiation = mapLeds(ledMapping, id_to_radiation, cityToDistrictCombiModeHandler);
 }
 
 void remapEnergy() {
-  led_to_energy = mapLeds(ledMapping, id_to_energy, alertsCombiModeHandler);
+  led_to_energy = mapLeds(ledMapping, id_to_energy, cityToDistrictCombiModeHandler);
 }
 
 long maxCombiModeHandler(long value1, long value2) {
