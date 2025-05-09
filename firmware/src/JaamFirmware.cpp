@@ -4188,6 +4188,8 @@ void initLegacy() {
 #if TEST_MODE
   settings.saveInt(LEGACY, 3, false);
 #endif
+  legacy = settings.getInt(LEGACY);
+  kyiv_led = settings.getBool(KYIV_LED);
   switch (legacy) {
   case 0:
     LOG.println("Mode: jaam 1");    
@@ -4197,8 +4199,6 @@ void initLegacy() {
     settings.saveInt(DATA_PIN, 25, false);
     settings.saveInt(HA_PIN, 26, false);
     settings.saveInt(UPD_AVAILABLE_PIN, 27, false);
-
-    //settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveBool(KYIV_LED, 1, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
     settings.saveInt(BG_LED_PIN, -1, false);
@@ -4226,20 +4226,15 @@ void initLegacy() {
     LOG.println("Mode: transcarpathia");
 
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
-    legacy = settings.getInt(LEGACY);
-    kyiv_led = settings.getBool(KYIV_LED);
     break;
   case 2:
     LOG.println("Mode: odesa");
 
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
-    legacy = settings.getInt(LEGACY);
-    kyiv_led = settings.getBool(KYIV_LED);
     break;
   case 3:
     LOG.println("Mode: jaam 2");
 
-    //settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
     settings.saveBool(KYIV_LED, 1, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
     settings.saveInt(BG_LED_PIN, 12, false);

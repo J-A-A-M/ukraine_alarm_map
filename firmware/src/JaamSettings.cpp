@@ -84,7 +84,6 @@ std::map<Type, SettingItemInt> intSettings = {
     {ALARMS_AUTO_SWITCH, {"aas", 1}},
     {HOME_DISTRICT, {"hmd", 31}},
     {MIGRATION_LED_MAPPING, {"mgrlm", 0}},
-    {KYIV_DISTRICT_MODE, {"kdm", 1}},
     {DISTRICT_MODE_KYIV, {"dmkv", 0}},
     {DISTRICT_MODE_KHARKIV, {"dmkh", 0}},
     {DISTRICT_MODE_ZP, {"dmzp", 0}},
@@ -189,10 +188,11 @@ Preferences preferences;
 const char* PREFS_NAME = "storage";
 
 void JaamSettings::init() {
-    preferences.begin(PREFS_NAME, true);
+    preferences.begin(PREFS_NAME, false);
 
     // home district migration to regionID
     if (preferences.isKey("hd")) {
+        LOG.printf("districtMapping init\n");
         int homeDistrict = preferences.getInt("hd", KYIV_REGION_ID);
         int newRegionId = mapIndexToRegionId(homeDistrict);
         if (newRegionId == -1) {
@@ -349,7 +349,7 @@ void JaamSettings::getSettingsBackup(Print* stream, const char* fwVersion, const
     doc["chip_id"] = chipID;
     doc["time"] = time;
     JsonArray settingsArray = doc["settings"].to<JsonArray>();
-    preferences.begin("storage", true);
+    preferences.begin(PREFS_NAME, true);
 
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
         SettingItemString setting = it->second;
@@ -393,7 +393,7 @@ bool JaamSettings::restoreSettingsBackup(const char* settings) {
     JsonDocument doc;
     deserializeJson(doc, settings);
     JsonArray settingsArray = doc["settings"].as<JsonArray>();
-    preferences.begin("storage", false);
+    preferences.begin(PREFS_NAME, false);
     bool restored = false;
 
     for (JsonObject settingObj : settingsArray) {
