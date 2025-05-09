@@ -34,10 +34,10 @@ weather_states = {
     703448: {"name": "Київська область", "lat": 50.5111168, "lon": 30.7900482, "id": 14, "legacy_id": 8},
     710735: {"name": "Чернігівська область", "lat": 51.494099, "lon": 31.294332, "id": 25, "legacy_id": 9},
     692194: {"name": "Сумська область", "lat": 50.9119775, "lon": 34.8027723, "id": 20, "legacy_id": 10},
-    706483: {"name": "Харківська область", "lat": 49.9923181, "lon": 36.2310146, "id": 22, "legacy_id": 11},
+    706483: {"name": "Харківська область", "lat": 49.9923181, "lon": 36.2310146, "id": [22,1293], "legacy_id": 11},
     702658: {"name": "Луганська область", "lat": 48.5717084, "lon": 39.2973153, "id": 16, "legacy_id": 12},
     709717: {"name": "Донецька область", "lat": 48.0158753, "lon": 37.8013407, "id": 28, "legacy_id": 13},
-    687700: {"name": "Запорізька область", "lat": 47.8507859, "lon": 35.1182867, "id": 12, "legacy_id": 14},
+    687700: {"name": "Запорізька область", "lat": 47.8507859, "lon": 35.1182867, "id": [12,564], "legacy_id": 14},
     706448: {"name": "Херсонська область", "lat": 46.6412644, "lon": 32.625794, "id": 23, "legacy_id": 15},
     703883: {"name": "Автономна Республіка Крим", "lat": 44.4970713, "lon": 34.1586871, "id": 9999, "legacy_id": 16},
     698740: {"name": "Одеська область", "lat": 46.4843023, "lon": 30.7322878, "id": 18, "legacy_id": 17},
@@ -85,7 +85,11 @@ async def get_weather_openweathermap(mc):
                     new_data = await response.text()
                     data = json.loads(new_data)
                     data["current"]["region"] = weather_region_data
-                    weather_cached_data["states"][weather_region_data["id"]] = data["current"]
+                    if type(weather_region_data["id"]) is int:
+                        weather_cached_data["states"][weather_region_data["id"]] = data["current"]
+                    elif type(weather_region_data["id"]) is list:
+                        for _id in weather_region_data["id"]:
+                            weather_cached_data["states"][_id] = data["current"]
                 else:
                     logger.error(f"Request failed with status code: {response.status}")
 
