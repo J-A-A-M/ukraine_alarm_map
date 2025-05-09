@@ -4182,8 +4182,6 @@ void initSettings() {
   fillFwVersion(currentFwVersion, currentFirmware);
   LOG.printf("Current firmware version: %s\n", currentFwVersion);
   distributeBrightnessLevels();
-  legacy = settings.getInt(LEGACY);
-  kyiv_led = settings.getBool(KYIV_LED);
 }
 
 void initLegacy() {
@@ -4228,11 +4226,15 @@ void initLegacy() {
     LOG.println("Mode: transcarpathia");
 
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
+    legacy = settings.getInt(LEGACY);
+    kyiv_led = settings.getBool(KYIV_LED);
     break;
   case 2:
     LOG.println("Mode: odesa");
 
     settings.saveInt(SERVICE_DIODES_MODE, 0, false);
+    legacy = settings.getInt(LEGACY);
+    kyiv_led = settings.getBool(KYIV_LED);
     break;
   case 3:
     LOG.println("Mode: jaam 2");
