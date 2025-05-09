@@ -45,9 +45,11 @@ regions = {
     "Чернівецька область": {"id": 26, "legacy_id": 25},
     "м. Київ": {"id": 31, "legacy_id": 26},
     "Київ": {"id": 31, "legacy_id": 26, "skip": True},
-    "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 11},
-    "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 14},
+    "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 27},
+    "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 28},
 }
+
+LEGACY_LED_COUNT = 28
 
 
 async def get_cache_data(mc, key_b, default_response=None):
@@ -152,7 +154,7 @@ async def update_alerts_websocket_v1(mc, run_once=False):
             regions_cache = await get_regions(mc, b"regions_api", {})
             alerts_websocket_v1 = await get_cache_data(mc, b"alerts_websocket_v1", [])
 
-            alerts = [0] * 26
+            alerts = [0] * LEGACY_LED_COUNT
 
             for alert in alerts_cache:
                 for active_alert in alert["activeAlerts"]:
@@ -186,9 +188,9 @@ async def update_alerts_websocket_v2(mc, run_once=False):
 
             alerts_cache = await get_alerts(mc, b"alerts_api", [])
             regions_cache = await get_regions(mc, b"regions_api", {})
-            alerts_websocket_v2 = await get_cache_data(mc, b"alerts_websocket_v2", [[0, 1645674000]] * 26)
+            alerts_websocket_v2 = await get_cache_data(mc, b"alerts_websocket_v2", [[0, 1645674000]] * LEGACY_LED_COUNT)
 
-            alerts = [[0, 1645674000]] * 26
+            alerts = [[0, 1645674000]] * LEGACY_LED_COUNT
 
             for alert in alerts_cache:
                 if alert["regionType"] not in ["State", "District"]:
@@ -236,9 +238,9 @@ async def update_alerts_websocket_v3(mc, run_once=False):
 
             alerts_cache = await get_alerts(mc, b"alerts_api", [])
             regions_cache = await get_regions(mc, b"regions_api", {})
-            alerts_websocket_v3 = await get_cache_data(mc, b"alerts_websocket_v3", [[0, 1645674000]] * 26)
+            alerts_websocket_v3 = await get_cache_data(mc, b"alerts_websocket_v3", [[0, 1645674000]] * LEGACY_LED_COUNT)
 
-            alerts = [[0, 1645674000]] * 26
+            alerts = [[0, 1645674000]] * LEGACY_LED_COUNT
 
             for alert in alerts_cache:
                 if alert["regionType"] not in ["State", "District"]:
@@ -281,11 +283,11 @@ async def update_alerts_websocket_v3(mc, run_once=False):
 
 async def ertyvoga_v1(mc, cache_key, data_key, alert_key=None):
     cache = await get_cache_data(mc, cache_key.encode("utf-8"), {"states:{}"})
-    websocket = await get_cache_data(mc, data_key.encode("utf-8"), [1645674000] * 26)
+    websocket = await get_cache_data(mc, data_key.encode("utf-8"), [1645674000] * LEGACY_LED_COUNT)
     if alert_key:
-        alerts_websocket = await get_cache_data(mc, alert_key.encode("utf-8"), [[0, 1645674000]] * 26)
+        alerts_websocket = await get_cache_data(mc, alert_key.encode("utf-8"), [[0, 1645674000]] * LEGACY_LED_COUNT)
 
-    data = [0] * 26
+    data = [0] * LEGACY_LED_COUNT
 
     for _, state_data in regions.items():
         state_id = state_data["id"]
@@ -361,9 +363,9 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
         try:
             await asyncio.sleep(update_period)
             cache = await get_weather(mc, b"weather_openweathermap", {"states": {}, "info": {"last_update": None}})
-            websocket = await get_cache_data(mc, b"weather_websocket_v1", [0] * 26)
+            websocket = await get_cache_data(mc, b"weather_websocket_v1", [0] * LEGACY_LED_COUNT)
 
-            data = [0] * 26
+            data = [0] * LEGACY_LED_COUNT
 
             for _, state_data in regions.items():
                 legacy_state_id = state_data["legacy_id"]
@@ -432,7 +434,7 @@ async def alert_reasons_v1(mc, alert_type, cache_key, default_value):
     reasons_cache = await get_cache_data(mc, b"ws_info")
     reasons = reasons_cache.get("reasons", [])
     websocket_data = await get_cache_data(mc, cache_key, default_value)
-    alerts_websocket_data = await get_cache_data(mc, b"alerts_websocket_v1", [0] * 26)
+    alerts_websocket_data = await get_cache_data(mc, b"alerts_websocket_v1", [0] * LEGACY_LED_COUNT)
     alerts = default_value.copy()
 
     for reason in reasons:
@@ -452,7 +454,7 @@ async def update_drones_websocket_v2(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await alert_reasons_v1(mc, "Drones", b"drones_websocket_v2", [[0, 1645674000]] * 26)
+            await alert_reasons_v1(mc, "Drones", b"drones_websocket_v2", [[0, 1645674000]] * LEGACY_LED_COUNT)
         except Exception as e:
             logger.error(f"update_drones_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
@@ -464,7 +466,7 @@ async def update_missiles_websocket_v2(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await alert_reasons_v1(mc, "Missile", b"missiles_websocket_v2", [[0, 1645674000]] * 26)
+            await alert_reasons_v1(mc, "Missile", b"missiles_websocket_v2", [[0, 1645674000]] * LEGACY_LED_COUNT)
         except Exception as e:
             logger.error(f"update_missiles_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
@@ -476,7 +478,7 @@ async def update_kabs_websocket_v2(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await alert_reasons_v1(mc, "Ballistic", b"kabs_websocket_v2", [[0, 1645674000]] * 26)
+            await alert_reasons_v1(mc, "Ballistic", b"kabs_websocket_v2", [[0, 1645674000]] * LEGACY_LED_COUNT)
         except Exception as e:
             logger.error(f"update_kabs_websocket_v2: {str(e)}")
             logger.debug("Повний стек помилки:", exc_info=True)
@@ -489,9 +491,9 @@ async def update_energy_websocket_v1(mc, run_once=False):
         try:
             await asyncio.sleep(update_period)
             cache = await get_cache_data(mc, b"energy_ukrenergo", {"states": {}, "info": {"last_update": None}})
-            websocket = await get_cache_data(mc, b"energy_websocket_v1", [[0, 1645674000]] * 26)
+            websocket = await get_cache_data(mc, b"energy_websocket_v1", [[0, 1645674000]] * LEGACY_LED_COUNT)
 
-            data = [[0, 1645674000]] * 26
+            data = [[0, 1645674000]] * LEGACY_LED_COUNT
 
             for _, state_data in regions.items():
                 legacy_state_id = state_data["legacy_id"]
@@ -521,9 +523,9 @@ async def update_radiation_websocket_v1(mc, run_once=False):
             sensors_cache = await get_cache_data(
                 mc, b"radiation_sensors_saveecobot", {"states": {}, "info": {"last_update": None}}
             )
-            websocket = await get_cache_data(mc, b"radiation_websocket_v1", [0] * 26)
+            websocket = await get_cache_data(mc, b"radiation_websocket_v1", [0] * LEGACY_LED_COUNT)
 
-            data = [0] * 26
+            data = [0] * LEGACY_LED_COUNT
 
             temp_data = {}
             for sensor_data in data_cache["states"]:

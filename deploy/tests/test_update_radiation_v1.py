@@ -9,6 +9,7 @@ pip install pytest pytest-asyncio
 
 """
 
+LEGACY_LED_COUNT = 28
 
 def get_sensors_mock(ids=None, regions=None):
     if ids is None:
@@ -68,7 +69,7 @@ async def test_1():
         mock_responses = {
             b"radiation_sensors_saveecobot": get_sensors_mock(),
             b"radiation_data_saveecobot": get_data_mock(),
-            b"radiation_websocket_v1": [0] * 26,
+            b"radiation_websocket_v1": [0] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -77,7 +78,7 @@ async def test_1():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
 
         expected_radiation[0] = 80
 
@@ -107,7 +108,7 @@ async def test_2():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
 
         mock_mc.set.assert_not_called()
 
@@ -145,7 +146,7 @@ async def test_3():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
         expected_radiation[0] = 85
         expected_radiation[1] = 85
 
@@ -185,7 +186,7 @@ async def test_4():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
         expected_radiation[0] = 83
         expected_radiation[1] = 95
 
@@ -225,7 +226,7 @@ async def test_5():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
         expected_radiation[0] = 93
 
         mock_mc.set.assert_awaited_with(b"radiation_websocket_v1", json.dumps(expected_radiation).encode("utf-8"))
@@ -264,7 +265,7 @@ async def test_6():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
         expected_radiation[0] = 95
 
         mock_mc.set.assert_awaited_with(b"radiation_websocket_v1", json.dumps(expected_radiation).encode("utf-8"))
@@ -285,7 +286,7 @@ async def test_7():
         mock_responses = {
             b"radiation_sensors_saveecobot": get_sensors_mock(),
             b"radiation_data_saveecobot": get_data_mock(),
-            b"radiation_websocket_v1": [100] * 26,
+            b"radiation_websocket_v1": [100] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -294,7 +295,7 @@ async def test_7():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-        expected_radiation = [0] * 26
+        expected_radiation = [0] * LEGACY_LED_COUNT
 
         expected_radiation[0] = 80
 
@@ -336,7 +337,7 @@ async def test_8():
         with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
             await update_radiation_websocket_v1(mock_mc, run_once=True)
 
-            expected_radiation = [0] * 26
+            expected_radiation = [0] * LEGACY_LED_COUNT
 
             expected_radiation[region_data["legacy_id"] - 1] = 96
 

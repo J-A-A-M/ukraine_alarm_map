@@ -9,6 +9,7 @@ pip install pytest pytest-asyncio
 
 """
 
+LEGACY_LED_COUNT = 28
 
 def get_energy_mock(**kwargs):
     data = {
@@ -37,7 +38,7 @@ async def test_1():
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"energy_ukrenergo": get_energy_mock(),
-            b"energy_websocket_v1": [[0, 1645674000]] * 26,
+            b"energy_websocket_v1": [[0, 1645674000]] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -56,12 +57,12 @@ async def test_1():
         await update_energy_websocket_v1(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
-        expected_energy = [[0, 1645674000]] * 26
+        expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
         expected_energy[0] = [4, mock_timestamp]
 
         expected_calls = [
-            call(mock_mc, expected_energy, [[0, 1645674000]] * 26, "energy_websocket_v1", b"energy_websocket_v1"),
+            call(mock_mc, expected_energy, [[0, 1645674000]] * LEGACY_LED_COUNT, "energy_websocket_v1", b"energy_websocket_v1"),
         ]
 
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
@@ -82,7 +83,7 @@ async def test_2():
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    energy_websocket_v1 = [[0, 1645674000]] * 26
+    energy_websocket_v1 = [[0, 1645674000]] * LEGACY_LED_COUNT
     energy_websocket_v1[0] = [4, mock_timestamp]
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
@@ -104,7 +105,7 @@ async def test_2():
         await update_energy_websocket_v1(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
-        expected_energy = [[0, 1645674000]] * 26
+        expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
         expected_energy[1] = [4, mock_timestamp]
 
@@ -130,7 +131,7 @@ async def test_3():
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    energy_websocket_v1 = [[0, 1645674000]] * 26
+    energy_websocket_v1 = [[0, 1645674000]] * LEGACY_LED_COUNT
     energy_websocket_v1[1] = [4, 1659999999]
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
@@ -152,7 +153,7 @@ async def test_3():
         await update_energy_websocket_v1(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 2
 
-        expected_energy = [[0, 1645674000]] * 26
+        expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
         expected_energy[1] = [4, 1659999999]
 
@@ -177,7 +178,7 @@ async def test_4():
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    energy_websocket_v1 = [[0, 1645674000]] * 26
+    energy_websocket_v1 = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     for _, region_data in regions.items():
 
@@ -200,7 +201,7 @@ async def test_4():
             await update_energy_websocket_v1(mock_mc, run_once=True)
             assert mock_get_cache_data.call_count == 2
 
-            expected_energy = [[0, 1645674000]] * 26
+            expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
             expected_energy[region_data["legacy_id"] - 1] = [4, mock_timestamp]
 

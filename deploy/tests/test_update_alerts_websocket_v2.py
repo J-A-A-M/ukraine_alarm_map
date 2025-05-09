@@ -1,9 +1,9 @@
 import pytest
 import json
 import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, AsyncMock, patch, call
 from aiomcache import Client
-from updater.updater import update_alerts_websocket_v2
+from updater.updater import update_alerts_websocket_v2, regions
 
 """
 pip install pytest pytest-asyncio
@@ -24,6 +24,9 @@ districts = {
     "61": {"regionName": "Берегівський район", "regionType": "District", "parentId": "11", "stateId": "11"},
     "13": {"regionName": "Івано-Франківська область", "regionType": "State", "parentId": None, "stateId": "13"},
 }
+
+
+LEGACY_LED_COUNT = 28
 
 
 @pytest.mark.asyncio
@@ -54,38 +57,13 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [[0, 1645674000]] * 26
+    mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -117,38 +95,13 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [[0, 1645674000]] * 26
+    mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -181,38 +134,13 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [[0, 1645674000]] * 26
+    mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -244,34 +172,10 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -316,65 +220,18 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [1, 1700000000],
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+    expected_result[1] = [1, 1736935200]
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -397,65 +254,15 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data, mock_da
     mock_get_alerts.return_value = []
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [0, 1],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [0, 1]
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -476,34 +283,10 @@ async def test_7(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_get_alerts.return_value = []
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [0, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [0, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -538,65 +321,17 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [0, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000] ]* LEGACY_LED_COUNT
+    expected_result[0] = [0, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-    expected_result = [
-        [0, 1700000000],
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [0, 1700000000]
+    expected_result[1] = [1, 1736935200]
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -629,34 +364,10 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -692,34 +403,10 @@ async def test_10(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1700000000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1700000000]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -754,7 +441,7 @@ async def test_11(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [[0, 1645674000]] * 26
+    mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -799,34 +486,10 @@ async def test_12(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -861,34 +524,10 @@ async def test_13(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -923,34 +562,10 @@ async def test_14(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [
-        [1, 1736935200],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-        [0, 1645674000],
-    ]
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+    expected_result[0] = [1, 1736935200]
+
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
@@ -991,8 +606,49 @@ async def test_15(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    mock_get_cache_data.return_value = [[0, 1645674000]] * 26
+    mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
     mock_mc.set.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("updater.updater.update_period", new=0)
+@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
+@patch("updater.updater.get_regions", new_callable=AsyncMock)
+@patch("updater.updater.get_alerts", new_callable=AsyncMock)
+async def test_16(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+    """
+    перевірка мапінга
+
+    """
+
+    for _, region_data in regions.items():
+
+        mock_mc = AsyncMock(spec=Client)
+        mock_mc.set.return_value = True
+        mock_get_alerts.return_value = [
+            {
+                "regionId": str(region_data["id"]),
+                "regionType": "State",
+                "regionName": _,
+                "regionEngName": "Luhanska region",
+                "lastUpdate": "2025-01-15T10:00:00Z",
+                "activeAlerts": [
+                    {"regionId": str(region_data["id"]), "regionType": "State", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"}
+                ],
+            }
+        ]
+        mock_get_regions.return_value = {
+            str(region_data["id"]): {"regionName": _, "regionType": "State", "parentId": None, "stateId": str(region_data["id"])},
+        }
+
+        mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT
+
+        await update_alerts_websocket_v2(mock_mc, run_once=True)
+
+        expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
+        expected_result[region_data["legacy_id"] - 1] = [1, 1736935200]
+
+        mock_mc.set.assert_awaited_with(b"alerts_websocket_v2", json.dumps(expected_result).encode("utf-8"))

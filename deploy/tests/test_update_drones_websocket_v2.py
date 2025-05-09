@@ -10,6 +10,8 @@ pip install pytest pytest-asyncio
 
 """
 
+LEGACY_LED_COUNT = 28
+
 
 def get_reasons_mock(**kwargs):
     data = {
@@ -41,7 +43,7 @@ async def test_1():
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": get_reasons_mock(),
-            b"alerts_websocket_v1": [1] * 26,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -58,7 +60,7 @@ async def test_1():
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 3
 
-        expected_drones = [[0, 1645674000]] * 26
+        expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
 
         expected_drones[0] = [1, mock_timestamp]
         expected_drones[1] = [1, mock_timestamp]
@@ -77,13 +79,13 @@ async def test_2():
     mock_mc = AsyncMock(spec=Client)
     mock_mc.set.return_value = True
 
-    websocket_data = [[1, 1600000000]] * 26
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": {"reasons": []},
             b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * 26,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -100,7 +102,7 @@ async def test_2():
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 3
 
-        expected_drones = [[0, mock_timestamp]] * 26
+        expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
         mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
 
@@ -115,7 +117,7 @@ async def test_3():
     mock_mc = AsyncMock(spec=Client)
     mock_mc.set.return_value = True
 
-    websocket_data = [[1, 1600000000]] * 26
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
@@ -123,7 +125,7 @@ async def test_3():
                 "reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]}]
             },
             b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * 26,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -140,7 +142,7 @@ async def test_3():
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 3
 
-        expected_drones = [[0, mock_timestamp]] * 26
+        expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
         expected_drones[0] = [1, 1600000000]
 
         mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
@@ -156,13 +158,13 @@ async def test_4():
     mock_mc = AsyncMock(spec=Client)
     mock_mc.set.return_value = True
 
-    websocket_data = [[1, 1600000000]] * 26
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Ballistic"]}]},
             b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * 26,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -179,7 +181,7 @@ async def test_4():
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 3
 
-        expected_drones = [[0, mock_timestamp]] * 26
+        expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
         mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
 
@@ -197,8 +199,8 @@ async def test_5():
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": {"reasons": []},
-            b"drones_websocket_v2": [[0, 1645674000]] * 26,
-            b"alerts_websocket_v1": [1] * 26,
+            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -231,8 +233,8 @@ async def test_6():
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": {"reasons": [{"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]}]},
-            b"drones_websocket_v2": [[0, 1645674000]] * 26,
-            b"alerts_websocket_v1": [1] * 26,
+            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
+            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -249,7 +251,7 @@ async def test_6():
         await update_drones_websocket_v2(mock_mc, run_once=True)
         assert mock_get_cache_data.call_count == 3
 
-        expected_drones = [[0, 1645674000]] * 26
+        expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
         expected_drones[1] = [1, mock_timestamp]
 
         mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
@@ -269,7 +271,7 @@ async def test_7():
     def mock_get_cache_data_side_effect(mc, key, default=None):
         mock_responses = {
             b"ws_info": get_reasons_mock(),
-            b"alerts_websocket_v1": [0] * 26,
+            b"alerts_websocket_v1": [0] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
