@@ -499,8 +499,8 @@ async def update_energy_websocket_v1(mc, run_once=False):
                 legacy_state_id = state_data["legacy_id"]
                 state_id = state_data["id"]
                 state_id_str = str(state_id)
-                old_state = websocket[legacy_state_id - 1][0]
-                old_date = websocket[legacy_state_id - 1][1]
+                old_state = websocket[legacy_state_id - 1][0] or 0
+                old_date = websocket[legacy_state_id - 1][1] or 1645674000
                 if state_id_str in cache["states"]:
                     new_state = int(cache["states"][state_id_str]["state"]["id"])
                     new_date = get_current_timestamp() if old_state != new_state else old_date
