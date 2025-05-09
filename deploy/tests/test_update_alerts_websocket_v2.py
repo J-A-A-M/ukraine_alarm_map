@@ -227,7 +227,6 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v2(mock_mc, run_once=True)
 
-
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [1, 1700000000]
     expected_result[1] = [1, 1736935200]
@@ -321,7 +320,7 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     ]
     mock_get_regions.return_value = districts
 
-    expected_result = [[0, 1645674000] ]* LEGACY_LED_COUNT
+    expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [0, 1700000000]
 
     mock_get_cache_data.return_value = expected_result
@@ -636,12 +635,22 @@ async def test_16(mock_get_alerts, mock_get_regions, mock_get_cache_data):
                 "regionEngName": "Luhanska region",
                 "lastUpdate": "2025-01-15T10:00:00Z",
                 "activeAlerts": [
-                    {"regionId": str(region_data["id"]), "regionType": "State", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"}
+                    {
+                        "regionId": str(region_data["id"]),
+                        "regionType": "State",
+                        "type": "AIR",
+                        "lastUpdate": "2025-01-15T10:00:00Z",
+                    }
                 ],
             }
         ]
         mock_get_regions.return_value = {
-            str(region_data["id"]): {"regionName": _, "regionType": "State", "parentId": None, "stateId": str(region_data["id"])},
+            str(region_data["id"]): {
+                "regionName": _,
+                "regionType": "State",
+                "parentId": None,
+                "stateId": str(region_data["id"]),
+            },
         }
 
         mock_get_cache_data.return_value = [[0, 1645674000]] * LEGACY_LED_COUNT

@@ -11,6 +11,7 @@ pip install pytest pytest-asyncio
 
 LEGACY_LED_COUNT = 28
 
+
 def get_energy_mock(**kwargs):
     data = {
         "states": {
@@ -62,7 +63,13 @@ async def test_1():
         expected_energy[0] = [4, mock_timestamp]
 
         expected_calls = [
-            call(mock_mc, expected_energy, [[0, 1645674000]] * LEGACY_LED_COUNT, "energy_websocket_v1", b"energy_websocket_v1"),
+            call(
+                mock_mc,
+                expected_energy,
+                [[0, 1645674000]] * LEGACY_LED_COUNT,
+                "energy_websocket_v1",
+                b"energy_websocket_v1",
+            ),
         ]
 
         mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)

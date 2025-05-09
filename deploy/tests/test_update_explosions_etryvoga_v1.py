@@ -13,6 +13,7 @@ unix 1736935200 - 2025-01-15T10:00:00Z
 
 LEGACY_LED_COUNT = 28
 
+
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
 async def test_1():

@@ -11,6 +11,7 @@ pip install pytest pytest-asyncio
 
 LEGACY_LED_COUNT = 28
 
+
 def get_sensors_mock(ids=None, regions=None):
     if ids is None:
         ids = ["11"]

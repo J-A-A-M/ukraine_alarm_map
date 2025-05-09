@@ -11,6 +11,7 @@ pip install pytest pytest-asyncio
 
 LEGACY_LED_COUNT = 28
 
+
 def get_weather_mock(**kwargs):
     data = {
         "version": 2,
@@ -85,7 +86,36 @@ async def test_2(mock_get_weather, mock_get_cache_data):
     mock_mc = AsyncMock(spec=Client)
     mock_mc.set.return_value = True
 
-    mock_get_cache_data.return_value = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0]
+    mock_get_cache_data.return_value = [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+    ]
 
     mock_get_weather.return_value = get_weather_mock(temp=7.5)
     await update_weather_openweathermap_v1(mock_mc, run_once=True)

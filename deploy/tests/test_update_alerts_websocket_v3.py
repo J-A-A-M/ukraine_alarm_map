@@ -131,7 +131,7 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [2, 1700000000]
 
-    mock_get_cache_data.return_value =expected_result
+    mock_get_cache_data.return_value = expected_result
 
     await update_alerts_websocket_v3(mock_mc, run_once=True)
 
@@ -239,7 +239,7 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data, mock_da
     mock_mc.set.return_value = True
     mock_get_alerts.return_value = []
     mock_get_regions.return_value = districts
-    
+
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [1, 1700000000]
 
@@ -268,7 +268,7 @@ async def test_7(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     mock_mc.set.return_value = True
     mock_get_alerts.return_value = []
     mock_get_regions.return_value = districts
-    
+
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [0, 1700000000]
 
@@ -343,7 +343,7 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
         }
     ]
     mock_get_regions.return_value = districts
-    
+
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [0, 1700000000]
 
@@ -396,7 +396,6 @@ async def test_10(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [2, 1736935200]
 
-
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v3", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -436,7 +435,7 @@ async def test_11(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     expected_result = [[0, 1645674000]] * LEGACY_LED_COUNT
     expected_result[0] = [1, 1736935200]
-    
+
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v3", json.dumps(expected_result).encode("utf-8"))
 
 

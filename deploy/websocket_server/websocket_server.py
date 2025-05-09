@@ -66,6 +66,7 @@ geo = database.Reader(geo_lite_db_path)
 
 LEGACY_LED_COUNT = 28
 
+
 class SharedData:
     def __init__(self):
         self.alerts_v1 = "[]"
@@ -878,7 +879,7 @@ async def get_data_from_memcached_test(shared_data):
 
     alerts_v4 = {
         ##22:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"],
-        #31:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"]
+        # 31:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"]
     }
 
     alerts_v2[circular_offset_index(region_id - 1, 0)] = [
@@ -1037,13 +1038,13 @@ async def get_data_from_memcached(mc):
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 ]
             )
-        explosion_index = random.randint(0, LEGACY_LED_COUNT-1)
+        explosion_index = random.randint(0, LEGACY_LED_COUNT - 1)
         explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
-        missile_index = random.randint(0, LEGACY_LED_COUNT-1)
+        missile_index = random.randint(0, LEGACY_LED_COUNT - 1)
         missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
-        drone_index = random.randint(0, LEGACY_LED_COUNT-1)
+        drone_index = random.randint(0, LEGACY_LED_COUNT - 1)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
-        kab_index = random.randint(0, LEGACY_LED_COUNT-1)
+        kab_index = random.randint(0, LEGACY_LED_COUNT - 1)
         kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(alerts_v1[:LEGACY_LED_COUNT])
         alerts_cached_data_v2 = json.dumps(alerts_v2[:LEGACY_LED_COUNT])
