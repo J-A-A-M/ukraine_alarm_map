@@ -155,6 +155,8 @@ int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 int     beepHour = -1;
 char    uptimeChar[25];
+int     sessionTime;
+char    sessionTimeChar[25];
 float   cpuTemp;
 float   usedHeapSize;
 float   freeHeapSize;
@@ -2646,6 +2648,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<div class='row justify-content-center'>");
   addCard(response, "Час роботи", uptimeChar, "", 4);
+  addCard(response, "Час cесії вебсокета", sessionTimeChar, "", 4);
   addCard(response, "Температура ESP32", cpuTemp, "°C");
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
@@ -3263,6 +3266,7 @@ void setupRouting() {
 void uptime() {
   int   uptimeValue   = millis() / 1000;
   fillUptime(uptimeValue, uptimeChar);
+  fillUptime((millis()/1000)-sessionTime, sessionTimeChar);
 
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   freeHeapSize  = ESP.getFreeHeap() / 1024.0;
@@ -3642,6 +3646,7 @@ void socketConnect() {
     client_websocket.send(userInfo);
     client_websocket.ping();
     websocketReconnect = false;
+    sessionTime  = millis() / 1000;
     showServiceMessage("підключено!", "Сервер даних", 3000);
   } else {
     showServiceMessage("недоступний", "Сервер даних", 3000);
