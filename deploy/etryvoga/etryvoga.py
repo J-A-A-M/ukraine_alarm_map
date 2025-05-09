@@ -301,7 +301,7 @@ def make_districts_struct(data):
 async def main():
     mc = Client(memcached_host, 11211)
     try:
-        await asyncio.gather(get_etryvoga_districts(mc))
+        await asyncio.gather(get_etryvoga_data(mc), get_etryvoga_districts(mc))
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 

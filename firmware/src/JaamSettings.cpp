@@ -205,7 +205,6 @@ void JaamSettings::init() {
 
     // led map migration
     if (preferences.isKey("kdm")) {
-        delay(5000);
         LOG.printf("migrateLedMapping init\n");
         int kyivDistrict = preferences.getInt("kdm", KYIV_DISTRICT_MODE);
         if (kyivDistrict == 1) {

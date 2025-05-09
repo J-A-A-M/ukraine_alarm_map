@@ -1048,7 +1048,7 @@ async def get_data_from_memcached(mc):
         kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
         alerts_cached_data_v1 = json.dumps(alerts_v1[:LEGACY_LED_COUNT])
         alerts_cached_data_v2 = json.dumps(alerts_v2[:LEGACY_LED_COUNT])
-        alerts_cached_data_v2 = json.dumps(alerts_v3[:LEGACY_LED_COUNT])
+        alerts_cached_data_v3 = json.dumps(alerts_v3[:LEGACY_LED_COUNT])
         explosions_cashed_data_v1 = json.dumps(explosions_v1[:LEGACY_LED_COUNT])
         missiles_cashed_data_v1 = json.dumps(missiles_v1[:LEGACY_LED_COUNT])
         missiles_cashed_data_v2 = json.dumps(missiles_v2[:LEGACY_LED_COUNT])
