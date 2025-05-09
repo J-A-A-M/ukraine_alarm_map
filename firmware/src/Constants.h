@@ -1,16 +1,187 @@
 #pragma once
 #include <Arduino.h>
 #include <map>
+#include <vector>
+#include <cstdint>
+#include <algorithm>
+#include <utility>
 
-#define MAIN_LEDS_COUNT 26
-#define DISTRICTS_COUNT 26
+#define MAIN_LEDS_COUNT 28
+#define DISTRICTS_COUNT 28
 #define KYIV_REGION_ID 31
 #define KYIV_OBL_REGION_ID 14
+
+enum Type {
+  UNKNOWN = 0,
+  DISTRICT,
+  CITY,
+  ID,
+  DEVICE_NAME,
+  DEVICE_DESCRIPTION,
+  BROADCAST_NAME,
+  WS_SERVER_HOST,
+  WS_SERVER_PORT,
+  UPDATE_SERVER_PORT,
+  NTP_HOST,
+  LEGACY,
+  MAIN_LED_PIN,
+  BG_LED_PIN,
+  BG_LED_COUNT,
+  SERVICE_LED_PIN,
+  BUTTON_1_PIN,
+  BUTTON_2_PIN,
+  ALERT_PIN,
+  CLEAR_PIN,
+  BUZZER_PIN,
+  DF_RX_PIN,
+  DF_TX_PIN,
+  LIGHT_SENSOR_PIN,
+  POWER_PIN,
+  WIFI_PIN,
+  DATA_PIN,
+  HA_PIN,
+  UPD_AVAILABLE_PIN,
+  ALERT_CLEAR_PIN_MODE,
+  ALERT_CLEAR_PIN_TIME,
+  HA_MQTT_PORT,
+  HA_MQTT_USER,
+  HA_MQTT_PASSWORD,
+  HA_BROKER_ADDRESS,
+  CURRENT_BRIGHTNESS,
+  BRIGHTNESS,
+  BRIGHTNESS_DAY,
+  BRIGHTNESS_NIGHT,
+  BRIGHTNESS_MODE,
+  HOME_ALERT_TIME,
+  COLOR_ALERT,
+  COLOR_CLEAR,
+  COLOR_NEW_ALERT,
+  COLOR_ALERT_OVER,
+  COLOR_EXPLOSION,
+  COLOR_MISSILES,
+  COLOR_KABS,
+  COLOR_DRONES,
+  COLOR_HOME_DISTRICT,
+  COLOR_BG_NEIGHBOR_ALERT,
+  ENABLE_EXPLOSIONS,
+  ENABLE_MISSILES,
+  ENABLE_DRONES,
+  ENABLE_KABS,
+  BRIGHTNESS_ALERT,
+  BRIGHTNESS_CLEAR,
+  BRIGHTNESS_NEW_ALERT,
+  BRIGHTNESS_ALERT_OVER,
+  BRIGHTNESS_EXPLOSION,
+  BRIGHTNESS_HOME_DISTRICT,
+  BRIGHTNESS_BG,
+  BRIGHTNESS_SERVICE,
+  WEATHER_MIN_TEMP,
+  WEATHER_MAX_TEMP,
+  RADIATION_MAX,
+  ALARMS_AUTO_SWITCH,
+  HOME_DISTRICT,
+  KYIV_DISTRICT_MODE,
+  DISTRICT_MODE_KYIV,
+  DISTRICT_MODE_KHARKIV,
+  DISTRICT_MODE_ZP,
+  KYIV_LED,
+  MIGRATION_LED_MAPPING,
+  SERVICE_DIODES_MODE,
+  NEW_FW_NOTIFICATION,
+  HA_LIGHT_BRIGHTNESS,
+  HA_LIGHT_R,
+  HA_LIGHT_G,
+  HA_LIGHT_B,
+  SOUND_SOURCE,
+  SOUND_ON_MIN_OF_SL,
+  SOUND_ON_ALERT,
+  MELODY_ON_ALERT,
+  TRACK_ON_ALERT,
+  SOUND_ON_ALERT_END,
+  MELODY_ON_ALERT_END,
+  TRACK_ON_ALERT_END,
+  SOUND_ON_EXPLOSION,
+  MELODY_ON_EXPLOSION,
+  TRACK_ON_EXPLOSION,
+  SOUND_ON_CRITICAL_MIG,
+  MELODY_ON_CRITICAL_MIG,
+  TRACK_ON_CRITICAL_MIG,
+  SOUND_ON_CRITICAL_STRATEGIC,
+  MELODY_ON_CRITICAL_STRATEGIC,
+  TRACK_ON_CRITICAL_STRATEGIC,
+  SOUND_ON_CRITICAL_MIG_MISSILES,
+  MELODY_ON_CRITICAL_MIG_MISSILES,
+  TRACK_ON_CRITICAL_MIG_MISSILES,
+  SOUND_ON_CRITICAL_STRATEGIC_MISSILES,
+  MELODY_ON_CRITICAL_STRATEGIC_MISSILES,
+  TRACK_ON_CRITICAL_STRATEGIC_MISSILES,
+  SOUND_ON_CRITICAL_BALLISTIC_MISSILES,
+  MELODY_ON_CRITICAL_BALLISTIC_MISSILES,
+  TRACK_ON_CRITICAL_BALLISTIC_MISSILES,
+  CRITICAL_NOTIFICATIONS_DISPLAY_TIME,
+  ENABLE_CRITICAL_NOTIFICATIONS,
+  SOUND_ON_EVERY_HOUR,
+  SOUND_ON_BUTTON_CLICK,
+  MUTE_SOUND_ON_NIGHT,
+  IGNORE_MUTE_ON_ALERT,
+  MELODY_VOLUME_NIGHT,
+  MELODY_VOLUME_DAY,
+  MELODY_VOLUME_CURRENT,
+  INVERT_DISPLAY,
+  DIM_DISPLAY_ON_NIGHT,
+  MAP_MODE,
+  DISPLAY_MODE,
+  DISPLAY_MODE_TIME,
+  TOGGLE_MODE_WEATHER,
+  TOGGLE_MODE_ENERGY,
+  TOGGLE_MODE_RADIATION,
+  TOGGLE_MODE_TEMP,
+  TOGGLE_MODE_HUM,
+  TOGGLE_MODE_PRESS,
+  BUTTON_1_MODE,
+  BUTTON_2_MODE,
+  BUTTON_1_MODE_LONG,
+  BUTTON_2_MODE_LONG,
+  USE_TOUCH_BUTTON_1,
+  USE_TOUCH_BUTTON_2,
+  ALARMS_NOTIFY_MODE,
+  DISPLAY_MODEL,
+  DISPLAY_WIDTH,
+  DISPLAY_HEIGHT,
+  DAY_START,
+  NIGHT_START,
+  WS_ALERT_TIME,
+  WS_REBOOT_TIME,
+  MIN_OF_SILENCE,
+  FW_UPDATE_CHANNEL,
+  TEMP_CORRECTION,
+  HUM_CORRECTION,
+  PRESSURE_CORRECTION,
+  LIGHT_SENSOR_FACTOR,
+  TIME_ZONE,
+  ALERT_ON_TIME,
+  ALERT_OFF_TIME,
+  EXPLOSION_TIME,
+  ALERT_BLINK_TIME,
+};
 
 struct SettingListItem {
   int id;
   const char* name;
   bool ignore;
+};
+
+struct Area {
+  int id;          // номер області
+  int child;
+  std::vector<int> position;
+  Type type;
+  Type parameter;
+  
+
+  // конструктор для зручності
+  Area(int d, int c, std::initializer_list<int> pos, Type t= Type::DISTRICT, Type p = Type::UNKNOWN)
+  : id(d), child(c), position(pos), type(t), parameter(p) {}
 };
 
 static const char UA_ANTHEM[]            PROGMEM = "UkraineAnthem:d=4,o=5,b=200:2d5,4d5,32p,4d5,32p,4d5,32p,4c5,4d5,4d#5,2f5,4f5,4d#5,2d5,2c5,2a#4,2d5,2a4,2d5,1g4,32p,1g4";
@@ -201,6 +372,8 @@ static const std::map<int, int> FLAG_COLORS = {
   {3, 60},
   {26, 60},
   {31, 180},
+  {1293, 180},
+  {564, 60},
 };
 
 static const int D11[] PROGMEM = {13, 27}; // Закарпатська обл.
@@ -213,10 +386,10 @@ static const int D10[] PROGMEM = {5, 14, 4, 3}; // Житомирська обл
 static const int D14[] PROGMEM = {10, 25, 19, 24, 4, 31 }; // Київська обл.
 static const int D25[] PROGMEM = {14, 20, 19}; // Чернігівська обл.
 static const int D20[] PROGMEM = {8, 22, 19}; // Сумська обл.
-static const int D22[] PROGMEM = {20, 28, 9, 19}; // Харківська обл.
+static const int D22[] PROGMEM = {20, 28, 9, 19, 1293}; // Харківська обл.
 static const int D16[] PROGMEM = {22, 28}; // Луганська обл.
 static const int D28[] PROGMEM = {22, 12, 9}; // Донецька обл.
-static const int D12[] PROGMEM = {28, 23, 9}; // Запорізька обл.
+static const int D12[] PROGMEM = {28, 23, 9, 564}; // Запорізька обл.
 static const int D23[] PROGMEM = {12, 17, 9}; // Херсонська обл.
 static const int D9999[] PROGMEM = {23}; // Автономна Республіка Крим
 static const int D18[] PROGMEM = {17, 15, 4}; // Одеська обл.
@@ -229,6 +402,8 @@ static const int D4[] PROGMEM = {10, 14, 18, 24, 15, 3, 26}; // Вінницьк
 static const int D3[] PROGMEM = {21, 5, 10, 4, 26}; // Хмельницька обл.
 static const int D26[] PROGMEM = {13, 21, 4, 3}; // Чернівецька обл.
 static const int D31[] PROGMEM = {14}; // Київ
+static const int D1293[] PROGMEM = {22}; // Харків
+static const int D564[] PROGMEM = {12}; // Запоріжжя
 
 static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
   {9999, "АР Крим", false},
@@ -239,9 +414,10 @@ static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
   {10, "Житомирська обл.", false},
   {11, "Закарпатська обл.", false},
   {12, "Запорізька обл.", false},
+  {564, "м. Запоріжжя", false},
   {13, "Ів.-Франківська обл.", false},
   {14, "Київська обл.", false},
-  {31, "Київ", false},
+  {31, "м. Київ", false},
   {15, "Кіровоградська обл.", false},
   {16, "Луганська обл.", false},
   {27, "Львівська обл.", false},
@@ -252,6 +428,7 @@ static SettingListItem DISTRICTS[DISTRICTS_COUNT] = {
   {20, "Сумська обл.", false},
   {21, "Тернопільська обл.", false},
   {22, "Харківська обл.", false},
+  {1293, "м. Харків", false},
   {23, "Херсонська обл.", false},
   {3, "Хмельницька обл.", false},
   {24, "Черкаська обл.", false},
@@ -270,10 +447,10 @@ static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
   {14, std::make_pair(6, (int*)D14)},
   {25, std::make_pair(3, (int*)D25)},
   {20, std::make_pair(3, (int*)D20)},
-  {22, std::make_pair(4, (int*)D22)},
+  {22, std::make_pair(5, (int*)D22)},
   {16, std::make_pair(2, (int*)D16)},
   {28, std::make_pair(3, (int*)D28)},
-  {12, std::make_pair(3, (int*)D12)},
+  {12, std::make_pair(4, (int*)D12)},
   {23, std::make_pair(3, (int*)D23)},
   {9999, std::make_pair(1, (int*)D9999)},
   {18, std::make_pair(3, (int*)D18)},
@@ -286,7 +463,167 @@ static std::map<int, std::pair<int, int*>> NEIGHBORING_DISTRICS = {
   {3, std::make_pair(5, (int*)D3)},
   {26, std::make_pair(4, (int*)D26)},
   {31, std::make_pair(1, (int*)D31)},
+  {1293, std::make_pair(1, (int*)D1293)},
+  {564, std::make_pair(1, (int*)D564)},
 };
+
+static std::vector<Area> mapTranscarpatiaNoKyivTest = {
+  {11, -1, {0}},
+  {13, -1, {1}},
+  {21, -1, {2}},
+  {27, -1, {3}},
+  {8, -1, {4}},
+  {5, -1, {5}},
+  {10, -1, {6}},
+  {14, 31, {7},DISTRICT,DISTRICT_MODE_KYIV},
+  {25, -1, {8}},
+  {20, -1, {9}},
+  {22, 1293, {10},DISTRICT,DISTRICT_MODE_KHARKIV},
+  {16, -1, {11}},
+  {28, -1, {12}},
+  {12, 564, {13},DISTRICT,DISTRICT_MODE_ZP},
+  {23, -1, {14}},
+  {9999, -1, {15}},
+  {18, -1, {16}},
+  {17, -1, {17}},
+  {9, -1, {18}},
+  {19, -1, {19}},
+  {24, -1, {20}},
+  {15, -1, {21}},
+  {4, -1, {22}},
+  {3, -1, {23}},
+  {26, -1, {24}},
+  {31, -1, {25},CITY},
+  {1293, -1, {26},CITY},
+  {564, -1, {27},CITY},
+};
+
+static std::vector<Area> mapTranscarpatiaWithKyivTest = {
+  {11, -1, {0}},
+  {13, -1, {1}},
+  {21, -1, {2}},
+  {27, -1, {3}},
+  {8, -1, {4}},
+  {5, -1, {5}},
+  {10, -1, {6}},
+  {14, -1, {7}},
+  {31, -1, {8}},
+  {25, -1, {9}},
+  {20, -1, {10}},
+  {22, 1293, {11},DISTRICT,DISTRICT_MODE_KHARKIV},
+  {16, -1, {12}},
+  {28, -1, {13}},
+  {12, 564, {14},DISTRICT,DISTRICT_MODE_ZP},
+  {23, -1, {15}},
+  {9999, -1, {16}},
+  {18, -1, {17}},
+  {17, -1, {18}},
+  {9, -1, {19}},
+  {19, -1, {20}},
+  {24, -1, {21}},
+  {15, -1, {22}},
+  {4, -1, {23}},
+  {3, -1, {24}},
+  {26, -1, {25}},
+  {1293, -1, {26},CITY},
+  {564, -1, {27},CITY},
+};
+
+static std::vector<Area> mapOdessaNoKyivTest = {
+  {11, -1, {9}},
+  {13, -1, {10}},
+  {21, -1, {11}},
+  {27, -1, {12}},
+  {8, -1, {13}},
+  {5, -1, {14}},
+  {10, -1, {15}},
+  {14, 31, {16},DISTRICT,DISTRICT_MODE_KYIV},
+  {25, -1, {17}},
+  {20, -1, {18}},
+  {22, 1293, {19},DISTRICT,DISTRICT_MODE_KHARKIV},
+  {16, -1, {20}},
+  {28, -1, {21}},
+  {12, 564, {22},DISTRICT,DISTRICT_MODE_ZP},
+  {23, -1, {23}},
+  {9999, -1, {24}},
+  {18, -1, {0}},
+  {17, -1, {1}},
+  {9, -1, {2}},
+  {19, -1, {3}},
+  {24, -1, {4}},
+  {15, -1, {5}},
+  {4, -1, {6}},
+  {3, -1, {7}},
+  {26, -1, {8}},
+  {31, -1, {25},CITY},
+  {1293, -1, {26},CITY},
+  {564, -1, {27},CITY},
+};
+
+static std::vector<Area> mapOdessaWithKyivTest = {
+  {11, -1, {9}},
+  {13, -1, {10}},
+  {21, -1, {11}},
+  {27, -1, {12}},
+  {8, -1, {13}},
+  {5, -1, {14}},
+  {10, -1, {15}},
+  {14, -1, {16}},
+  {31, -1, {17}},
+  {25, -1, {18}},
+  {20, -1, {19}},
+  {22, 1293, {20},DISTRICT,DISTRICT_MODE_KHARKIV},
+  {16, -1, {21}},
+  {28, -1, {22}},
+  {12, 564, {23},DISTRICT,DISTRICT_MODE_ZP},
+  {23, -1, {24}},
+  {9999, -1, {25}},
+  {18, -1, {0}},
+  {17, -1, {1}},
+  {9, -1, {2}},
+  {19, -1, {3}},
+  {24, -1, {4}},
+  {15, -1, {5}},
+  {4, -1, {6}},
+  {3, -1, {7}},
+  {26, -1, {8}},
+  {1293, -1, {26},CITY},
+  {564, -1, {27},CITY},
+};
+
+static int mapIndexToRegionId(int index) {
+  switch (index) {
+    case 0: return 11; // Закарпатська обл.
+    case 1: return 13; // Івано-Франківська обл.
+    case 2: return 21; // Тернопільська обл.
+    case 3: return 27; // Львівська обл.
+    case 4: return 8; // Волинська обл.
+    case 5: return 5; // Рівненська обл.
+    case 6: return 10; // Житомирська обл.
+    case 7: return 14; // Київська обл.
+    case 8: return 25; // Чернігівська обл.
+    case 9: return 20; // Сумська обл.
+    case 10: return 22; // Харківська обл.
+    case 11: return 16; // Луганська обл.
+    case 12: return 28; // Донецька обл.
+    case 13: return 12; // Запорізька обл.
+    case 14: return 23; // Херсонська обл.
+    case 15: return 9999; // Автономна Республіка Крим
+    case 16: return 18; // Одеська обл.
+    case 17: return 17; // Миколаївська обл.
+    case 18: return 9; // Дніпропетровська обл.
+    case 19: return 19; // Полтавська обл.
+    case 20: return 24; // Черкаська обл.
+    case 21: return 15; // Кіровоградська обл.
+    case 22: return 4; // Вінницька обл.
+    case 23: return 3; // Хмельницька обл.
+    case 24: return 26; // Чернівецька обл.
+    case 25: return 31; // м. Київ
+    case 26: return 1293; // м. Харків
+    case 27: return 564; // м. Запоріжжя
+    default: return -1;
+  }
+}
 
 #define MAP_MODES_COUNT 8
 static SettingListItem MAP_MODES[MAP_MODES_COUNT] = {
@@ -366,12 +703,11 @@ static SettingListItem AUTO_BRIGHTNESS_MODES[AUTO_BRIGHTNESS_OPTIONS_COUNT] = {
   {2, "Сенсор освітлення", false}
 };
 
-#define KYIV_LED_MODE_COUNT 4
-static SettingListItem KYIV_LED_MODE_OPTIONS[KYIV_LED_MODE_COUNT] = {
-  {1, "Київська область", false},
-  {2, "Київ", false},
-  {3, "Київська область + Київ (2 діода)", false},
-  {4, "Київська область + Київ (1 діод)", false}
+#define LED_MODE_COUNT 3
+static SettingListItem LED_MODE_OPTIONS[LED_MODE_COUNT] = {
+  {1, "Область", false},
+  {2, "Обласний центр", false},
+  {3, "Область + Обласний центр", false}
 };
 
 #define ALERT_NOTIFY_OPTIONS_COUNT 3
@@ -402,8 +738,8 @@ static SettingListItem DISPLAY_HEIGHT_OPTIONS[DISPLAY_HEIGHT_OPTIONS_COUNT] = {
 #endif
 static SettingListItem LEGACY_OPTIONS[LEGACY_OPTIONS_COUNT] = {
 #if ARDUINO_ESP32_DEV
-  {3, "Плата JAAM 2.x", false},
   {0, "Плата JAAM 1.3", false},
+  {3, "Плата JAAM 2.1", false},
 #endif
   {1, "Початок на Закарпатті", false},
   {2, "Початок на Одещині", false},

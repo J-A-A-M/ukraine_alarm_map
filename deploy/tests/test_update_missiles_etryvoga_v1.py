@@ -11,6 +11,8 @@ unix 1645674000 - 2022-02-24T03:40:00Z
 unix 1736935200 - 2025-01-15T10:00:00Z
 """
 
+LEGACY_LED_COUNT = 28
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -41,7 +43,7 @@ async def test_1():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_missiles_etryvoga_v1(mock_mc, run_once=True)
 
-        expected_result = [1645674000] * 26
+        expected_result = [1645674000] * LEGACY_LED_COUNT
         expected_result[1] = 1736935200
 
         mock_mc.set.assert_awaited_with(b"missiles_websocket_v1", json.dumps(expected_result).encode("utf-8"))
@@ -68,8 +70,8 @@ async def test_2():
                     "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
                 },
             },
-            b"missiles_websocket_v1": [1736935200] * 26,
-            b"missiles_websocket_v2": [[0, 1645674000]] * 26,
+            b"missiles_websocket_v1": [1736935200] * LEGACY_LED_COUNT,
+            b"missiles_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
         }
         return mock_responses.get(key, default)
 
@@ -78,7 +80,7 @@ async def test_2():
     with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
         await update_missiles_etryvoga_v1(mock_mc, run_once=True)
 
-        expected_result = [1736935200] * 26
+        expected_result = [1736935200] * LEGACY_LED_COUNT
         expected_result[0] = 1740368400
 
         mock_mc.set.assert_awaited_with(b"missiles_websocket_v1", json.dumps(expected_result).encode("utf-8"))

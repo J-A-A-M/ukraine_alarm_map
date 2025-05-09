@@ -115,7 +115,10 @@ std::map<int, int>                  led_to_flag_color; // ledPosition to flag co
 std::pair<int, int*>                homeDistrictMapping; // id to ledPosition home district mapping
 
 
-std::pair<int, int*> (*ledMapping)(int key);
+std::vector<Area> ledMapping;
+
+int     legacy;
+bool     kyiv_led;
 
 bool    isFirstDataFetchCompleted = false;
 
@@ -152,6 +155,8 @@ int     prevBrightness = -1;
 int     needRebootWithDelay = -1;
 int     beepHour = -1;
 char    uptimeChar[25];
+int     sessionTime;
+char    sessionTimeChar[25];
 float   cpuTemp;
 float   usedHeapSize;
 float   freeHeapSize;
@@ -458,7 +463,7 @@ bool needToPlaySound(SoundType type) {
 }
 
 void servicePin(ServiceLed type, uint8_t status, bool force) {
-  if (force || ((settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) && settings.getBool(SERVICE_DIODES_MODE))) {
+  if (force || ((legacy == 0 || legacy == 3) && settings.getBool(SERVICE_DIODES_MODE))) {
     int pin = 0;
     int scaledBrightness = (settings.getInt(BRIGHTNESS_SERVICE) == 0) ? 0 : round(max(settings.getInt(BRIGHTNESS_SERVICE), minBrightness) * 255.0f / 100.0f * brightnessFactor);
     switch (type) {
@@ -487,10 +492,10 @@ void servicePin(ServiceLed type, uint8_t status, bool force) {
 #endif
         break;
     }
-    if (pin > 0 && settings.getInt(LEGACY) == 0) {
+    if (pin > 0 && legacy == 0) {
       digitalWrite(pin, status);
     }
-    if (isServiceStripEnabled() && settings.getInt(LEGACY) == 3) {
+    if (isServiceStripEnabled() && legacy == 3) {
       FastLED.show();
     }
   }
@@ -933,7 +938,7 @@ void doUpdate() {
 
 //--Service
 void checkServicePins() {
-  if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
+  if (legacy == 0 || legacy == 3) {
     if (settings.getInt(SERVICE_DIODES_MODE)) {
       servicePin(POWER, HIGH, true);
       if (WiFi.status() != WL_CONNECTED) {
@@ -1244,37 +1249,51 @@ void distributeBrightnessLevels() {
   distributeBrightnessLevelsFor(settings.getInt(BRIGHTNESS_DAY), settings.getInt(BRIGHTNESS_NIGHT), ledsBrightnessLevels, "Leds");
 }
 
-void remapFlag() {
-  led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS);
+template <typename V>
+static std::map<int, V> mapLeds(std::vector<Area> ledsSequence, std::map<int, V> values, V (*combiModeHandler)(V city, V district) = NULL) {
+  std::map<int, V> remaped = {};
+  for (auto& a : ledsSequence) {
+    V valueDistrict = values[a.id];
+    V valueCity     = values[a.child];
+    V valueForKey   = V{};
+
+    if (a.parameter != Type::UNKNOWN) {
+      int mode = settings.getInt(a.parameter);
+      switch (mode) {
+        case 2:
+          valueForKey = valueCity;
+          break;
+        case 3:
+          if (combiModeHandler)
+            valueForKey = combiModeHandler(valueDistrict, valueCity);
+          break;
+        default:
+          valueForKey = valueDistrict;
+      }
+    } else {
+      valueForKey = valueDistrict;
+    }
+    for (int p : a.position) {
+      remaped[p] = valueForKey;
+    }
+  }
+  return remaped;
 }
 
-std::pair<int, long> alertsCombiModeHandler(std::pair<int, long> kyiv, std::pair<int, long> kyivObl) {
-  // if state of Kyiv and Kyiv Oblast are 'alert', return oldest by time
-  if (kyiv.first == 1 && kyivObl.first == 1) return kyiv.second <= kyivObl.second ? kyiv : kyivObl;
-  // if states of Kyiv and Kyiv Oblast are 'clear', return nearest by time
-  if (kyiv.first == 0 && kyivObl.first == 0) return kyiv.second >= kyivObl.second ? kyiv : kyivObl;
+
+
+
+std::pair<int, long> alertsCombiModeHandler(std::pair<int, long> city, std::pair<int, long> district) {
+  // if state of City and District are 'alert', return oldest by time
+  if (city.first == 1 && district.first == 1) return city.second <= district.second ? city : district;
+  // if states of City and District are 'clear', return nearest by time
+  if (city.first == 0 && district.first == 0) return city.second >= district.second ? city : district;
   // if one of the states is 0, return another
-  return kyiv.first == 0 ? kyivObl : kyiv;
+  return city.first == 0 ? district : city;
 }
 
-void remapAlerts() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_alerts = mapLeds(ledMapping, id_to_alerts, combiHandler);
-}
-
-void remapMissiles() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_missiles = mapLeds(ledMapping, id_to_missiles, combiHandler);
-}
-
-void remapDrones() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_drones = mapLeds(ledMapping, id_to_drones, combiHandler);
-}
-
-void remapKabs() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_kabs = mapLeds(ledMapping, id_to_kabs, combiHandler);
+std::pair<int, long> cityToDistrictCombiModeHandler(std::pair<int, long> city, std::pair<int, long> district) {
+  return city;
 }
 
 float linearFloatCombiModeHandler(float value1, float value2) {
@@ -1287,19 +1306,41 @@ int linearIntCombiModeHandler(int value1, int value2) {
   return (value1 + value2) / 2;
 }
 
+int cityToDistrictCombiModeHandler(int value1, int value2) {
+  // return average value of two values
+  return value1;
+}
+
+void remapFlag() {
+  led_to_flag_color =  mapLeds(ledMapping, FLAG_COLORS, linearIntCombiModeHandler);
+}
+
+void remapAlerts() {
+  led_to_alerts = mapLeds(ledMapping, id_to_alerts, alertsCombiModeHandler);
+}
+
+void remapMissiles() {
+  led_to_missiles = mapLeds(ledMapping, id_to_missiles, alertsCombiModeHandler);
+}
+
+void remapDrones() {
+  led_to_drones = mapLeds(ledMapping, id_to_drones, alertsCombiModeHandler);
+}
+
+void remapKabs() {
+  led_to_kabs = mapLeds(ledMapping, id_to_kabs, alertsCombiModeHandler);
+}
+
 void remapWeather() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearFloatCombiModeHandler : NULL;
-  led_to_weather = mapLeds(ledMapping, id_to_weather, combiHandler);
+  led_to_weather = mapLeds(ledMapping, id_to_weather, linearFloatCombiModeHandler);
 }
 
 void remapRadiation() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? linearIntCombiModeHandler : NULL;
-  led_to_radiation = mapLeds(ledMapping, id_to_radiation, combiHandler);
+  led_to_radiation = mapLeds(ledMapping, id_to_radiation, cityToDistrictCombiModeHandler);
 }
 
 void remapEnergy() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? alertsCombiModeHandler : NULL;
-  led_to_energy = mapLeds(ledMapping, id_to_energy, combiHandler);
+  led_to_energy = mapLeds(ledMapping, id_to_energy, cityToDistrictCombiModeHandler);
 }
 
 long maxCombiModeHandler(long value1, long value2) {
@@ -1308,27 +1349,95 @@ long maxCombiModeHandler(long value1, long value2) {
 }
 
 void remapExplosionsNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
-  led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, combiHandler);
+  led_to_explosions_notifications = mapLeds(ledMapping, id_to_explosions_notifications, maxCombiModeHandler);
 }
 
 void remapMissilesNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
-  led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, combiHandler);
+  led_to_missiles_notifications = mapLeds(ledMapping, id_to_missiles_notifications, maxCombiModeHandler);
 }
 
 void remapDronesNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
-  led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, combiHandler);
+  led_to_drones_notifications = mapLeds(ledMapping, id_to_drones_notifications, maxCombiModeHandler);
 }
 
 void remapKabsNotifications() {
-  auto combiHandler = settings.getInt(KYIV_DISTRICT_MODE) == 4 ? maxCombiModeHandler : NULL;
-  led_to_kabs_notifications = mapLeds(ledMapping, id_to_kabs_notifications, combiHandler);
+  led_to_kabs_notifications = mapLeds(ledMapping, id_to_kabs_notifications, maxCombiModeHandler);
+}
+
+static std::pair<int,int*> getHomeDistrictMapping(int districtId) {
+  // 1) Знайдемо елемент e з id == districtId
+  auto itE = std::find_if(
+      ledMapping.begin(),
+      ledMapping.end(),
+      [districtId](const Area& a){ return a.id == districtId; }
+  );
+  if (itE == ledMapping.end()) {
+      return {0, nullptr};
+  }
+  const Area& e = *itE;
+
+  // ламбда для копіювання vector<int> -> (size, int*)
+  auto copyPositions = [](const std::vector<int>& pos){
+      int cnt = static_cast<int>(pos.size());
+      int* arr = new int[cnt];
+      for (int i = 0; i < cnt; ++i) arr[i] = pos[i];
+      return std::make_pair(cnt, arr);
+  };
+
+  // 2) Якщо район
+  if (e.type == Type::DISTRICT) {
+      if (e.parameter != Type::UNKNOWN) {
+          int mode = settings.getInt(e.parameter);
+          if (mode == 1 || mode == 3) {
+              return copyPositions(e.position);
+          }
+          if (mode == 2) {
+              // явно виносимо child в змінну, щоб захопити її C++11-стилем
+              int cityId = e.child;
+              auto itCity = std::find_if(
+                  ledMapping.begin(),
+                  ledMapping.end(),
+                  [cityId](const Area& a){ return a.id == cityId; }
+              );
+              if (itCity != ledMapping.end()) {
+                  return copyPositions(itCity->position);
+              }
+          }
+      }
+      return copyPositions(e.position);
+  }
+
+  // 3) Якщо місто
+  if (e.type == Type::CITY) {
+      // виносимо id міста в локальну змінну
+      int cityId = e.id;
+      auto itParent = std::find_if(
+          ledMapping.begin(),
+          ledMapping.end(),
+          [cityId](const Area& a){ return a.child == cityId; }
+      );
+      if (itParent != ledMapping.end() && itParent->parameter != Type::UNKNOWN) {
+          int mode = settings.getInt(itParent->parameter);
+          if (mode == 1) {
+              return copyPositions(e.position);
+          }
+          if (mode == 2 || mode == 3) {
+              return copyPositions(itParent->position);
+          }
+      }
+      return copyPositions(e.position);
+  }
+
+  // За замовчуванням
+  return {0, nullptr};
 }
 
 void remapHomeDistrict() {
-  homeDistrictMapping = ledMapping(settings.getInt(HOME_DISTRICT));
+  LOG.printf("remapHomeDistrict: called\n");
+  if (homeDistrictMapping.second) {
+      delete[] homeDistrictMapping.second;
+  }
+  homeDistrictMapping = getHomeDistrictMapping(settings.getInt(HOME_DISTRICT));
 }
 
 bool saveBrightness(int newBrightness) {
@@ -1902,49 +2011,21 @@ void disableAlertAndClearPins() {
 }
 
 void initLedMapping() {
-  if (settings.getInt(LEGACY) == 1) {
-    switch (settings.getInt(KYIV_DISTRICT_MODE)) {
-    case 1:
-      ledMapping = mapTranscarpatiaStart1;
-      LOG.println("Transcarpatia district mode 1");
-      break;
-    case 2:
-      ledMapping = mapTranscarpatiaStart2;
-      LOG.println("Transcarpatia district mode 2");
-      break;
-    case 3:
-      ledMapping = mapTranscarpatiaStart3;
-      LOG.println("Transcarpatia district mode 3");
-      break;
-    case 4:
-      ledMapping = mapTranscarpatiaStart4;
-      LOG.println("Transcarpatia district mode 4");
-      break;
-    default:
-      LOG.printf("Unknown Kyiv district mode: %d\n", settings.getInt(KYIV_DISTRICT_MODE));
-      throw std::runtime_error("Unknown Kyiv district mode");
+  if (legacy == 1) {
+    if (kyiv_led) {
+      ledMapping = mapTranscarpatiaWithKyivTest;
+      LOG.println("Transcarpatia with Kyiv mode");
+    } else {
+      ledMapping = mapTranscarpatiaNoKyivTest;
+      LOG.println("Transcarpatia no Kyiv mode");
     }
   } else {
-    switch (settings.getInt(KYIV_DISTRICT_MODE)) {
-    case 1:
-      ledMapping = mapOdessaStart1;
-      LOG.println("Odessa district mode 1");
-      break;
-    case 2:
-      ledMapping = mapOdessaStart2;
-      LOG.println("Odessa district mode 2");
-      break;
-    case 3:
-      ledMapping = mapOdessaStart3;
-      LOG.println("Odessa district mode 3");
-      break;
-    case 4:
-      ledMapping = mapOdessaStart4;
-      LOG.println("Odessa district mode 4");
-      break;
-    default:
-      LOG.printf("Unknown Kyiv district mode: %d\n", settings.getInt(KYIV_DISTRICT_MODE));
-      throw std::runtime_error("Unknown Kyiv district mode");
+    if (kyiv_led) {
+      ledMapping = mapOdessaWithKyivTest;
+      LOG.println("Odessa with Kyiv mode");
+    } else {
+      ledMapping = mapOdessaNoKyivTest;
+      LOG.println("Odessa no Kyiv mode");
     }
   }
   remapFlag();
@@ -2408,9 +2489,11 @@ void handleModes(AsyncWebServerRequest* request) {
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
-  if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
-  addSelectBox(response, "kyiv_district_mode", "Режим діода \"Київська область\"", settings.getInt(KYIV_DISTRICT_MODE), KYIV_LED_MODE_OPTIONS, KYIV_LED_MODE_COUNT);
+  if ((legacy == 1 || legacy == 2) && !kyiv_led) {
+  addSelectBox(response, "district_mode_kyiv", "Режим діода \"Київська область\"", settings.getInt(DISTRICT_MODE_KYIV), LED_MODE_OPTIONS, LED_MODE_COUNT);
   }
+  addSelectBox(response, "district_mode_kharkiv", "Режим діода \"Харківська  область\"", settings.getInt(DISTRICT_MODE_KHARKIV), LED_MODE_OPTIONS, LED_MODE_COUNT);
+  addSelectBox(response, "district_mode_zp", "Режим діода \"Запорізька область\"", settings.getInt(DISTRICT_MODE_ZP), LED_MODE_OPTIONS, LED_MODE_COUNT);
   addSelectBox(response, "home_district", "Домашній регіон", settings.getInt(HOME_DISTRICT), DISTRICTS, DISTRICTS_COUNT);
   addSelectBox(response, "map_mode", "Режим мапи", settings.getInt(MAP_MODE), MAP_MODES, MAP_MODES_COUNT);
   addSelectBox(response, "alarms_auto_switch", "Перемикання мапи в режим тривоги у випадку тривоги у домашньому регіоні", settings.getInt(ALARMS_AUTO_SWITCH), AUTO_ALARM_MODES, AUTO_ALARM_MODES_COUNT);
@@ -2466,7 +2549,7 @@ void handleModes(AsyncWebServerRequest* request) {
     addSelectBox(response, "button2_mode_long", "Режим кнопки 2 (Long Click)", settings.getInt(BUTTON_2_MODE_LONG), LONG_CLICK_OPTIONS, LONG_CLICK_OPTIONS_MAX, NULL);
   }
   
-  if (settings.getInt(LEGACY) == 0 || settings.getInt(LEGACY) == 3) {
+  if (legacy == 0 || legacy == 3) {
     addCheckbox(response, "service_diodes_mode", settings.getInt(SERVICE_DIODES_MODE), "Ввімкнути сервісні діоди");
   }
   addCheckbox(response, "min_of_silence", settings.getBool(MIN_OF_SILENCE), "Активувати режим \"Хвилина мовчання\" (щоранку о 09:00)");
@@ -2565,6 +2648,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<div class='row justify-content-center'>");
   addCard(response, "Час роботи", uptimeChar, "", 4);
+  addCard(response, "Час cесії вебсокета", sessionTimeChar, "", 4);
   addCard(response, "Температура ESP32", cpuTemp, "°C");
   addCard(response, "Вільна памʼять", freeHeapSize, "кБ");
   addCard(response, "Використана памʼять", usedHeapSize, "кБ");
@@ -2614,8 +2698,11 @@ void handleDev(AsyncWebServerRequest* request) {
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveDev' method='POST'>");
-  addSelectBox(response, "legacy", "Режим прошивки", settings.getInt(LEGACY), LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
-  if ((settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) && display.isDisplayEnabled()) {
+  addSelectBox(response, "legacy", "Режим прошивки", legacy, LEGACY_OPTIONS, LEGACY_OPTIONS_COUNT);
+  if (legacy == 1 || legacy == 2) {
+    addCheckbox(response, "kyiv_led", kyiv_led, "Київ як окремий LED");
+  }
+  if ((legacy == 1 || legacy == 2) && display.isDisplayEnabled()) {
     addSelectBox(response, "display_model", "Тип дисплею", settings.getInt(DISPLAY_MODEL), DISPLAY_MODEL_OPTIONS, DISPLAY_MODEL_OPTIONS_COUNT);
     addSelectBox(response, "display_height", "Розмір дисплею", settings.getInt(DISPLAY_HEIGHT), DISPLAY_HEIGHT_OPTIONS, DISPLAY_HEIGHT_OPTIONS_COUNT);
   }
@@ -2632,7 +2719,7 @@ void handleDev(AsyncWebServerRequest* request) {
   addInputText(response, "devicename", "Назва пристрою", "text", settings.getString(DEVICE_NAME), 30);
   addInputText(response, "devicedescription", "Опис пристрою", "text", settings.getString(DEVICE_DESCRIPTION), 50);
   addInputText(response, "broadcastname", ("Локальна адреса (" + String(settings.getString(BROADCAST_NAME)) + ".local)").c_str(), "text", settings.getString(BROADCAST_NAME), 30);
-  if (settings.getInt(LEGACY) == 1 || settings.getInt(LEGACY) == 2) {
+  if (legacy == 1 || legacy == 2) {
     addInputText(response, "pixelpin", "Керуючий пін лед-стрічки", "number", String(settings.getInt(MAIN_LED_PIN)).c_str());
     addInputText(response, "bg_pixelpin", "Керуючий пін фонової лед-стрічки (-1 - стрічки немає)", "number", String(settings.getInt(BG_LED_PIN)).c_str());
     addInputText(response, "bg_pixelcount", "Кількість пікселів фонової лед-стрічки", "number", String(settings.getInt(BG_LED_COUNT)).c_str());
@@ -2646,7 +2733,7 @@ void handleDev(AsyncWebServerRequest* request) {
   addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.getInt(CLEAR_PIN)).c_str());
   addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.getFloat(ALERT_CLEAR_PIN_TIME), 0.5f, 10.0f, 0.5f, " с.");
 
-  if (settings.getInt(LEGACY) != 3) {
+  if (legacy != 3) {
     addInputText(response, "lightpin", "Пін фоторезистора (має бути input, -1 - вимкнено)", "number", String(settings.getInt(LIGHT_SENSOR_PIN)).c_str());
 #if BUZZER_ENABLED
     addInputText(response, "buzzerpin", "Керуючий пін динаміка (має бути output, -1 - вимкнено)", "number", String(settings.getInt(BUZZER_PIN)).c_str());
@@ -2909,7 +2996,9 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   saved = saveInt(request->getParam("button2_mode", true), BUTTON_2_MODE) || saved;
   saved = saveInt(request->getParam("button_mode_long", true), BUTTON_1_MODE_LONG) || saved;
   saved = saveInt(request->getParam("button2_mode_long", true), BUTTON_2_MODE_LONG) || saved;
-  saved = saveInt(request->getParam("kyiv_district_mode", true), KYIV_DISTRICT_MODE, NULL, initLedMapping) || saved;
+  saved = saveInt(request->getParam("district_mode_kyiv", true), DISTRICT_MODE_KYIV, NULL, initLedMapping) || saved;
+  saved = saveInt(request->getParam("district_mode_kharkiv", true), DISTRICT_MODE_KHARKIV, NULL, initLedMapping) || saved;
+  saved = saveInt(request->getParam("district_mode_zp", true), DISTRICT_MODE_ZP, NULL, initLedMapping) || saved;
   saved = saveInt(request->getParam("day_start", true), DAY_START) || saved;
   saved = saveInt(request->getParam("night_start", true), NIGHT_START) || saved;
   saved = saveBool(request->getParam("home_alert_time", true), "home_alert_time", HOME_ALERT_TIME, saveShowHomeAlarmTime) || saved;
@@ -2992,6 +3081,7 @@ void handleRefreshTelemetry(AsyncWebServerRequest* request) {
 void handleSaveDev(AsyncWebServerRequest* request) {
   bool reboot = false;
   reboot = saveInt(request->getParam("legacy", true), LEGACY) || reboot;
+  reboot = saveBool(request->getParam("kyiv_led", true), "kyiv_led", KYIV_LED) || reboot;
   reboot = saveInt(request->getParam("display_height", true), DISPLAY_HEIGHT) || reboot;
   reboot = saveInt(request->getParam("display_model", true), DISPLAY_MODEL) || reboot;
   reboot = saveString(request->getParam("ha_brokeraddress", true), HA_BROKER_ADDRESS) || reboot;
@@ -3176,6 +3266,7 @@ void setupRouting() {
 void uptime() {
   int   uptimeValue   = millis() / 1000;
   fillUptime(uptimeValue, uptimeChar);
+  fillUptime((millis()/1000)-sessionTime, sessionTimeChar);
 
   float totalHeapSize = ESP.getHeapSize() / 1024.0;
   freeHeapSize  = ESP.getFreeHeap() / 1024.0;
@@ -3386,6 +3477,24 @@ void onMessageCallback(WebsocketsMessage message) {
       LOG.println("Heartbeat from server");
       websocketLastPingTime = millis();
     } else if (payload == "alerts") {
+
+      // ADDRESAABLE JSON PARSE TEST FOR FUTURE
+      // data["alerts"] = {"12": [1, 1600000000], "1243": [0, 1700000000]}
+      // JsonObject alerts = data["alerts"].as<JsonObject>();
+
+      // for (auto& a : ledMapping) {
+      //   id_to_alerts[a.id] = std::make_pair((uint8_t) 0, (long) 0);
+      // }
+
+      // for (JsonPair kv : alerts) {
+      //   int regionId = atoi(kv.key().c_str());
+      //   JsonArray arr = kv.value().as<JsonArray>();
+      //   uint8_t status   = arr[0].as<uint8_t>();
+      //   long    ts       = arr[1].as<long>();
+
+      //   id_to_alerts[regionId] = std::make_pair(status, ts);
+      // }
+
       for (int i = 0; i < MAIN_LEDS_COUNT; ++i) {
         id_to_alerts[mapIndexToRegionId(i)] = std::make_pair((uint8_t) data["alerts"][i][0], (long) data["alerts"][i][1]);
       }
@@ -3522,8 +3631,8 @@ void socketConnect() {
 
     char userInfo[250];
     JsonDocument userInfoJson;
-    userInfoJson["legacy"] = settings.getInt(LEGACY);
-    userInfoJson["kyiv_mode"] = settings.getInt(KYIV_DISTRICT_MODE);
+    userInfoJson["legacy"] = legacy;
+    userInfoJson["kyiv_led"] = kyiv_led;
     userInfoJson["display_model"] = display.getDisplayModel();
     if (display.isDisplayAvailable()) userInfoJson["display_height"] = settings.getInt(DISPLAY_HEIGHT);
     userInfoJson["bh1750"] = lightSensor.isLightSensorAvailable();
@@ -3537,6 +3646,7 @@ void socketConnect() {
     client_websocket.send(userInfo);
     client_websocket.ping();
     websocketReconnect = false;
+    sessionTime  = millis() / 1000;
     showServiceMessage("підключено!", "Сервер даних", 3000);
   } else {
     showServiceMessage("недоступний", "Сервер даних", 3000);
@@ -4083,7 +4193,9 @@ void initLegacy() {
 #if TEST_MODE
   settings.saveInt(LEGACY, 3, false);
 #endif
-  switch (settings.getInt(LEGACY)) {
+  legacy = settings.getInt(LEGACY);
+  kyiv_led = settings.getBool(KYIV_LED);
+  switch (legacy) {
   case 0:
     LOG.println("Mode: jaam 1");    
 
@@ -4092,8 +4204,7 @@ void initLegacy() {
     settings.saveInt(DATA_PIN, 25, false);
     settings.saveInt(HA_PIN, 26, false);
     settings.saveInt(UPD_AVAILABLE_PIN, 27, false);
-
-    settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
+    settings.saveBool(KYIV_LED, 1, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
     settings.saveInt(BG_LED_PIN, -1, false);
     settings.saveInt(BG_LED_COUNT, 0, false);
@@ -4112,6 +4223,9 @@ void initLegacy() {
 
     servicePin(POWER, HIGH, false);
 
+    legacy = settings.getInt(LEGACY);
+    kyiv_led = settings.getBool(KYIV_LED);
+
     break;
   case 1:
     LOG.println("Mode: transcarpathia");
@@ -4126,7 +4240,7 @@ void initLegacy() {
   case 3:
     LOG.println("Mode: jaam 2");
 
-    settings.saveInt(KYIV_DISTRICT_MODE, 3, false);
+    settings.saveBool(KYIV_LED, 1, false);
     settings.saveInt(MAIN_LED_PIN, 13, false);
     settings.saveInt(BG_LED_PIN, 12, false);
     settings.saveInt(BG_LED_COUNT, 44, false);
@@ -4141,6 +4255,9 @@ void initLegacy() {
     minBlinkBrightness = 0.07f;
     settings.saveBool(USE_TOUCH_BUTTON_1, 0, false);
     settings.saveBool(USE_TOUCH_BUTTON_2, 0, false);
+
+    legacy = settings.getInt(LEGACY);
+    kyiv_led = settings.getBool(KYIV_LED);
     break;
   }
 }
@@ -4374,7 +4491,7 @@ void initSound() {
 }
 
 void initSensors() {
-  lightSensor.begin(settings.getInt(LEGACY));
+  lightSensor.begin(legacy);
   if (lightSensor.isLightSensorAvailable()) {
     lightSensorCycle();
   }
