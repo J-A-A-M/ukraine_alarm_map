@@ -824,11 +824,32 @@ async def print_clients(shared_data, mc):
     while True:
         try:
             await asyncio.sleep(60)
-            logger.debug(f"Clients:")
+            logger.info(f"Clients: {len(shared_data.clients)}")
             for client, data in shared_data.clients.items():
                 logger.debug(client)
-            websoket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
-            await mc.set(websoket_key, json.dumps(shared_data.clients).encode("utf-8"))
+
+            compressed_clients = {}
+            fields = [
+                "firmware",
+                "chip_id",
+                "latency",
+                "country",
+                "district",
+                "city",
+                "timezone",
+                "org",
+                "location",
+                "secure_connection",
+                "connection",
+                "connect_time",
+            ]
+            for _id, _data in shared_data.clients.items():
+                compressed_clients[_id] = {}
+                for _field in fields:
+                    compressed_clients[_id][_field] = data.get(_field, "")
+            websoсket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
+            await mc.set(websoсket_key, json.dumps(compressed_clients).encode("utf-8"))
+            logger.info(f"update_shared_data: {len(compressed_clients)} clients updated ")
         except Exception as e:
             logger.error(f"Error in update_shared_data: {e}")
 
