@@ -84,6 +84,7 @@ UNRESTRICTED = ChatPermissions(
     can_invite_users=True,
 )
 
+
 # --- УТИЛІТИ ---
 async def delete_message_later(bot, chat_id, msg_id, delay):
     await asyncio.sleep(delay)
@@ -92,6 +93,7 @@ async def delete_message_later(bot, chat_id, msg_id, delay):
         logger.info(f"[CLEANUP] Видалено повідомлення {msg_id} в чаті {chat_id}")
     except Exception as e:
         logger.warning(f"[CLEANUP ERROR] Не вдалося видалити повідомлення {msg_id}: {e}")
+
 
 async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
     await asyncio.sleep(delay)
@@ -106,6 +108,7 @@ async def handle_timeout(bot, chat_id, user_id, msg_id, delay):
     except Exception as e:
         logger.warning(f"[TIMEOUT ERROR] Не вдалося видалити користувача {user_id}: {e}")
 
+
 async def delete_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Видаляє service messages: join/leave/invite notifications."""
     try:
@@ -115,6 +118,7 @@ async def delete_service_messages(update: Update, context: ContextTypes.DEFAULT_
         )
     except Exception:
         pass
+
 
 async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
@@ -128,8 +132,10 @@ async def check_allowed_chat(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return False
     return True
 
+
 # --- CAPTCHA & Питання ---
 alphabet_pool = list("абвгдежзийклмнопрстуфхцчшщьюяєії0123456789")
+
 
 def generate_captcha():
     text = "".join(random.choice(alphabet_pool) for _ in range(4))
@@ -165,8 +171,10 @@ def generate_captcha():
     buf.seek(0)
     return buf, text, options
 
+
 # --- Сесії ---
 user_questions = {}
+
 
 # --- Обробники нових учасників ---
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -180,9 +188,9 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.restrict_chat_member(chat_id, m.id, RESTRICTED)
         q = random.choice(QUESTIONS)
         ans = q["answer"].strip().lower()
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(opt, callback_data=f"{m.id}:{opt.strip().lower()}")] for opt in q.get("options", [])
-        ])
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(opt, callback_data=f"{m.id}:{opt.strip().lower()}")] for opt in q.get("options", [])]
+        )
         msg = await context.bot.send_message(
             chat_id,
             f"{m.full_name}, відповідайте:\n❓ {q['question']}",
@@ -195,6 +203,7 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 handle_timeout(context.bot, chat_id, m.id, msg.message_id, QUESTION_MESSAGES_DELAY)
             ),
         }
+
 
 async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cm = update.chat_member
@@ -214,9 +223,9 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
         await context.bot.restrict_chat_member(chat_id, u.id, RESTRICTED)
         q = random.choice(QUESTIONS)
         ans = q["answer"].strip().lower()
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(opt, callback_data=f"{u.id}:{opt.strip().lower()}")] for opt in q.get("options", [])
-        ])
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(opt, callback_data=f"{u.id}:{opt.strip().lower()}")] for opt in q.get("options", [])]
+        )
         msg = await context.bot.send_message(
             chat_id,
             f"{u.full_name}, відповідайте:\n❓ {q['question']}",
@@ -229,6 +238,7 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
                 handle_timeout(context.bot, chat_id, u.id, msg.message_id, QUESTION_MESSAGES_DELAY)
             ),
         }
+
 
 async def new_member_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_allowed_chat(update, context):
@@ -254,6 +264,7 @@ async def new_member_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 handle_timeout(context.bot, chat_id, m.id, msg.message_id, QUESTION_MESSAGES_DELAY)
             ),
         }
+
 
 async def on_chat_member_update_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cm = update.chat_member
@@ -287,6 +298,7 @@ async def on_chat_member_update_captcha(update: Update, context: ContextTypes.DE
             ),
         }
 
+
 # --- ОБРОБКА ВІДПОВІДІ ---
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -312,11 +324,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if ans == entry["answer"]:
         # скасування обмежень: всі права = True
-        await context.bot.restrict_chat_member(
-            chat.id,
-            user.id,
-            ChatPermissions.all_permissions()
-        )
+        await context.bot.restrict_chat_member(chat.id, user.id, ChatPermissions.all_permissions())
         res = "✅ Правильно! Обмеження знято."
     else:
         res = "❌ Неправильно. Спробуйте пізніше."
@@ -331,6 +339,7 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     asyncio.create_task(delete_message_later(context.bot, chat.id, entry["message_id"], DELETE_MESSAGES_DELAY))
     del user_questions[user.id]
 
+
 # --- ПРИВАТНІ КНОПКИ ---
 async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -338,12 +347,13 @@ async def handle_private_buttons(update: Update, context: ContextTypes.DEFAULT_T
         if text == btn["label"]:
             return await update.message.reply_text(btn["response"])
 
+
 # --- /start ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     if chat.type == "private":
         labels = [b["label"] for b in PRIVATE_BUTTONS]
-        kb = [labels[i:i+2] for i in range(0, len(labels), 2)]
+        kb = [labels[i : i + 2] for i in range(0, len(labels), 2)]
         await update.message.reply_text(
             "Я — JAAM-бот.\nВиберіть кнопку:",
             reply_markup=ReplyKeyboardMarkup(kb, resize_keyboard=True),
@@ -351,6 +361,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         if await check_allowed_chat(update, context):
             await update.message.reply_text("Привіт! Пишіть в лічку.")
+
 
 # --- MAIN ---
 def main():
@@ -394,6 +405,7 @@ def main():
         group=1,
     )
     app.run_polling(allowed_updates=["message", "callback_query", "chat_member"])
+
 
 if __name__ == "__main__":
     main()
