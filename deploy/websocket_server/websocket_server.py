@@ -834,7 +834,7 @@ async def print_clients(shared_data, mc):
                 "chip_id",
                 "latency",
                 "country",
-                "district",
+                "region",
                 "city",
                 "timezone",
                 "org",
