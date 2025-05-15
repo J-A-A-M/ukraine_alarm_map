@@ -17,6 +17,8 @@ districts = {
     "170": {"regionName": "Неіснуюча область", "regionType": "State", "parentId": "170", "stateId": "170"},
 }
 
+LEGACY_LED_COUNT = 28
+
 
 @pytest.mark.asyncio
 @patch("updater.updater.update_period", new=0)
@@ -49,7 +51,8 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -84,7 +87,8 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -120,7 +124,8 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -151,11 +156,41 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
         }
     ]
     mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mock_get_cache_data.return_value = [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -186,11 +221,41 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
         }
     ]
     mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mock_get_cache_data.return_value = [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -222,11 +287,41 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data):
         }
     ]
     mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mock_get_cache_data.return_value = [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -261,7 +356,7 @@ async def test_7(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -305,7 +400,8 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -349,5 +445,6 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
-    expected_result = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))

@@ -83,7 +83,11 @@ std::map<Type, SettingItemInt> intSettings = {
     {RADIATION_MAX, {"maxrad", 2000}},
     {ALARMS_AUTO_SWITCH, {"aas", 1}},
     {HOME_DISTRICT, {"hmd", 31}},
-    {KYIV_DISTRICT_MODE, {"kdm", 1}},
+    {MIGRATION_LED_MAPPING, {"mgrlm", 0}},
+    {DISTRICT_MODE_KYIV, {"dmkv", 0}},
+    {DISTRICT_MODE_KHARKIV, {"dmkh", 0}},
+    {DISTRICT_MODE_ZP, {"dmzp", 0}},
+    {KYIV_LED, {"kvld", 0}},
     {SERVICE_DIODES_MODE, {"sdm", 0}},
     {NEW_FW_NOTIFICATION, {"nfwn", 1}},
     {HA_LIGHT_BRIGHTNESS, {"ha_lbri", 50}},
@@ -184,10 +188,11 @@ Preferences preferences;
 const char* PREFS_NAME = "storage";
 
 void JaamSettings::init() {
-    preferences.begin(PREFS_NAME, true);
+    preferences.begin(PREFS_NAME, false);
 
     // home district migration to regionID
     if (preferences.isKey("hd")) {
+        LOG.printf("districtMapping init\n");
         int homeDistrict = preferences.getInt("hd", KYIV_REGION_ID);
         int newRegionId = mapIndexToRegionId(homeDistrict);
         if (newRegionId == -1) {
@@ -197,6 +202,30 @@ void JaamSettings::init() {
         preferences.remove("hd");
         preferences.putInt("hmd", newRegionId);
     }
+
+    // led map migration
+    if (preferences.isKey("kdm")) {
+        LOG.printf("migrateLedMapping init\n");
+        int kyivDistrict = preferences.getInt("kdm", KYIV_DISTRICT_MODE);
+        if (kyivDistrict == 1) {
+            preferences.putInt("dmkv", 1);
+            LOG.printf("DISTRICT_MODE_KYIV 1 migration done\n");
+        }
+        if (kyivDistrict == 2) {
+            preferences.putInt("dmkv", 2);
+            LOG.printf("DISTRICT_MODE_KYIV 2 migration done\n");
+        }
+        if (kyivDistrict == 3) {
+            preferences.putInt("kvld", 1);
+            LOG.printf("DISTRICT_MODE_KYIV 3 migration done\n");
+        }
+        if (kyivDistrict == 4) {
+            preferences.putInt("dmkv", 3);
+            LOG.printf("DISTRICT_MODE_KYIV 4 migration done\n");
+        }
+        preferences.remove("kdm");
+        LOG.printf("migrateLedMapping done\n");
+    };
 
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
         SettingItemString setting = it->second;
@@ -320,7 +349,7 @@ void JaamSettings::getSettingsBackup(Print* stream, const char* fwVersion, const
     doc["chip_id"] = chipID;
     doc["time"] = time;
     JsonArray settingsArray = doc["settings"].to<JsonArray>();
-    preferences.begin("storage", true);
+    preferences.begin(PREFS_NAME, true);
 
     for (auto it = stringSettings.begin(); it != stringSettings.end(); ++it) {
         SettingItemString setting = it->second;
@@ -364,7 +393,7 @@ bool JaamSettings::restoreSettingsBackup(const char* settings) {
     JsonDocument doc;
     deserializeJson(doc, settings);
     JsonArray settingsArray = doc["settings"].as<JsonArray>();
-    preferences.begin("storage", false);
+    preferences.begin(PREFS_NAME, false);
     bool restored = false;
 
     for (JsonObject settingObj : settingsArray) {

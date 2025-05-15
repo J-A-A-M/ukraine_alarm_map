@@ -59,6 +59,8 @@ regions = {
     "HMELNYCKA": {"name": "Хмельницька область", "id": 3, "legacy_id": 24},
     "CHERNIVETSKA": {"name": "Чернівецька область", "id": 26, "legacy_id": 25},
     "KIYEW": {"name": "м. Київ", "id": 31, "legacy_id": 26},
+    "KHARKIV-CITY": {"name": "м. Харків", "id": 1293, "legacy_id": 27},
+    "ZAPORIZHZHIA-CITY": {"name": "м. Запоріжжя", "id": 564, "legacy_id": 28},
     "UNKNOWN": {"name": "Невідомо", "id": 1111, "legacy_id": 1111},
     "ALL": {"name": "Вся Україна", "id": 2222, "legacy_id": 2222},
     "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},
@@ -280,6 +282,7 @@ async def get_etryvoga_districts(mc):
 
 
 def make_districts_struct(data):
+    region_keys = regions.keys()
     struct = {}
     for area in data:
         area_slug = area["slug"]
@@ -287,7 +290,10 @@ def make_districts_struct(data):
         for district in area["districts"]:
             struct[district["slug"]] = area_slug
             for city in district["cities"]:
-                struct[city["slug"]] = area_slug
+                if city["slug"] in region_keys:
+                    struct[city["slug"]] = city["slug"]
+                else:
+                    struct[city["slug"]] = area_slug
 
     return struct
 

@@ -64,6 +64,8 @@ memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
 geo = database.Reader(geo_lite_db_path)
 
+LEGACY_LED_COUNT = 28
+
 
 class SharedData:
     def __init__(self):
@@ -852,11 +854,11 @@ async def print_clients(shared_data, mc):
             logger.error(f"Error in update_shared_data: {e}")
 
 
-def circular_offset_legacy(n, offset, total=26):
+def circular_offset_legacy(n, offset, total=LEGACY_LED_COUNT):
     return ((n - 1 + offset) % total) + 1
 
 
-def circular_offset_index(n, offset, total=26):
+def circular_offset_index(n, offset, total=LEGACY_LED_COUNT):
     return (n + offset) % total
 
 
@@ -864,18 +866,19 @@ async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
         shared_data.test_id = 12
 
-    alerts_v2 = [[0, 1736935200]] * 26
-    alerts_v3 = [[0, 1736935200]] * 26
-    weather = [0] * 26
-    explosion = [0] * 26
-    missile = [0] * 26
-    drone = [0] * 26
-    kab = [0] * 26
-    missile_v2 = [[0, 1736935200]] * 26
-    drone_v2 = [[0, 1736935200]] * 26
-    kab_v2 = [[0, 1736935200]] * 26
-    energy = [[3, 1736935200]] * 26
-    radiation = [100] * 26
+    alerts_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
+    alerts_v3 = [[0, 1736935200]] * LEGACY_LED_COUNT
+    alerts_v4 = {}
+    weather = [0] * LEGACY_LED_COUNT
+    explosion = [0] * LEGACY_LED_COUNT
+    missile = [0] * LEGACY_LED_COUNT
+    drone = [0] * LEGACY_LED_COUNT
+    kab = [0] * LEGACY_LED_COUNT
+    missile_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
+    drone_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
+    kab_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
+    energy = [[3, 1736935200]] * LEGACY_LED_COUNT
+    radiation = [100] * LEGACY_LED_COUNT
 
     global_notifications_v1 = {
         "mig": 0,
@@ -894,6 +897,11 @@ async def get_data_from_memcached_test(shared_data):
     region_id = shared_data.test_id
 
     expl = int(datetime.datetime.now().timestamp())
+
+    alerts_v4 = {
+        ##22:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"],
+        # 31:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"]
+    }
 
     alerts_v2[circular_offset_index(region_id - 1, 0)] = [
         str(1),
@@ -1013,12 +1021,12 @@ async def get_data_from_memcached(mc):
         missiles_v2 = []
         drones_v2 = []
         kabs_v2 = []
-        explosions_v1 = [0] * 26
-        missiles_v1 = [0] * 26
-        drones_v1 = [0] * 26
-        kabs_v1 = [0] * 26
+        explosions_v1 = [0] * LEGACY_LED_COUNT
+        missiles_v1 = [0] * LEGACY_LED_COUNT
+        drones_v1 = [0] * LEGACY_LED_COUNT
+        kabs_v1 = [0] * LEGACY_LED_COUNT
         global_notifications_v1 = {}
-        for i in range(26):
+        for i in range(LEGACY_LED_COUNT):
             alerts_v1.append(random.randint(0, 3))
             diff = random.randint(0, 600)
             alerts_v2.append(
@@ -1051,24 +1059,24 @@ async def get_data_from_memcached(mc):
                     (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 ]
             )
-        explosion_index = random.randint(0, 25)
+        explosion_index = random.randint(0, LEGACY_LED_COUNT - 1)
         explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
-        missile_index = random.randint(0, 25)
+        missile_index = random.randint(0, LEGACY_LED_COUNT - 1)
         missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
-        drone_index = random.randint(0, 25)
+        drone_index = random.randint(0, LEGACY_LED_COUNT - 1)
         drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
-        kab_index = random.randint(0, 25)
+        kab_index = random.randint(0, LEGACY_LED_COUNT - 1)
         kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
-        alerts_cached_data_v1 = json.dumps(alerts_v1[:26])
-        alerts_cached_data_v2 = json.dumps(alerts_v2[:26])
-        alerts_cached_data_v2 = json.dumps(alerts_v3[:26])
-        explosions_cashed_data_v1 = json.dumps(explosions_v1[:26])
-        missiles_cashed_data_v1 = json.dumps(missiles_v1[:26])
-        missiles_cashed_data_v2 = json.dumps(missiles_v2[:26])
-        drones_cashed_data_v1 = json.dumps(drones_v1[:26])
-        drones_cashed_data_v2 = json.dumps(drones_v2[:26])
-        kabs_cashed_data_v1 = json.dumps(kabs_v1[:26])
-        kabs_cashed_data_v2 = json.dumps(kabs_v2[:26])
+        alerts_cached_data_v1 = json.dumps(alerts_v1[:LEGACY_LED_COUNT])
+        alerts_cached_data_v2 = json.dumps(alerts_v2[:LEGACY_LED_COUNT])
+        alerts_cached_data_v3 = json.dumps(alerts_v3[:LEGACY_LED_COUNT])
+        explosions_cashed_data_v1 = json.dumps(explosions_v1[:LEGACY_LED_COUNT])
+        missiles_cashed_data_v1 = json.dumps(missiles_v1[:LEGACY_LED_COUNT])
+        missiles_cashed_data_v2 = json.dumps(missiles_v2[:LEGACY_LED_COUNT])
+        drones_cashed_data_v1 = json.dumps(drones_v1[:LEGACY_LED_COUNT])
+        drones_cashed_data_v2 = json.dumps(drones_v2[:LEGACY_LED_COUNT])
+        kabs_cashed_data_v1 = json.dumps(kabs_v1[:LEGACY_LED_COUNT])
+        kabs_cashed_data_v2 = json.dumps(kabs_v2[:LEGACY_LED_COUNT])
         global_notifications_cached_v1 = json.dumps(global_notifications_v1)
     else:
         alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
