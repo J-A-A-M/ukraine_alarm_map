@@ -213,10 +213,20 @@ bool isAlertPinEnabled() {
   return settings.getInt(ALERT_PIN) > -1;
 }
 
+/**
+ * @brief Checks if the clear pin is enabled in the device settings.
+ *
+ * @return true if the clear pin is configured (pin number > -1), false otherwise.
+ */
 bool isClearPinEnabled() {
   return settings.getInt(CLEAR_PIN) > -1;
 }
 
+/**
+ * @brief Checks if the analog light sensor is enabled in the device settings.
+ *
+ * @return true if the analog light sensor pin is configured; false otherwise.
+ */
 bool isAnalogLightSensorEnabled() {
   return settings.getInt(LIGHT_SENSOR_PIN) > -1;
 }
@@ -242,6 +252,16 @@ const char* getNameById(SettingListItem list[], int id, int size) {
   return "";
 }
 
+/**
+ * @brief Returns the index of the item with the specified ID in a settings list.
+ *
+ * Searches the provided array of SettingListItem for an item with a matching ID and returns its index. If not found, returns 0.
+ *
+ * @param list Array of SettingListItem to search.
+ * @param id The ID to find.
+ * @param size Number of elements in the list.
+ * @return int Index of the item with the specified ID, or 0 if not found.
+ */
 int getIndexById(SettingListItem list[], int id, int size) {
   for (int i = 0; i < size; i++) {
     if (list[i].id == id) {
@@ -252,6 +272,16 @@ int getIndexById(SettingListItem list[], int id, int size) {
 }
 
 
+/**
+ * @brief Retrieves the names from a list of SettingListItem, optionally excluding ignored items.
+ *
+ * @param list Array of SettingListItem structures.
+ * @param size Number of elements in the list.
+ * @param excludeIgnored If true, only includes items where `ignore` is false.
+ * @return std::pair<int, const char**> Pair containing the count and a dynamically allocated array of names.
+ *
+ * @note The returned array must be deleted by the caller to avoid memory leaks.
+ */
 std::pair<int, const char**> getNames(SettingListItem list[], int size, bool excludeIgnored = false) {
   int count = 0;
   for (int i = 0; i < size; i++) {
@@ -283,6 +313,14 @@ void showServiceMessage(const char* message, const char* title = "", int duratio
   displayCycle();
 }
 
+/**
+ * @brief Reboots the device after an optional delay.
+ *
+ * If called with `async` set to true, schedules a delayed reboot without blocking. Otherwise, displays a reboot message, waits for the specified time, clears the display, and restarts the ESP32 immediately.
+ *
+ * @param time Delay before reboot in milliseconds (default: 2000).
+ * @param async If true, schedules a delayed reboot and returns immediately.
+ */
 void rebootDevice(int time = 2000, bool async = false) {
   if (async) {
     needRebootWithDelay = time;
@@ -295,6 +333,13 @@ void rebootDevice(int time = 2000, bool async = false) {
   ESP.restart();
 }
 
+/**
+ * @brief Plays a melody on the buzzer using RTTTL format if the buzzer is enabled and selected as a sound source.
+ *
+ * The melody is played only if the buzzer hardware is enabled and the current sound source setting allows buzzer playback.
+ *
+ * @param melodyRtttl The melody in RTTTL string format.
+ */
 void playMelody(const char* melodyRtttl) {
 #if BUZZER_ENABLED
   if (sound.isBuzzerEnabled() && (sound.soundSource == 0 || sound.soundSource == 2)) {
@@ -305,6 +350,14 @@ void playMelody(const char* melodyRtttl) {
 #endif
 }
 
+/**
+ * @brief Plays an audio track on the DFPlayer if enabled and selected as a sound source.
+ *
+ * If the DFPlayer is enabled and the current sound source is set to DFPlayer or both, plays the specified track.
+ * Otherwise, logs a message indicating that DFPlayer is not enabled or the sound source is invalid.
+ *
+ * @param track The filename or identifier of the audio track to play.
+ */
 void playTrack(String track) {
 #if DFPLAYER_PRO_ENABLED
   if (track != "" && (sound.soundSource == 1 || sound.soundSource == 2)) {
@@ -315,6 +368,13 @@ void playTrack(String track) {
 #endif
 }
 
+/**
+ * @brief Plays a sound corresponding to the specified event type using the configured sound source(s).
+ *
+ * Depending on the selected sound source (buzzer, DFPlayer, or both), this function plays the appropriate melody or audio track for the given event type, such as alerts, explosions, critical warnings, or user interactions.
+ *
+ * @param type The event or alert type for which to play a sound.
+ */
 void playMelody(SoundType type) {
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
   switch (type) {
@@ -409,6 +469,11 @@ int getCurrentBrightnessLevel() {
   return level;
 }
 
+/**
+ * @brief Determines the current night mode activation type.
+ *
+ * @return int Night mode type: 1 if activated by button, 2 if by time, 3 if by sensor, 0 if off.
+ */
 int getNightModeType() {
   // Night Mode activated by button
   if (nightMode) return 1;
@@ -420,6 +485,14 @@ int getNightModeType() {
   return 0;
 }
 
+/**
+ * @brief Determines whether a sound of the specified type should be played based on current settings and device state.
+ *
+ * Evaluates user settings, time of day, and connection status to decide if the requested sound type is permitted to play. Ignores mute settings for alerts if configured, and disables sounds during night mode if enabled.
+ *
+ * @param type The type of sound event to check.
+ * @return true if the sound should be played; false otherwise.
+ */
 bool needToPlaySound(SoundType type) {
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
   // do not play any sound before websocket connection
@@ -1843,6 +1916,11 @@ void displayByMode(int mode) {
 }
 
 #if FW_UPDATE_ENABLED
+/**
+ * @brief Displays a notification about new firmware availability or update instructions.
+ *
+ * Shows either the new firmware version, local IP address for browser access, or button instructions, depending on the current display period and button activation state.
+ */
 void showNewFirmwareNotification() {
   int periodIndex = getCurrentPeriodIndex(settings.getInt(DISPLAY_MODE_TIME), 2, timeClient.second());
   char title[50];
@@ -1862,6 +1940,11 @@ void showNewFirmwareNotification() {
 }
 #endif
 
+/**
+ * @brief Updates the current sound volume based on day or night mode.
+ *
+ * Adjusts the output volume for both buzzer and DFPlayer audio sources according to the active mode, and saves the new volume setting if it has changed.
+ */
 void volumeCycle() {
   int volumeLocal;
   if (getNightModeType() > 0) {
@@ -1886,6 +1969,14 @@ void volumeCycle() {
   }
 }
 
+/**
+ * @brief Sets the current sound volume for day or night mode and applies the change.
+ *
+ * Updates the stored volume level for the specified mode (day or night) and immediately applies the new volume to all enabled sound sources.
+ *
+ * @param volume The volume level to set.
+ * @param settingType Indicates whether to set the day or night volume.
+ */
 void setCurrentVolume(int volume, Type settingType) {
   switch (settingType) {
     case MELODY_VOLUME_NIGHT:
@@ -1898,6 +1989,11 @@ void setCurrentVolume(int volume, Type settingType) {
   volumeCycle();
 }
 
+/**
+ * @brief Updates the display with the highest-priority content based on current device state.
+ *
+ * Determines and shows the most relevant information on the display, such as service messages, minute of silence, anthem status, home alert info, firmware updates, or the selected display mode. The function prioritizes urgent or temporary states over regular display content.
+ */
 void displayCycle() {
   if (!display.isDisplayAvailable()) return;
 
@@ -2209,6 +2305,13 @@ void addCard(Print* response, const char* title, V value, const char* unitOfMeas
   response->print("</div>");
 }
 
+/**
+ * @brief Writes the HTML header and device status summary to the HTTP response.
+ *
+ * Generates the opening HTML, head, and body tags, includes stylesheets, displays device name, description, firmware version, current map image, and status of hardware components such as display, sensors, buzzer, and DFPlayer. Also shows firmware update notification if available.
+ *
+ * @param response The output stream to which the HTML header is written.
+ */
 void addHeader(Print* response) {
   response->println("<!DOCTYPE html>");
   response->println("<html lang='uk'>");
@@ -2319,6 +2422,11 @@ void addHeader(Print* response) {
   response->println("</div>");
 }
 
+/**
+ * @brief Appends navigation links for the device web interface to the response.
+ *
+ * Generates and writes HTML buttons for brightness, colors, modes, sounds (if enabled), telemetry, developer, and firmware update pages.
+ */
 void addLinks(Print* response) {
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2565,6 +2673,11 @@ void handleModes(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Handles the HTTP request for the sound settings configuration page.
+ *
+ * Generates and serves an HTML form that allows users to configure sound-related settings, including enabling or disabling specific alerts, selecting melodies or tracks for various alert types, choosing the sound source (buzzer or DFPlayer Pro), and adjusting volume levels for day and night. The form adapts its options based on the available sound hardware and current configuration.
+ */
 void handleSounds(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -2683,6 +2796,11 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   request->send(response);
 }
 
+/**
+ * @brief Handles the developer settings web page, allowing advanced configuration and backup/restore.
+ *
+ * Generates and serves an HTML form for advanced device settings, including firmware mode, display, Home Assistant, network, LED, button, sound, and DFPlayer options. Also provides options to backup and restore all device settings except WiFi credentials.
+ */
 void handleDev(AsyncWebServerRequest* request) {
   // reset indexes
   checkboxIndex = 1;
@@ -3030,6 +3148,11 @@ void handleSaveModes(AsyncWebServerRequest* request) {
   request->send(redirectResponse(request, "/modes", saved));
 }
 
+/**
+ * @brief Handles saving sound settings from the web interface.
+ *
+ * Processes and saves sound configuration parameters submitted via the web server, including sound source selection, event sound enablement, melody and track assignments for various alerts, volume levels, and night mode options. Applies changes and redirects the user back to the sound settings page with a status indicator.
+ */
 void handleSaveSounds(AsyncWebServerRequest* request) {
   bool saved = false;
   saved = saveInt(request->getParam("sound_source", true), SOUND_SOURCE, NULL, []() {
@@ -3078,6 +3201,13 @@ void handleRefreshTelemetry(AsyncWebServerRequest* request) {
   request->send(redirectResponse(request, "/telemetry", false));
 }
 
+/**
+ * @brief Handles saving developer and hardware configuration settings from the web interface.
+ *
+ * Processes POST requests to update device, network, display, button, pin, and Home Assistant/MQTT settings. Triggers a device reboot if any setting change requires it, then redirects the user back to the developer settings page.
+ *
+ * @param request The HTTP request containing submitted configuration parameters.
+ */
 void handleSaveDev(AsyncWebServerRequest* request) {
   bool reboot = false;
   reboot = saveInt(request->getParam("legacy", true), LEGACY) || reboot;
@@ -3166,6 +3296,13 @@ void handleSaveFirmware(AsyncWebServerRequest* request) {
 #endif
 
 #if BUZZER_ENABLED
+/**
+ * @brief Handles HTTP requests to play a test buzzer melody by ID.
+ *
+ * Validates the requested melody ID, plays the corresponding buzzer melody if enabled, displays a service message, and responds with the result.
+ *
+ * Responds with HTTP 400 if the sound ID is invalid.
+ */
 void handlePlayTestSound(AsyncWebServerRequest* request) {
   if (sound.isBuzzerEnabled()) {
     int soundId = request->getParam("id", false)->value().toInt();
@@ -3181,6 +3318,13 @@ void handlePlayTestSound(AsyncWebServerRequest* request) {
 #endif
 
 #if DFPLAYER_PRO_ENABLED
+/**
+ * @brief Handles HTTP requests to play a test DFPlayer track by its ID.
+ *
+ * Validates the presence and range of the 'id' parameter, plays the corresponding track if available, and responds with the result.
+ *
+ * Responds with HTTP 400 for missing or invalid IDs, and 503 if DFPlayer is not connected.
+ */
 void handlePlayTestTrackById(AsyncWebServerRequest* request) {
   if (sound.isDFPlayerConnected()) {
     if (request->hasParam("id")) {
@@ -3200,6 +3344,13 @@ void handlePlayTestTrackById(AsyncWebServerRequest* request) {
   }
 }
 
+/**
+ * @brief Handles HTTP requests to play a test audio track by filename using DFPlayer.
+ *
+ * If the DFPlayer is connected and the request includes a "name" parameter, plays the specified track and responds with success. Responds with an error if the parameter is missing or DFPlayer is unavailable.
+ *
+ * @param request The HTTP request containing the track filename.
+ */
 void handlePlayTestTrackByFileName(AsyncWebServerRequest* request) {
   if (sound.isDFPlayerConnected()) {
     if (request->hasParam("name")) {
@@ -3218,6 +3369,11 @@ void handlePlayTestTrackByFileName(AsyncWebServerRequest* request) {
 
 LoggingMiddleware loggerMiddleware;
 
+/**
+ * @brief Configures and starts the device's web server with all HTTP routes and middleware.
+ *
+ * Registers HTTP endpoints for device configuration, telemetry, firmware updates, sound testing, backup/restore, and developer tools. Routes are conditionally included based on enabled hardware features and current device state. Initializes middleware for request logging and starts the web server.
+ */
 void setupRouting() {
   LOG.println("Init WebServer");
   loggerMiddleware.setOutput(LOG);
@@ -3844,6 +4000,11 @@ void playMinOfSilenceSound() {
   playMelody(MIN_OF_SILINCE);
 }
 
+/**
+ * @brief Activates or deactivates minute of silence mode and manages associated sounds.
+ *
+ * Checks if the current time matches the configured minute of silence (typically 9:00 AM) and updates the device state accordingly. Starts or stops the periodic minute of silence beep, updates Home Assistant with the current map mode, and plays the Ukrainian anthem when the minute of silence ends if enabled and permitted by settings.
+ */
 void checkMinuteOfSilence() {
   bool localMinOfSilence = (settings.getBool(MIN_OF_SILENCE) == 1 && timeClient.hour() == 9 && timeClient.minute() == 0);
   if (localMinOfSilence != minuteOfSilence) {
@@ -4136,6 +4297,11 @@ void checkCurrentTimeAndPlaySound() {
   }
 }
 
+/**
+ * @brief Performs periodic state checks and updates for alerts, minute of silence, sound playback, and service messages.
+ *
+ * This function manages the activation of minute of silence mode, checks for alerts in the home district, triggers scheduled sound playback, updates the anthem playing state based on buzzer or DFPlayer status, and marks service messages as expired if needed.
+ */
 void calculateStates() {
   // check if we need activate "minute of silence mode"
   checkMinuteOfSilence();
@@ -4262,6 +4428,11 @@ void initLegacy() {
   }
 }
 
+/**
+ * @brief Initializes hardware and touch buttons and assigns their event handlers.
+ *
+ * Configures button pins and touch mode based on settings, and sets up click, long click, and during-long-click event listeners for both buttons.
+ */
 void initButtons() {
   LOG.println("Init buttons");
 
@@ -4281,6 +4452,11 @@ void initButtons() {
 }
 
 
+/**
+ * @brief Initializes the alert pin as an output if enabled in settings.
+ *
+ * Configures the hardware pin designated for alert signaling as an output, based on the current device settings.
+ */
 void initAlertPin() {
   if (isAlertPinEnabled()) {
     LOG.printf("alertpin: %d\n", settings.getInt(ALERT_PIN));
@@ -4442,6 +4618,11 @@ void initDisplayModes() {
   }
 }
 
+/**
+ * @brief Initializes the display hardware and shows the startup screen.
+ *
+ * Configures the display with model and dimensions from settings, applies brightness and inversion settings, and displays a startup message with the current firmware version. Also initializes display options.
+ */
 void initDisplay() {
   display.begin(static_cast<JaamDisplay::DisplayModel>(settings.getInt(DISPLAY_MODEL)), settings.getInt(DISPLAY_WIDTH), settings.getInt(DISPLAY_HEIGHT));
 
@@ -4456,6 +4637,11 @@ void initDisplay() {
   initDisplayOptions();
 }
 
+/**
+ * @brief Initializes the sound subsystem, including buzzer and DFPlayer Pro if available.
+ *
+ * Configures hardware pins, volume levels, and selects the active sound source based on hardware presence and settings.
+ */
 void initSound() {
 #if BUZZER_ENABLED || DFPLAYER_PRO_ENABLED
   sound.init(
@@ -4490,6 +4676,11 @@ void initSound() {
   LOG.printf("Sound source: %d\n", sound.soundSource);
 }
 
+/**
+ * @brief Initializes light and climate sensors and updates display modes.
+ *
+ * Sets up the digital and analog light sensors, configures the photoresistor pin if enabled, initializes the climate sensor, performs initial sensor readings, and updates available display modes based on sensor presence.
+ */
 void initSensors() {
   lightSensor.begin(legacy);
   if (lightSensor.isLightSensorAvailable()) {
@@ -4712,6 +4903,11 @@ void syncTimePeriodically() {
   syncTime(2);
 }
 
+/**
+ * @brief Initializes all hardware, peripherals, and periodic tasks for the device.
+ *
+ * Sets up logging, hardware components, sensors, sound, display, network, and schedules all periodic tasks and watchdog timer. In test mode, runs self-tests instead of normal operation.
+ */
 void setup() {
   LOG.begin(115200);
 
