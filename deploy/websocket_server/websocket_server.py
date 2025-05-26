@@ -3,6 +3,7 @@ import logging
 import os
 import json
 import random
+import struct
 import secrets
 import string
 import datetime
@@ -66,6 +67,41 @@ geo = database.Reader(geo_lite_db_path)
 
 LEGACY_LED_COUNT = 28
 
+TYPE_ALERTS_BATCH      = 0xA1
+TYPE_RADIATION_BATCH   = 0xA2
+TYPE_TEMPERATURE_BATCH = 0xA3
+TYPE_GRID_BATCH        = 0xA4
+
+regions = {
+    "Закарпатська область": {"id": 11, "legacy_id": 0},
+    "Івано-Франківська область": {"id": 13, "legacy_id": 1},
+    "Тернопільська область": {"id": 21, "legacy_id": 2},
+    "Львівська область": {"id": 27, "legacy_id": 3},
+    "Волинська область": {"id": 8, "legacy_id": 4},
+    "Рівненська область": {"id": 5, "legacy_id": 5},
+    "Житомирська область": {"id": 10, "legacy_id": 6},
+    "Київська область": {"id": 14, "legacy_id": 7},
+    "Чернігівська область": {"id": 25, "legacy_id": 8},
+    "Сумська область": {"id": 20, "legacy_id": 9},
+    "Харківська область": {"id": 22, "legacy_id": 10},
+    "Луганська область": {"id": 16, "legacy_id": 11},
+    "Донецька область": {"id": 28, "legacy_id": 12},
+    "Запорізька область": {"id": 12, "legacy_id": 13},
+    "Херсонська область": {"id": 23, "legacy_id": 14},
+    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 15},
+    "Одеська область": {"id": 18, "legacy_id": 16},
+    "Миколаївська область": {"id": 17, "legacy_id": 17},
+    "Дніпропетровська область": {"id": 9, "legacy_id": 18},
+    "Полтавська область": {"id": 19, "legacy_id": 19},
+    "Черкаська область": {"id": 24, "legacy_id": 20},
+    "Кіровоградська область": {"id": 15, "legacy_id": 21},
+    "Вінницька область": {"id": 4, "legacy_id": 22},
+    "Хмельницька область": {"id": 3, "legacy_id": 23},
+    "Чернівецька область": {"id": 26, "legacy_id": 24},
+    "м. Київ": {"id": 31, "legacy_id": 25},
+    "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 26},
+    "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 27},
+}
 
 class SharedData:
     def __init__(self):
@@ -84,6 +120,7 @@ class SharedData:
         self.radiation_v1 = "[]"
         self.global_notifications_v1 = "{}"
         self.bins = "[]"
+        self.packets=b''
         self.test_bins = "[]"
         self.s3_bins = "[]"
         self.s3_test_bins = "[]"
@@ -93,6 +130,7 @@ class SharedData:
         self.trackers = {}
         self.blocked_ips = []
         self.test_id = None
+        self.alert_bits_actual = {}  # region_id -> flags16 # для діфа
 
 
 shared_data = SharedData()
@@ -103,6 +141,7 @@ class AlertVersion:
     v2 = 2
     v3 = 3
     v4 = 4
+    v5 = 5
 
 
 def bin_sort(bin):
@@ -306,6 +345,44 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
             logger.error(f"{client_ip}:{client_id} !!! message_handler Exception - {e}")
             break
 
+async def alerts_data_fusion(
+    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
+):
+    while True:
+        try:
+            chip_id = await get_client_chip_id(client)
+            firmware = await get_client_firmware(client)
+            #logger.debug(f"{client_ip}:{chip_id}: check")
+            match alert_version:
+                case AlertVersion.v1:
+                    if client["initial"]:
+                        if client["packets"] != shared_data.packets:
+                            await websocket.send(shared_data.packets)
+                            logger.debug(f"{client_ip}:{chip_id} <<< new packet")
+                            client["packets"] = shared_data.packets
+                    else:
+                        header = struct.pack('<B', TYPE_ALERTS_BATCH)
+                        body = bytearray()
+                        for rid, flags16 in shared_data.alert_bits_actual.items():
+                            body += struct.pack('<H H', rid, flags16)
+                        payload = header + body
+                        await websocket.send(payload)
+                        client["initial"] = True
+                        client["packets"] = shared_data.packets
+                        logger.debug(f"{client_ip}:{chip_id} <<< initial packet")
+
+
+            await asyncio.sleep(0.5)
+        except ChipIdTimeoutException:
+            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+            break
+        except FirmwareTimeoutException:
+            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+            break
+        except Exception as e:
+            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
+            break
+
 
 async def alerts_data(
     websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
@@ -314,7 +391,7 @@ async def alerts_data(
         try:
             chip_id = await get_client_chip_id(client)
             firmware = await get_client_firmware(client)
-            logger.debug(f"{client_ip}:{chip_id}: check")
+            #logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
                 case AlertVersion.v1:
                     if client["alerts"] != shared_data.alerts_v1:
@@ -494,8 +571,10 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
     while True:
         chip_id = get_chip_id(client, client_id)
         try:
-            pong_waiter = await websocket.ping()
-            logger.debug(f"{client_ip}:{chip_id} >>> ping")
+            # send ping with fixed 1 byte binary payload, e.g. value 0x42
+            payload = b'\x42'
+            pong_waiter = await websocket.ping(payload)
+            logger.debug(f"{client_ip}:{chip_id} >>> ping with payload: {payload.hex()} (binary)")
             latency = await asyncio.wait_for(pong_waiter, ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
             client["latency"] = int(latency * 1000)  # convert to ms
@@ -504,7 +583,6 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
                 ping_event = tracker.create_new_event("ping")
                 ping_event.set_event_param("state", "alive")
                 await send_google_stat(tracker, ping_event)
-            # wait for next ping
             await asyncio.sleep(ping_interval)
         except asyncio.TimeoutError:
             timeouts_count += 1
@@ -559,6 +637,8 @@ async def echo(websocket: ServerConnection):
             "firmware": "unknown",
             "chip_id": "unknown",
             "latency": -1,
+            "packets": b'',
+            "initial": False,  # for v5
             "city": geo_ip_data["city"],
             "region": geo_ip_data["region"],
             "country": geo_ip_data["country"],
@@ -595,6 +675,12 @@ async def echo(websocket: ServerConnection):
             case "/data_v4":
                 producer_task = asyncio.create_task(
                     alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v4),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case "/data_fusion_v1":
+                producer_task = asyncio.create_task(
+                    alerts_data_fusion(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1),
                     name=f"alerts_data_{client_id}",
                 )
 
@@ -651,7 +737,7 @@ async def echo(websocket: ServerConnection):
 
 async def update_shared_data(shared_data: SharedData, mc):
     while True:
-        logger.debug("memcache check")
+        #logger.debug("memcache check")
         (
             alerts_v1,
             alerts_v2,
@@ -667,6 +753,7 @@ async def update_shared_data(shared_data: SharedData, mc):
             energy_v1,
             radiation_v1,
             global_notifications_v1,
+            packets,
             bins,
             test_bins,
             s3_bins,
@@ -676,6 +763,12 @@ async def update_shared_data(shared_data: SharedData, mc):
         ) = (
             await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
+        try:
+            if packets != shared_data.packets:
+                shared_data.packets = packets
+                logger.debug(f"packets updated: {packets}")
+        except Exception as e:
+            logger.error(f"error in packets: {e}")
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -859,16 +952,46 @@ def circular_offset_legacy(n, offset, total=LEGACY_LED_COUNT):
 
 
 def circular_offset_index(n, offset, total=LEGACY_LED_COUNT):
-    return (n + offset) % total
+    return ((n + offset) % total)
+
+
+def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> bytes:
+    """
+    Формат пакета:
+    - region_id: 2 байти (unsigned short)
+    - flags16: 2 байти (unsigned short)
+
+    body: послідовність пар (region_id, flags16) для кожного регіону
+    diff_region_ids: список регіонів з змінами(наприклад, [0, 1, 2, ...])
+    new_state: повний словник даних тривог, де ключ — region_id, а значення — flags16 (наприклад, {0: 3, 1: 1, ...})
+    """
+    body = bytearray()
+    for rid in diff_region_ids:
+        flags16 = new_state.get(rid, 0)
+        body += struct.pack('<H H', rid, flags16)
+    return body
+
+
+def update_alerts_batch_state(new_state: dict[int, int]):
+    """
+    Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
+    """
+    diff_region_ids = []
+    for region_id, flags16 in new_state.items():
+        prev_flags = shared_data.alert_bits_actual.get(region_id)
+        if prev_flags != flags16:
+            diff_region_ids.append(region_id)
+    # Оновлюємо стан
+    shared_data.alert_bits_actual = new_state.copy()
+    return diff_region_ids
 
 
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
-        shared_data.test_id = 12
+        shared_data.test_id = 22
 
     alerts_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
     alerts_v3 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    alerts_v4 = {}
     weather = [0] * LEGACY_LED_COUNT
     explosion = [0] * LEGACY_LED_COUNT
     missile = [0] * LEGACY_LED_COUNT
@@ -898,73 +1021,112 @@ async def get_data_from_memcached_test(shared_data):
 
     expl = int(datetime.datetime.now().timestamp())
 
-    alerts_v4 = {
-        ##22:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"],
-        # 31:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"]
-    }
 
-    alerts_v2[circular_offset_index(region_id - 1, 0)] = [
+    def get_region_id_by_legacy_id(legacy_id: int) -> int | None:
+        """
+        Повертає id області за legacy_id.
+        Якщо не знайдено — повертає None.
+        """
+        for region in regions.values():
+            if region.get("legacy_id") == legacy_id:
+                return region.get("id")
+        return None
+
+    # Формуємо новий стан для alerts_batch (region_id -> flags16)
+    region_ids = [
+        get_region_id_by_legacy_id(circular_offset_index(region_id, 0)),
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -1)),
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -2)),
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -3)),
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -4)),
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -5))
+    ]
+    bits_list = [[0],[0],[0,5],[0],[]]
+    new_state = {}
+    for rid, bits in zip(region_ids, bits_list):
+        flags16 = 0
+        for bit in bits:
+            if 0 <= bit < 16:
+                flags16 |= (1 << bit)
+        if rid is not None:
+            new_state[rid] = flags16
+
+    # Оновлюємо стан і отримуємо діф
+    diff_region_ids = update_alerts_batch_state(new_state)
+
+    # Формуємо payload тільки для змінених регіонів (або для всіх, якщо треба)
+    header = struct.pack('<B', TYPE_ALERTS_BATCH)
+    # Якщо diff_region_ids порожній — змін не було
+    if diff_region_ids:
+        body_alerts = make_alert_batch(diff_region_ids, new_state)
+        payload = header + body_alerts
+    else:
+        # Якщо змін не було — пустий payload
+        payload = b''
+
+
+    alerts_v2[circular_offset_index(region_id, 0)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-3600}",
     ]
-    alerts_v3[circular_offset_index(region_id - 1, 0)] = [
+    alerts_v3[circular_offset_index(region_id, 0)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-3600}",
     ]
-    alerts_v2[circular_offset_index(region_id - 1, -1)] = [
+    alerts_v2[circular_offset_index(region_id, -1)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    alerts_v3[circular_offset_index(region_id - 1, -1)] = [
+    alerts_v3[circular_offset_index(region_id, -1)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    alerts_v2[circular_offset_index(region_id - 1, -2)] = [
+    alerts_v2[circular_offset_index(region_id, -2)] = [
         "0",
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    alerts_v3[circular_offset_index(region_id - 1, -2)] = [
+    alerts_v3[circular_offset_index(region_id, -2)] = [
         "0",
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    missile_v2[circular_offset_index(region_id - 1, -3)] = [
+    missile_v2[circular_offset_index(region_id, -3)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-3600}",
     ]
-    missile_v2[circular_offset_index(region_id - 1, -4)] = [
+    missile_v2[circular_offset_index(region_id, -4)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    missile[circular_offset_index(region_id - 1, -5)] = expl
-    drone_v2[circular_offset_index(region_id - 1, -6)] = [
+    missile[circular_offset_index(region_id, -5)] = expl
+    drone_v2[circular_offset_index(region_id, -6)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-3600}",
     ]
-    drone_v2[circular_offset_index(region_id - 1, -7)] = [
+    drone_v2[circular_offset_index(region_id, -7)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    drone[circular_offset_index(region_id - 1, -8)] = expl
-    kab_v2[circular_offset_index(region_id - 1, -9)] = [
+    drone[circular_offset_index(region_id, -8)] = expl
+    kab_v2[circular_offset_index(region_id, -9)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-3600}",
     ]
-    kab_v2[circular_offset_index(region_id - 1, -10)] = [
+    kab_v2[circular_offset_index(region_id, -10)] = [
         str(1),
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    kab[circular_offset_index(region_id - 1, -11)] = expl
-    explosion[circular_offset_index(region_id - 1, -12)] = expl
-    weather[circular_offset_index(region_id - 1, 0)] = 30
-    energy[circular_offset_index(region_id - 1, 0)] = [
+    kab[circular_offset_index(region_id, -11)] = expl
+    explosion[circular_offset_index(region_id, -12)] = expl
+    weather[circular_offset_index(region_id, 0)] = 30
+    energy[circular_offset_index(region_id, 0)] = [
         "9",
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    energy[circular_offset_index(region_id - 1, -1)] = [
+    energy[circular_offset_index(region_id, -1)] = [
         "4",
         f"{int(datetime.datetime.now().timestamp())-60}",
     ]
-    radiation[circular_offset_index(region_id - 1, 0)] = 2000
+    radiation[circular_offset_index(region_id, 0)] = 2000
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
@@ -983,6 +1145,7 @@ async def get_data_from_memcached_test(shared_data):
         json.dumps(energy),
         json.dumps(radiation),
         json.dumps(global_notifications_v1),
+        payload,
         '["latest.bin"]',
         '["latest_beta.bin"]',
         '["latest.bin"]',
@@ -1118,6 +1281,7 @@ async def get_data_from_memcached(mc):
         energy_cached_data_v1,
         radiation_cached_data_v1,
         global_notifications_cached_v1,
+        b'',
         bins_cached_data,
         test_bins_cached_data,
         s3_bins_cached_data,
@@ -1134,7 +1298,7 @@ async def process_request(connection: ServerConnection, request: Request):
         logger.info(f"{client_ip}: health check")
         return connection.respond(HTTPStatus.OK, "OK\n")
     # check for valid path
-    if not request.path.startswith("/data_v"):
+    if not request.path.startswith("/data_v") and not request.path.startswith("/data_fusion_v"):
         logger.warning(f"{client_ip}: invalid path - {request.path}")
         return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
 
@@ -1155,7 +1319,7 @@ async def main():
         process_request=process_request,
         process_response=process_response,
         ping_interval=None,
-        ping_timeout=None,
+        ping_timeout=None
     ):
         await asyncio.gather(
             update_shared_data(shared_data, mc),
