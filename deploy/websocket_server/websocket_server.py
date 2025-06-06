@@ -18,6 +18,7 @@ from websockets import ConnectionClosedError
 from websockets.asyncio.server import serve, ServerConnection, Request, Response
 from logging import WARNING
 from http import HTTPStatus
+from copy import copy
 
 
 class ChipIdTimeoutException(Exception):
@@ -67,10 +68,11 @@ geo = database.Reader(geo_lite_db_path)
 
 LEGACY_LED_COUNT = 28
 
-TYPE_ALERTS_BATCH      = 0xA1
-TYPE_RADIATION_BATCH   = 0xA2
-TYPE_TEMPERATURE_BATCH = 0xA3
-TYPE_GRID_BATCH        = 0xA4
+TYPE_ALERTS_BATCH       = 0xA1
+TYPE_NOTIFICATIONS_BATCH = 0xA2
+TYPE_RADIATION_BATCH    = 0xA2
+TYPE_TEMPERATURE_BATCH  = 0xA3
+TYPE_GRID_BATCH         = 0xA4
 
 regions = {
     "Закарпатська область": {"id": 11, "legacy_id": 0},
@@ -119,9 +121,11 @@ class SharedData:
         self.energy_v1 = "[]"
         self.radiation_v1 = "[]"
         self.global_notifications_v1 = "{}"
+        self.alerts_fusion_actual = "{}"
+        self.alerts_fusion_previous = "{}"
+        self.notifications_fusion = "{}"
         self.bins = "[]"
-        self.packets=b''
-        self.test_bins = "[]"
+        self.test_bins = "[]"   
         self.s3_bins = "[]"
         self.s3_test_bins = "[]"
         self.c3_bins = "[]"
@@ -130,7 +134,7 @@ class SharedData:
         self.trackers = {}
         self.blocked_ips = []
         self.test_id = None
-        self.alert_bits_actual = {}  # region_id -> flags16 # для діфа
+        self.alerts_fusion_websocket_previous = {}  # region_id -> flags16 # для діфа
 
 
 shared_data = SharedData()
@@ -345,6 +349,33 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
             logger.error(f"{client_ip}:{client_id} !!! message_handler Exception - {e}")
             break
 
+def calc_body_alerts_hash(body_alerts: bytes) -> int:
+    """
+    Обчислює простий 16-бітний хеш для body_alerts.
+    """
+    return sum(body_alerts) % 0x10000  # 65536
+
+def fing_empty_regions(old_state, new_state):
+    """
+    Повертає список регіонів, які відсутні в новому стані, але присутні в старому.
+    """
+    empty_region_ids = []
+    for region_id in old_state.keys():
+        if region_id not in new_state:
+            empty_region_ids.append(region_id)
+    return empty_region_ids
+
+def fing_changed_regions(old_state, new_state):
+    """
+    Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
+    """
+    diff_region_ids = []
+    for region_id, flags16 in new_state.items():
+        prev_flags = old_state.get(region_id)
+        if prev_flags != flags16:
+            diff_region_ids.append(region_id)
+    return diff_region_ids
+
 async def alerts_data_fusion(
     websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
 ):
@@ -355,21 +386,58 @@ async def alerts_data_fusion(
             #logger.debug(f"{client_ip}:{chip_id}: check")
             match alert_version:
                 case AlertVersion.v1:
-                    if client["initial"]:
-                        if client["packets"] != shared_data.packets:
-                            await websocket.send(shared_data.packets)
-                            logger.debug(f"{client_ip}:{chip_id} <<< new packet")
-                            client["packets"] = shared_data.packets
+                    if not client["initial"]:
+                        if client["alerts_fusion"] != shared_data.alerts_fusion_actual:
+
+                            old_state = json.loads(shared_data.alerts_fusion_previous)
+                            new_state = json.loads(shared_data.alerts_fusion_actual)
+                            # Оновлюємо стан і отримуємо діф
+                            changed_region_ids = fing_changed_regions(old_state, new_state)
+                            empty_region_ids = fing_empty_regions(old_state, new_state)
+
+                            logger.debug(f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}")
+                            logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
+
+                            # Формуємо payload тільки для змінених регіонів (або для всіх, якщо треба)
+                            header = struct.pack('<B', TYPE_ALERTS_BATCH)
+                            # Якщо diff_region_ids порожній — змін не було
+                            if changed_region_ids or empty_region_ids:
+                                alerts = make_alert_batch(changed_region_ids+empty_region_ids, new_state)
+                                alerts_hash_actual = struct.pack('<H', calc_body_alerts_hash(alerts))
+                                payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
+                            else:
+                                # Якщо змін не було — пустий payload
+                                payload = b''
+                            logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
+                            await websocket.send(payload)
+                            logger.debug(f"{client_ip}:{chip_id} <<< new alert packet")
+                            client["alerts_fusion"] = shared_data.alerts_fusion_actual
+                            client["alerts_hash"] = alerts_hash_actual
+                        if client["notifications_fusion"] != shared_data.notifications_fusion:
+                            state = json.loads(shared_data.notifications_fusion)
+                            header = struct.pack('<B', TYPE_NOTIFICATIONS_BATCH)
+                            notifications = make_alert_batch(state.keys(), state)
+                            payload = header + notifications
+
+                            await websocket.send(payload)
+                            logger.debug(f"{client_ip}:{chip_id} <<< new notifications packet")
+                            client["notifications_fusion"] = shared_data.notifications_fusion
+
                     else:
                         header = struct.pack('<B', TYPE_ALERTS_BATCH)
-                        body = bytearray()
-                        for rid, flags16 in shared_data.alert_bits_actual.items():
-                            body += struct.pack('<H H', rid, flags16)
-                        payload = header + body
+                        alerts = bytearray()
+                        for rid, flags16 in json.loads(shared_data.alerts_fusion_actual).items():
+                            alerts += struct.pack('<H H', int(rid), flags16)
+                        alerts_hash_actual = struct.pack('<H', 0)
+                        alerts_hash_initial = struct.pack('<H', 0)
+                        payload = header + alerts_hash_actual + alerts_hash_initial + alerts
                         await websocket.send(payload)
-                        client["initial"] = True
-                        client["packets"] = shared_data.packets
-                        logger.debug(f"{client_ip}:{chip_id} <<< initial packet")
+                        client["initial"] = False
+                        client["alerts_hash"] = alerts_hash_initial
+                        client["alerts_fusion"] = shared_data.alerts_fusion_actual
+                        client["notifications_fusion"] = shared_data.notifications_fusion
+                        logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
+                        logger.debug(f"{client_ip}:{chip_id} <<< initial alert packet")
 
 
             await asyncio.sleep(0.5)
@@ -637,8 +705,10 @@ async def echo(websocket: ServerConnection):
             "firmware": "unknown",
             "chip_id": "unknown",
             "latency": -1,
-            "packets": b'',
-            "initial": False,  # for v5
+            "alerts_fusion": "{}",
+            "notifications_fusion": "{}", # for v5
+            "initial": True,  # for v5
+            "alerts_hash": 0,  # for v5
             "city": geo_ip_data["city"],
             "region": geo_ip_data["region"],
             "country": geo_ip_data["country"],
@@ -753,7 +823,8 @@ async def update_shared_data(shared_data: SharedData, mc):
             energy_v1,
             radiation_v1,
             global_notifications_v1,
-            packets,
+            alerts_fusion_v1,
+            etryvoga_fusion_v1,
             bins,
             test_bins,
             s3_bins,
@@ -764,11 +835,20 @@ async def update_shared_data(shared_data: SharedData, mc):
             await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
         )
         try:
-            if packets != shared_data.packets:
-                shared_data.packets = packets
-                logger.debug(f"packets updated: {packets}")
+            if alerts_fusion_v1 != shared_data.alerts_fusion_actual:
+                shared_data.alerts_fusion_previous = copy(shared_data.alerts_fusion_actual)
+                shared_data.alerts_fusion_actual = alerts_fusion_v1
+                logger.debug(f"alerts_fusion_v1 updated: {alerts_fusion_v1}")
         except Exception as e:
-            logger.error(f"error in packets: {e}")
+            logger.error(f"error in alerts_fusion_v1: {e}")
+
+        try:
+            if etryvoga_fusion_v1 != shared_data.notifications_fusion:
+                shared_data.alerts_fusion_previous = copy(shared_data.notifications_fusion)
+                shared_data.notifications_fusion = etryvoga_fusion_v1
+                logger.debug(f"etryvoga_fusion_v1 updated: {etryvoga_fusion_v1}")
+        except Exception as e:
+            logger.error(f"error in etryvoga_fusion_v1: {e}")
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -968,27 +1048,12 @@ def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> by
     body = bytearray()
     for rid in diff_region_ids:
         flags16 = new_state.get(rid, 0)
-        body += struct.pack('<H H', rid, flags16)
+        body += struct.pack('<H H', int(rid), flags16)
     return body
-
-
-def update_alerts_batch_state(new_state: dict[int, int]):
-    """
-    Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
-    """
-    diff_region_ids = []
-    for region_id, flags16 in new_state.items():
-        prev_flags = shared_data.alert_bits_actual.get(region_id)
-        if prev_flags != flags16:
-            diff_region_ids.append(region_id)
-    # Оновлюємо стан
-    shared_data.alert_bits_actual = new_state.copy()
-    return diff_region_ids
-
 
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
-        shared_data.test_id = 22
+        shared_data.test_id = 6
 
     alerts_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
     alerts_v3 = [[0, 1736935200]] * LEGACY_LED_COUNT
@@ -1038,32 +1103,17 @@ async def get_data_from_memcached_test(shared_data):
         get_region_id_by_legacy_id(circular_offset_index(region_id, -1)),
         get_region_id_by_legacy_id(circular_offset_index(region_id, -2)),
         get_region_id_by_legacy_id(circular_offset_index(region_id, -3)),
-        get_region_id_by_legacy_id(circular_offset_index(region_id, -4)),
-        get_region_id_by_legacy_id(circular_offset_index(region_id, -5))
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -4))
     ]
-    bits_list = [[0],[0],[0,5],[0],[]]
-    new_state = {}
+    bits_list = [[0],[0,5],[0,5,6],[0,5],[0]]
+    alerts_fusion_v1 = {}
     for rid, bits in zip(region_ids, bits_list):
         flags16 = 0
         for bit in bits:
             if 0 <= bit < 16:
                 flags16 |= (1 << bit)
         if rid is not None:
-            new_state[rid] = flags16
-
-    # Оновлюємо стан і отримуємо діф
-    diff_region_ids = update_alerts_batch_state(new_state)
-
-    # Формуємо payload тільки для змінених регіонів (або для всіх, якщо треба)
-    header = struct.pack('<B', TYPE_ALERTS_BATCH)
-    # Якщо diff_region_ids порожній — змін не було
-    if diff_region_ids:
-        body_alerts = make_alert_batch(diff_region_ids, new_state)
-        payload = header + body_alerts
-    else:
-        # Якщо змін не було — пустий payload
-        payload = b''
-
+            alerts_fusion_v1[rid] = flags16
 
     alerts_v2[circular_offset_index(region_id, 0)] = [
         str(1),
@@ -1145,7 +1195,8 @@ async def get_data_from_memcached_test(shared_data):
         json.dumps(energy),
         json.dumps(radiation),
         json.dumps(global_notifications_v1),
-        payload,
+        json.dumps(alerts_fusion_v1),
+        '{}',
         '["latest.bin"]',
         '["latest_beta.bin"]',
         '["latest.bin"]',
@@ -1170,6 +1221,8 @@ async def get_data_from_memcached(mc):
     energy_cached_v1 = await mc.get(b"energy_websocket_v1")
     radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
     global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
+    alerts_fusion_cached_v1 = await mc.get(b"alerts_fusion_websocket_v1")
+    etryvoga_fusion_cached_v1 = await mc.get(b"etryvoga_fusion_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
     s3_bins_cached = await mc.get(b"s3_bins")
@@ -1246,6 +1299,8 @@ async def get_data_from_memcached(mc):
         alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
         alerts_cached_data_v3 = alerts_cached_v2.decode("utf-8") if alerts_cached_v3 else "[]"
         explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
+        alerts_fusion_websocket_v1 = alerts_fusion_cached_v1.decode("utf-8") if alerts_fusion_cached_v1 else "{}"
+        etryvoga_fusion_websocket_v1 = etryvoga_fusion_cached_v1.decode("utf-8") if etryvoga_fusion_cached_v1 else "{}"
         missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
         missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
         drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
@@ -1281,7 +1336,8 @@ async def get_data_from_memcached(mc):
         energy_cached_data_v1,
         radiation_cached_data_v1,
         global_notifications_cached_v1,
-        b'',
+        alerts_fusion_websocket_v1,
+        etryvoga_fusion_websocket_v1,
         bins_cached_data,
         test_bins_cached_data,
         s3_bins_cached_data,

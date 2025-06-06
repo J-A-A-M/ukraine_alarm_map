@@ -3,8 +3,10 @@ import os
 import asyncio
 import logging
 import datetime
+import struct
 from aiomcache import Client
 from copy import deepcopy
+from collections import defaultdict
 
 version = 3
 
@@ -15,6 +17,12 @@ update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
+
+
+TYPE_ALERTS_BATCH      = 0xA1
+TYPE_RADIATION_BATCH   = 0xA2
+TYPE_TEMPERATURE_BATCH = 0xA3
+TYPE_GRID_BATCH        = 0xA4
 
 
 regions = {
@@ -61,6 +69,17 @@ async def get_cache_data(mc, key_b, default_response=None):
     if cache:
         cache = json.loads(cache.decode("utf-8"))
     else:
+        cache = default_response
+
+    return cache
+
+async def get_byte_data(mc, key_b, default_response=None):
+    if default_response is None:
+        default_response = b''
+
+    cache = await mc.get(key_b)
+
+    if not cache:
         cache = default_response
 
     return cache
@@ -140,6 +159,14 @@ async def store_websocket_data(mc, data, data_websocket, key, key_b):
     if data_websocket != data:
         logger.debug(f"store {key}")
         await mc.set(key_b, json.dumps(data).encode("utf-8"))
+        logger.info(f"{key} stored")
+    else:
+        logger.debug(f"{key} not changed")
+
+async def store_websocket_byte_data(mc, data, data_websocket, key, key_b):
+    if data_websocket != data:
+        logger.debug(f"store {key}")
+        await mc.set(key_b, data)
         logger.info(f"{key} stored")
     else:
         logger.debug(f"{key} not changed")
@@ -578,6 +605,126 @@ async def update_global_notifications_v1(mc, run_once=False):
         if run_once:
             break
 
+def update_alerts_batch_state(old_state: dict[str, int], new_state: dict[str, int]):
+    """
+    Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
+    """
+    diff_region_ids = []
+    for region_id, flags16 in new_state.items():
+        prev_flags = old_state.get(region_id)
+        if prev_flags != flags16:
+            diff_region_ids.append(region_id)
+    return diff_region_ids
+
+def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> bytes:
+    """
+    Формат пакета:
+    - region_id: 2 байти (unsigned short)
+    - flags16: 2 байти (unsigned short)
+
+    body: послідовність пар (region_id, flags16) для кожного регіону
+    diff_region_ids: список регіонів з змінами(наприклад, [0, 1, 2, ...])
+    new_state: повний словник даних тривог, де ключ — region_id, а значення — flags16 (наприклад, {0: 3, 1: 1, ...})
+    """
+    body = bytearray()
+    for rid in diff_region_ids:
+        flags16 = new_state.get(rid, 0)
+        body += struct.pack('<H H', int(rid), flags16)
+    return body
+
+async def update_alerts_fusion_websocket_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            data = {}
+            alerts_cache = await get_alerts(mc, b"alerts_api", [])
+            reasons_cache = await get_cache_data(mc, b"ws_info")
+            reasons = reasons_cache.get("reasons", [])
+            websocket = await get_cache_data(mc, b"alerts_fusion_websocket_v1", {})
+            for alert in alerts_cache:
+                for active_alert in alert["activeAlerts"]:
+                    regionId = active_alert["regionId"]
+                    if regionId not in data:
+                        data[regionId] = 0
+                    if active_alert["type"] == "AIR":
+                        data[regionId] |= (1 << 0) 
+                    if active_alert["type"] == "ARTILLERY":
+                        data[regionId] |= (1 << 1) 
+                    if active_alert["type"] == "URBAN_FIGHTS":
+                        data[regionId] |= (1 << 2) 
+                    if active_alert["type"] == "CHEMICAL":
+                        data[regionId] |= (1 << 3) 
+                    if active_alert["type"] == "NUCLEAR":
+                        data[regionId] |= (1 << 4)
+            for reason_alert in reasons:
+                regionId = reason_alert["regionId"]
+                if regionId not in data:
+                    data[regionId] = 0
+                for alert_type in reason_alert["alertTypes"]:
+                    if alert_type == "Drones":
+                        data[regionId] |= (1 << 5) 
+                    if alert_type == "Missile":
+                        data[regionId] |= (1 << 6) 
+                    if alert_type == "Ballistic": # це насправді "Kabs"
+                        data[regionId] |= (1 << 7) 
+            await store_websocket_data(mc, data, websocket, "alerts_fusion_websocket_v1", b"alerts_fusion_websocket_v1")
+            
+        except Exception as e:
+            logger.error(f"update_alerts_fusion_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
+async def update_etryvoga_fusion_websocket_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            alerts_cache = await get_cache_data(mc, b"etryvoga_full")
+            websocket = await get_cache_data(mc, b"etryvoga_fusion_websocket_v1", {})
+            last_processed_id = await get_cache_data(mc, b"etryvoga_last_processed_id", 0)
+            first_processed_id = None
+
+            data = {}
+
+            for alert in alerts_cache:
+                alert_id = int(alert["id"])
+                
+                if first_processed_id is None:
+                    first_processed_id = alert_id
+                if alert_id <= last_processed_id:
+                    continue
+
+                regionId = alert["regionId"]
+                if regionId not in data:
+                    data[regionId] = 0
+
+                if alert["type"] == "DRONE":
+                    data[regionId] |= (1 << 5) 
+                elif alert["type"] == "ROCKET":
+                    data[regionId] |= (1 << 6) 
+                elif alert["type"] == "KAB":
+                    data[regionId] |= (1 << 7) 
+                elif alert["type"] == "EXPLOSION":
+                    data[regionId] |= (1 << 8) 
+                elif alert["type"] == "RECON_DRONE":
+                    data[regionId] |= (1 << 9)
+                
+                if data[regionId] == 0:
+                    del data[regionId]
+            if not data:
+                logger.debug("update_etryvoga_fusion_websocket_v1: No new data to process")
+                continue
+            logger.debug(f" DATA: {str(data)}")
+            await store_websocket_data(mc, data, websocket, "etryvoga_fusion_websocket_v1", b"etryvoga_fusion_websocket_v1")
+            await store_websocket_data(mc, first_processed_id, last_processed_id, "etryvoga_last_processed_id", b"etryvoga_last_processed_id")
+
+
+        except Exception as e:
+            logger.error(f"update_etryvoga_fusion_websocket_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
 
 async def main():
     mc = Client(memcached_host, 11211)
@@ -598,6 +745,8 @@ async def main():
             update_energy_websocket_v1(mc),
             update_radiation_websocket_v1(mc),
             update_global_notifications_v1(mc),
+            update_alerts_fusion_websocket_v1(mc),
+            update_etryvoga_fusion_websocket_v1(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
