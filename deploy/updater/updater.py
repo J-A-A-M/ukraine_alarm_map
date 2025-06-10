@@ -705,9 +705,9 @@ async def update_etryvoga_fusion_websocket_v1(mc, run_once=False):
                 elif alert["type"] == "KAB":
                     data[regionId] |= (1 << 7) 
                 elif alert["type"] == "EXPLOSION":
-                    data[regionId] |= (1 << 8) 
+                    data[regionId] |= (1 << 9) 
                 elif alert["type"] == "RECON_DRONE":
-                    data[regionId] |= (1 << 9)
+                    data[regionId] |= (1 << 5)
                 
                 if data[regionId] == 0:
                     del data[regionId]
