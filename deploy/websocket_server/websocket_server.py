@@ -66,7 +66,7 @@ memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 mc = Client(memcached_host, 11211)
 geo = database.Reader(geo_lite_db_path)
 
-LEGACY_LED_COUNT = 28
+LEGACY_LED_COUNT = 6
 
 TYPE_ALERTS_BATCH       = 0xA1
 TYPE_NOTIFICATIONS_BATCH = 0xA2
@@ -75,34 +75,49 @@ TYPE_TEMPERATURE_BATCH  = 0xA3
 TYPE_GRID_BATCH         = 0xA4
 
 regions = {
-    "Закарпатська область": {"id": 11, "legacy_id": 0},
-    "Івано-Франківська область": {"id": 13, "legacy_id": 1},
-    "Тернопільська область": {"id": 21, "legacy_id": 2},
-    "Львівська область": {"id": 27, "legacy_id": 3},
-    "Волинська область": {"id": 8, "legacy_id": 4},
-    "Рівненська область": {"id": 5, "legacy_id": 5},
-    "Житомирська область": {"id": 10, "legacy_id": 6},
-    "Київська область": {"id": 14, "legacy_id": 7},
-    "Чернігівська область": {"id": 25, "legacy_id": 8},
-    "Сумська область": {"id": 20, "legacy_id": 9},
-    "Харківська область": {"id": 22, "legacy_id": 10},
-    "Луганська область": {"id": 16, "legacy_id": 11},
-    "Донецька область": {"id": 28, "legacy_id": 12},
-    "Запорізька область": {"id": 12, "legacy_id": 13},
-    "Херсонська область": {"id": 23, "legacy_id": 14},
-    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 15},
-    "Одеська область": {"id": 18, "legacy_id": 16},
-    "Миколаївська область": {"id": 17, "legacy_id": 17},
-    "Дніпропетровська область": {"id": 9, "legacy_id": 18},
-    "Полтавська область": {"id": 19, "legacy_id": 19},
-    "Черкаська область": {"id": 24, "legacy_id": 20},
-    "Кіровоградська область": {"id": 15, "legacy_id": 21},
-    "Вінницька область": {"id": 4, "legacy_id": 22},
-    "Хмельницька область": {"id": 3, "legacy_id": 23},
-    "Чернівецька область": {"id": 26, "legacy_id": 24},
-    "м. Київ": {"id": 31, "legacy_id": 25},
-    "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 26},
-    "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 27},
+
+    "Полтавська область": {"id": 19, "legacy_id": 0},
+    "Лубенський район": {"id": 106, "legacy_id": 1},
+    "Кременчуцький район": {"id": 107, "legacy_id": 2},
+    "Одеська область": {"id": 18, "legacy_id": 3},
+    "Ізмаїльський район" : {"id": 101, "legacy_id": 4}, 
+    "Березівський район" : {"id": 100, "legacy_id": 5},
+    
+     
+    
+    
+    
+    
+
+
+    # "Закарпатська область": {"id": 11, "legacy_id": 0},
+    # "Івано-Франківська область": {"id": 13, "legacy_id": 1},
+    # "Тернопільська область": {"id": 21, "legacy_id": 2},
+    # "Львівська область": {"id": 27, "legacy_id": 3},
+    # "Волинська область": {"id": 8, "legacy_id": 4},
+    # "Рівненська область": {"id": 5, "legacy_id": 5},
+    # "Житомирська область": {"id": 10, "legacy_id": 6},
+    # "Київська область": {"id": 14, "legacy_id": 7},
+    # "Чернігівська область": {"id": 25, "legacy_id": 8},
+    # "Сумська область": {"id": 20, "legacy_id": 9},
+    # "Харківська область": {"id": 22, "legacy_id": 10},
+    # "Луганська область": {"id": 16, "legacy_id": 11},
+    # "Донецька область": {"id": 28, "legacy_id": 12},
+    # "Запорізька область": {"id": 12, "legacy_id": 13},
+    # "Херсонська область": {"id": 23, "legacy_id": 14},
+    # "Автономна Республіка Крим": {"id": 9999, "legacy_id": 15},
+    # "Одеська область": {"id": 18, "legacy_id": 16},
+    # "Миколаївська область": {"id": 17, "legacy_id": 17},
+    # "Дніпропетровська область": {"id": 9, "legacy_id": 18},
+    # "Полтавська область": {"id": 19, "legacy_id": 19},
+    # "Черкаська область": {"id": 24, "legacy_id": 20},
+    # "Кіровоградська область": {"id": 15, "legacy_id": 21},
+    # "Вінницька область": {"id": 4, "legacy_id": 22},
+    # "Хмельницька область": {"id": 3, "legacy_id": 23},
+    # "Чернівецька область": {"id": 26, "legacy_id": 24},
+    # "м. Київ": {"id": 31, "legacy_id": 25},
+    # "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 26},
+    # "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 27},
 }
 
 class SharedData:
@@ -1053,7 +1068,7 @@ def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> by
 
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
-        shared_data.test_id = 6
+        shared_data.test_id = 5
 
     alerts_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
     alerts_v3 = [[0, 1736935200]] * LEGACY_LED_COUNT
@@ -1079,8 +1094,8 @@ async def get_data_from_memcached_test(shared_data):
         "tactical_missiles": 0,
         "strategic_missiles": 0,
     }
-    random_key = random.choice(list(global_notifications_v1.keys()))
-    global_notifications_v1[random_key] = 1
+    # random_key = random.choice(list(global_notifications_v1.keys()))
+    # global_notifications_v1[random_key] = 1
 
     region_id = shared_data.test_id
 
@@ -1101,11 +1116,9 @@ async def get_data_from_memcached_test(shared_data):
     region_ids = [
         get_region_id_by_legacy_id(circular_offset_index(region_id, 0)),
         get_region_id_by_legacy_id(circular_offset_index(region_id, -1)),
-        get_region_id_by_legacy_id(circular_offset_index(region_id, -2)),
-        get_region_id_by_legacy_id(circular_offset_index(region_id, -3)),
-        get_region_id_by_legacy_id(circular_offset_index(region_id, -4))
+        get_region_id_by_legacy_id(circular_offset_index(region_id, -2))
     ]
-    bits_list = [[0],[0,5],[0,5,6],[0,5],[0]]
+    bits_list = [[0],[0,5],[0,6]]
     alerts_fusion_v1 = {}
     for rid, bits in zip(region_ids, bits_list):
         flags16 = 0
@@ -1114,69 +1127,70 @@ async def get_data_from_memcached_test(shared_data):
                 flags16 |= (1 << bit)
         if rid is not None:
             alerts_fusion_v1[rid] = flags16
+    logger.warning(f"alerts_fusion_v1: {alerts_fusion_v1}")
 
-    alerts_v2[circular_offset_index(region_id, 0)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    alerts_v3[circular_offset_index(region_id, 0)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    alerts_v2[circular_offset_index(region_id, -1)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v3[circular_offset_index(region_id, -1)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v2[circular_offset_index(region_id, -2)] = [
-        "0",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v3[circular_offset_index(region_id, -2)] = [
-        "0",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    missile_v2[circular_offset_index(region_id, -3)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    missile_v2[circular_offset_index(region_id, -4)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    missile[circular_offset_index(region_id, -5)] = expl
-    drone_v2[circular_offset_index(region_id, -6)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    drone_v2[circular_offset_index(region_id, -7)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    drone[circular_offset_index(region_id, -8)] = expl
-    kab_v2[circular_offset_index(region_id, -9)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    kab_v2[circular_offset_index(region_id, -10)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    kab[circular_offset_index(region_id, -11)] = expl
-    explosion[circular_offset_index(region_id, -12)] = expl
-    weather[circular_offset_index(region_id, 0)] = 30
-    energy[circular_offset_index(region_id, 0)] = [
-        "9",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    energy[circular_offset_index(region_id, -1)] = [
-        "4",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    radiation[circular_offset_index(region_id, 0)] = 2000
+    # alerts_v2[circular_offset_index(region_id, 0)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-3600}",
+    # ]
+    # alerts_v3[circular_offset_index(region_id, 0)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-3600}",
+    # ]
+    # alerts_v2[circular_offset_index(region_id, -1)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # alerts_v3[circular_offset_index(region_id, -1)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # alerts_v2[circular_offset_index(region_id, -2)] = [
+    #     "0",
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # alerts_v3[circular_offset_index(region_id, -2)] = [
+    #     "0",
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # missile_v2[circular_offset_index(region_id, -3)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-3600}",
+    # ]
+    # missile_v2[circular_offset_index(region_id, -4)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # missile[circular_offset_index(region_id, -5)] = expl
+    # drone_v2[circular_offset_index(region_id, -6)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-3600}",
+    # ]
+    # drone_v2[circular_offset_index(region_id, -7)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # drone[circular_offset_index(region_id, -8)] = expl
+    # kab_v2[circular_offset_index(region_id, -9)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-3600}",
+    # ]
+    # kab_v2[circular_offset_index(region_id, -10)] = [
+    #     str(1),
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # kab[circular_offset_index(region_id, -11)] = expl
+    # explosion[circular_offset_index(region_id, -12)] = expl
+    # weather[circular_offset_index(region_id, 0)] = 30
+    # energy[circular_offset_index(region_id, 0)] = [
+    #     "9",
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # energy[circular_offset_index(region_id, -1)] = [
+    #     "4",
+    #     f"{int(datetime.datetime.now().timestamp())-60}",
+    # ]
+    # radiation[circular_offset_index(region_id, 0)] = 2000
 
     shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
 
