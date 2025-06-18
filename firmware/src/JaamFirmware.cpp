@@ -2041,7 +2041,7 @@ void setClearPinImpulse() {
 }
 
 void disableClearPinImpulse() {
-  if (isAlertPinImpulseEnabled()) {
+  if (isClearPinImpulseEnabled()) {
     LOG.println("clear pin impulse: disable");
     digitalWrite(settings.getInt(CLEAR_PIN_IMPULSE), settings.getInt(CLEAR_PIN_IMPULSE_INVERT) == 0 ? LOW : HIGH);
   }
