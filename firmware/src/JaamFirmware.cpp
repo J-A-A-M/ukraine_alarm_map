@@ -209,12 +209,40 @@ bool isServiceStripEnabled() {
   return settings.getInt(SERVICE_LED_PIN) > -1;
 }
 
-bool isAlertPinEnabled() {
-  return settings.getInt(ALERT_PIN) > -1;
+bool isAlertPinBistableEnabled() {
+  return settings.getInt(ALERT_PIN_BISTABLE) > -1;
 }
 
-bool isClearPinEnabled() {
-  return settings.getInt(CLEAR_PIN) > -1;
+bool isAlertPinBistableActive() {
+  if (isAlertPinBistableEnabled()) {
+    int pinState = digitalRead(settings.getInt(ALERT_PIN_BISTABLE));
+    return (pinState == (settings.getInt(ALERT_PIN_BISTABLE_INVERT) == 0 ? HIGH : LOW));
+  }
+  return false;
+}
+
+bool isAlertPinImpulseEnabled() {
+  return settings.getInt(ALERT_PIN_IMPULSE) > -1;
+}
+
+bool isAlertPinImpulseActive() {
+  if (isAlertPinImpulseEnabled()) {
+    int pinState = digitalRead(settings.getInt(ALERT_PIN_IMPULSE));
+    return (pinState == (settings.getInt(ALERT_PIN_IMPULSE_INVERT) == 0 ? HIGH : LOW));
+  }
+  return false;
+}
+
+bool isClearPinImpulseEnabled() {
+  return settings.getInt(CLEAR_PIN_IMPULSE) > -1;
+}
+
+bool isClearPinImpulseActive() {
+  if (isClearPinImpulseEnabled()) {
+    int pinState = digitalRead(settings.getInt(CLEAR_PIN_IMPULSE));
+    return (pinState == (settings.getInt(CLEAR_PIN_IMPULSE_INVERT) == 0 ? HIGH : LOW));
+  }
+  return false;
 }
 
 bool isAnalogLightSensorEnabled() {
@@ -1977,37 +2005,52 @@ void climateSensorCycle() {
   updateHaPressureSensors();
 }
 
-void setAlertPin() {
-  if (isAlertPinEnabled()) {
-    LOG.println("alert pin: HIGH");
-    digitalWrite(settings.getInt(ALERT_PIN), HIGH);
+void setAlertPinBistable() {
+  if (isAlertPinBistableEnabled()) {
+    LOG.println("alert pin bistable: enable");
+    digitalWrite(settings.getInt(ALERT_PIN_BISTABLE), settings.getInt(ALERT_PIN_BISTABLE_INVERT) == 0 ? HIGH : LOW);
   }
 }
 
-void setClearPin() {
-  if (isClearPinEnabled()) {
-    LOG.println("clear pin: HIGH");
-    digitalWrite(settings.getInt(CLEAR_PIN), HIGH);
+void disableAlertPinBistable() {
+  if (isAlertPinBistableEnabled()) {
+    LOG.println("alert pin bistable: disable");
+    digitalWrite(settings.getInt(ALERT_PIN_BISTABLE), settings.getInt(ALERT_PIN_BISTABLE_INVERT) == 0 ? LOW : HIGH);
   }
 }
 
-void disableAlertPin() {
-  if (isAlertPinEnabled()) {
-    LOG.println("alert pin: LOW");
-    digitalWrite(settings.getInt(ALERT_PIN), LOW);
+void setAlertPinImpulse() {
+  if (isAlertPinImpulseEnabled()) {
+    LOG.println("alert pin impulse: enable");
+    digitalWrite(settings.getInt(ALERT_PIN_IMPULSE), settings.getInt(ALERT_PIN_IMPULSE_INVERT) == 0 ? HIGH : LOW);
   }
 }
 
-void disableClearPin() {
-  if (isClearPinEnabled()) {
-    LOG.println("clear pin: LOW");
-    digitalWrite(settings.getInt(CLEAR_PIN), LOW);
+void disableAlertPinImpulse() {
+  if (isAlertPinImpulseEnabled()) {
+    LOG.println("alert pin impulse: disable");
+    digitalWrite(settings.getInt(ALERT_PIN_IMPULSE), settings.getInt(ALERT_PIN_IMPULSE_INVERT) == 0 ? LOW : HIGH);
+  }
+}
+
+void setClearPinImpulse() {
+  if (isClearPinImpulseEnabled()) {
+    LOG.println("clear pin impulse: enable");
+    digitalWrite(settings.getInt(CLEAR_PIN_IMPULSE), settings.getInt(CLEAR_PIN_IMPULSE_INVERT) == 0 ? HIGH : LOW);
+  }
+}
+
+void disableClearPinImpulse() {
+  if (isClearPinImpulseEnabled()) {
+    LOG.println("clear pin impulse: disable");
+    digitalWrite(settings.getInt(CLEAR_PIN_IMPULSE), settings.getInt(CLEAR_PIN_IMPULSE_INVERT) == 0 ? LOW : HIGH);
   }
 }
 
 void disableAlertAndClearPins() {
-  disableAlertPin();
-  disableClearPin();
+  disableAlertPinBistable();
+  disableAlertPinImpulse();
+  disableClearPinImpulse();
 }
 
 void initLedMapping() {
@@ -2393,6 +2436,10 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveBrightness' method='POST'>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2448,6 +2495,10 @@ void handleColors(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveColors' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2485,6 +2536,10 @@ void handleModes(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
@@ -2576,6 +2631,11 @@ void handleSounds(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2643,6 +2703,10 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/refreshTelemetry' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2695,6 +2759,10 @@ void handleDev(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
   response->println("<form action='/saveDev' method='POST'>");
@@ -2728,9 +2796,12 @@ void handleDev(AsyncWebServerRequest* request) {
     addInputText(response, "button2pin", "Керуючий пін кнопки 2 (-1 - вимкнено)", "number", String(settings.getInt(BUTTON_2_PIN)).c_str());
     addCheckbox(response, "use_touch_button2", settings.getBool(USE_TOUCH_BUTTON_2), "Підтримка touch-кнопки TTP223 для кнопки 2");
   }
-  addSelectBox(response, "alert_clear_pin_mode", "Режим роботи пінів тривоги та відбою", settings.getInt(ALERT_CLEAR_PIN_MODE), ALERT_PIN_MODES_OPTIONS, ALERT_PIN_MODES_COUNT);
-  addInputText(response, "alertpin", "Пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.getInt(ALERT_PIN)).c_str());
-  addInputText(response, "clearpin", "Пін відбою у домашньому регіоні (має бути output, лише для Імпульсного режиму, -1 - вимкнено)", "number", String(settings.getInt(CLEAR_PIN)).c_str());
+  addInputText(response, "alertpin_bistable", "Бістабільний пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.getInt(ALERT_PIN_BISTABLE)).c_str());
+  addCheckbox(response, "alertpin_bistable_invert", settings.getBool(ALERT_PIN_BISTABLE_INVERT), "Інвертувати рівень бістабільного піну тривоги");
+  addInputText(response, "alertpin_impulse", "Імпульсний пін тривоги у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.getInt(ALERT_PIN_IMPULSE)).c_str());
+  addCheckbox(response, "alertpin_impulse_invert", settings.getBool(ALERT_PIN_IMPULSE_INVERT), "Інвертувати рівень імпульсного піну тривоги");
+  addInputText(response, "clearpin_impulse", "Імпульсний пін відбою у домашньому регіоні (має бути output, -1 - вимкнено)", "number", String(settings.getInt(CLEAR_PIN_IMPULSE)).c_str());
+  addCheckbox(response, "clearpin_impulse_invert", settings.getBool(CLEAR_PIN_IMPULSE_INVERT), "Інвертувати рівень імпульсного піну відбою");
   addSlider(response, "alert_clear_pin_time", "Тривалість замикання пінів тривоги та відбою в Імпульсному режимі", settings.getFloat(ALERT_CLEAR_PIN_TIME), 0.5f, 10.0f, 0.5f, " с.");
 
   if (legacy != 3) {
@@ -2784,6 +2855,10 @@ void handleFirmware(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   #if FW_UPDATE_ENABLED
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2832,6 +2907,10 @@ void handleRoot(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   addFooter(response);
 
@@ -3102,9 +3181,12 @@ void handleSaveDev(AsyncWebServerRequest* request) {
   reboot = saveInt(request->getParam("button2pin", true), BUTTON_2_PIN) || reboot;
   reboot = saveBool(request->getParam("use_touch_button1", true), "use_touch_button1", USE_TOUCH_BUTTON_1) || reboot;
   reboot = saveBool(request->getParam("use_touch_button2", true), "use_touch_button2", USE_TOUCH_BUTTON_2) || reboot;
-  reboot = saveInt(request->getParam("alert_clear_pin_mode", true), ALERT_CLEAR_PIN_MODE, NULL, disableAlertAndClearPins) || reboot;
-  reboot = saveInt(request->getParam("alertpin", true), ALERT_PIN) || reboot;
-  reboot = saveInt(request->getParam("clearpin", true), CLEAR_PIN) || reboot;
+  reboot = saveInt(request->getParam("alertpin_bistable", true), ALERT_PIN_BISTABLE) || reboot;
+  reboot = saveInt(request->getParam("alertpin_impulse", true), ALERT_PIN_IMPULSE) || reboot;
+  reboot = saveInt(request->getParam("clearpin_impulse", true), CLEAR_PIN_IMPULSE) || reboot;
+  reboot = saveBool(request->getParam("alertpin_bistable_invert", true), "alertpin_bistable_invert", ALERT_PIN_BISTABLE_INVERT) || reboot;
+  reboot = saveBool(request->getParam("alertpin_impulse_invert", true), "alertpin_impulse_invert", ALERT_PIN_IMPULSE_INVERT) || reboot;
+  reboot = saveBool(request->getParam("clearpin_impulse_invert", true), "clearpin_impulse_invert", CLEAR_PIN_IMPULSE_INVERT) || reboot;
   reboot = saveFloat(request->getParam("alert_clear_pin_time", true), ALERT_CLEAR_PIN_TIME, NULL, disableAlertAndClearPins) || reboot;
   reboot = saveInt(request->getParam("lightpin", true), LIGHT_SENSOR_PIN) || reboot;
   reboot = saveInt(request->getParam("buzzerpin", true), BUZZER_PIN) || reboot;
@@ -3326,35 +3408,27 @@ static void fillBinList(JsonDocument data, const char* payloadKey, char* binsLis
 #endif
 
 void alertPinCycle() {
-  if (isAlertPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 0) {
-    if (alarmNow && digitalRead(settings.getInt(ALERT_PIN)) == LOW) {
-      setAlertPin();
+  if (isAlertPinBistableEnabled()) {
+    if (alarmNow && !isAlertPinBistableActive()) {
+      setAlertPinBistable();
     }
-    if (!alarmNow && digitalRead(settings.getInt(ALERT_PIN)) == HIGH) {
-      disableAlertPin();
+    if (!alarmNow && isAlertPinBistableActive()) {
+      disableAlertPinBistable();
     }
   }
-  if (isAlertPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1 && alarmNow && !pinAlarmNow) {
+  if (isAlertPinImpulseEnabled() && alarmNow && !pinAlarmNow) {
     pinAlarmNow = true;
-    if (!isFirstDataFetchCompleted) {
-      LOG.println("Do not set alert pin on first data fetch");
-      return;
-    }
-    setAlertPin();
+    setAlertPinImpulse();
     long timeoutMs = settings.getFloat(ALERT_CLEAR_PIN_TIME) * 1000;
-    LOG.printf("Alert pin will be disabled in %d ms\n", timeoutMs);
-    asyncEngine.setTimeout(disableAlertPin, timeoutMs);
+    LOG.printf("Alert pin impulse will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableAlertPinImpulse, timeoutMs);
   }
-  if (isClearPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1 && !alarmNow && pinAlarmNow) {
+  if (isClearPinImpulseEnabled() && !alarmNow && pinAlarmNow) {
     pinAlarmNow = false;
-    if (!isFirstDataFetchCompleted) {
-      LOG.println("Do not set clear pin on first data fetch");
-      return;
-    }
-    setClearPin();
+    setClearPinImpulse();
     long timeoutMs = settings.getFloat(ALERT_CLEAR_PIN_TIME) * 1000;
-    LOG.printf("Clear pin will be disabled in %d ms\n", timeoutMs);
-    asyncEngine.setTimeout(disableClearPin, timeoutMs);
+    LOG.printf("Clear pin impulse will be disabled in %d ms\n", timeoutMs);
+    asyncEngine.setTimeout(disableClearPinImpulse, timeoutMs);
   }
 }
 
@@ -4281,17 +4355,31 @@ void initButtons() {
 }
 
 
-void initAlertPin() {
-  if (isAlertPinEnabled()) {
-    LOG.printf("alertpin: %d\n", settings.getInt(ALERT_PIN));
-    pinMode(settings.getInt(ALERT_PIN), OUTPUT);
+void initAlertPinBistable() {
+  if (isAlertPinBistableEnabled()) {
+    LOG.printf("alertpin_bistable: %d\n", settings.getInt(ALERT_PIN_BISTABLE));
+    pinMode(settings.getInt(ALERT_PIN_BISTABLE), OUTPUT);
+    if (alarmNow) {
+      setAlertPinBistable();
+    } else {
+      disableAlertPinBistable();
+    }
   }
 }
 
-void initClearPin() {
-  if (isClearPinEnabled() && settings.getInt(ALERT_CLEAR_PIN_MODE) == 1) {
-    LOG.printf("clearpin: %d\n", settings.getInt(CLEAR_PIN));
-    pinMode(settings.getInt(CLEAR_PIN), OUTPUT);
+void initAlertPinImpulse() {
+  if (isAlertPinImpulseEnabled()) {
+    LOG.printf("alertpin_impulse: %d\n", settings.getInt(ALERT_PIN_IMPULSE));
+    pinMode(settings.getInt(ALERT_PIN_IMPULSE), OUTPUT);
+    digitalWrite(settings.getInt(ALERT_PIN_IMPULSE), settings.getInt(ALERT_PIN_IMPULSE_INVERT) == 0 ? LOW : HIGH);
+  }
+}
+
+void initClearPinImpulse() {
+  if (isClearPinImpulseEnabled()) {
+    LOG.printf("clearpin_impulse: %d\n", settings.getInt(CLEAR_PIN_IMPULSE));
+    pinMode(settings.getInt(CLEAR_PIN_IMPULSE), OUTPUT);
+    digitalWrite(settings.getInt(CLEAR_PIN_IMPULSE), settings.getInt(CLEAR_PIN_IMPULSE_INVERT) == 0 ? LOW : HIGH);
   }
 }
 
@@ -4720,8 +4808,6 @@ void setup() {
   initLegacy();
   initLedMapping();
   initButtons();
-  initAlertPin();
-  initClearPin();
   initStrip();
   initDisplay();
   initSensors();
@@ -4731,6 +4817,9 @@ void setup() {
 #else
   initWifi();
   initTime();
+  initAlertPinBistable();
+  initAlertPinImpulse();
+  initClearPinImpulse();
 
   asyncEngine.setInterval(uptime, 5000);
   asyncEngine.setInterval(connectStatuses, 60000);
