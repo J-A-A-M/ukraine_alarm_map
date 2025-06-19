@@ -95,10 +95,12 @@ void updateFirmware() {
   preferences.putInt("aas", 1); // auto alarm mode (0 - off, 1 - home + neighbors, 2 - home only)
   preferences.putInt("sdm", 1); // service leds display mode (0 - off, 1 - on)
   preferences.putInt("mos", 1); // minute of silence (0 - off, 1 - on)
+  preferences.putInt("sobc", 1); // sound of button click (0 - off, 1 - on)
   preferences.putInt("somos", 1); // sounds on minute of silence (0 - off, 1 - on)
   preferences.putInt("soa", 1); // sounds on alert (0 - off, 1 - on)
-  preferences.putInt("mson", 1); // mute sounds on night mode (0 - off, 1 - on)
-  preferences.putInt("mv", 60); // melody volume %
+  //preferences.putInt("mson", 1); // mute sounds on night mode (0 - off, 1 - on)
+  preferences.putInt("mv", 60); // melody volume day%
+  preferences.putInt("mvn", 20); // melody volume night%
   preferences.putInt("nfwn", 1); // notify on new firmware (0 - off, 1 - on)
   preferences.putInt("fwuc", 0); // firmware update channel (0 - stable, 1 - beta)
 
@@ -112,7 +114,7 @@ void updateFirmware() {
   preferences.remove("upp"); // clear update server port
   preferences.remove("dn"); // clear device name
   preferences.remove("dd"); // clear device description
-  preferences.remove("bn"); // clear broadcaat name
+  preferences.remove("bn"); // clear broadcast name
   preferences.remove("ntph"); // clear ntp server host
   preferences.remove("ha_brokeraddr"); // clear home assistant broker address
   preferences.remove("ha_mqttport"); // clear home assistant mqtt port
