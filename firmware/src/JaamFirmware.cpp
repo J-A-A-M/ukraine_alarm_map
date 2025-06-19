@@ -2437,7 +2437,7 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveBrightness' method='POST'>");
@@ -2496,7 +2496,7 @@ void handleColors(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveColors' method='POST'>");
@@ -2538,7 +2538,7 @@ void handleModes(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveModes' method='POST'>");
@@ -2633,7 +2633,7 @@ void handleSounds(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveSounds' method='POST'>");
@@ -2704,7 +2704,7 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/refreshTelemetry' method='POST'>");
@@ -2760,7 +2760,7 @@ void handleDev(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
@@ -2856,7 +2856,7 @@ void handleFirmware(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   #if FW_UPDATE_ENABLED
@@ -2909,7 +2909,7 @@ void handleRoot(AsyncWebServerRequest* request) {
   addLinks(response);
 
   response->addHeader("Access-Control-Allow-Origin", "*");
-  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   addFooter(response);
