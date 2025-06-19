@@ -2264,8 +2264,8 @@ void addHeader(Print* response) {
   response->println("<meta name='apple-mobile-web-app-capable' content='yes' />");
   response->println("<meta name='apple-mobile-web-app-title' content='JAAM'>");
   response->println("<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />");
-  response->println("<link rel='shortcut icon' href='favicon.png'>");
-  response->println("<link rel='apple-touch-icon' href='apple-touch-icon.png'>");
+  response->println("<link rel='shortcut icon' href='data:image/png;base64,iVBORw0KGgo='>");
+  response->println("<link rel='apple-touch-icon' href='data:image/png;base64,iVBORw0KGgo='>");
   response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
   response->print("<title>");
   response->print(settings.getString(DEVICE_NAME));
