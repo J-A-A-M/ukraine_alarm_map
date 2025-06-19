@@ -2436,6 +2436,10 @@ void handleBrightness(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveBrightness' method='POST'>");
   response->println("<div class='row justify-content-center'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2491,6 +2495,10 @@ void handleColors(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveColors' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2528,6 +2536,10 @@ void handleModes(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<form action='/saveModes' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
@@ -2619,6 +2631,11 @@ void handleSounds(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/saveSounds' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2686,6 +2703,10 @@ void handleTelemetry(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   response->println("<form action='/refreshTelemetry' method='POST'>");
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2737,6 +2758,10 @@ void handleDev(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2830,6 +2855,10 @@ void handleFirmware(AsyncWebServerRequest* request) {
   addHeader(response);
   addLinks(response);
 
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
   #if FW_UPDATE_ENABLED
   response->println("<div class='row justify-content-center' data-parent='#accordion'>");
   response->println("<div class='by col-md-9 mt-2'>");
@@ -2878,6 +2907,10 @@ void handleRoot(AsyncWebServerRequest* request) {
 
   addHeader(response);
   addLinks(response);
+
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  response->addHeader("Access-Control-Allow-Methods", "POST");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type");
 
   addFooter(response);
 
