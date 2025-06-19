@@ -2258,6 +2258,15 @@ void addHeader(Print* response) {
   response->println("<head>");
   response->println("<meta charset='UTF-8'>");
   response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
+  response->println("<meta name='mobile-web-app-capable' content='yes' />");
+  response->println("<meta name='application-name' content='JAAM' />");
+  response->println("<meta name='msapplication-starturl' content='/' />");
+  response->println("<meta name='apple-mobile-web-app-capable' content='yes' />");
+  response->println("<meta name='apple-mobile-web-app-title' content='JAAM'>");
+  response->println("<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />");
+  response->println("<link rel='shortcut icon' href='favicon.png'>");
+  response->println("<link rel='apple-touch-icon' href='apple-touch-icon.png'>");
+  response->println("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
   response->print("<title>");
   response->print(settings.getString(DEVICE_NAME));
   response->println("</title>");
