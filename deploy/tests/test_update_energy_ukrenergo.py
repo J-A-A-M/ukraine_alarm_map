@@ -191,7 +191,7 @@ async def test_4():
 
         def mock_get_cache_data_side_effect(mc, key, default=None):
             mock_responses = {
-                b"energy_ukrenergo": get_energy_mock(id=str(region_data["id"])),
+                b"energy_ukrenergo": get_energy_mock(id=str(region_data["stateId"])),
                 b"energy_websocket_v1": energy_websocket_v1,
             }
             return mock_responses.get(key, default)
@@ -210,7 +210,7 @@ async def test_4():
 
             expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
-            expected_energy[region_data["legacy_id"] - 1] = [4, mock_timestamp]
+            expected_energy[region_data["legacyId"] - 1] = [4, mock_timestamp]
 
             expected_calls = [
                 call(mock_mc, expected_energy, energy_websocket_v1, "energy_websocket_v1", b"energy_websocket_v1"),

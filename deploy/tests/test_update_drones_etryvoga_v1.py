@@ -103,7 +103,7 @@ async def test_3():
             mock_responses = {
                 b"drones_etryvoga": {
                     "version": 1,
-                    "states": {str(region["id"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
+                    "states": {str(region["stateId"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
                     "info": {
                         "last_update": "2025-01-26T19:18:55Z",
                         "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
@@ -116,7 +116,7 @@ async def test_3():
         mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
         with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
             expected_result = [1645674000] * LEGACY_LED_COUNT
-            expected_result[region["legacy_id"] - 1] = 1736935200
+            expected_result[region["legacyId"] - 1] = 1736935200
 
             await update_drones_etryvoga_v1(mock_mc, run_once=True)
 
@@ -216,7 +216,7 @@ async def test_6():
             mock_responses = {
                 b"drones_etryvoga": {
                     "version": 1,
-                    "states": {str(region_data["id"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
+                    "states": {str(region_data["stateId"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
                     "info": {
                         "last_update": "2025-01-26T19:18:55Z",
                         "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
@@ -232,6 +232,6 @@ async def test_6():
             await update_drones_etryvoga_v1(mock_mc, run_once=True)
 
             expected_result = [1645674000] * LEGACY_LED_COUNT
-            expected_result[region_data["legacy_id"] - 1] = 1736935200
+            expected_result[region_data["legacyId"] - 1] = 1736935200
 
             mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
