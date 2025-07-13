@@ -311,7 +311,7 @@ async def test_8():
     перевірка мапінгу
     """
 
-    for region_name, region_data in regions.items():
+    for _, region_data in regions.items():
 
         mock_mc = AsyncMock(spec=Client)
         mock_mc.set.return_value = True
@@ -321,10 +321,10 @@ async def test_8():
                 b"radiation_sensors_saveecobot": get_sensors_mock(
                     ids=["11", "12", "13", "14"],
                     regions=[
-                        region_name,
-                        region_name,
-                        region_name,
-                        region_name,
+                        region_data["name"],
+                        region_data["name"],
+                        region_data["name"],
+                        region_data["name"],
                     ],
                 ),
                 b"radiation_data_saveecobot": get_data_mock(

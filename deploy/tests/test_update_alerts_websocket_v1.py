@@ -9,12 +9,12 @@ pip install pytest pytest-asyncio
 """
 
 districts = {
-    "1": {"regionName": "Закарпатська область", "regionType": "State", "parentId": None, "stateId": "1"},
-    "2": {"regionName": "Івано-Франківська область", "regionType": "State", "parentId": None, "stateId": "2"},
-    "6": {"regionName": "Район в області", "regionType": "District", "parentId": "1", "stateId": "1"},
-    "7": {"regionName": "Район 2 в області", "regionType": "District", "parentId": "1", "stateId": "1"},
-    "15": {"regionName": "Громада 1 в районі", "regionType": "Community", "parentId": "6", "stateId": "1"},
-    "170": {"regionName": "Неіснуюча область", "regionType": "State", "parentId": "170", "stateId": "170"},
+    "11": {"regionName": "Закарпатська область", "regionType": "State", "parentId": None, "stateId": "11"},
+    "13": {"regionName": "Івано-Франківська область", "regionType": "State", "parentId": None, "stateId": "13"},
+    "67": {"regionName": "Район в області", "regionType": "District", "parentId": "13", "stateId": "13"},
+    "68": {"regionName": "Район 2 в області", "regionType": "District", "parentId": "13", "stateId": "13"},
+    "620": {"regionName": "Громада 1 в районі", "regionType": "Community", "parentId": "67", "stateId": "13"},
+    "17067": {"regionName": "Неіснуюча область", "regionType": "State", "parentId": "17067", "stateId": "17067"},
 }
 
 LEGACY_LED_COUNT = 28
@@ -36,13 +36,13 @@ async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "Luhanska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
@@ -72,13 +72,13 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
@@ -88,7 +88,7 @@ async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
+    expected_result[1] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -108,14 +108,14 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "13", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
             ],
         }
     ]
@@ -125,7 +125,7 @@ async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
+    expected_result[1] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -145,13 +145,13 @@ async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "Luhanska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
@@ -210,20 +210,20 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
     mock_get_regions.return_value = districts
     mock_get_cache_data.return_value = [
-        0,
         1,
+        0,
         1,
         0,
         0,
@@ -255,7 +255,7 @@ async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
+    expected_result[1] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -275,21 +275,21 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "13", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
             ],
         }
     ]
     mock_get_regions.return_value = districts
     mock_get_cache_data.return_value = [
-        0,
         1,
+        0,
         1,
         0,
         0,
@@ -321,7 +321,7 @@ async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data):
     await update_alerts_websocket_v1(mock_mc, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
+    expected_result[1] = 1
     mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
 
 
@@ -375,13 +375,13 @@ async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "Luhanska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
         {
@@ -420,13 +420,13 @@ async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
 
     mock_get_alerts.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
             "regionEngName": "Luhanska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
         {
