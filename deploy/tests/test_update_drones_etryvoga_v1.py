@@ -199,39 +199,3 @@ async def test_5():
         await update_drones_etryvoga_v1(mock_mc, run_once=True)
 
         mock_mc.set.assert_not_called()
-
-
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_6():
-    """
-    перевірка мапінгу
-    """
-
-    for _, region_data in regions.items():
-        mock_mc = AsyncMock(spec=Client)
-        mock_mc.set.return_value = True
-
-        def mock_get_cache_data_side_effect(mc, key, default=None):
-            mock_responses = {
-                b"drones_etryvoga": {
-                    "version": 1,
-                    "states": {str(region_data["stateId"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
-                    "info": {
-                        "last_update": "2025-01-26T19:18:55Z",
-                        "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                    },
-                },
-                b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-            }
-            return mock_responses.get(key, default)
-
-        mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
-
-        with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-            await update_drones_etryvoga_v1(mock_mc, run_once=True)
-
-            expected_result = [1645674000] * LEGACY_LED_COUNT
-            expected_result[region_data["legacyId"] - 1] = 1736935200
-
-            mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))

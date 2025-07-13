@@ -170,7 +170,7 @@ regions = {
   "Оріхів"                           : { "regionId":  145, "legacyId": 14, "stateId":   12 },
   "Пологи"                           : { "regionId":  145, "legacyId": 14, "stateId":   12 },
   "Токмак"                           : { "regionId":  145, "legacyId": 14, "stateId":   12 },
-  "Київ"                             : { "regionId":   31, "legacyId": 26, "stateId":   -1 },
+  "Київ"                             : { "regionId":   31, "legacyId": 26, "stateId":   31 },
   "Київська область"                 : { "regionId":   14, "legacyId":  8, "stateId":   14 },
   "Бориспільський район"             : { "regionId":   78, "legacyId":  8, "stateId":   14 },
   "Бориспіль"                        : { "regionId":   78, "legacyId":  8, "stateId":   14 },
@@ -777,8 +777,8 @@ async def update_drones_etryvoga_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            #await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1", "drones_websocket_v2")
-            await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1")
+            await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1", "drones_websocket_v2")
+            #await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1")
 
         except Exception as e:
             logger.error(f"update_drones_etryvoga_v1: {str(e)}")
@@ -791,8 +791,8 @@ async def update_missiles_etryvoga_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            #await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1", "missiles_websocket_v2")
-            await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1")
+            await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1", "missiles_websocket_v2")
+            #await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1")
 
         except Exception as e:
             logger.error(f"update_missiles_etryvoga_v1: {str(e)}")
@@ -840,8 +840,6 @@ async def update_weather_openweathermap_v1(mc, run_once=False):
                 legacy_state_id = state_data["legacyId"]
                 state_id = state_data["stateId"]
                 state_id_str = str(state_id)
-                if state_id_str == "31":
-                    pass
                 if state_id_str in cache["states"]:
                     data[legacy_state_id - 1] = int(round(cache["states"][state_id_str]["temp"], 0))
 
