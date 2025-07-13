@@ -627,7 +627,7 @@ async def get_etryvoga_data(mc):
                         current_hex = make_hex(message)
 
                         _name, _id = get_region_data(message["region"])
-                        #message["regionId"] = state_id
+                        message["regionId"] = _id
                         logger.debug(
                             "{type:<12} {time:<5} {rid:<5}{region:<25} {state:<25} {body}".format(
                                 type=message["type"],
