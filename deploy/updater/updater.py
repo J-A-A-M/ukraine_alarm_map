@@ -760,7 +760,7 @@ async def ertyvoga_v1(mc, cache_key, data_key, alert_key=None):
     data = [0] * LEGACY_LED_COUNT
 
     for _, state_data in regions.items():
-        state_id = state_data["stateId"]
+        state_id = state_data["regionId"]
         state_id_str = str(state_id)
         legacy_state_id = state_data["legacyId"]
         if alert_key:
@@ -781,7 +781,8 @@ async def update_drones_etryvoga_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1", "drones_websocket_v2")
+            #await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1", "drones_websocket_v2")
+            await ertyvoga_v1(mc, "drones_etryvoga", "drones_websocket_v1")
 
         except Exception as e:
             logger.error(f"update_drones_etryvoga_v1: {str(e)}")
@@ -794,7 +795,8 @@ async def update_missiles_etryvoga_v1(mc, run_once=False):
     while True:
         try:
             await asyncio.sleep(update_period)
-            await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1", "missiles_websocket_v2")
+            #await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1", "missiles_websocket_v2")
+            await ertyvoga_v1(mc, "missiles_etryvoga", "missiles_websocket_v1")
 
         except Exception as e:
             logger.error(f"update_missiles_etryvoga_v1: {str(e)}")
@@ -1176,24 +1178,25 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            # update_alerts_websocket_v1(mc),
-            # update_alerts_websocket_v2(mc),
-            # update_alerts_websocket_v3(mc),
-            # update_drones_etryvoga_v1(mc),
-            # update_missiles_etryvoga_v1(mc),
-            # update_explosions_etryvoga_v1(mc),
+            update_alerts_websocket_v1(mc),
+            update_alerts_websocket_v2(mc),
+            update_alerts_websocket_v3(mc),
+            update_drones_etryvoga_v1(mc),
+            update_missiles_etryvoga_v1(mc),
+            update_explosions_etryvoga_v1(mc),
             update_kabs_etryvoga_v1(mc),
-            # update_weather_openweathermap_v1(mc),
-            # update_alerts_historical_v1(mc),
-            # update_drones_websocket_v2(mc),
-            # update_missiles_websocket_v2(mc),
-            # update_kabs_websocket_v2(mc),
-            # update_energy_websocket_v1(mc),
-            # update_radiation_websocket_v1(mc),
-            # update_global_notifications_v1(mc),
-            # update_alerts_fusion_websocket_v1(mc),
-            # update_etryvoga_fusion_websocket_v1(mc),
+            update_weather_openweathermap_v1(mc),
+            update_alerts_historical_v1(mc),
+            update_drones_websocket_v2(mc),
+            update_missiles_websocket_v2(mc),
+            update_kabs_websocket_v2(mc),
+            update_energy_websocket_v1(mc),
+            update_radiation_websocket_v1(mc),
+            update_global_notifications_v1(mc),
+            update_alerts_fusion_websocket_v1(mc),
+            update_etryvoga_fusion_websocket_v1(mc),
         )
+        
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
