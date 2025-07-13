@@ -770,7 +770,8 @@ async def ertyvoga_v1(mc, cache_key, data_key, alert_key=None):
         if state_id_str in cache["states"] and not is_alert:
             alert_start_time = cache["states"][state_id_str]["lastUpdate"]
             alert_start_time = int(datetime.datetime.fromisoformat(alert_start_time.replace("Z", "+00:00")).timestamp())
-            data[legacy_state_id - 1] = alert_start_time
+            if alert_start_time > data[legacy_state_id - 1]:
+                data[legacy_state_id - 1] = alert_start_time
 
     await check_notifications(data, websocket)
     await store_websocket_data(mc, data, websocket, data_key, data_key.encode("utf-8"))
@@ -1175,23 +1176,23 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            update_alerts_websocket_v1(mc),
-            update_alerts_websocket_v2(mc),
-            update_alerts_websocket_v3(mc),
-            update_drones_etryvoga_v1(mc),
-            update_missiles_etryvoga_v1(mc),
-            update_explosions_etryvoga_v1(mc),
+            # update_alerts_websocket_v1(mc),
+            # update_alerts_websocket_v2(mc),
+            # update_alerts_websocket_v3(mc),
+            # update_drones_etryvoga_v1(mc),
+            # update_missiles_etryvoga_v1(mc),
+            # update_explosions_etryvoga_v1(mc),
             update_kabs_etryvoga_v1(mc),
-            update_weather_openweathermap_v1(mc),
-            update_alerts_historical_v1(mc),
-            update_drones_websocket_v2(mc),
-            update_missiles_websocket_v2(mc),
-            update_kabs_websocket_v2(mc),
-            update_energy_websocket_v1(mc),
-            update_radiation_websocket_v1(mc),
-            update_global_notifications_v1(mc),
-            update_alerts_fusion_websocket_v1(mc),
-            update_etryvoga_fusion_websocket_v1(mc),
+            # update_weather_openweathermap_v1(mc),
+            # update_alerts_historical_v1(mc),
+            # update_drones_websocket_v2(mc),
+            # update_missiles_websocket_v2(mc),
+            # update_kabs_websocket_v2(mc),
+            # update_energy_websocket_v1(mc),
+            # update_radiation_websocket_v1(mc),
+            # update_global_notifications_v1(mc),
+            # update_alerts_fusion_websocket_v1(mc),
+            # update_etryvoga_fusion_websocket_v1(mc),
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

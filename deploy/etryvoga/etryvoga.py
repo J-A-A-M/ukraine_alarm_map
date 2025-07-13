@@ -672,12 +672,12 @@ async def get_etryvoga_data(mc):
                     kabs_cached_data["info"]["last_update"] = get_current_datetime()
                     logger.debug("store etryvoga data")
                     await asyncio.gather(
-                        # mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
-                        # mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
-                        # mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
-                        # mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
-                        # mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
-                        # mc.set(b"etryvoga_full", json.dumps(data).encode("utf-8")),
+                        mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
+                        mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
+                        mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
+                        mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
+                        mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
+                        mc.set(b"etryvoga_full", json.dumps(data).encode("utf-8")),
                         service_is_fine(mc, b"etryvoga_api_last_call"),
                     )
                     logger.info("etryvoga data stored")
