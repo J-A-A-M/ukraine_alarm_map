@@ -504,11 +504,6 @@ regions = {
 }
 
 
-
-
-
-
-
 def make_hex(json_doc):
     json_str = json.dumps(json_doc, sort_keys=True)
     json_bytes = json_str.encode("utf-8")
@@ -518,10 +513,17 @@ def make_hex(json_doc):
     return current_hex
 
 
-def get_slug(name, districts_slug):
-    slug_name = districts_slug.get(name) or "UNKNOWN"
-    return slug_name
+# def get_slug(name, districts_slug):
+#     slug_name = districts_slug.get(name) or "UNKNOWN"
+#     return slug_name
 
+def get_region_data(slug):
+    if slug not in regions:
+        return 'UNKNOWN', -1
+    _name = regions[slug]["name"]
+    _id = regions[slug]["regionId"]
+    return _name, _id
+    
 
 def format_time(time):
     dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -562,18 +564,18 @@ async def service_is_fine(mc, key_b):
 
 
 async def get_etryvoga_data(mc):
-    while True:
-        if await get_cache_data(mc, b"etryvoga_districts"):
-            break
-        else:
-            logger.warning("get_etryvoga_data: wait for districts cache")
-        await asyncio.sleep(1)
+    # while True:
+    #     if await get_cache_data(mc, b"etryvoga_districts"):
+    #         break
+    #     else:
+    #         logger.warning("get_etryvoga_data: wait for districts cache")
+    #     await asyncio.sleep(1)
     while True:
         try:
             logger.debug("start get_etryvoga_data")
 
             cache_keys = [
-                b"etryvoga_districts_struct",
+                #b"etryvoga_districts_struct",
                 b"explosions_etryvoga",
                 b"missiles_etryvoga",
                 b"drones_etryvoga",
@@ -581,12 +583,12 @@ async def get_etryvoga_data(mc):
             ]
             cached_data = await asyncio.gather(*(mc.get(key) for key in cache_keys))
 
-            districts_slug_cached, explosions_cached, missiles_cached, drones_cached, kabs_cached = cached_data
+            explosions_cached, missiles_cached, drones_cached, kabs_cached = cached_data
 
-            if districts_slug_cached:
-                districts_slug_cached = json.loads(districts_slug_cached)
-            else:
-                districts_slug_cached = {}
+            # if districts_slug_cached:
+            #     districts_slug_cached = json.loads(districts_slug_cached)
+            # else:
+            #     districts_slug_cached = {}
 
             if explosions_cached:
                 explosions_cached_data = json.loads(explosions_cached.decode("utf-8"))
@@ -624,14 +626,13 @@ async def get_etryvoga_data(mc):
                     for message in data[::-1]:
                         current_hex = make_hex(message)
 
-                        state_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
-                        state_id = regions[get_slug(message["region"], districts_slug_cached)]["regionId"]
-                        message["regionId"] = state_id
+                        _name, _id = get_region_data(message["region"])
+                        #message["regionId"] = state_id
                         logger.debug(
                             "{type:<12} {time:<5} {rid:<5}{region:<25} {state:<25} {body}".format(
                                 type=message["type"],
-                                state=state_name,
-                                rid=state_id,
+                                state=_name,
+                                rid=_id,
                                 region=message["region"],
                                 body=message["body"],
                                 time=calculate_time_difference(
@@ -639,20 +640,20 @@ async def get_etryvoga_data(mc):
                                 ),
                             )
                         )
-                        if state_name == "Невідомо":
+                        if _name == "UNKNOWN":
                             continue
                         region_data = {
                             "lastUpdate": format_time(message["createdAt"]),
                         }
                         match message["type"]:
                             case "EXPLOSION":
-                                explosions_cached_data["states"][state_id] = region_data
+                                explosions_cached_data["states"][_id] = region_data
                             case "ROCKET" | "ROCKET_FIRE":
-                                missiles_cached_data["states"][state_id] = region_data
+                                missiles_cached_data["states"][_id] = region_data
                             case "DRONE" | "RECON_DRONE":
-                                drones_cached_data["states"][state_id] = region_data
+                                drones_cached_data["states"][_id] = region_data
                             case "KAB":
-                                kabs_cached_data["states"][state_id] = region_data
+                                kabs_cached_data["states"][_id] = region_data
                             case _:
                                 pass
                         last_id = current_hex
@@ -671,12 +672,12 @@ async def get_etryvoga_data(mc):
                     kabs_cached_data["info"]["last_update"] = get_current_datetime()
                     logger.debug("store etryvoga data")
                     await asyncio.gather(
-                        mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
-                        mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
-                        mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
-                        mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
-                        mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
-                        mc.set(b"etryvoga_full", json.dumps(data).encode("utf-8")),
+                        # mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
+                        # mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
+                        # mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
+                        # mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
+                        # mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
+                        # mc.set(b"etryvoga_full", json.dumps(data).encode("utf-8")),
                         service_is_fine(mc, b"etryvoga_api_last_call"),
                     )
                     logger.info("etryvoga data stored")
@@ -748,7 +749,8 @@ async def main():
     try:
         await asyncio.gather(
             get_etryvoga_data(mc), 
-            get_etryvoga_districts(mc))
+            #get_etryvoga_districts(mc)
+        )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
 
