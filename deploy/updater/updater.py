@@ -1110,7 +1110,7 @@ async def update_alerts_fusion_websocket_v1(mc, run_once=False):
                     if alert_type == "Missile":
                         data[regionId] |= (1 << 6) 
                     if alert_type == "Ballistic": # це насправді "Kabs"
-                        data[regionId] |= (1 << 7) 
+                        data[regionId] |= (1 << 8) 
             await store_websocket_data(mc, data, websocket, "alerts_fusion_websocket_v1", b"alerts_fusion_websocket_v1")
             
         except Exception as e:
