@@ -1,5 +1,5 @@
 bottle==0.13.2
-starlette==0.45.2
+starlette==0.47.2
 uvicorn==0.34.0
 aiomcache==0.8.2
 pymemcache==4.0.0
