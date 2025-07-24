@@ -25,7 +25,10 @@ runs:
     - name: Install PlatformIO Core
       shell: bash
       run: pip install --upgrade platformio
-    - name: Update boards with the custom ones
+    - name: Install PlatformIO Espressif32 platform
+      shell: bash
+      run: pio platform install espressif32@6.10.0
+    - name: Update boards with the custom Espressif32 ones
       shell: bash
       run: cp ${{ inputs.project-folder }}/boards/*.json ~/.platformio/platforms/espressif32/boards/ || echo "Ok"
     - name: Build ${{ inputs.project-folder }}
