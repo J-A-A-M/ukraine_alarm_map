@@ -25,6 +25,9 @@ runs:
     - name: Install PlatformIO Core
       shell: bash
       run: pip install --upgrade platformio
+    - name: Update boards with the custom ones
+      shell: bash
+      run: cp ${{ inputs.project-folder }}/firmware/boards/*.json ~/.platformio/platforms/espressif32/boards/ || echo "Ok"
     - name: Build ${{ inputs.project-folder }}
       shell: bash
       run: pio run -d ${{ inputs.project-folder }} -e ${{ inputs.project-env }}
