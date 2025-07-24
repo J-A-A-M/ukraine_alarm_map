@@ -541,7 +541,7 @@ async def get_weather(mc, key_b, default_response={}):
 
 
 def convert_region_ids(key_value, initial_key, result_key):
-    for slug, region_data in regions.items():
+    for _, region_data in regions.items():
         if region_data[initial_key] == key_value and not region_data.get("skip"):
             return region_data['name'], region_data[result_key]
     return None, None
@@ -1109,8 +1109,8 @@ async def update_alerts_fusion_websocket_v1(mc, run_once=False):
                         data[regionId] |= (1 << 5) 
                     if alert_type == "Missile":
                         data[regionId] |= (1 << 6) 
-                    if alert_type == "Ballistic": # це насправді "Kabs"
-                        data[regionId] |= (1 << 8) 
+                    # if alert_type == "Ballistic": # це насправді "Kabs"
+                    #     data[regionId] |= (1 << 8) 
             await store_websocket_data(mc, data, websocket, "alerts_fusion_websocket_v1", b"alerts_fusion_websocket_v1")
             
         except Exception as e:
