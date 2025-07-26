@@ -1151,15 +1151,13 @@ async def update_etryvoga_fusion_websocket_v1(mc, run_once=False):
                 elif alert["type"] == "EXPLOSION":
                     data[regionId] |= (1 << 9) 
                 elif alert["type"] == "RECON_DRONE":
-                    data[regionId] |= (1 << 5)
+                    data[regionId] |= (1 << 10)
                 
                 if data[regionId] == 0:
                     del data[regionId]
-            if not data:
-                logger.debug("update_etryvoga_fusion_websocket_v1: No new data to process")
-                continue
-            logger.debug(f" DATA: {str(data)}")
-            await store_websocket_data(mc, data, websocket, "etryvoga_fusion_websocket_v1", b"etryvoga_fusion_websocket_v1")
+            if data:
+                logger.info(f" DATA: {str(data)}")
+                await store_websocket_data(mc, data, websocket, "etryvoga_fusion_websocket_v1", b"etryvoga_fusion_websocket_v1")
             await store_websocket_data(mc, first_processed_id, last_processed_id, "etryvoga_last_processed_id", b"etryvoga_last_processed_id")
 
 
