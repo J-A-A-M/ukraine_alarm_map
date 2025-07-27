@@ -27,7 +27,7 @@ pio pkg install -d firmware
 ```bash
 pio run -d firmware
 ```
-Ця команда збере прошивку для всіх визначених середовища, яке зазначене як `default_envs` у файлі [platformio.ini](https://github.com/J-A-A-M/ukraine_alarm_map/blob/develop/firmware/platformio.ini). Ви можете вказати конкретне середовище для збірки, наприклад:
+Ця команда збере прошивку для середовища, яке зазначене як `default_envs` у файлі [platformio.ini](https://github.com/J-A-A-M/ukraine_alarm_map/blob/develop/firmware/platformio.ini). Ви можете вказати конкретне середовище для збірки, наприклад:
 
 ```bash
 pio run -d firmware -e firmware_esp32c3
