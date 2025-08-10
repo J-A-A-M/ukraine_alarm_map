@@ -18,6 +18,7 @@ alert_token = os.environ.get("ALERT_TOKEN")
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 alert_loop_time = int(os.environ.get("ALERT_PERIOD", 3))
 regions_loop_time = int(os.environ.get("REGIONS_PERIOD", 3600))
+is_test = os.environ.get("IS_TEST", "false").lower() == "true"
 
 if not alert_token:
     raise ValueError("ALERT_TOKEN environment variable is required")
@@ -111,6 +112,8 @@ async def get_alerts(mc):
         await asyncio.sleep(1)
     while True:
         try:
+            if is_test:
+                break
             logger.debug("start get_alerts")
             cache_tasks = []
 
@@ -146,7 +149,8 @@ async def get_alerts(mc):
 
             logger.debug("storing alerts data")
             await asyncio.gather(
-                mc.set(b"alerts_api", json.dumps(data).encode("utf-8")), service_is_fine(mc, b"alerts_api_last_call")
+                mc.set(b"alerts_api", json.dumps(data).encode("utf-8")), 
+                service_is_fine(mc, b"alerts_api_last_call")
             )
             logger.info("alerts data stored")
             logger.debug("end get_alerts")
@@ -161,12 +165,91 @@ async def get_alerts(mc):
             await asyncio.sleep(alert_loop_time)
 
 
+async def get_alerts_test(mc):
+    while True:
+        try:
+            if not is_test:
+                await asyncio.sleep(alert_loop_time)
+                break
+            logger.debug("start get_alerts")
+
+            data0=[]
+
+            data1 = [{
+                "regionId": "48",
+                "regionType": "District",
+                "regionName": "Синельниківський район",
+                "regionEngName": "Synelnykivskyi district",
+                "lastUpdate": "2025-08-06T19:24:49Z",
+                "activeAlerts": [
+                    {
+                        "regionId": "48",
+                        "regionType": "District",
+                        "type": "AIR",
+                        "lastUpdate": "2025-08-06T19:24:49Z"
+                    }
+                ]
+            }]
+
+            data2 = [{
+                "regionId": "48",
+                "regionType": "District",
+                "regionName": "Синельниківський район",
+                "regionEngName": "Synelnykivskyi district",
+                "lastUpdate": "2025-08-06T19:24:49Z",
+                "activeAlerts": [
+                    {
+                        "regionId": "48",
+                        "regionType": "District",
+                        "type": "AIR",
+                        "lastUpdate": "2025-08-06T19:24:49Z"
+                    }
+                ]
+            },{
+                "regionId": "42",
+                "regionType": "District",
+                "regionName": "Синельниківський район",
+                "regionEngName": "Synelnykivskyi district",
+                "lastUpdate": "2025-08-06T19:24:49Z",
+                "activeAlerts": [
+                    {
+                        "regionId": "42",
+                        "regionType": "District",
+                        "type": "AIR",
+                        "lastUpdate": "2025-08-06T19:24:49Z"
+                    }
+                ]
+            }]
+
+
+            data = data0
+
+            logger.debug("storing alerts test data")
+            await asyncio.gather(
+                mc.set(b"alerts_api", json.dumps(data).encode("utf-8")), 
+                service_is_fine(mc, b"alerts_api_last_call")
+            )
+            logger.info("alerts data stored")
+            logger.debug("end get_alerts")
+            await asyncio.sleep(alert_loop_time)
+
+        except asyncio.CancelledError:
+            logger.error("get_alerts: task canceled. Shutting down...")
+            await mc.close()
+            break
+        except Exception as e:
+            logger.error(f"get_alerts: caught an exception: {e}")
+            await asyncio.sleep(alert_loop_time)
+
+
+
 async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
             get_regions(mc),
             get_alerts(mc),
+            get_alerts_test(mc),  # Assuming get_alerts_test is defined elsewhere
         )
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")

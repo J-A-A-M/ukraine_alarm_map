@@ -71,7 +71,7 @@ LEGACY_LED_COUNT = 6
 TYPE_ALERTS_BATCH       = 0xA1
 TYPE_NOTIFICATIONS_BATCH = 0xA2
 TYPE_RADIATION_BATCH    = 0xA2
-TYPE_TEMPERATURE_BATCH  = 0xA3
+TYPE_WEATHER_BATCH  = 0xA3
 TYPE_GRID_BATCH         = 0xA4
 
 regions = {
@@ -124,6 +124,7 @@ class SharedData:
         self.alerts_fusion_actual = "{}"
         self.alerts_fusion_previous = "{}"
         self.notifications_fusion = "{}"
+        self.weather_fusion = "{}"
         self.bins = "[]"
         self.test_bins = "[]"   
         self.s3_bins = "[]"
@@ -388,25 +389,21 @@ async def alerts_data_fusion(
                 case AlertVersion.v1:
                     if not client["initial"]:
                         if client["alerts_fusion"] != shared_data.alerts_fusion_actual:
-
                             old_state = json.loads(shared_data.alerts_fusion_previous)
                             new_state = json.loads(shared_data.alerts_fusion_actual)
-                            # Оновлюємо стан і отримуємо діф
+
                             changed_region_ids = fing_changed_regions(old_state, new_state)
                             empty_region_ids = fing_empty_regions(old_state, new_state)
 
                             logger.debug(f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}")
                             logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
 
-                            # Формуємо payload тільки для змінених регіонів (або для всіх, якщо треба)
                             header = struct.pack('<B', TYPE_ALERTS_BATCH)
-                            # Якщо diff_region_ids порожній — змін не було
                             if changed_region_ids or empty_region_ids:
                                 alerts = make_alert_batch(changed_region_ids+empty_region_ids, new_state)
                                 alerts_hash_actual = struct.pack('<H', calc_body_alerts_hash(alerts))
                                 payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
                             else:
-                                # Якщо змін не було — пустий payload
                                 payload = b''
                             logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
                             await websocket.send(payload)
@@ -418,26 +415,42 @@ async def alerts_data_fusion(
                             header = struct.pack('<B', TYPE_NOTIFICATIONS_BATCH)
                             notifications = make_alert_batch(state.keys(), state)
                             payload = header + notifications
-
                             await websocket.send(payload)
                             logger.debug(f"{client_ip}:{chip_id} <<< new notifications packet")
                             client["notifications_fusion"] = shared_data.notifications_fusion
+                        if client["weather_fusion"] != shared_data.weather_fusion:
+                            state = json.loads(shared_data.weather_fusion)
+                            header = struct.pack('<B', TYPE_WEATHER_BATCH)
+                            weather = make_weather_batch(state)
+                            payload = header + weather
+                            await websocket.send(payload)
+                            logger.debug(f"{client_ip}:{chip_id} <<< new weather packet")
+                            client["weather_fusion"] = shared_data.weather_fusion
 
                     else:
-                        header = struct.pack('<B', TYPE_ALERTS_BATCH)
+                        alerts_header = struct.pack('<B', TYPE_ALERTS_BATCH)
                         alerts = bytearray()
                         for rid, flags16 in json.loads(shared_data.alerts_fusion_actual).items():
                             alerts += struct.pack('<H H', int(rid), flags16)
                         alerts_hash_actual = struct.pack('<H', 0)
                         alerts_hash_initial = struct.pack('<H', 0)
-                        payload = header + alerts_hash_actual + alerts_hash_initial + alerts
-                        await websocket.send(payload)
-                        client["initial"] = False
+                        alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                        await websocket.send(alerts_payload)
                         client["alerts_hash"] = alerts_hash_initial
                         client["alerts_fusion"] = shared_data.alerts_fusion_actual
                         client["notifications_fusion"] = shared_data.notifications_fusion
+                        client["weather_fusion"] = shared_data.weather_fusion
                         logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
                         logger.debug(f"{client_ip}:{chip_id} <<< initial alert packet")
+
+                        weather_header = struct.pack('<B', TYPE_WEATHER_BATCH)
+                        weather = bytearray()
+                        for rid, flags8 in json.loads(shared_data.weather_fusion).items():
+                            weather += struct.pack('<H B', int(rid), int(flags8) & 0xFF)
+                        weather_payload = weather_header + weather
+                        await websocket.send(weather_payload)
+                        logger.debug(f"{client_ip}:{chip_id} <<< initial weather packet")
+                        client["initial"] = False
 
 
             await asyncio.sleep(0.5)
@@ -825,6 +838,7 @@ async def update_shared_data(shared_data: SharedData, mc):
             global_notifications_v1,
             alerts_fusion_v1,
             etryvoga_fusion_v1,
+            weather_fusion_v1,
             bins,
             test_bins,
             s3_bins,
@@ -844,11 +858,18 @@ async def update_shared_data(shared_data: SharedData, mc):
 
         try:
             if etryvoga_fusion_v1 != shared_data.notifications_fusion:
-                shared_data.alerts_fusion_previous = copy(shared_data.notifications_fusion)
+                #shared_data.alerts_fusion_previous = copy(shared_data.notifications_fusion)
                 shared_data.notifications_fusion = etryvoga_fusion_v1
                 logger.debug(f"etryvoga_fusion_v1 updated: {etryvoga_fusion_v1}")
         except Exception as e:
             logger.error(f"error in etryvoga_fusion_v1: {e}")
+        
+        try:
+            if weather_fusion_v1 != shared_data.weather_fusion:
+                shared_data.weather_fusion = weather_fusion_v1
+                logger.debug(f"weather_fusion_v1 updated: {weather_fusion_v1}")
+        except Exception as e:
+            logger.error(f"error in weather_fusion_v1: {e}")
 
         try:
             if alerts_v1 != shared_data.alerts_v1:
@@ -1051,6 +1072,18 @@ def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> by
         body += struct.pack('<H H', int(rid), flags16)
     return body
 
+def make_weather_batch(new_state: dict[int, int]) -> bytes:
+    """
+    Формат пакета погоди:
+    - region_id: 2 байти (unsigned short)
+    - temp: 1 байт (unsigned char), попередньо закодований у 0..255
+    body: послідовність пар (region_id, temp)
+    """
+    body = bytearray()
+    for rid, temp in new_state.items():
+        body += struct.pack('<H B', int(rid), int(temp) & 0xFF)
+    return body
+
 async def get_data_from_memcached_test(shared_data):
     if shared_data.test_id == None:
         shared_data.test_id = 5
@@ -1222,6 +1255,7 @@ async def get_data_from_memcached(mc):
     global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
     alerts_fusion_cached_v1 = await mc.get(b"alerts_fusion_websocket_v1")
     etryvoga_fusion_cached_v1 = await mc.get(b"etryvoga_fusion_websocket_v1")
+    weather_fusion_cached_v1 = await mc.get(b"weather_fusion_websocket_v1")
     bins_cached = await mc.get(b"bins")
     test_bins_cached = await mc.get(b"test_bins")
     s3_bins_cached = await mc.get(b"s3_bins")
@@ -1300,6 +1334,7 @@ async def get_data_from_memcached(mc):
         explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
         alerts_fusion_websocket_v1 = alerts_fusion_cached_v1.decode("utf-8") if alerts_fusion_cached_v1 else "{}"
         etryvoga_fusion_websocket_v1 = etryvoga_fusion_cached_v1.decode("utf-8") if etryvoga_fusion_cached_v1 else "{}"
+        weather_fusion_websocket_v1 = weather_fusion_cached_v1.decode("utf-8") if weather_fusion_cached_v1 else "{}"
         missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
         missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
         drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
@@ -1337,6 +1372,7 @@ async def get_data_from_memcached(mc):
         global_notifications_cached_v1,
         alerts_fusion_websocket_v1,
         etryvoga_fusion_websocket_v1,
+        weather_fusion_websocket_v1,
         bins_cached_data,
         test_bins_cached_data,
         s3_bins_cached_data,

@@ -828,6 +828,31 @@ async def update_kabs_etryvoga_v1(mc, run_once=False):
             break
 
 
+def encode_temperature_to_mask(temp_c) -> int:
+    """
+    Упаковує температуру у бітову маску (1 байт).
+    Діапазон значень: від -50 до 50 включно.
+    Схема кодування:
+      - біти [0..6] (7 біт): модуль температури (0..50)
+      - біт [7]: знак (1 — від'ємна, 0 — додатна або нуль)
+    Приклад:
+      +25 -> 0b0011001 (25)
+      -12 -> 0b1_0001100 (128 + 12 = 140)
+    """
+    try:
+        t = int(round(float(temp_c), 0))
+    except Exception:
+        return 0
+    # Обмежуємо діапазон
+    if t < -127:
+        t = -127
+    elif t > 127:
+        t = 127
+    sign = 1 if t < 0 else 0
+    magnitude = -t if t < 0 else t  # 0..127
+    return (sign << 7) | magnitude
+
+
 async def update_weather_openweathermap_v1(mc, run_once=False):
     while True:
         try:
@@ -1167,6 +1192,27 @@ async def update_etryvoga_fusion_websocket_v1(mc, run_once=False):
         if run_once:
             break
 
+async def update_weather_openweathermap_fusion_v1(mc, run_once=False):
+    while True:
+        try:
+            await asyncio.sleep(update_period)
+            weather_cache = await get_weather(mc, b"weather_openweathermap", {"states": {}, "info": {"last_update": None}})
+            websocket = await get_cache_data(mc, b"weather_fusion_websocket_v1")
+
+            data = {}
+
+            for state_id, state_data in weather_cache["states"].items():
+                # було: data[state_id] = int(round(state_data["temp"], 0))
+                data[state_id] = encode_temperature_to_mask(state_data.get("temp"))
+
+            await store_websocket_data(mc, data, websocket, "weather_fusion_websocket_v1", b"weather_fusion_websocket_v1")
+
+        except Exception as e:
+            logger.error(f"update_weather_openweathermap_fusion_v1: {str(e)}")
+            logger.debug(f"Повний стек помилки:", exc_info=True)
+        if run_once:
+            break
+
 
 async def main():
     mc = Client(memcached_host, 11211)
@@ -1189,6 +1235,7 @@ async def main():
             update_global_notifications_v1(mc),
             update_alerts_fusion_websocket_v1(mc),
             update_etryvoga_fusion_websocket_v1(mc),
+            update_weather_openweathermap_fusion_v1(mc),
         )
         
     except asyncio.exceptions.CancelledError:
