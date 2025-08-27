@@ -11,6 +11,7 @@
 - [Питання та пропозиції](https://github.com/J-A-A-M/ukraine_alarm_map/discussions)
 - [FLASHER](https://flasher.jaam.net.ua/) - тут можна залити свіжу прошивку прямо з браузера!
 - [ТЕЛЕГРАМ КАНАЛ ПРОЕКТУ](https://t.me/jaam_project)
+- [ЧАТ ПРОЕКТУ](https://t.me/jaam_discussions)
 - [ПОРТАЛ ДАНИХ](http://jaam.net.ua)
 
 ## Плата JAAM 2.1
