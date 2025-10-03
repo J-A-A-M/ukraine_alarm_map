@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 headers = {"Authorization": "%s" % alert_token}
 
 
+def format_time(time):
+    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S%fZ")
+    formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return formatted_timestamp
+
+def calculate_time_difference(timestamp1, timestamp2):
+    format_str = "%Y-%m-%dT%H:%M:%SZ"
+
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
+
+    time_difference = (time2 - time1).total_seconds()
+    return int(abs(time_difference))
+
 async def get_cache_data(mc, key_b, default_response=None):
     if default_response is None:
         default_response = {}
@@ -146,6 +160,27 @@ async def get_alerts(mc):
                 response = await session.get(alarm_url, headers=headers)
                 new_data = await response.text()
                 data = json.loads(new_data)
+
+            logger.debug(
+                "{type:<12} {diff:<12} {region:<15} {name}".format(
+                    type="type", region="region", name="name", diff="diff"
+                )
+            )
+            logger.debug("------------ ------------ --------------- -----------")
+            for alert in data:
+                for active_alert in alert["activeAlerts"]:
+                    logger.debug(
+                        "{type:<12} {diff:<12} {rid:<5} {region_type:<9} {name:<25} ".format(
+                            type=active_alert['type'],
+                            rid=active_alert["regionId"],
+                            name=alert["regionName"],
+                            region_type=active_alert["regionType"],
+                            diff=calculate_time_difference(
+                                format_time(alert["lastUpdate"]), get_current_datetime()
+                            ),
+                        )
+                    )
+            logger.debug("------------ ------------ --------------- -----------")
 
             logger.debug("storing alerts data")
             await asyncio.gather(
