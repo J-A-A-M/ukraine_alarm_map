@@ -34,7 +34,36 @@ headers = {"Authorization": "%s" % alert_token}
 
 
 def format_time(time):
-    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S%fZ")
+    """
+    Парсить timestamp у різних форматах та повертає уніфікований формат без мілісекунд.
+    Підтримує формати:
+    - 2025-10-07T00:52:59Z (без мілісекунд)
+    - 2025-10-07T00:52:59.123456Z (з мікросекундами)
+    - 2025-10-07T00:52:59.14125Z (з довільною кількістю цифр після крапки)
+    """
+    try:
+        # Спочатку пробуємо формат без мілісекунд
+        dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        try:
+            # Якщо є дробова частина, нормалізуємо її до 6 цифр
+            # Розділяємо на частину до крапки та після
+            if '.' in time:
+                main_part, frac_part = time.rsplit('.', 1)
+                # Видаляємо 'Z' з кінця
+                frac_part = frac_part.rstrip('Z')
+                # Доповнюємо або обрізаємо до 6 цифр
+                frac_part = frac_part.ljust(6, '0')[:6]
+                # Складаємо нормалізований timestamp
+                normalized_time = f"{main_part}.{frac_part}Z"
+                dt = datetime.datetime.strptime(normalized_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+            else:
+                raise ValueError(f"Unexpected time format: {time}")
+        except Exception as e:
+            logger.warning(f"Failed to parse time '{time}': {e}")
+            # Повертаємо оригінальний рядок, якщо не вдалося розпарсити
+            return time
+    
     formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return formatted_timestamp
 
