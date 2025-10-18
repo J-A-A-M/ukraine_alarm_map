@@ -785,14 +785,14 @@ async def get_etryvoga_data(mc):
                     for message in data[::-1]:
                         current_hex = make_hex(message)
 
-                        _name, _id = get_region_data(message["region"])
+                        _name, _id = get_region_data(message.get("region", "ERROR"))
                         message["regionId"] = _id
                         logger.debug(
                             "{type:<12} {time:<5} {rid:<5}{region:<25} {state:<25} {body}".format(
                                 type=message["type"],
                                 state=_name,
                                 rid=_id,
-                                region=message["region"],
+                                region=message.get("region", "ERROR"),
                                 body=message["body"],
                                 time=calculate_time_difference(
                                     format_time(message["createdAt"]), get_current_datetime()
