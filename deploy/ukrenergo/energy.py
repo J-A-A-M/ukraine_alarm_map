@@ -65,6 +65,20 @@ def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def format_datetime(iso_datetime_str):
+    """Convert ISO 8601 UTC datetime string to readable local time format."""
+    try:
+        # Parse the ISO 8601 datetime string
+        dt_utc = datetime.datetime.fromisoformat(iso_datetime_str.replace('Z', '+00:00'))
+        # Convert to local timezone
+        dt_local = dt_utc.astimezone()
+        # Format as readable string
+        return dt_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+    except (ValueError, AttributeError) as e:
+        logger.warning(f"Failed to parse datetime '{iso_datetime_str}': {e}")
+        return iso_datetime_str
+
+
 async def service_is_fine(mc, key_b):
     await mc.set(key_b, get_current_datetime().encode("utf-8"))
 
@@ -154,7 +168,9 @@ async def get_data():
     for region_name, region_data in regions.items():
         region_energy = await get_region_data(region_id=region_data["id"], headers=headers)
         if region_energy:
-            logger.info(f"fetched data from region {region_data['id']}")
+            last_update = region_energy.get('lastUpdate', 'N/A')
+            formatted_time = format_datetime(last_update) if last_update != 'N/A' else 'N/A'
+            logger.info(f"fetched data from region {region_data['id']}: {region_energy.get('state', {}).get('id', 'N/A')} ({formatted_time})")
             energy_cached_data["states"][region_data["id"]] = region_energy
 
         await asyncio.sleep(request_time)
