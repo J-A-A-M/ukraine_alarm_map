@@ -270,7 +270,7 @@ async def svg_generator_alerts(mc):
                 time=local_time,
                 output_file=file_path,
                 show_alert_info=True,
-                #**alerts_svg_data,
+                **alerts_svg_data,
             )
             stored_data = alerts_svg_data
             logger.info("end alerts map generation")
@@ -1312,7 +1312,7 @@ async def main():
     mc = Client(memcached_host, 11211)
     try:
         await asyncio.gather(
-            svg_generator_alerts(mc)
+            svg_generator_alerts(mc), svg_generator_weather(mc), svg_generator_energy(mc), svg_generator_radiation(mc)
         )
 
     except asyncio.exceptions.CancelledError:
