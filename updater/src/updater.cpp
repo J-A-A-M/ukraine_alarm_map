@@ -8,10 +8,10 @@ WiFiClient client;
 
 Preferences preferences;
 
-const char* ssid = "rabbits"; // Ваша WIFI-мережа
-const char* password = "zayatcs25521243"; // Пароль до WIFI мережі
-const char* userSsid = "Stan_the_man"; // WIFI-мережа замовника
-const char* userPassword = "0508187374"; // Пароль до WIFI мережі замовника
+const char* ssid = ""; // Ваша WIFI-мережа
+const char* password = ""; // Пароль до WIFI мережі
+const char* userSsid = ""; // WIFI-мережа замовника
+const char* userPassword = ""; // Пароль до WIFI мережі замовника
 
 
 const char* firmwareUrl = "http://ws.jaam.net.ua/jaam.bin"; // production
