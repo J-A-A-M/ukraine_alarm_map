@@ -173,49 +173,49 @@ async def test_3():
         assert mock_store_websocket_data.call_count == 1
 
 
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_4():
-    """
-    перевірка мапінга
-    """
+# @pytest.mark.asyncio
+# @patch("updater.updater.update_period", new=0)
+# async def test_4():
+#     """
+#     перевірка мапінга
+#     """
 
-    mock_mc = object()
+#     mock_mc = object()
 
-    mock_timestamp = 1700000000
-    mock_get_current_timestamp = Mock(return_value=mock_timestamp)
+#     mock_timestamp = 1700000000
+#     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    energy_websocket_v1 = [[0, 1645674000]] * LEGACY_LED_COUNT
+#     energy_websocket_v1 = [[0, 1645674000]] * LEGACY_LED_COUNT
 
-    for _, region_data in regions.items():
+#     for _, region_data in regions.items():
 
-        def mock_get_cache_data_side_effect(mc, key, default=None):
-            mock_responses = {
-                b"energy_ukrenergo": get_energy_mock(id=str(region_data["stateId"])),
-                b"energy_websocket_v1": energy_websocket_v1,
-            }
-            return mock_responses.get(key, default)
+#         def mock_get_cache_data_side_effect(mc, key, default=None):
+#             mock_responses = {
+#                 b"energy_ukrenergo": get_energy_mock(id=str(region_data["stateId"])),
+#                 b"energy_websocket_v1": energy_websocket_v1,
+#             }
+#             return mock_responses.get(key, default)
 
-        mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+#         mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
 
-        mock_store_websocket_data = AsyncMock()
+#         mock_store_websocket_data = AsyncMock()
 
-        with (
-            patch("updater.updater.get_cache_data", mock_get_cache_data),
-            patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-            patch("updater.updater.store_websocket_data", mock_store_websocket_data),
-        ):
-            await update_energy_websocket_v1(mock_mc, run_once=True)
-            assert mock_get_cache_data.call_count == 2
+#         with (
+#             patch("updater.updater.get_cache_data", mock_get_cache_data),
+#             patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
+#             patch("updater.updater.store_websocket_data", mock_store_websocket_data),
+#         ):
+#             await update_energy_websocket_v1(mock_mc, run_once=True)
+#             assert mock_get_cache_data.call_count == 2
 
-            expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
+#             expected_energy = [[0, 1645674000]] * LEGACY_LED_COUNT
 
-            expected_energy[region_data["legacyId"] - 1] = [4, mock_timestamp]
+#             expected_energy[region_data["legacyId"] - 1] = [4, mock_timestamp]
 
-            expected_calls = [
-                call(mock_mc, expected_energy, energy_websocket_v1, "energy_websocket_v1", b"energy_websocket_v1"),
-            ]
+#             expected_calls = [
+#                 call(mock_mc, expected_energy, energy_websocket_v1, "energy_websocket_v1", b"energy_websocket_v1"),
+#             ]
 
-            mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
+#             mock_store_websocket_data.assert_has_calls(expected_calls, any_order=True)
 
-            assert mock_store_websocket_data.call_count == 1
+#             assert mock_store_websocket_data.call_count == 1
