@@ -76,31 +76,37 @@ if [ -n "$REDIS_PASSWORD" ]; then
         echo "# ACL Configuration" >> /data/redis.conf
         echo "aclfile /data/users.acl" >> /data/redis.conf
         
-        # Check if ACL file exists and preserve it, otherwise create new
-        if [ ! -f /data/users.acl ]; then
-            cat > /data/users.acl <<ACLEOF
+        # Check if AOF file exists and might have ACL conflicts
+        if [ -f /data/appendonly.aof ] && [ ! -f /data/users.acl ]; then
+            echo "WARNING: AOF file exists but no ACL file found."
+            echo "         Creating ACL with permissive default user to allow AOF loading."
+        fi
+        
+        # Always ensure ACL file has permissive default user
+        cat > /data/users.acl <<ACLEOF
 user default on nopass ~* &* +@all
 user $REDIS_USERNAME on >$REDIS_PASSWORD ~* &* +@all
 ACLEOF
-        else
-            echo "Using existing ACL file"
-            # Ensure the configured user exists in the ACL file
-            if ! grep -q "user $REDIS_USERNAME" /data/users.acl; then
-                echo "user $REDIS_USERNAME on >$REDIS_PASSWORD ~* &* +@all" >> /data/users.acl
-            fi
-        fi
+        echo "ACL configured with username: $REDIS_USERNAME"
     else
-        # Legacy password-only authentication
+        # Simple password authentication (RECOMMENDED for persistence)
         echo "requirepass $REDIS_PASSWORD" >> /data/redis.conf
+        echo "Simple password authentication configured"
+        
+        # Remove ACL file if exists to avoid conflicts
+        if [ -f /data/users.acl ]; then
+            echo "Removing old ACL file to prevent conflicts..."
+            rm -f /data/users.acl
+        fi
     fi
 else
-    # No authentication - allow default user
+    # No authentication
     echo "# No authentication configured - default user enabled" >> /data/redis.conf
+    
+    # Remove ACL file if exists
     if [ -f /data/users.acl ]; then
-        # If ACL file exists, ensure default user is enabled
-        if ! grep -q "user default on" /data/users.acl; then
-            sed -i 's/user default off/user default on nopass ~* \&* +@all/' /data/users.acl 2>/dev/null || true
-        fi
+        echo "Removing ACL file (no auth mode)..."
+        rm -f /data/users.acl
     fi
 fi
 
