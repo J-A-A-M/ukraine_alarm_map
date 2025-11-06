@@ -4,7 +4,7 @@
 REDIS_PORT=6379
 REDIS_USERNAME="redis"
 REDIS_PASSWORD="redis"
-REDIS_DATA_PATH="/var/lib/redis"
+REDIS_DATA_PATH="/shared_data/redis"
 REDIS_SAVE_INTERVAL="900 1 300 10 60 10000"  # Default RDB save intervals
 REDIS_APPENDONLY="yes"  # Enable AOF persistence by default
 LOGGING="INFO"
@@ -86,7 +86,7 @@ docker run --name map_redis \
     --restart unless-stopped \
     --network=jaam -d \
     -p $REDIS_PORT:6379 \
-    -v "$REDIS_DATA_PATH":/shared_data \
+    -v "$REDIS_DATA_PATH":/data \
     --env REDIS_PORT="$REDIS_PORT" \
     --env REDIS_USERNAME="$REDIS_USERNAME" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
