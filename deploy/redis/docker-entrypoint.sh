@@ -64,6 +64,7 @@ appendfsync everysec
 no-appendfsync-on-rewrite no
 auto-aof-rewrite-percentage 100
 auto-aof-rewrite-min-size 64mb
+aof-use-rdb-preamble yes
 
 # Security
 EOF
@@ -75,17 +76,32 @@ if [ -n "$REDIS_PASSWORD" ]; then
         echo "# ACL Configuration" >> /data/redis.conf
         echo "aclfile /data/users.acl" >> /data/redis.conf
         
-        # Create ACL file
-        cat > /data/users.acl <<ACLEOF
-user default off
+        # Check if ACL file exists and preserve it, otherwise create new
+        if [ ! -f /data/users.acl ]; then
+            cat > /data/users.acl <<ACLEOF
+user default on nopass ~* &* +@all
 user $REDIS_USERNAME on >$REDIS_PASSWORD ~* &* +@all
 ACLEOF
+        else
+            echo "Using existing ACL file"
+            # Ensure the configured user exists in the ACL file
+            if ! grep -q "user $REDIS_USERNAME" /data/users.acl; then
+                echo "user $REDIS_USERNAME on >$REDIS_PASSWORD ~* &* +@all" >> /data/users.acl
+            fi
+        fi
     else
         # Legacy password-only authentication
         echo "requirepass $REDIS_PASSWORD" >> /data/redis.conf
     fi
 else
-    echo "# No authentication configured" >> /data/redis.conf
+    # No authentication - allow default user
+    echo "# No authentication configured - default user enabled" >> /data/redis.conf
+    if [ -f /data/users.acl ]; then
+        # If ACL file exists, ensure default user is enabled
+        if ! grep -q "user default on" /data/users.acl; then
+            sed -i 's/user default off/user default on nopass ~* \&* +@all/' /data/users.acl 2>/dev/null || true
+        fi
+    fi
 fi
 
 # Additional settings
