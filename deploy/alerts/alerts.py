@@ -113,8 +113,8 @@ def log_changes(changes):
                 truncated_name = truncate_name(alert['regionName'], 30)
                 logger.info(
                     f"   ➕ {truncated_name:<30} | "
-                    f"Тип: {active_alert['type']:<12} | "
-                    f"Регіон: {active_alert['regionType']:<10}"
+                    f"{active_alert['type']:<12} | "
+                    f"{active_alert['regionType']:<10}"
                 )
     
     # Скасовані тривоги
