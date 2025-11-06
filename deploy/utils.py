@@ -1,0 +1,164 @@
+import json
+import datetime
+
+import redis.asyncio as redis
+
+
+def truncate_name(name, max_length=30):
+    if len(name) <= max_length:
+        return name
+    return name[:max_length-3] + "..."
+
+
+def get_current_datetime():
+    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+async def service_is_fine(logger, redis_client, key):
+    """
+    Зберегти час останнього успішного виклику в Redis
+    """
+    await set_redis_data(logger, redis_client, key, get_current_datetime())
+
+async def get_redis_data(logger, redis_client, key, default_response=None):
+    """
+    Отримати дані з Redis з підтримкою різних типів даних
+    З коректним декодуванням UTF-8 для кирилиці
+    
+    Args:
+        redis_client: Redis клієнт (з decode_responses=True)
+        key: ключ для отримання даних
+        default_response: значення за замовчуванням якщо дані не знайдено
+    
+    Returns:
+        Дані з Redis або default_response
+    """
+    if default_response is None:
+        default_response = {}
+    
+    try:
+        # Перевіряємо тип даних в Redis
+        data_type = await redis_client.type(key)
+        
+        if data_type == 'none':
+            return default_response
+        elif data_type == 'string':
+            data = await redis_client.get(key)
+            if data:
+                try:
+                    # Спробуємо розпарсити JSON (кирилиця вже декодована)
+                    return json.loads(data)
+                except json.JSONDecodeError:
+                    # Якщо не JSON, повертаємо як рядок
+                    return data
+        elif data_type == 'list':
+            # Отримуємо всі елементи списку (вже в UTF-8)
+            data = await redis_client.lrange(key, 0, -1)
+            return [json.loads(item) if item else None for item in data]
+        elif data_type == 'hash':
+            # Отримуємо всі поля хешу (вже в UTF-8)
+            data = await redis_client.hgetall(key)
+            return {
+                k: json.loads(v) if v else None 
+                for k, v in data.items()
+            }
+        elif data_type == 'set':
+            # Отримуємо всі елементи множини (вже в UTF-8)
+            data = await redis_client.smembers(key)
+            return {json.loads(item) if item else None for item in data}
+        elif data_type == 'zset':
+            # Отримуємо всі елементи відсортованої множини (вже в UTF-8)
+            data = await redis_client.zrange(key, 0, -1, withscores=True)
+            return [(json.loads(item), score) for item, score in data]
+        
+        return default_response
+    except Exception as e:
+        logger.error(f"Error getting data from Redis for key {key}: {e}")
+        return default_response
+
+
+async def set_redis_data(logger, redis_client, key, value, expiry=None):
+    """
+    Зберегти дані в Redis з автоматичним визначенням типу
+    З коректним кодуванням UTF-8 для кирилиці
+    
+    Args:
+        redis_client: Redis клієнт (з decode_responses=True)
+        key: ключ для збереження
+        value: значення (dict, list, set, str, int, float, bool)
+        expiry: час життя в секундах (опціонально)
+    
+    Типи збереження:
+        - dict -> Hash (якщо всі значення прості) або String (JSON)
+        - list -> List або String (JSON)
+        - set -> Set або String (JSON)
+        - str/int/float/bool -> String
+    """
+    try:
+        # Словник (dict) -> Hash або JSON String
+        if isinstance(value, dict):
+            # Перевіряємо чи всі значення можна зберегти як hash
+            can_use_hash = all(
+                isinstance(v, (str, int, float, bool, type(None))) 
+                for v in value.values()
+            )
+            
+            if can_use_hash and len(value) > 0:
+                # Використовуємо Hash для простих словників
+                pipeline = redis_client.pipeline()
+                # Видаляємо старий ключ якщо існує
+                pipeline.delete(key)
+                # Додаємо всі поля (ensure_ascii=False для кирилиці)
+                for k, v in value.items():
+                    pipeline.hset(key, k, json.dumps(v, ensure_ascii=False))
+                if expiry:
+                    pipeline.expire(key, expiry)
+                await pipeline.execute()
+                logger.debug(f"Data stored in Redis as Hash with key: {key}")
+            else:
+                # Для складних структур використовуємо JSON (ensure_ascii=False для кирилиці)
+                await redis_client.set(key, json.dumps(value, ensure_ascii=False), ex=expiry)
+                logger.debug(f"Data stored in Redis as JSON String with key: {key}")
+        
+        # Список (list) -> List
+        elif isinstance(value, list):
+            pipeline = redis_client.pipeline()
+            pipeline.delete(key)
+            if len(value) > 0:
+                # Додаємо елементи списку (ensure_ascii=False для кирилиці)
+                for item in value:
+                    pipeline.rpush(key, json.dumps(item, ensure_ascii=False))
+            else:
+                # Для пустого списку створюємо порожній список
+                pipeline.lpush(key, "")
+                pipeline.lpop(key)
+            if expiry:
+                pipeline.expire(key, expiry)
+            await pipeline.execute()
+            logger.debug(f"Data stored in Redis as List with key: {key} ({len(value)} items)")
+        
+        # Множина (set) -> Set
+        elif isinstance(value, set):
+            pipeline = redis_client.pipeline()
+            pipeline.delete(key)
+            if len(value) > 0:
+                # Додаємо елементи множини (ensure_ascii=False для кирилиці)
+                for item in value:
+                    pipeline.sadd(key, json.dumps(item, ensure_ascii=False))
+            if expiry:
+                pipeline.expire(key, expiry)
+            await pipeline.execute()
+            logger.debug(f"Data stored in Redis as Set with key: {key} ({len(value)} items)")
+        
+        # Прості типи -> String
+        elif isinstance(value, (str, int, float, bool, type(None))):
+            await redis_client.set(key, json.dumps(value, ensure_ascii=False), ex=expiry)
+            logger.debug(f"Data stored in Redis as String with key: {key}")
+        
+        # Інші типи -> JSON String
+        else:
+            await redis_client.set(key, json.dumps(value, ensure_ascii=False), ex=expiry)
+            logger.debug(f"Data stored in Redis as JSON String with key: {key}")
+            
+    except Exception as e:
+        logger.error(f"Error storing data in Redis for key {key}: {e}")

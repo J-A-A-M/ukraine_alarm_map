@@ -109,7 +109,9 @@ docker rm map_alerts_ws || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_alerts_ws --restart unless-stopped --network=jaam -d  \
+docker run --name map_alerts_ws \
+    --restart unless-stopped \
+    --network=jaam -d  \
     --env MEMCACHED_HOST="$MEMCACHED_HOST" \
     --env LOGGING="$LOGGING" \
     --env PROXIES="$PROXIES" \

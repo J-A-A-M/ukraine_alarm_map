@@ -112,7 +112,25 @@ docker rm map_websocket_server_dev || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server_dev --restart unless-stopped --network=jaam  -d --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env PING_TIMEOUT="$PING_TIMEOUT" --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env RANDOM_MODE="$RANDOM_MODE" --env TEST_MODE="$TEST_MODE" --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" --env IP_INFO_TOKEN="$IP_INFO_TOKEN" map_websocket_server_dev
+docker run --name map_websocket_server_dev \
+    --restart unless-stopped \
+    --network=jaam  \
+    -d \
+    --env WEBSOCKET_PORT="$WEBSOCKET_PORT" \
+    --env API_SECRET="$API_SECRET" \
+    --env MEASUREMENT_ID="$MEASUREMENT_ID" \
+    --env PING_INTERVAL="$PING_INTERVAL" \
+    --env PING_TIMEOUT="$PING_TIMEOUT" \
+    --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" \
+    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env ENVIRONMENT="$ENVIRONMENT" \
+    --env RANDOM_MODE="$RANDOM_MODE" \
+    --env TEST_MODE="$TEST_MODE" \
+    --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" \
+    --env LOGGING="$LOGGING" \
+    --env GOOGLE_STAT="$GOOGLE_STAT" \
+    --env IP_INFO_TOKEN="$IP_INFO_TOKEN" \
+    map_websocket_server_dev
 
 echo "Container deployed successfully!"
 

@@ -86,7 +86,23 @@ docker rm nginx || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name nginx --restart always --network=jaam -d --env TZ="Europe/Kyiv"  -p "$WEB_SERVER_PORT":"$WEB_SERVER_PORT" -p "$WEB_SERVER_SECURE_PORT":"$WEB_SERVER_SECURE_PORT" -p "$UPDATER_SERVER_PORT":"$UPDATER_SERVER_PORT" -p "$UPDATER_SERVER_SECURE_PORT":"$UPDATER_SERVER_SECURE_PORT" -p "$WEBSOCKET_SERVER_PORT":"$WEBSOCKET_SERVER_PORT" -p "$WEBSOCKET_SERVER_SECURE_PORT":"$WEBSOCKET_SERVER_SECURE_PORT" -p "$WEBSOCKET_DEV_SERVER_PORT":"$WEBSOCKET_DEV_SERVER_PORT" -p "$WEBSOCKET_DEV_SERVER_SECURE_PORT":"$WEBSOCKET_DEV_SERVER_SECURE_PORT" -p "$MEMCACHED_ADMIN_PORT":"$MEMCACHED_ADMIN_PORT" -v "$CONFIG_PATH":/etc/nginx:ro -v "$LOGGING_PATH":/var/log/nginx nginx:latest
+docker run --name nginx \
+    --restart always \
+    --network=jaam \
+    -d \
+    --env TZ="Europe/Kyiv"  \
+    -p "$WEB_SERVER_PORT":"$WEB_SERVER_PORT" \
+    -p "$WEB_SERVER_SECURE_PORT":"$WEB_SERVER_SECURE_PORT" \
+    -p "$UPDATER_SERVER_PORT":"$UPDATER_SERVER_PORT" \
+    -p "$UPDATER_SERVER_SECURE_PORT":"$UPDATER_SERVER_SECURE_PORT" \
+    -p "$WEBSOCKET_SERVER_PORT":"$WEBSOCKET_SERVER_PORT" \
+    -p "$WEBSOCKET_SERVER_SECURE_PORT":"$WEBSOCKET_SERVER_SECURE_PORT" \
+    -p "$WEBSOCKET_DEV_SERVER_PORT":"$WEBSOCKET_DEV_SERVER_PORT" \
+    -p "$WEBSOCKET_DEV_SERVER_SECURE_PORT":"$WEBSOCKET_DEV_SERVER_SECURE_PORT" \
+    -p "$MEMCACHED_ADMIN_PORT":"$MEMCACHED_ADMIN_PORT" \
+    -v "$CONFIG_PATH":/etc/nginx:ro \
+    -v "$LOGGING_PATH":/var/log/nginx \
+    nginx:latest
 
 echo "Container deployed successfully!"
 
