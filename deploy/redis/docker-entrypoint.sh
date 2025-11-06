@@ -118,15 +118,41 @@ lazyfree-lazy-eviction no
 lazyfree-lazy-expire no
 lazyfree-lazy-server-del no
 replica-lazy-flush no
+
+# Shutdown behavior
+shutdown-on-sigint nosave
+shutdown-on-sigterm save
 EOF
 
-echo "Redis configuration:"
+echo "====================================="
+echo "Redis Configuration Summary:"
 echo "  Port: $REDIS_PORT"
 echo "  Username: ${REDIS_USERNAME:-<not set>}"
 echo "  Password: ${REDIS_PASSWORD:+<set>}"
 echo "  Log Level: $REDIS_LOGLEVEL"
 echo "  AOF: $REDIS_APPENDONLY"
 echo "  Data directory: /data"
+echo "====================================="
+
+# Check for existing data files
+echo ""
+echo "Checking for existing data files..."
+if [ -f /data/dump.rdb ]; then
+    echo "  ✓ Found RDB file: dump.rdb ($(du -h /data/dump.rdb | cut -f1))"
+else
+    echo "  ✗ No RDB file found (will be created on first save)"
+fi
+
+if [ -f /data/appendonly.aof ]; then
+    echo "  ✓ Found AOF file: appendonly.aof ($(du -h /data/appendonly.aof | cut -f1))"
+else
+    echo "  ✗ No AOF file found (will be created if AOF is enabled)"
+fi
+echo ""
+
+# Setup signal handler for graceful shutdown
+trap 'echo "Received shutdown signal, Redis will save data..."; exit 0' SIGTERM SIGINT
 
 # Start Redis with the generated config
+echo "Starting Redis server..."
 exec redis-server /data/redis.conf
