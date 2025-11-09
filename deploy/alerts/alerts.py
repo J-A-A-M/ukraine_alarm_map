@@ -190,6 +190,9 @@ async def get_alerts(redis_client):
                     # Зберігаємо час останнього успішного оновлення
                     service_is_fine(logger, redis_client, "alerts_api_last_call"),
                 )
+                
+                # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
+                await redis_client.publish("alerts_api_updated", "1")
                 logger.info("✅ Оновлені дані збережено в Redis")
             else:
                 # Оновлюємо тільки час останньої перевірки
@@ -233,7 +236,7 @@ async def main():
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
         logger.info("Redis connection closed")
 
 

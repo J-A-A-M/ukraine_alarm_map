@@ -1,7 +1,6 @@
 import json
 import datetime
-
-import redis.asyncio as redis
+import random
 
 
 def truncate_name(name, max_length=30):
@@ -12,6 +11,12 @@ def truncate_name(name, max_length=30):
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def get_random_proxy(proxies):
+    if not proxies or proxies == "":
+        return None
+    return random.choice(proxies.split("::")).strip()
 
 
 async def service_is_fine(logger, redis_client, key):

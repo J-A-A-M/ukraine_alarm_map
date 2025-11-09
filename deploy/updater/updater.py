@@ -665,16 +665,21 @@ def make_alert_batch(diff_region_ids: list[int], new_state: dict[int,int]) -> by
     return body
 
 async def update_alerts_fusion_websocket_v1(redis_client, run_once=False):
-    while True:
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["alerts_api_updated", "alerts_ws_info_updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+    
+    # Функція обробки даних
+    async def process_alerts():
         try:
-            await asyncio.sleep(update_period)
             data = {}
             
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, websocket = await asyncio.gather(
+            alerts_cache, reasons_cache = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts_api", default_response=[]),
-                get_redis_data(logger, redis_client, "ws_info", default_response={}),
-                get_redis_data(logger, redis_client, "alerts_fusion_websocket_v1", default_response={})
+                get_redis_data(logger, redis_client, "alerts_ws_info", default_response={}),
             )
             
             reasons = reasons_cache.get("reasons", [])
@@ -693,6 +698,7 @@ async def update_alerts_fusion_websocket_v1(redis_client, run_once=False):
                         data[regionId] |= (1 << 3) 
                     if active_alert["type"] == "NUCLEAR":
                         data[regionId] |= (1 << 4)
+            
             for reason_alert in reasons:
                 regionId = reason_alert["regionId"]
                 if regionId not in data:
@@ -705,19 +711,35 @@ async def update_alerts_fusion_websocket_v1(redis_client, run_once=False):
                     # if alert_type == "Ballistic": # це насправді "Kabs"
                     #     data[regionId] |= (1 << 8) 
             
-            # Зберігаємо дані тільки якщо вони змінилися
-            if websocket != data:
-                logger.debug("store alerts_fusion_websocket_v1")
-                await set_redis_data(logger, redis_client, "alerts_fusion_websocket_v1", data)
-                logger.info("alerts_fusion_websocket_v1 stored")
-            else:
-                logger.debug("alerts_fusion_websocket_v1 not changed")
-            
+            logger.debug("store alerts_fusion_websocket_v1")
+            await set_redis_data(logger, redis_client, "alerts_fusion_websocket_v1", data)
+            logger.info("alerts_fusion_websocket_v1 stored")
+        
         except Exception as e:
-            logger.error(f"update_alerts_fusion_websocket_v1: {str(e)}")
+            logger.error(f"process_alerts error: {str(e)}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-        if run_once:
-            break
+    
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message['type'] == 'message':
+                channel = message['channel']
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                await process_alerts()
+            
+            if run_once:
+                break
+            
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+            
+    except Exception as e:
+        logger.error(f"update_alerts_fusion_websocket_v1: {str(e)}")
+        logger.debug(f"Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.close()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 async def update_etryvoga_fusion_websocket_v1(mc, run_once=False):
     while True:
@@ -840,7 +862,7 @@ async def main():
     except asyncio.exceptions.CancelledError:
         logger.error("App stopped.")
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
         logger.info("Redis connection closed")
 
 

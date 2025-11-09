@@ -6,14 +6,41 @@ import re
 import base64
 import os
 import logging
-import random
-from aiomcache import Client
 from aiohttp_socks import ProxyConnector
 
-version = 1
+from copy import copy
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        truncate_name,
+        get_random_proxy
+    )
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        truncate_name,
+        get_random_proxy
+    )
+
+version = 2
 
 debug_level = os.environ.get("LOGGING") or "INFO"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 source_url = os.environ.get("WS_SOURCE_URL")
 token_id = os.environ.get("WS_TOKEN_ID")
 url_id = os.environ.get("WS_URL_ID")
@@ -51,12 +78,6 @@ logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(mes
 logger = logging.getLogger(__name__)
 
 
-def get_random_proxy():
-    if not proxies or proxies == "":
-        return None
-    return random.choice(proxies.split("::")).strip()
-
-
 async def fetch_token():
     headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -74,7 +95,7 @@ async def fetch_token():
         "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     }
 
-    proxy = get_random_proxy()
+    proxy = get_random_proxy(proxies)
 
     timeout = aiohttp.ClientTimeout(total=10)
     connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -125,7 +146,7 @@ async def initialize_connection():
     return token, uri
 
 
-async def connect_and_send(mc):
+async def connect_and_send(redis_client):
     client_id = None
     ttl = 0
 
@@ -184,7 +205,7 @@ async def connect_and_send(mc):
             for _ in second_batch_messages:
                 response = await websocket.recv()
                 logger.debug(f"Received: {response}")
-                await initial_response_prosess(response)
+                await initial_response_prosess(redis_client, response)
 
             while ttl > 0:
                 if ttl % 60 == 0:
@@ -192,7 +213,7 @@ async def connect_and_send(mc):
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=1)
                     logger.debug(f"Received: {response}")
-                    await loop_response_prosess(response)
+                    await loop_response_prosess(redis_client,response)
                 except websockets.exceptions.ConnectionClosedError:
                     break
                 except asyncio.TimeoutError:
@@ -202,38 +223,93 @@ async def connect_and_send(mc):
             logger.info(f"TTL expired, reconnecting...")
 
 
-async def initial_response_prosess(response):
+async def initial_response_prosess(redis_client, response):
     try:
         response = json.loads(response)
         id = response["id"]
-        result = response["result"]["publications"][0]["data"]
+        data = response["result"]["publications"][0]["data"]
         if id == int(ws_response_initial_key_alerts):
-            logger.info(f"\n------\nParced initial {ws_response_loop_key_alerts}: {result}\n------")
-            await mc.set(b"ws_alerts", json.dumps(result).encode("utf-8"))
+            old_data = await get_redis_data(logger,redis_client, "alerts_ws_data", default_response="")
+            logger.debug(f"\n------\nParced initial {ws_response_loop_key_alerts}: {data}\n------")
+            if old_data != data:
+                await set_redis_data(logger, redis_client, "alerts_ws_data", data)
+                await redis_client.publish("alerts_ws_data_updated", "1")
+                logger.info("✅ Оновлені дані alerts_ws_data збережено в Redis")
+            else:  
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+            await service_is_fine(logger, redis_client, "alerts_ws_data_last_call")
         if id == int(ws_response_initial_key_info):
-            logger.info(f"\n------\nParced initial {ws_response_loop_key_info}: {result}\n------")
-            await mc.set(b"ws_info", json.dumps(result).encode("utf-8"))
-
+            old_data = await get_redis_data(logger,redis_client, "alerts_ws_info", default_response="")
+            logger.debug(f"\n------\nParced initial {ws_response_loop_key_info}: {data}\n------")
+            if old_data != data:
+                await set_redis_data(logger, redis_client, "alerts_ws_info", data)
+                await redis_client.publish("alerts_ws_info_updated", "1")
+                logger.info("✅ Оновлені дані alerts_ws_info збережено в Redis")
+            else:  
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+            await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
     except Exception as e:
         logger.error(f"response_prosess: {e}")
 
 
-async def loop_response_prosess(response):
+async def loop_response_prosess(redis_client, response):
     try:
         response = json.loads(response)
         id = response["result"]["channel"]
-        result = response["result"]["data"]["data"]
+        data = response["result"]["data"]["data"]
         if id == ws_response_loop_key_alerts:
-            logger.info(f"\n------\nParced loop {ws_response_loop_key_alerts}: {result}\n------")
-            await mc.set(b"ws_alerts", json.dumps(result).encode("utf-8"))
+            old_data = await get_redis_data(logger,redis_client, "alerts_ws_data", default_response="")
+            logger.debug(f"\n------\nParced loop {ws_response_loop_key_alerts}: {data}\n------")
+            if old_data != data:
+                await set_redis_data(logger, redis_client, "alerts_ws_data", data)
+                await redis_client.publish("alerts_ws_data_updated", "1")
+                logger.info("✅ Оновлені дані alerts_ws_data збережено в Redis")
+            else:  
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+            await service_is_fine(logger, redis_client, "alerts_ws_data_last_call")
         if id == ws_response_loop_key_info:
-            logger.info(f"\n------\nParced loop {ws_response_loop_key_info}: {result}\n------")
-            await mc.set(b"ws_info", json.dumps(result).encode("utf-8"))
+            old_data = await get_redis_data(logger,redis_client, "alerts_ws_info", default_response="")
+            logger.debug(f"\n------\nParced loop {ws_response_loop_key_info}: {data}\n------")
+            if old_data != data:
+                await set_redis_data(logger, redis_client, "alerts_ws_info", data)
+                await redis_client.publish("alerts_ws_info_updated", "1")
+                logger.info("✅ Оновлені дані alerts_ws_info збережено в Redis")
+            else:  
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+            await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
 
     except Exception as e:
         logger.error(f"response_prosess: {e}")
 
 
+async def main():
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding='utf-8',
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30
+    )
+    
+    try:
+        await redis_client.ping()
+        logger.info(f"Successfully connected to Redis at {redis_host}:{redis_port}")
+        await asyncio.gather(
+            connect_and_send(redis_client),
+        )
+    except redis.ConnectionError as e:
+        logger.error(f"Failed to connect to Redis: {e}")
+        raise
+    except asyncio.exceptions.CancelledError:
+        logger.error("App stopped.")
+    finally:
+        await redis_client.aclose()
+        logger.info("Redis connection closed")
+
+
 if __name__ == "__main__":
-    mc = Client(memcached_host, 11211)
-    asyncio.run(connect_and_send(mc))
+    asyncio.run(main())
