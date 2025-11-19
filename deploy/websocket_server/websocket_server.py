@@ -33,7 +33,8 @@ except ImportError:
         sys.path.insert(0, str(parent_dir))
     
     from utils import (
-        get_redis_data
+        get_redis_data,
+        set_redis_data
     )
 
 
