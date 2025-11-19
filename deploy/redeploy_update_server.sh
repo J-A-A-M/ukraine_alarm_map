@@ -5,15 +5,25 @@ SHARED_PATH=""
 SHARED_BETA_PATH=""
 SHARED_BETA_S3_PATH=""
 SHARED_BETA_C3_PATH=""
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 PORT=8090
 LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -p|--port)
@@ -43,7 +53,9 @@ echo "UPDATE_SERVER"
 
 echo "SHARED_PATH: $SHARED_PATH"
 echo "SHARED_BETA_PATH: $SHARED_BETA_PATH"
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "PORT: $PORT"
 echo "LOGGING: $LOGGING"
 
@@ -80,7 +92,9 @@ docker run --name map_update_server \
     -v "$SHARED_PATH":/shared_data \
     -v "$SHARED_BETA_PATH":/shared_beta_data \
     --env PORT="$PORT" \
-    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
     map_update_server
 

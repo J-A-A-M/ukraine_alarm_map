@@ -2,7 +2,9 @@
 
 # Default values
 WEATHER_TOKEN=""
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 WEATHER_PERIOD=7200
 LOGGING="INFO"
 
@@ -13,8 +15,16 @@ while [[ $# -gt 0 ]]; do
             WEATHER_TOKEN="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -p|--weather-period)
@@ -35,7 +45,9 @@ done
 echo "WEATHER"
 
 echo "WEATHER_TOKEN: $WEATHER_TOKEN"
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "WEATHER_PERIOD: $WEATHER_PERIOD"
 echo "LOGGING: $LOGGING"
 
@@ -66,7 +78,9 @@ docker run --name map_weather \
     -d \
     --env WEATHER_PERIOD="$WEATHER_PERIOD" \
     --env WEATHER_TOKEN="$WEATHER_TOKEN" \
-    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
     map_weather
 

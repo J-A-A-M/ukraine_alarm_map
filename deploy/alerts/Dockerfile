@@ -4,4 +4,4 @@ COPY alerts.py .
 COPY ../utils.py .
 RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
-CMD python alerts.py
+CMD ["python", "alerts.py"]

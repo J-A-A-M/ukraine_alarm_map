@@ -14,7 +14,8 @@ try:
         service_is_fine,
         get_redis_data,
         set_redis_data,
-        truncate_name
+        truncate_name,
+        run_with_restart
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -25,7 +26,8 @@ except ImportError:
         service_is_fine,
         get_redis_data,
         set_redis_data,
-        truncate_name
+        truncate_name,
+        run_with_restart
     )
 
 version = 4
@@ -203,11 +205,12 @@ async def get_alerts(redis_client):
             await asyncio.sleep(alert_loop_time)
 
         except asyncio.CancelledError:
-            logger.error("get_alerts: task canceled. Shutting down...")
+            logger.error("❌ get_alerts: task canceled. Shutting down...")
             await redis_client.close()
             break
         except Exception as e:
-            logger.error(f"get_alerts: caught an exception: {e}")
+            logger.error(f"❌ Error in get_alerts: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(alert_loop_time)
 
 
@@ -226,18 +229,29 @@ async def main():
     
     try:
         await redis_client.ping()
-        logger.info(f"Successfully connected to Redis at {redis_host}:{redis_port}")
-        await asyncio.gather(
-            get_alerts(redis_client),
-        )
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+        
+        tasks = [
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    get_alerts,
+                    redis_client,
+                    "get_alerts"
+                )
+            ),
+        ]
+        
+        await asyncio.gather(*tasks)
+        
     except redis.ConnectionError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
+        logger.error(f"❌ Failed to connect to Redis: {e}")
         raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
     finally:
         await redis_client.aclose()
-        logger.info("Redis connection closed")
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

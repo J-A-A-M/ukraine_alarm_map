@@ -3,4 +3,4 @@ ENV TZ="Europe/Kyiv"
 COPY radiation.py .
 RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
-CMD python radiation.py
+CMD ["python", "radiation.py"]

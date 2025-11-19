@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Default values
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 WEBSOCKET_PORT=38440
 PING_INTERVAL=60
 PING_TIMEOUT=30
@@ -18,8 +20,16 @@ while [[ $# -gt 0 ]]; do
             WEBSOCKET_PORT="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -s|--api-secret)
@@ -63,7 +73,9 @@ done
 
 echo "WEBSOCKET SERVER"
 
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
 echo "PING_INTERVAL: $PING_INTERVAL"
 echo "PING_TIMEOUT: $PING_TIMEOUT"
@@ -105,7 +117,9 @@ docker run --name map_websocket_server \
     --env PING_INTERVAL="$PING_INTERVAL" \
     --env PING_TIMEOUT="$PING_TIMEOUT" \
     --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" \
-    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
     --env ENVIRONMENT="$ENVIRONMENT" \
     --env LOGGING="$LOGGING" \
     --env GOOGLE_STAT="$GOOGLE_STAT" \

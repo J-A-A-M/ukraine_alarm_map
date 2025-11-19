@@ -18,7 +18,7 @@ try:
         service_is_fine,
         get_redis_data,
         set_redis_data,
-        truncate_name,
+        run_with_restart,
         get_random_proxy
     )
 except ImportError:
@@ -30,7 +30,7 @@ except ImportError:
         service_is_fine,
         get_redis_data,
         set_redis_data,
-        truncate_name,
+        run_with_restart,
         get_random_proxy
     )
 
@@ -209,7 +209,7 @@ async def connect_and_send(redis_client):
 
             while ttl > 0:
                 if ttl % 60 == 0:
-                    logger.info(f"TTL remaining: {round(ttl/60)}")
+                    logger.info(f"⏳ TTL remaining: {round(ttl/60)}")
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=1)
                     logger.debug(f"Received: {response}")
@@ -220,7 +220,7 @@ async def connect_and_send(redis_client):
                     pass
                 ttl -= 1
 
-            logger.info(f"TTL expired, reconnecting...")
+            logger.info(f"⏳ TTL expired, reconnecting...")
 
 
 async def initial_response_prosess(redis_client, response):
@@ -248,8 +248,10 @@ async def initial_response_prosess(redis_client, response):
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
+        await service_is_fine(logger, redis_client, "alerts_ws_last_call")
     except Exception as e:
-        logger.error(f"response_prosess: {e}")
+        logger.error(f"❌ response_prosess:{e}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
 
 async def loop_response_prosess(redis_client, response):
@@ -277,9 +279,11 @@ async def loop_response_prosess(redis_client, response):
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
+        await service_is_fine(logger, redis_client, "alerts_ws_last_call")
 
     except Exception as e:
-        logger.error(f"response_prosess: {e}")
+        logger.error(f"❌ response_prosess:{e}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
 
 async def main():
@@ -297,18 +301,30 @@ async def main():
     
     try:
         await redis_client.ping()
-        logger.info(f"Successfully connected to Redis at {redis_host}:{redis_port}")
-        await asyncio.gather(
-            connect_and_send(redis_client),
-        )
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+        
+        tasks = [
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    connect_and_send,
+                    redis_client,
+                    "connect_and_send",
+                    60
+                )
+            ),
+        ]
+        
+        await asyncio.gather(*tasks)
+        
     except redis.ConnectionError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
+        logger.error(f"❌ Failed to connect to Redis: {e}")
         raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
     finally:
         await redis_client.aclose()
-        logger.info("Redis connection closed")
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Default values
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 LOGGING="INFO"
 PROXIES=""
 WS_SOURCE_URL=""
@@ -18,8 +20,16 @@ WS_RESPONSE_LOOP_KEY_INFO=""
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -l|--logging)
@@ -75,7 +85,9 @@ done
 
 echo "ALERTS WS"
 
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "LOGGING: $LOGGING"
 echo "PROXIES: $PROXIES"
 echo "WS_SOURCE_URL: $WS_SOURCE_URL"
@@ -112,7 +124,9 @@ echo "Deploying new container..."
 docker run --name map_alerts_ws \
     --restart unless-stopped \
     --network=jaam -d  \
-    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
     --env PROXIES="$PROXIES" \
     --env WS_SOURCE_URL="$WS_SOURCE_URL" \

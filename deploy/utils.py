@@ -1,6 +1,7 @@
 import json
 import datetime
 import random
+import asyncio
 
 
 def truncate_name(name, max_length=30):
@@ -11,6 +12,16 @@ def truncate_name(name, max_length=30):
 
 def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def calculate_time_difference(timestamp1, timestamp2):
+    format_str = "%Y-%m-%dT%H:%M:%SZ"
+
+    time1 = datetime.datetime.strptime(timestamp1, format_str)
+    time2 = datetime.datetime.strptime(timestamp2, format_str)
+
+    time_difference = (time2 - time1).total_seconds()
+    return int(abs(time_difference))
 
 
 def get_random_proxy(proxies):
@@ -167,3 +178,18 @@ async def set_redis_data(logger, redis_client, key, value, expiry=None):
             
     except Exception as e:
         logger.error(f"Error storing data in Redis for key {key}: {e}")
+
+
+async def run_with_restart(logger,func, redis_client, func_name, restart_delay=5):
+    while True:
+        try:
+            logger.info(f"▶️  Запуск {func_name}")
+            await func(redis_client)
+        except asyncio.CancelledError:
+            logger.warning(f"⏹️  {func_name} скасовано")
+            raise
+        except Exception as e:
+            logger.error(f"❌ {func_name} впав з помилкою: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+            logger.info(f"🔄 Перезапуск {func_name} через {restart_delay} секунд...")
+            await asyncio.sleep(restart_delay)

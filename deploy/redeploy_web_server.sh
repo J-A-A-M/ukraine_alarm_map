@@ -2,7 +2,9 @@
 
 # Default values
 DATA_TOKEN=""
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 PORT=8080
 LOGGING="WARNING"
 
@@ -13,8 +15,16 @@ while [[ $# -gt 0 ]]; do
             DATA_TOKEN="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -p|--port)
@@ -35,7 +45,9 @@ done
 echo "WEB_SERVER"
 
 echo "DATA_TOKEN: $DATA_TOKEN"
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "PORT: $PORT"
 echo "LOGGING: $LOGGING"
 
@@ -71,7 +83,9 @@ docker run --name map_web_server \
     -v /shared_data:/shared_data \
     --env PORT="$PORT" \
     --env DATA_TOKEN="$DATA_TOKEN" \
-    --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
     map_web_server
 

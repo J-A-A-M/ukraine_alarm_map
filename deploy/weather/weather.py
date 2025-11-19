@@ -3,13 +3,39 @@ import os
 import asyncio
 import aiohttp
 import logging
-import datetime
-from aiomcache import Client
 
-version = 2
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        run_with_restart
+    )
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        run_with_restart
+    )
+
+version = 3
 
 debug_level = os.environ.get("LOGGING") or "INFO"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 weather_url = "https://api.openweathermap.org/data/3.0/onecall"
 weather_token = os.environ.get("WEATHER_TOKEN")
 weather_loop_time = int(os.environ.get("WEATHER_PERIOD", 7200))
@@ -53,24 +79,16 @@ weather_states = {
 }
 
 
-def get_current_datetime():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-async def service_is_fine(mc, key_b):
-    await mc.set(key_b, get_current_datetime().encode("utf-8"))
-
-
-async def get_weather_openweathermap(mc):
+async def get_weather_openweathermap(redis_client):
     try:
-        weather_cached_data = {
+        weather_data = {
             "states": {},
             "info": {
                 "last_update": None,
             },
         }
 
-        for weather_region_id, weather_region_data in weather_states.items():
+        for _, weather_region_data in weather_states.items():
             params = {
                 "lat": weather_region_data["lat"],
                 "lon": weather_region_data["lon"],
@@ -86,18 +104,28 @@ async def get_weather_openweathermap(mc):
                     data = json.loads(new_data)
                     data["current"]["region"] = weather_region_data
                     if type(weather_region_data["id"]) is int:
-                        weather_cached_data["states"][weather_region_data["id"]] = data["current"]
+                        weather_data["states"][weather_region_data["id"]] = data["current"]
                     elif type(weather_region_data["id"]) is list:
                         for _id in weather_region_data["id"]:
-                            weather_cached_data["states"][_id] = data["current"]
+                            weather_data["states"][_id] = data["current"]
                 else:
                     logger.error(f"Request failed with status code: {response.status}")
 
-        weather_cached_data["info"]["last_update"] = get_current_datetime()
-        logger.debug("store weather data: %s" % get_current_datetime())
-        await mc.set(b"weather_openweathermap", json.dumps(weather_cached_data).encode("utf-8"))
-        await service_is_fine(mc, b"weather_api_last_call")
-        logger.info("weather data stored")
+        weather_data["info"]["last_update"] = get_current_datetime()
+
+        # Зберігаємо дані в Redis тільки якщо є зміни
+        logger.debug("💾 Зберігаємо оновлені дані в Redis...")
+        await asyncio.gather(
+            # Зберігаємо основні дані тривог
+            set_redis_data(logger, redis_client, "weather_openweathermap", weather_data),
+            # Зберігаємо час останнього успішного оновлення
+            service_is_fine(logger, redis_client, "weather_openweathermap_last_call"),
+        )
+        
+        # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
+        await redis_client.publish("weather_openweathermap_updated", "1")
+        logger.info("✅ Оновлені дані збережено в Redis")
+
         await asyncio.sleep(weather_loop_time)
     except Exception as e:
         logger.error(f"Error fetching data: {str(e)}")
@@ -105,11 +133,43 @@ async def get_weather_openweathermap(mc):
 
 
 async def main():
-    mc = Client(memcached_host, 11211)
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding='utf-8',
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30
+    )
+    
     try:
-        await asyncio.gather(get_weather_openweathermap(mc))
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+        
+        tasks = [
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    get_weather_openweathermap,
+                    redis_client,
+                    "get_weather_openweathermap"
+                )
+            ),
+        ]
+        
+        await asyncio.gather(*tasks)
+        
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":
