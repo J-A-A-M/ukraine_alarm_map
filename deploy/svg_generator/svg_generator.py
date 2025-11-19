@@ -8,7 +8,6 @@ import pytz
 import math
 import datetime
 import statistics
-from aiomcache import Client
 from zoneinfo import ZoneInfo
 
 version = 2

@@ -8,7 +8,6 @@ import string
 import datetime
 import aiohttp
 
-from aiomcache import Client
 from geoip2 import database, errors
 from functools import partial
 from zoneinfo import ZoneInfo
@@ -81,7 +80,6 @@ gtagmp_logger.propagate = False
 
 
 memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-mc = Client(memcached_host, 11211)
 geo = database.Reader(geo_lite_db_path)
 
 TYPE_ALERTS_BATCH           = 0xA1

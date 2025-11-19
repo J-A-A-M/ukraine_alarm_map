@@ -4,8 +4,6 @@ import logging
 import json
 import asyncio
 
-from aiomcache import Client
-
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse
 from starlette.routing import Route

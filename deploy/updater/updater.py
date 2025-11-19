@@ -5,7 +5,6 @@ import logging
 import datetime
 import struct
 
-from aiomcache import Client
 from copy import deepcopy
 import redis.asyncio as redis
 import sys

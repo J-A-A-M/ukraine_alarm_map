@@ -13,8 +13,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
-from aiomcache import Client
-
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8080)

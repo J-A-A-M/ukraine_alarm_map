@@ -8,7 +8,6 @@ import json
 import os
 import asyncio
 import logging
-from aiomcache import Client
 
 # Налаштування
 memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"

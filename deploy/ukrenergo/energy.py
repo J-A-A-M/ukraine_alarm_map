@@ -5,7 +5,6 @@ import os
 import logging
 import random
 import datetime
-from aiomcache import Client
 from aiohttp_socks import ProxyConnector
 
 import redis.asyncio as redis
