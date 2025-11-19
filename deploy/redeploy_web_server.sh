@@ -59,7 +59,7 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_web_server -f Dockerfile .
+docker build -t map_web_server -f web_server/Dockerfile .
 
 mkdir -p "shared_data"
 

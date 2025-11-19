@@ -47,7 +47,7 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_svg_generator -f Dockerfile .
+docker build -t map_svg_generator -f svg_generator/Dockerfile .
 
 # Make shared data folder
 cd ../

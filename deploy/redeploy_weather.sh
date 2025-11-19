@@ -59,7 +59,7 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_weather -f Dockerfile .
+docker build -t map_weather -f weather/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."

@@ -67,7 +67,7 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_update_server -f Dockerfile .
+docker build -t map_update_server -f update_server/Dockerfile .
 
 # Make shared data folder
 cd ../
