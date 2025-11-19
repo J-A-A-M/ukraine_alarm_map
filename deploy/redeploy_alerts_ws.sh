@@ -106,13 +106,9 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd alerts_ws
-
-# Building Docker image
+# Building Docker image from parent directory with correct context
 echo "Building Docker image..."
-docker build -t map_alerts_ws -f Dockerfile .
+docker build -t map_alerts_ws -f alerts_ws/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
