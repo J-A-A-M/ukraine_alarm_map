@@ -57,10 +57,6 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd weather
-
 # Building Docker image
 echo "Building Docker image..."
 docker build -t map_weather -f Dockerfile .

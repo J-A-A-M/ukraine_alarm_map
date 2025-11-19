@@ -80,10 +80,6 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd ukrenergo
-
 # Building Docker image
 echo "Building Docker image..."
 docker build -t map_ukrenergo -f Dockerfile .

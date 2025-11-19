@@ -57,16 +57,10 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd web_server
-
 # Building Docker image
 echo "Building Docker image..."
 docker build -t map_web_server -f Dockerfile .
 
-# Make shared data folder
-cd ../
 mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
