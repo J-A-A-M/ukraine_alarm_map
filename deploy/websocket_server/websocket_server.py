@@ -57,13 +57,13 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL") or 1)
 api_secret = os.environ.get("API_SECRET") or ""
 measurement_id = os.environ.get("MEASUREMENT_ID") or ""
 environment = os.environ.get("ENVIRONMENT") or "PROD"
 geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
 ip_info_token = os.environ.get("IP_INFO_TOKEN") or ""
+geo_ip_cache_ttl = int(os.environ.get("GEO_IP_CACHE_TTL") or 86400)  # 24 hours by default
 
 logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -81,7 +81,6 @@ if not gtagmp_logger.handlers:
 gtagmp_logger.propagate = False
 
 
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
 geo = database.Reader(geo_lite_db_path)
 
 TYPE_ALERTS_BATCH           = 0xA1
@@ -150,6 +149,7 @@ class SharedData:
         self.trackers = {}
         self.blocked_ips = []
         self.test_id = None
+        self.redis_client = None
 
 
 shared_data = SharedData()
@@ -225,89 +225,99 @@ async def get_client_ip(connection: ServerConnection):
 
 
 async def get_geo_ip_data(ip, request):
-
-    data = {
-                "hostname": "unknown",
-                "city": 'city',
-                "region": 'region',
-                "country": 'country',
-                "loc": 'loc',
-                "org": "unknown",
-                "postal": 'postal_code',
-                "timezone": 'timezone',
-            }
+    redis_client = shared_data.redis_client
+    if not redis_client:
+        logger.error("Redis client not initialized in get_geo_ip_data")
+        return await _fetch_geo_ip_data_from_sources(ip, request)
+    
+    cache_key = f"geo_ip:{ip}"
+    try:
+        cached_data = await redis_client.hgetall(cache_key)
+        if cached_data:
+            ttl = await redis_client.ttl(cache_key)
+            logger.debug(f"{ip} >>> data from Redis hash cache (TTL: {ttl}s remaining)")
+            return dict(cached_data)
+    except Exception as e:
+        logger.warning(f"⚠️ Error reading from Redis hash cache: {e}")
+    
+    data = await _fetch_geo_ip_data_from_sources(ip, request)
+    try:
+        await redis_client.hset(cache_key, mapping=data)
+        await redis_client.expire(cache_key, geo_ip_cache_ttl)
+        logger.debug(f"{ip} >>> data cached in Redis hash with automatic TTL {geo_ip_cache_ttl}s")
+    except Exception as e:
+        logger.warning(f"⚠️ Error saving to Redis hash cache: {e}")
+    
     return data
-    key = f"geo_ip_{ip}".encode("utf-8")
-    data = await mc.get(key)
-    if data:
-        logger.debug(f"{ip} >>> data from MC: {data}")
-        return json.loads(data)
-    else:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
-                    # example:
-                    # {
-                    #   "hostname": "188-163-48-155.broadband.kyivstar.net",
-                    #   "city": "Kramatorsk",
-                    #   "region": "Donetsk",
-                    #   "country": "UA",
-                    #   "loc": "48.7305,37.5879",
-                    #   "org": "AS15895 \"Kyivstar\" PJSC",
-                    #   "postal": "84300",
-                    #   "timezone": "Europe/Kyiv"
-                    # }
-                    data = await response.json()
-                    # remove first word from data["org"] if starting with AS
-                    data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
-                    logger.debug(f"{ip} >>> data from IPINFO: {data}")
-                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400)  # 24 hours
-                    return data
-        except Exception as e:
-            logger.warning(f"⚠️ Error in get_geo_ip_data: {e}")
-            country = request.headers.get("cf-ipcountry", None)
-            region = request.headers.get("cf-region", None)
-            city = request.headers.get("cf-ipcity", None)
-            timezone = request.headers.get("cf-timezone", None)
-            longitude = request.headers.get("cf-iplongitude", None)
-            latitude = request.headers.get("cf-iplatitude", None)
-            postal_code = request.headers.get("cf-postal-code", None)
 
-            if not country or not region or not city or not timezone:
-                try:
-                    response = geo.city(ip)
-                    city = city or response.city.name or "not-in-db"
-                    region = region or response.subdivisions.most_specific.name or "not-in-db"
-                    country = country or response.country.iso_code or "not-in-db"
-                    timezone = timezone or response.location.time_zone or "not-in-db"
-                    latitude = latitude or response.location.latitude or 0
-                    longitude = longitude or response.location.longitude or 0
-                    postal_code = postal_code or response.postal.code or "not-in-db"
-                except errors.AddressNotFoundError:
-                    city = city or "not-found"
-                    region = region or "not-found"
-                    country = country or "not-found"
-                    timezone = timezone or "not-found"
-                    latitude = latitude or 0
-                    longitude = longitude or 0
-                    postal_code = postal_code or "not-found"
 
-            country = country.encode("utf-8", "ignore").decode("utf-8")
-            region = region.encode("utf-8", "ignore").decode("utf-8")
-            city = city.encode("utf-8", "ignore").decode("utf-8")
-            data = {
-                "hostname": "unknown",
-                "city": city,
-                "region": region,
-                "country": country,
-                "loc": f"{latitude},{longitude}",
-                "org": "unknown",
-                "postal": postal_code,
-                "timezone": timezone,
-            }
-            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600)  # 1 hour
-            logger.debug(f"{ip} >>> data from headers: {data}")
-            return data
+async def _fetch_geo_ip_data_from_sources(ip, request):
+    try:
+        # Спроба отримати дані з ipinfo.io
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
+                # example:
+                # {
+                #   "hostname": "188-163-48-155.broadband.kyivstar.net",
+                #   "city": "Kramatorsk",
+                #   "region": "Donetsk",
+                #   "country": "UA",
+                #   "loc": "48.7305,37.5879",
+                #   "org": "AS15895 \"Kyivstar\" PJSC",
+                #   "postal": "84300",
+                #   "timezone": "Europe/Kyiv"
+                # }
+                data = await response.json()
+                # remove first word from data["org"] if starting with AS
+                data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                logger.debug(f"{ip} >>> data from IPINFO: {data}")
+                return data
+    except Exception as e:
+        logger.warning(f"⚠️ Error fetching from ipinfo.io: {e}")
+        
+        # Fallback до Cloudflare headers та GeoLite2
+        country = request.headers.get("cf-ipcountry", None)
+        region = request.headers.get("cf-region", None)
+        city = request.headers.get("cf-ipcity", None)
+        timezone = request.headers.get("cf-timezone", None)
+        longitude = request.headers.get("cf-iplongitude", None)
+        latitude = request.headers.get("cf-iplatitude", None)
+        postal_code = request.headers.get("cf-postal-code", None)
+
+        if not country or not region or not city or not timezone:
+            try:
+                response = geo.city(ip)
+                city = city or response.city.name or "not-in-db"
+                region = region or response.subdivisions.most_specific.name or "not-in-db"
+                country = country or response.country.iso_code or "not-in-db"
+                timezone = timezone or response.location.time_zone or "not-in-db"
+                latitude = latitude or response.location.latitude or 0
+                longitude = longitude or response.location.longitude or 0
+                postal_code = postal_code or response.postal.code or "not-in-db"
+            except errors.AddressNotFoundError:
+                city = city or "not-found"
+                region = region or "not-found"
+                country = country or "not-found"
+                timezone = timezone or "not-found"
+                latitude = latitude or 0
+                longitude = longitude or 0
+                postal_code = postal_code or "not-found"
+
+        country = country.encode("utf-8", "ignore").decode("utf-8")
+        region = region.encode("utf-8", "ignore").decode("utf-8")
+        city = city.encode("utf-8", "ignore").decode("utf-8")
+        data = {
+            "hostname": "unknown",
+            "city": city,
+            "region": region,
+            "country": country,
+            "loc": f"{latitude},{longitude}",
+            "org": "unknown",
+            "postal": postal_code,
+            "timezone": timezone,
+        }
+        logger.debug(f"{ip} >>> data from headers/GeoLite2: {data}")
+        return data
 
 
 async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
@@ -1233,6 +1243,10 @@ async def main():
         socket_keepalive=True,
         health_check_interval=30
     )
+    
+    # Ініціалізуємо Redis client в shared_data для використання в get_geo_ip_data
+    shared_data.redis_client = redis_client
+    logger.info("✅ Redis client initialized in shared_data")
     
     async with serve(
         echo,
