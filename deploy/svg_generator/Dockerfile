@@ -1,8 +1,8 @@
 FROM python:3.12-slim
 ENV TZ="Europe/Kyiv"
-COPY svg_generator.py .
-RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+COPY svg_generator/svg_generator.py .
+RUN --mount=type=bind,source=svg_generator/requirements.txt,target=/tmp/requirements.txt \
     apt-get update && apt-get install --no-install-recommends -y libcairo2 && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
-CMD python svg_generator.py
+CMD ["python", "svg_generator.py"]

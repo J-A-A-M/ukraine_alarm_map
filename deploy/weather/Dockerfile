@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 ENV TZ="Europe/Kyiv"
-COPY weather.py .
-COPY ../utils.py .
-RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+COPY weather/weather.py .
+COPY utils.py .
+RUN --mount=type=bind,source=weather/requirements.txt,target=/tmp/requirements.txt \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
 CMD ["python", "weather.py"]
