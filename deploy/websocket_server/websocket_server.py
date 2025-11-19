@@ -24,7 +24,8 @@ from pathlib import Path
 
 try:
     from utils import (
-        get_redis_data
+        get_redis_data,
+        set_redis_data
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -222,7 +223,19 @@ async def get_client_ip(connection: ServerConnection):
     )
 
 
-async def get_geo_ip_data(ip, mc, request):
+async def get_geo_ip_data(ip, request):
+
+    data = {
+                "hostname": "unknown",
+                "city": 'city',
+                "region": 'region',
+                "country": 'country',
+                "loc": 'loc',
+                "org": "unknown",
+                "postal": 'postal_code',
+                "timezone": 'timezone',
+            }
+    return data
     key = f"geo_ip_{ip}".encode("utf-8")
     data = await mc.get(key)
     if data:
@@ -701,7 +714,7 @@ async def echo(websocket: ServerConnection):
             logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
             return
 
-        geo_ip_data = await get_geo_ip_data(client_ip, mc, websocket.request)
+        geo_ip_data = await get_geo_ip_data(client_ip, websocket.request)
 
         # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
         #     shared_data.blocked_ips.append(client_ip)
@@ -1124,7 +1137,7 @@ async def update_fusion_data(shared_data, redis_client):
 
 
 
-async def print_clients(shared_data, mc):
+async def print_clients(shared_data, redis_client):
     while True:
         try:
             await asyncio.sleep(60)
@@ -1152,7 +1165,7 @@ async def print_clients(shared_data, mc):
                 for _field in fields:
                     compressed_clients[_id][_field] = _data.get(_field, "")
             websoсket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
-            await mc.set(websoсket_key, json.dumps(compressed_clients).encode("utf-8"))
+            await set_redis_data(logger, redis_client, websoсket_key, compressed_clients)
             logger.info(f"print_clients: {len(compressed_clients)} clients updated ")
         except Exception as e:
             logger.error(f"Error in print_clients: {e}")
@@ -1232,7 +1245,7 @@ async def main():
         await asyncio.gather(
             update_legacy_data(shared_data, redis_client),
             update_fusion_data(shared_data, redis_client),
-            print_clients(shared_data, mc),
+            print_clients(shared_data, redis_client),
         )
 
 
