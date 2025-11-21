@@ -135,8 +135,8 @@ async def get_sensors(redis_client) -> None:
 
                 logger.debug("💾 Зберігаємо оновлені дані в Redis...")
                 await asyncio.gather(
-                        set_redis_data(logger, redis_client, "radiation_saveecobot_sensors", data),
-                        service_is_fine(logger, redis_client, "radiation_saveecobot_sensors_last_call"),
+                        set_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", data),
+                        service_is_fine(logger, redis_client, "radiation:saveecobot:sensors:last_call"),
                     )
                 logger.info("✅ Оновлені дані збережено в Redis")
                 last_execution_time = current_time
@@ -166,10 +166,10 @@ async def get_data(redis_client) -> None:
 
                 logger.debug("💾 Зберігаємо оновлені дані в Redis...")
                 await asyncio.gather(
-                        set_redis_data(logger, redis_client, "radiation_saveecobot_data", data),
-                        service_is_fine(logger, redis_client, "radiation_saveecobot_data_last_call"),
+                        set_redis_data(logger, redis_client, "radiation:saveecobot:data:data", data),
+                        service_is_fine(logger, redis_client, "radiation:saveecobot:data:last_call"),
                     )
-                await redis_client.publish("radiation_saveecobot_updated", "1")
+                await redis_client.publish("radiation:saveecobot:updated", "1")
                 logger.info("✅ Оновлені дані збережено в Redis")
                 last_execution_time = current_time
 

@@ -167,23 +167,23 @@ async def get_ukrenergo_data(redis_client) -> None:
 
     while True:
         try:
-            cache = await get_redis_data(logger, redis_client, "energy_ukrenergo", default_response=[])
+            cache = await get_redis_data(logger, redis_client, "energy:ukrenergo:data", default_response=[])
             data = await get_data()
             if not data:
                 logger.error("❌ Failed to fetch energy data, empty or incorrect response")
                 await asyncio.sleep(loop_time)
                 continue
             if data == cache:
-                await service_is_fine(logger, redis_client, "energy_ukrenergo_last_call")
+                await service_is_fine(logger, redis_client, "energy:ukrenergo:last_call")
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
                 await asyncio.sleep(loop_time)
                 continue
             logger.debug("💾 Зберігаємо оновлені дані в Redis...")
             await asyncio.gather(
-                    set_redis_data(logger, redis_client, "energy_ukrenergo", data),
-                    service_is_fine(logger, redis_client, "energy_ukrenergo_last_call"),
+                    set_redis_data(logger, redis_client, "energy:ukrenergo:data", data),
+                    service_is_fine(logger, redis_client, "energy:ukrenergo:last_call"),
                 )
-            await redis_client.publish("energy_ukrenergo_updated", "1")
+            await redis_client.publish("energy:ukrenergo:updated", "1")
             logger.info("✅ Оновлені дані збережено в Redis")
         except Exception as e:
             logger.error(f"❌ Error in get_ukrenergo_data: {e}")

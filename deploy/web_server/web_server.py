@@ -354,7 +354,7 @@ async def alerts_v3(request):
 
 async def weather_v1(request):
     try:
-        weather_cache = await get_cache_data(mc, b"weather_openweathermap", {})
+        weather_cache = await get_cache_data(mc, b"weather:openweathermap:data", {})
 
         data = {"version": 1, "states": {}, "info": {}}
 
@@ -376,7 +376,7 @@ async def weather_v1(request):
 
 async def weather_v2(request):
     try:
-        weather_cache = await get_cache_data(mc, b"weather_openweathermap", {})
+        weather_cache = await get_cache_data(mc, b"weather:openweathermap:data", {})
         weather_cache["version"] = 2
     except json.JSONDecodeError:
         cached_data = {"error": "Failed to decode cached data"}
@@ -496,7 +496,7 @@ async def drones_v3(request):
 
 async def etryvoga_full(request):
     if request.path_params["token"] == data_token:
-        etryvoga_full = await mc.get(b"etryvoga_full")
+        etryvoga_full = await mc.get(b"alerts:etryvoga:full:data")
         return JSONResponse(
             json.loads(etryvoga_full.decode("utf-8")), headers={"Content-Type": "application/json; charset=utf-8"}
         )
@@ -519,9 +519,9 @@ async def tcp_v1(request):
 
 async def api_status(request):
     local_time = get_current_datetime()
-    alerts_api_last_call = await get_cache_data(mc, b"alerts_api_last_call", json_parse=False)
-    weather_api_last_call = await get_cache_data(mc, b"weather_api_last_call", json_parse=False)
-    etryvoga_api_last_call = await get_cache_data(mc, b"etryvoga_api_last_call", json_parse=False)
+    alerts_api_last_call = await get_cache_data(mc, b"alerts:api:last_call", json_parse=False)
+    weather_api_last_call = await get_cache_data(mc, b"weather:openweathermap:last_call", json_parse=False)
+    etryvoga_api_last_call = await get_cache_data(mc, b"alerts:etryvoga:full:last_call", json_parse=False)
 
     alert_time_diff = calculate_time_difference(alerts_api_last_call, get_current_datetime())
     weather_time_diff = calculate_time_difference(weather_api_last_call, get_current_datetime())

@@ -105,7 +105,7 @@ def log_changes(changes):
         logger.debug("📊 Змін в даних тривог не виявлено")
         return
     
-    logger.info("=" * 70)
+    logger.info("=" * 71)
     
     # Нові тривоги
     if changes['added']:
@@ -115,6 +115,7 @@ def log_changes(changes):
                 truncated_name = truncate_name(alert['regionName'], 30)
                 logger.info(
                     f"   ➕ {truncated_name:<30} | "
+                    f"{active_alert['regionId']:<5} | "
                     f"{active_alert['type']:<12} | "
                     f"{active_alert['regionType']:<10}"
                 )
@@ -127,6 +128,7 @@ def log_changes(changes):
                 truncated_name = truncate_name(alert['regionName'], 30)
                 logger.info(
                     f"   ➖ {truncated_name:<30} | "
+                    f"{active_alert['regionId']:<5} | "
                     f"{active_alert['type']:<12} | "
                     f"{active_alert['regionType']:<10}"
                 )
@@ -158,7 +160,7 @@ def log_changes(changes):
                     if old_alerts[alert_type] != new_alerts[alert_type]:
                         logger.info(f"      🔄 Оновлено: {alert_type}")
     
-    logger.info("=" * 70)
+    logger.info("=" * 71)
 
 
 async def get_alerts(redis_client):
@@ -175,7 +177,7 @@ async def get_alerts(redis_client):
                 data = json.loads(new_data)
 
             # Отримуємо попередні дані з Redis
-            old_data = await get_redis_data(logger,redis_client, "alerts_api", default_response=[])
+            old_data = await get_redis_data(logger,redis_client, "alerts:api:data", default_response=[])
             
             # Порівнюємо дані
             changes = compare_alerts(old_data, data)
@@ -188,17 +190,17 @@ async def get_alerts(redis_client):
                 logger.debug("💾 Зберігаємо оновлені дані в Redis...")
                 await asyncio.gather(
                     # Зберігаємо основні дані тривог
-                    set_redis_data(logger, redis_client, "alerts_api", data),
+                    set_redis_data(logger, redis_client, "alerts:api:data", data),
                     # Зберігаємо час останнього успішного оновлення
-                    service_is_fine(logger, redis_client, "alerts_api_last_call"),
+                    service_is_fine(logger, redis_client, "alerts:api:last_call"),
                 )
                 
                 # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
-                await redis_client.publish("alerts_api_updated", "1")
+                await redis_client.publish("alerts:api:updated", "1")
                 logger.info("✅ Оновлені дані збережено в Redis")
             else:
                 # Оновлюємо тільки час останньої перевірки
-                await service_is_fine(logger, redis_client, "alerts_api_last_call")
+                await service_is_fine(logger, redis_client, "alerts:api:last_call")
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
 
             logger.debug("end get_alerts")

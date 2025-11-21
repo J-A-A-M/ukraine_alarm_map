@@ -289,7 +289,7 @@ async def svg_generator_weather(mc):
 
             weather_svg_data = {}
 
-            weather_cache = await get_weather(mc, b"weather_openweathermap", {"states": {}})
+            weather_cache = await get_weather(mc, b"weather:openweathermap:data", {"states": {}})
             for region_id, region_data in weather_cache["states"].items():
                 state_id = int(region_id)
                 state_name = get_region_name("id", state_id)

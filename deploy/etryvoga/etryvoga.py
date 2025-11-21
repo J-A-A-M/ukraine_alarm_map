@@ -104,20 +104,46 @@ def format_time(time):
     return formatted_timestamp
 
 
+async def save_etryvoga_type_data(
+    logger,
+    redis_client,
+    data_type: str,
+    redis_key: str,
+    old_data: dict,
+    new_data: dict
+) -> bool:
+    if old_data != new_data:
+        logger.debug(f"⚠️ {redis_key} DATA NEW: {new_data}")
+        logger.debug(f"⚠️ {redis_key} DATA OLD: {old_data}")
+        await set_redis_data(logger, redis_client, f"{redis_key}:data", new_data)
+        await service_is_fine(logger, redis_client, f"{redis_key}:last_call")
+        await redis_client.publish(f"{redis_key}:updated", "1")
+        logger.info(f"💾 Збережено оновлені дані для {data_type}")
+        return True
+    else:
+        logger.debug(f"⏭️  Дані для {data_type} не змінилися")
+        return False
+
+
 async def get_etryvoga_data(redis_client):
     while True:
         try:
             logger.debug("start get_etryvoga_data")
 
-            # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            explosions_data, missiles_data, drones_data, kabs_data, last_id_data = await asyncio.gather(
-                get_redis_data(logger, redis_client, "etryvoga_explosions", default_response={"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}),
-                get_redis_data(logger, redis_client, "etryvoga_missiles", default_response={"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}),
-                get_redis_data(logger, redis_client, "etryvoga_drones", default_response={"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}),
-                get_redis_data(logger, redis_client, "etryvoga_kabs", default_response={"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}),
-                get_redis_data(logger, redis_client, "etryvoga_last_id", 0)
+            # Отримуємо всі значення паралельно з Redis
+            old_explosions_data, old_missiles_data, old_drones_data, old_kabs_data, last_id_data = await asyncio.gather(
+                get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:last_id", 0)
             )
 
+            # Створюємо нові словники для збереження оброблених даних
+            explosions_data = copy(old_explosions_data)
+            missiles_data = copy(old_missiles_data)
+            drones_data = copy(old_drones_data)
+            kabs_data = copy(old_kabs_data)
             last_id = None
 
             async with aiohttp.ClientSession() as session:
@@ -126,11 +152,11 @@ async def get_etryvoga_data(redis_client):
                     etryvoga_full = await response.text()
                     data = json.loads(etryvoga_full)
                     logger.debug(
-                        "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
+                        "{type:<12} {time:<5} {region:<30} {state:<25} {body}".format(
                             type="type", state="state_name", region="region", body="body", time="diff"
                         )
                     )
-                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
+                    logger.debug("------------ ----- ------------------------------ ------------------------- -----------")
                     for message in data[::-1]:
                         _name, _id = get_region_data(message.get("region", "ERROR"), message["title"])
                         message["regionId"] = _id
@@ -148,53 +174,62 @@ async def get_etryvoga_data(redis_client):
                         )
                         if _name == "UNKNOWN":
                             continue
-                        region_data = {
-                            "lastUpdate": format_time(message["createdAt"]),
-                        }
+                        region_data = format_time(message["createdAt"])
                         match message["type"]:
                             case "EXPLOSION":
-                                explosions_data["states"][_id] = region_data
+                                explosions_data[str(_id)] = region_data
                             case "ROCKET" | "ROCKET_FIRE":
-                                missiles_data["states"][_id] = region_data
-                            case "DRONE" | "RECON_DRONE":
-                                drones_data["states"][_id] = region_data
+                                missiles_data[str(_id)] = region_data
+                            case "DRONE":
+                                drones_data[str(_id)] = region_data
                             case "KAB":
-                                kabs_data["states"][_id] = region_data
+                                kabs_data[str(_id)] = region_data
                             case _:
                                 pass
                         last_id = int(message.get("id", 0))
-                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
-
-                    with contextlib.suppress(KeyError):
-                        del explosions_data["states"]["Невідомо"]
+                    logger.debug("------------ ----- ------------------------------ ------------------------- -----------")
 
                     if last_id == last_id_data:
-                        await service_is_fine(logger, redis_client, "etryvoga_api_last_call")
+                        await service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call")
                         logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
                         await asyncio.sleep(etryvoga_loop_time)
                         continue
 
-                    explosions_data["info"]["last_id"] = last_id
-                    explosions_data["info"]["last_update"] = get_current_datetime()
-                    missiles_data["info"]["last_id"] = last_id
-                    missiles_data["info"]["last_update"] = get_current_datetime()
-                    drones_data["info"]["last_id"] = last_id
-                    drones_data["info"]["last_update"] = get_current_datetime()
-                    kabs_data["info"]["last_id"] = last_id
-                    kabs_data["info"]["last_update"] = get_current_datetime()
-                    logger.debug("💾 Зберігаємо etryvoga data")
-                    await asyncio.gather(
-                        set_redis_data(logger, redis_client, "etryvoga_explosions", explosions_data),
-                        set_redis_data(logger, redis_client, "etryvoga_missiles", missiles_data),
-                        set_redis_data(logger, redis_client, "etryvoga_drones", drones_data),
-                        set_redis_data(logger, redis_client, "etryvoga_kabs", kabs_data),
-                        set_redis_data(logger, redis_client, "etryvoga_full", data),
-                        set_redis_data(logger, redis_client, "etryvoga_last_id", last_id),
-                        service_is_fine(logger, redis_client, "etryvoga_api_last_call")
+                    logger.debug("💾 Перевіряємо та зберігаємо etryvoga data")
+                    
+                    # Зберігаємо кожен тип даних окремо, тільки якщо є зміни
+                    save_results = await asyncio.gather(
+                        save_etryvoga_type_data(
+                            logger, redis_client, "explosions",
+                            "alerts:etryvoga:explosions", old_explosions_data, explosions_data
+                        ),
+                        save_etryvoga_type_data(
+                            logger, redis_client, "missiles",
+                            "alerts:etryvoga:missiles", old_missiles_data, missiles_data
+                        ),
+                        save_etryvoga_type_data(
+                            logger, redis_client, "drones",
+                            "alerts:etryvoga:drones", old_drones_data, drones_data
+                        ),
+                        save_etryvoga_type_data(
+                            logger, redis_client, "kabs",
+                            "alerts:etryvoga:kabs", old_kabs_data, kabs_data
+                        ),
                     )
-                    # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
-                    await redis_client.publish("etryvoga_api_updated", "1")
-                    logger.info("✅ Оновлені дані збережено в Redis")
+                    
+                    # Завжди зберігаємо повні дані та last_id
+                    await asyncio.gather(
+                        set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", data),
+                        set_redis_data(logger, redis_client, "alerts:etryvoga:last_id", last_id),
+                        service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call")
+                    )
+                    
+                    # Публікуємо повідомлення про оновлення тільки якщо хоча б один тип даних змінився
+                    if any(save_results):
+                        await redis_client.publish("alerts:etryvoga:updated", "1")
+                        logger.info("✅ Оновлені дані збережено в Redis")
+                    else:
+                        logger.debug("⏭️  Всі типи даних залишилися без змін")
                 else:
                     logger.error(f"❌ get_etryvoga_data: Request failed with status code {response.status}")
             await asyncio.sleep(etryvoga_loop_time)

@@ -229,26 +229,26 @@ async def initial_response_prosess(redis_client, response):
         id = response["id"]
         data = response["result"]["publications"][0]["data"]
         if id == int(ws_response_initial_key_alerts):
-            old_data = await get_redis_data(logger,redis_client, "alerts_ws_data", default_response="")
+            old_data = await get_redis_data(logger,redis_client, "alerts:ws:alerts:data", default_response="")
             logger.debug(f"\n------\nParced initial {ws_response_loop_key_alerts}: {data}\n------")
             if old_data != data:
-                await set_redis_data(logger, redis_client, "alerts_ws_data", data)
-                await redis_client.publish("alerts_ws_data_updated", "1")
-                logger.info("✅ Оновлені дані alerts_ws_data збережено в Redis")
+                await set_redis_data(logger, redis_client, "alerts:ws:alerts:data", data)
+                await redis_client.publish("alerts:ws:alerts:updated", "1")
+                logger.info("✅ Оновлені дані alerts:ws:alerts:data збережено в Redis")
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
-            await service_is_fine(logger, redis_client, "alerts_ws_data_last_call")
+            await service_is_fine(logger, redis_client, "alerts:ws:alerts:last_call")
         if id == int(ws_response_initial_key_info):
-            old_data = await get_redis_data(logger,redis_client, "alerts_ws_info", default_response="")
+            old_data = await get_redis_data(logger,redis_client, "alerts:ws:reasons:data", default_response="")
             logger.debug(f"\n------\nParced initial {ws_response_loop_key_info}: {data}\n------")
             if old_data != data:
-                await set_redis_data(logger, redis_client, "alerts_ws_info", data)
-                await redis_client.publish("alerts_ws_info_updated", "1")
-                logger.info("✅ Оновлені дані alerts_ws_info збережено в Redis")
+                await set_redis_data(logger, redis_client, "alerts:ws:reasons:data", data)
+                await redis_client.publish("alerts:ws:reasons:updated", "1")
+                logger.info("✅ Оновлені дані alerts:ws:reasons:data збережено в Redis")
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
-            await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
-        await service_is_fine(logger, redis_client, "alerts_ws_last_call")
+            await service_is_fine(logger, redis_client, "alerts:ws:reasons:last_call")
+        await service_is_fine(logger, redis_client, "alerts:ws:last_call")
     except Exception as e:
         logger.error(f"❌ response_prosess:{e}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
@@ -260,26 +260,26 @@ async def loop_response_prosess(redis_client, response):
         id = response["result"]["channel"]
         data = response["result"]["data"]["data"]
         if id == ws_response_loop_key_alerts:
-            old_data = await get_redis_data(logger,redis_client, "alerts_ws_data", default_response="")
+            old_data = await get_redis_data(logger,redis_client, "alerts:ws:alerts:data", default_response="")
             logger.debug(f"\n------\nParced loop {ws_response_loop_key_alerts}: {data}\n------")
             if old_data != data:
-                await set_redis_data(logger, redis_client, "alerts_ws_data", data)
-                await redis_client.publish("alerts_ws_data_updated", "1")
-                logger.info("✅ Оновлені дані alerts_ws_data збережено в Redis")
+                await set_redis_data(logger, redis_client, "alerts:ws:alerts:data", data)
+                await redis_client.publish("alerts:ws:alerts:updated", "1")
+                logger.info("✅ Оновлені дані alerts:ws:alerts:data збережено в Redis")
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
-            await service_is_fine(logger, redis_client, "alerts_ws_data_last_call")
+            await service_is_fine(logger, redis_client, "alerts:ws:alerts:last_call")
         if id == ws_response_loop_key_info:
-            old_data = await get_redis_data(logger,redis_client, "alerts_ws_info", default_response="")
+            old_data = await get_redis_data(logger,redis_client, "alerts:ws:reasons:data", default_response="")
             logger.debug(f"\n------\nParced loop {ws_response_loop_key_info}: {data}\n------")
             if old_data != data:
-                await set_redis_data(logger, redis_client, "alerts_ws_info", data)
-                await redis_client.publish("alerts_ws_info_updated", "1")
-                logger.info("✅ Оновлені дані alerts_ws_info збережено в Redis")
+                await set_redis_data(logger, redis_client, "alerts:ws:reasons:data", data)
+                await redis_client.publish("alerts:ws:reasons:updated", "1")
+                logger.info("✅ Оновлені дані alerts:ws:reasons:data збережено в Redis")
             else:  
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
-            await service_is_fine(logger, redis_client, "alerts_ws_info_last_call")
-        await service_is_fine(logger, redis_client, "alerts_ws_last_call")
+            await service_is_fine(logger, redis_client, "alerts:ws:reasons:last_call")
+        await service_is_fine(logger, redis_client, "alerts:ws:last_call")
 
     except Exception as e:
         logger.error(f"❌ response_prosess:{e}")
