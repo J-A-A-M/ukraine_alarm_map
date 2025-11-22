@@ -9,7 +9,6 @@ import datetime
 import aiohttp
 
 from geoip2 import database, errors
-from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
@@ -36,6 +35,23 @@ except ImportError:
         get_redis_data,
         set_redis_data
     )
+
+# Імпорт regions.json - спочатку з поточної папки, потім з батьківської
+regions = {}
+try:
+    # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
+    regions_path = Path(__file__).resolve().parent / "regions.json"
+    with open(regions_path, 'r', encoding='utf-8') as f:
+        regions = json.load(f)
+except FileNotFoundError:
+    # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
+    try:
+        regions_path = Path(__file__).resolve().parent.parent / "regions.json"
+        with open(regions_path, 'r', encoding='utf-8') as f:
+            regions = json.load(f)
+    except FileNotFoundError:
+        # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
+        logging.warning("regions.json not found, using empty regions dict")
 
 
 class ChipIdTimeoutException(Exception):
@@ -88,37 +104,6 @@ TYPE_NOTIFICATIONS_BATCH    = 0xA2
 TYPE_RADIATION_BATCH        = 0xA2
 TYPE_WEATHER_BATCH          = 0xA3
 TYPE_GRID_BATCH             = 0xA4
-
-regions = {
-    "Закарпатська область": {"id": 11, "legacy_id": 0},
-    "Івано-Франківська область": {"id": 13, "legacy_id": 1},
-    "Тернопільська область": {"id": 21, "legacy_id": 2},
-    "Львівська область": {"id": 27, "legacy_id": 3},
-    "Волинська область": {"id": 8, "legacy_id": 4},
-    "Рівненська область": {"id": 5, "legacy_id": 5},
-    "Житомирська область": {"id": 10, "legacy_id": 6},
-    "Київська область": {"id": 14, "legacy_id": 7},
-    "Чернігівська область": {"id": 25, "legacy_id": 8},
-    "Сумська область": {"id": 20, "legacy_id": 9},
-    "Харківська область": {"id": 22, "legacy_id": 10},
-    "Луганська область": {"id": 16, "legacy_id": 11},
-    "Донецька область": {"id": 28, "legacy_id": 12},
-    "Запорізька область": {"id": 12, "legacy_id": 13},
-    "Херсонська область": {"id": 23, "legacy_id": 14},
-    "Автономна Республіка Крим": {"id": 9999, "legacy_id": 15},
-    "Одеська область": {"id": 18, "legacy_id": 16},
-    "Миколаївська область": {"id": 17, "legacy_id": 17},
-    "Дніпропетровська область": {"id": 9, "legacy_id": 18},
-    "Полтавська область": {"id": 19, "legacy_id": 19},
-    "Черкаська область": {"id": 24, "legacy_id": 20},
-    "Кіровоградська область": {"id": 15, "legacy_id": 21},
-    "Вінницька область": {"id": 4, "legacy_id": 22},
-    "Хмельницька область": {"id": 3, "legacy_id": 23},
-    "Чернівецька область": {"id": 26, "legacy_id": 24},
-    "м. Київ": {"id": 31, "legacy_id": 25},
-    "м. Харків та Харківська територіальна громада": {"id": 1293, "legacy_id": 26},
-    "м. Запоріжжя та Запорізька територіальна громада": {"id": 564, "legacy_id": 27},
-}
 
 class RedisBackedClient(dict):
     """
@@ -588,90 +573,128 @@ def fing_changed_regions(old_state, new_state):
 async def alerts_data_fusion(
     websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
 ):
-    while True:
-        try:
-            chip_id = await get_client_chip_id(client)
-            firmware = await get_client_firmware(client)
-            #logger.debug(f"{client_ip}:{chip_id}: check")
-            match alert_version:
-                case AlertVersion.v1:
-                    if not client["initial"]:
-                        if client["alerts_fusion"] != shared_data.alerts_fusion_actual:
-                            old_state = shared_data.alerts_fusion_previous
-                            new_state = shared_data.alerts_fusion_actual
+    try:
+        chip_id = await get_client_chip_id(client)
+        firmware = await get_client_firmware(client)
+        redis_client = shared_data.redis_client
+        pubsub = None
+        #logger.debug(f"{client_ip}:{chip_id}: check")
+        match alert_version:
+            case AlertVersion.v1:
+                # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
+                alerts_cache, notifications_cache, weather_cache = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={}),
+                )
+                alerts_header = struct.pack('<B', TYPE_ALERTS_BATCH)
+                alerts = bytearray()
+                for rid, flags16 in alerts_cache.items():
+                    alerts += struct.pack('<H H', int(rid), flags16)
+                alerts_hash_actual = struct.pack('<H', 0)
+                alerts_hash_initial = struct.pack('<H', 0)
+                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                await websocket.send(alerts_payload)
+                client["alerts_hash"] = alerts_hash_initial
+                client["alerts_fusion"] = alerts_cache
+                client["notifications_fusion"] = notifications_cache
+                client["weather_fusion"] = weather_cache
+                logger.info(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
+                logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
 
-                            changed_region_ids = fing_changed_regions(old_state, new_state)
-                            empty_region_ids = fing_empty_regions(old_state, new_state)
+                weather_header = struct.pack('<B', TYPE_WEATHER_BATCH)
+                weather = bytearray()
+                for rid, flags8 in weather_cache.items():
+                    weather += struct.pack('<H B', int(rid), int(flags8) & 0xFF)
+                weather_payload = weather_header + weather
+                await websocket.send(weather_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
+                client["initial"] = False
 
-                            logger.debug(f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}")
-                            logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
+                # Мапінг каналів до конфігурацій
+                config = {
+                    "websocket:v1:fusion:alerts:updated": {},
+                    "websocket:v1:fusion:weather:updated": {},
+                    "websocket:v1:fusion:etryvoga:updated": {}
+                }
 
-                            header = struct.pack('<B', TYPE_ALERTS_BATCH)
-                            if changed_region_ids or empty_region_ids:
-                                alerts = make_alert_batch(changed_region_ids+empty_region_ids, new_state)
-                                alerts_hash_actual = struct.pack('<H', calc_body_alerts_hash(alerts))
-                                payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
-                            else:
-                                payload = b''
-                            logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
-                            await websocket.send(payload)
-                            logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
-                            client["alerts_fusion"] = shared_data.alerts_fusion_actual
-                            client["alerts_hash"] = alerts_hash_actual
-                        if client["notifications_fusion"] != shared_data.notifications_fusion:
-                            state = shared_data.notifications_fusion
-                            header = struct.pack('<B', TYPE_NOTIFICATIONS_BATCH)
-                            notifications = make_alert_batch(state.keys(), state)
-                            payload = header + notifications
-                            await websocket.send(payload)
-                            logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
-                            client["notifications_fusion"] = shared_data.notifications_fusion
-                        if client["weather_fusion"] != shared_data.weather_fusion:
-                            state = shared_data.weather_fusion
-                            header = struct.pack('<B', TYPE_WEATHER_BATCH)
-                            weather = make_weather_batch(state)
-                            payload = header + weather
-                            await websocket.send(payload)
-                            logger.info(f"{client_ip}:{chip_id} <<< new weather packet")
-                            client["weather_fusion"] = shared_data.weather_fusion
+                # Створюємо Pub/Sub клієнт та підписуємося на всі канали
+                redis_client = shared_data.redis_client
+                pubsub = redis_client.pubsub()
+                channels = list(config.keys())
+                await pubsub.subscribe(*channels)
+                logger.info(f"📡 {client_ip}:{chip_id} Підписано на {len(channels)} каналів")
 
-                    else:
-                        alerts_header = struct.pack('<B', TYPE_ALERTS_BATCH)
-                        alerts = bytearray()
-                        for rid, flags16 in shared_data.alerts_fusion_actual.items():
-                            alerts += struct.pack('<H H', int(rid), flags16)
-                        alerts_hash_actual = struct.pack('<H', 0)
-                        alerts_hash_initial = struct.pack('<H', 0)
-                        alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
-                        await websocket.send(alerts_payload)
-                        client["alerts_hash"] = alerts_hash_initial
-                        client["alerts_fusion"] = shared_data.alerts_fusion_actual
-                        client["notifications_fusion"] = shared_data.notifications_fusion
-                        client["weather_fusion"] = shared_data.weather_fusion
-                        logger.info(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
-                        logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
+                while True:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    if message and message['type'] == 'message':
+                        channel = message['channel']
+                        # Декодуємо канал, якщо це bytes
+                        if isinstance(channel, bytes):
+                            channel = channel.decode('utf-8')
+                        
+                        logger.info(f"📬 {client_ip}:{chip_id} Отримано повідомлення з каналу: {channel}")
 
-                        weather_header = struct.pack('<B', TYPE_WEATHER_BATCH)
-                        weather = bytearray()
-                        for rid, flags8 in shared_data.weather_fusion.items():
-                            weather += struct.pack('<H B', int(rid), int(flags8) & 0xFF)
-                        weather_payload = weather_header + weather
-                        await websocket.send(weather_payload)
-                        logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
-                        client["initial"] = False
+                        match channel:
+                            case "websocket:v1:fusion:alerts:updated":
+                                new_state, old_state = await asyncio.gather(
+                                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", default_response={}),
+                                )
 
+                                changed_region_ids = fing_changed_regions(old_state, new_state)
+                                empty_region_ids = fing_empty_regions(old_state, new_state)
 
-            await asyncio.sleep(0.5)
-        except ChipIdTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-            break
-        except FirmwareTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
-            break
-        except Exception as e:
-            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
-            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-            break
+                                logger.debug(f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}")
+                                logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
+
+                                header = struct.pack('<B', TYPE_ALERTS_BATCH)
+                                if changed_region_ids or empty_region_ids:
+                                    alerts = make_alert_batch(changed_region_ids+empty_region_ids, new_state)
+                                    alerts_hash_actual = struct.pack('<H', calc_body_alerts_hash(alerts))
+                                    payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
+                                else:
+                                    payload = b''
+                                logger.debug(f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}")
+                                await websocket.send(payload)
+                                logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
+                                client["alerts_fusion"] = new_state
+                                client["alerts_hash"] = alerts_hash_actual
+                            case "websocket:v1:fusion:weather:updated":
+                                state = await get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={})
+                                header = struct.pack('<B', TYPE_WEATHER_BATCH)
+                                weather = make_weather_batch(state)
+                                payload = header + weather
+                                await websocket.send(payload)
+                                logger.info(f"{client_ip}:{chip_id} <<< new weather packet")
+                                client["weather_fusion"] = state
+                            case "websocket:v1:fusion:etryvoga:updated":
+                                state = await get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={})
+                                header = struct.pack('<B', TYPE_NOTIFICATIONS_BATCH)
+                                notifications = make_alert_batch(state.keys(), state)
+                                payload = header + notifications
+                                await websocket.send(payload)
+                                logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
+                                client["notifications_fusion"] = state
+                            case _:
+                                logger.warning(f"Невідомий канал: {channel}")
+                                continue
+
+                    await asyncio.sleep(0.01)  # 10ms замість 100ms
+
+    except ChipIdTimeoutException:
+        logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+    except FirmwareTimeoutException:
+        logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+    except Exception as e:
+        logger.error(f"{client_ip}:{client_id} !!! alerts_data_fusion Exception - {e}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        if pubsub:
+            channels = list(config.keys())
+            await pubsub.unsubscribe(*channels)
+            await pubsub.close()
+            logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
 async def alerts_data(
@@ -1248,11 +1271,13 @@ async def update_fusion_data(shared_data, redis_client):
     Неблокуюча обробка Redis Pub/Sub повідомлень з підтримкою паралельної обробки.
     Кожне повідомлення обробляється в окремій задачі, що запобігає блокуванню головного циклу.
     """
-    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
-    pubsub = redis_client.pubsub()
-    channels = ["websocket:v1:fusion:alerts:updated", "websocket:v1:fusion:weather:updated", "websocket:v1:fusion:etryvoga:updated"]
-    await pubsub.subscribe(*channels)
-    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Мапінг каналів до конфігурацій
+    channel_to_config = {
+        "websocket:v1:fusion:alerts:updated": "websocket_fusion_v1_alerts",
+        "websocket:v1:fusion:weather:updated": "websocket_fusion_v1_weather",
+        "websocket:v1:fusion:etryvoga:updated": "websocket_fusion_v1_etryvoga"
+    }
 
     # Словник конфігурацій для кожного типу даних
     configs = {
@@ -1276,7 +1301,7 @@ async def update_fusion_data(shared_data, redis_client):
             "copy_previous": False
         }
     }
-    
+
     # Створюємо lock для кожної конфігурації
     locks = {key: asyncio.Lock() for key in configs.keys()}
 
@@ -1306,12 +1331,11 @@ async def update_fusion_data(shared_data, redis_client):
             logger.error(f"❌ {config['redis_key']} error: {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
-    # Мапінг каналів до конфігурацій
-    channel_to_config = {
-        "websocket:v1:fusion:alerts:updated": "websocket_fusion_v1_alerts",
-        "websocket:v1:fusion:weather:updated": "websocket_fusion_v1_weather",
-        "websocket:v1:fusion:etryvoga:updated": "websocket_fusion_v1_etryvoga"
-    }
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = list(channel_to_config.keys())
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
     # Основний цикл очікування повідомлень з Pub/Sub
     try:
@@ -1457,7 +1481,7 @@ async def main():
     ):
         await asyncio.gather(
             update_legacy_data(shared_data, redis_client),
-            update_fusion_data(shared_data, redis_client),
+            #update_fusion_data(shared_data, redis_client),
             print_clients(shared_data, redis_client),
         )
 
