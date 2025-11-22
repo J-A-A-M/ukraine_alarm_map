@@ -194,7 +194,7 @@ async def update_websocket_v1_alerts(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -274,7 +274,7 @@ async def update_websocket_v2_alerts(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -341,7 +341,7 @@ async def update_websocket_v1_drones(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -371,7 +371,7 @@ async def update_websocket_v1_missiles(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
         
 
@@ -401,7 +401,7 @@ async def update_websocket_v1_explosions(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -431,7 +431,7 @@ async def update_websocket_v1_kabs(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -487,7 +487,7 @@ async def update_websocket_v1_weather(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -567,7 +567,7 @@ async def update_websocket_v2_drones(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -597,7 +597,7 @@ async def update_websocket_v2_missiles(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -660,7 +660,7 @@ async def update_websocket_v1_energy(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -729,7 +729,7 @@ async def update_websocket_v1_radiation(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -792,7 +792,7 @@ async def update_websocket_v1_global_notifications(redis_client, run_once=False)
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -879,7 +879,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
@@ -962,7 +962,7 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
         
 

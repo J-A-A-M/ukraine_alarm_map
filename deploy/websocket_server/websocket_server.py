@@ -693,7 +693,7 @@ async def alerts_data_fusion(
         if pubsub:
             channels = list(config.keys())
             await pubsub.unsubscribe(*channels)
-            await pubsub.close()
+            await pubsub.aclose()
             logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -1262,7 +1262,7 @@ async def update_legacy_data(shared_data, redis_client):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
@@ -1367,7 +1367,7 @@ async def update_fusion_data(shared_data, redis_client):
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
-        await pubsub.close()
+        await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
