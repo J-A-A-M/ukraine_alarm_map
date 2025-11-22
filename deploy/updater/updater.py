@@ -809,10 +809,11 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             data = {}
             
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, websocket = await asyncio.gather(
+            alerts_cache, reasons_cache, websocket, previous = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", default_response={}),
             )
             
             reasons = reasons_cache.get("reasons", [])
@@ -846,7 +847,10 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             logger.debug(f"⚠️ ALERTS FUSION DATA: {data}")
             if data != websocket:
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts")
-                await set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", data)
+                await asyncio.gather(
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", websocket),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", data)
+                )
                 await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
                 logger.info("✅ websocket:v1:fusion:alerts збережено")
             else:
