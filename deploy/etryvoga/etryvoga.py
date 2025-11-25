@@ -19,6 +19,7 @@ try:
         set_redis_data,
         get_current_datetime,
         calculate_time_difference,
+        format_time,
         run_with_restart
     )
 except ImportError:
@@ -32,6 +33,7 @@ except ImportError:
         set_redis_data,
         get_current_datetime,
         calculate_time_difference,
+        format_time,
         run_with_restart
     )
 
@@ -96,12 +98,6 @@ def get_region_data(slug, title):
     _name = regions[slug]["name"]
     _id = regions[slug]["regionId"]
     return _name, _id
-    
-
-def format_time(time):
-    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
-    formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return formatted_timestamp
 
 
 async def save_etryvoga_type_data(

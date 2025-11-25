@@ -14,6 +14,17 @@ def get_current_datetime():
     return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def format_time(time):
+    try:
+        # Спроба обробити формат без мікросекунд
+        dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ")
+        formatted_timestamp = time  # Вже у потрібному форматі
+    except ValueError:
+        dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
+        formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return formatted_timestamp
+
+
 def calculate_time_difference(timestamp1, timestamp2):
     format_str = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -91,6 +102,48 @@ async def get_redis_data(logger, redis_client, key, default_response=None):
     except Exception as e:
         logger.error(f"Error getting data from Redis for key {key}: {e}")
         return default_response
+    
+
+async def get_redis_data_by_pattern(logger, redis_client, pattern):
+    """
+    Отримує всі дані з Redis по заданій масці
+    
+    Args:
+        logger: Logger для логування
+        redis_client: Redis клієнт
+        pattern: Шаблон для пошуку ключів (наприклад, "websocket:clients:*")
+    
+    Returns:
+        dict: Словник з ключами та їх значеннями
+    """
+    try:
+        result = {}
+        
+        # Використовуємо SCAN для безпечного перегляду всіх ключів
+        cursor = 0
+        while True:
+            cursor, keys = await redis_client.scan(cursor, match=pattern, count=100)
+            
+            for key in keys:
+                try:
+                    # Отримуємо значення для кожного ключа
+                    value = await redis_client.get(key)
+                    if value:
+                        # Якщо це JSON, розпарсимо його
+                        try:
+                            result[key] = json.loads(value)
+                        except json.JSONDecodeError:
+                            result[key] = value
+                except Exception as e:
+                    logger.error(f"Error getting key {key}: {e}")
+            
+            if cursor == 0:
+                break
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error scanning Redis with pattern {pattern}: {e}")
+        return {}
 
 
 async def set_redis_data(logger, redis_client, key, value, expiry=None):
