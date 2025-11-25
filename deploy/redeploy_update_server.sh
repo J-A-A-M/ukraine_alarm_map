@@ -1,10 +1,6 @@
 #!/bin/bash
 
 # Default values
-SHARED_PATH=""
-SHARED_BETA_PATH=""
-SHARED_BETA_S3_PATH=""
-SHARED_BETA_C3_PATH=""
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
@@ -30,14 +26,6 @@ while [[ $# -gt 0 ]]; do
             PORT="$2"
             shift 2
             ;;
-        -s|--shared-path)
-            SHARED_PATH="$2"
-            shift 2
-            ;;
-        -sb|--shared-beta-path)
-            SHARED_BETA_PATH="$2"
-            shift 2
-            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -51,8 +39,6 @@ done
 
 echo "UPDATE_SERVER"
 
-echo "SHARED_PATH: $SHARED_PATH"
-echo "SHARED_BETA_PATH: $SHARED_BETA_PATH"
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
@@ -85,8 +71,6 @@ docker run --name map_update_server \
     --network=jaam \
     -d \
     -p "$PORT":"$PORT"  \
-    -v "$SHARED_PATH":/shared_data \
-    -v "$SHARED_BETA_PATH":/shared_beta_data \
     --env PORT="$PORT" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
