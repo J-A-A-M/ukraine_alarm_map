@@ -55,9 +55,6 @@ git pull
 echo "Building Docker image..."
 docker build -t map_update_server -f update_server/Dockerfile .
 
-# Make shared data folder
-cd ../
-mkdir -p "shared_data"
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
