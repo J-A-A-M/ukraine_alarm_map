@@ -66,7 +66,7 @@ docker run --name map_updater \
     --restart unless-stopped \
     --network=jaam \
     -d \
-    -v shared_data:/shared_data \
+    -v /shared_data:/shared_data \
     --env UPDATER_PERIOD="$UPDATER_PERIOD" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \

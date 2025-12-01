@@ -67,7 +67,7 @@ docker run --name map_update_server \
     --restart unless-stopped \
     --network=jaam \
     -d \
-    -v shared_data:/shared_data \
+    -v /shared_data:/shared_data \
     -p "$PORT":"$PORT"  \
     --env PORT="$PORT" \
     --env REDIS_HOST="$REDIS_HOST" \
