@@ -72,7 +72,6 @@ docker run --name map_updater \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
-    --env SHARED_PATH="/shared_data" \
     map_updater
 
 echo "Container deployed successfully!"

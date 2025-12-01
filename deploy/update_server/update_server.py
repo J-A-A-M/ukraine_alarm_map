@@ -332,7 +332,7 @@ async def update_cache(redis_client):
             releases = await fetch_github_releases()
             if releases:
                 if releases != old_data:
-                    
+            
                     await set_redis_data(logger, redis_client, "releases:data", releases)
                     await redis_client.publish("releases:data:updated", "1")
                     logger.info(f"✅ Оновлені дані releases:data {len(releases)} збережено в Redis")
