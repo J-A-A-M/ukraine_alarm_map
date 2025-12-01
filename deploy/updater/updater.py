@@ -4,6 +4,7 @@ import asyncio
 import logging
 import datetime
 import struct
+import httpx
 
 from copy import deepcopy
 import redis.asyncio as redis
@@ -14,7 +15,10 @@ try:
     from utils import (
         get_redis_data,
         set_redis_data,
-        run_with_restart
+        run_with_restart,
+        get_file_names,
+        release_filter,
+        beta_filter,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -24,7 +28,10 @@ except ImportError:
     from utils import (
         get_redis_data,
         set_redis_data,
-        run_with_restart
+        run_with_restart,
+        get_file_names,
+        release_filter,
+        beta_filter,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -53,6 +60,8 @@ redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
 update_period = int(os.environ.get("UPDATE_PERIOD", 1))
 update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
+shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
+shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -98,6 +107,68 @@ def get_current_datetime():
 
 def get_current_timestamp():
     return int(datetime.datetime.now(datetime.UTC).timestamp())
+
+
+async def download_file(url, filepath):
+    """Завантажує файл з URL та зберігає його локально"""
+    try:
+        async with httpx.AsyncClient() as client:
+            async with client.stream("GET", url, follow_redirects=True, timeout=60.0) as response:
+                response.raise_for_status()
+                with open(filepath, "wb") as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        f.write(chunk)
+        logger.info(f"✅ Завантажено файл: {os.path.basename(filepath)}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Помилка завантаження {os.path.basename(filepath)}: {e}")
+        return False
+
+
+async def sync_local_files(files_data, files_path):
+    """Синхронізує локальні файли з даними releases"""
+    if not files_data:
+        return
+    
+    # Створюємо директорію якщо не існує
+    os.makedirs(files_path, exist_ok=True)
+    
+    # Отримуємо список актуальних файлів з GitHub (з урахуванням strip_pattern)
+    remote_files = {item["name"]: item["url"] for item in files_data}
+    
+    # Отримуємо список локальних .bin файлів
+    local_files = set()
+    if os.path.exists(files_path):
+        local_files = {
+            f for f in os.listdir(files_path) 
+            if os.path.isfile(os.path.join(files_path, f)) and f.endswith(".bin")
+        }
+    
+    # Знаходимо файли які треба завантажити
+    files_to_download = set(remote_files.keys()) - local_files
+    
+    # Знаходимо файли які треба видалити
+    files_to_delete = local_files - set(remote_files.keys())
+    
+    # Видаляємо застарілі файли
+    for filename in files_to_delete:
+        try:
+            filepath = os.path.join(files_path, filename)
+            os.remove(filepath)
+            logger.info(f"🗑️  Видалено застарілий файл: {filename}")
+        except Exception as e:
+            logger.error(f"❌ Помилка видалення {filename}: {e}")
+    
+    # Завантажуємо нові файли
+    if files_to_download:
+        logger.info(f"📥 Завантажуємо {len(files_to_download)} нових файлів...")
+        for filename in files_to_download:
+            url = remote_files[filename]
+            filepath = os.path.join(files_path, filename)
+            await download_file(url, filepath)
+    
+    if not files_to_download and not files_to_delete:
+        logger.debug("✅ Локальні файли синхронізовані")
 
 
 def get_legacy_state_id(region_id):
@@ -796,6 +867,88 @@ async def update_websocket_v1_global_notifications(redis_client, run_once=False)
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
+async def update_releases_v1(redis_client, run_once=False):
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["releases:data:updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Функція обробки даних
+    async def process_releases():
+        try:
+            releases_cache, stored_data = await asyncio.gather(
+                get_redis_data(logger, redis_client, "releases:data", default_response=[]),
+                get_redis_data(logger, redis_client, "releases:production", default_response={}),
+            )
+
+            data = (get_file_names(logger, releases_cache, release_filter, strip_pattern="JAAM_"))[:5]
+            if data != stored_data:
+                # Синхронізуємо локальні файли з GitHub
+                await sync_local_files(data, shared_path)
+                
+                logger.debug("💾 Зберігаємо releases:production")
+                await asyncio.gather(
+                    set_redis_data(logger, redis_client, "releases:production", data)
+                )
+                await redis_client.publish("releases:production:updated", "1")
+                logger.info("✅ releases:production збережено")
+            else:
+                logger.info("ℹ️  releases:production не змінився")
+        except Exception as e:
+            logger.error(f"❌ update_releases_v1(process_releases): {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    async def process_beta():
+        try:
+            releases_cache, stored_data = await asyncio.gather(
+                get_redis_data(logger, redis_client, "releases:data", default_response=[]),
+                get_redis_data(logger, redis_client, "releases:beta", default_response={}),
+            )
+
+            data = (get_file_names(logger, releases_cache, beta_filter, strip_pattern="JAAM_"))[:10]
+            if data != stored_data:
+                # Синхронізуємо локальні файли з GitHub
+                await sync_local_files(data, shared_path_beta)
+                
+                logger.debug("💾 Зберігаємо releases:beta")
+                await asyncio.gather(
+                    set_redis_data(logger, redis_client, "releases:beta", data)
+                )
+                await redis_client.publish("releases:beta:updated", "1")
+                logger.info("✅ releases:beta збережено")
+            else:
+                logger.info("ℹ️  releases:beta не змінився")
+        except Exception as e:
+            logger.error(f"❌ update_releases_v1(process_releases): {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message['type'] == 'message':
+                channel = message['channel']
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                await asyncio.gather(
+                    process_releases(),
+                    process_beta()
+                )
+            
+            if run_once:
+                break
+            
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+            
+    except Exception as e:
+        logger.error(f"❌ update_releases_v1: {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
 async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
@@ -1057,126 +1210,134 @@ async def main():
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
         
         tasks = [
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_alerts,
+            #         redis_client,
+            #         "update_websocket_v1_alerts"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v2_alerts,
+            #         redis_client,
+            #         "update_websocket_v2_alerts"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_drones,
+            #         redis_client,
+            #         "update_websocket_v1_drones"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_missiles,
+            #         redis_client,
+            #         "update_websocket_v1_missiles"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_kabs,
+            #         redis_client,
+            #         "update_websocket_v1_kabs"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_explosions,
+            #         redis_client,
+            #         "update_websocket_v1_explosions"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_weather,
+            #         redis_client,
+            #         "update_websocket_v1_weather"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v2_drones,
+            #         redis_client,
+            #         "update_websocket_v2_drones"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v2_missiles,
+            #         redis_client,
+            #         "update_websocket_v2_missiles"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_energy,
+            #         redis_client,
+            #         "update_websocket_v1_energy"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_radiation,
+            #         redis_client,
+            #         "update_websocket_v1_radiation"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_v1_global_notifications,
+            #         redis_client,
+            #         "update_websocket_v1_global_notifications"
+            #     )
+            # ),
             asyncio.create_task(
                 run_with_restart(
                     logger,
-                    update_websocket_v1_alerts,
+                    update_releases_v1,
                     redis_client,
-                    "update_websocket_v1_alerts"
+                    "update_releases_v1"
                 )
             ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v2_alerts,
-                    redis_client,
-                    "update_websocket_v2_alerts"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_drones,
-                    redis_client,
-                    "update_websocket_v1_drones"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_missiles,
-                    redis_client,
-                    "update_websocket_v1_missiles"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_kabs,
-                    redis_client,
-                    "update_websocket_v1_kabs"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_explosions,
-                    redis_client,
-                    "update_websocket_v1_explosions"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_weather,
-                    redis_client,
-                    "update_websocket_v1_weather"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v2_drones,
-                    redis_client,
-                    "update_websocket_v2_drones"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v2_missiles,
-                    redis_client,
-                    "update_websocket_v2_missiles"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_energy,
-                    redis_client,
-                    "update_websocket_v1_energy"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_radiation,
-                    redis_client,
-                    "update_websocket_v1_radiation"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_v1_global_notifications,
-                    redis_client,
-                    "update_websocket_v1_global_notifications"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_fusion_v1_alerts,
-                    redis_client,
-                    "update_websocket_fusion_v1_alerts"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_fusion_v1_weather,
-                    redis_client,
-                    "update_websocket_fusion_v1_weather"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    update_websocket_fusion_v1_etryvoga,
-                    redis_client,
-                    "update_websocket_fusion_v1_etryvoga"
-                )
-            ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_fusion_v1_alerts,
+            #         redis_client,
+            #         "update_websocket_fusion_v1_alerts"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_fusion_v1_weather,
+            #         redis_client,
+            #         "update_websocket_fusion_v1_weather"
+            #     )
+            # ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger,
+            #         update_websocket_fusion_v1_etryvoga,
+            #         redis_client,
+            #         "update_websocket_fusion_v1_etryvoga"
+            #     )
+            # ),
         ]
         
         await asyncio.gather(*tasks)

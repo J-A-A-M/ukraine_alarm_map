@@ -5,20 +5,51 @@ import json
 import asyncio
 import httpx
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
 
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse, FileResponse, HTMLResponse
+from starlette.responses import JSONResponse, FileResponse, HTMLResponse, RedirectResponse
 from starlette.routing import Route
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import (
+        get_redis_data,
+        set_redis_data,
+        run_with_restart,
+        beta_filter,
+        release_filter,
+        get_file_names,
+    )
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    
+    from utils import (
+        get_redis_data,
+        set_redis_data,
+        run_with_restart,
+        beta_filter,
+        release_filter,
+        get_file_names,
+    )
+
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8090)
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
-shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
-shared_beta_path = os.environ.get("SHARED_BETA_PATH") or "/shared_beta_data"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
+shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
+shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
+update_loop_time = int(os.environ.get("UPDATE_PERIOD", 3600))
 github_token = os.environ.get("GITHUB_TOKEN")  # Optional: для підвищення ліміту API
 
 
@@ -99,8 +130,8 @@ async def main(request):
     return HTMLResponse(response)
 
 
-async def fetch_github_releases(filter_func):
-    """Отримує релізи з GitHub та фільтрує .bin файли згідно filter_func. Повертає список (filename, download_url)"""
+async def fetch_github_releases():
+    """Отримує релізи з GitHub та фільтрує .bin файли """
     try:
         headers = {"Accept": "application/vnd.github+json"}
         if github_token:
@@ -127,7 +158,7 @@ async def fetch_github_releases(filter_func):
                 if "assets" in release:
                     for asset in release["assets"]:
                         name = asset["name"]
-                        if name.endswith(".bin") and filter_func(name):
+                        if name.endswith(".bin"): # and filter_func(name):
                             files_with_urls.append({
                                 "name": name,
                                 "url": asset["browser_download_url"]
@@ -135,93 +166,68 @@ async def fetch_github_releases(filter_func):
             
             logger.info(f"Filtered {len(files_with_urls)} .bin files")
             # Сортуємо за версією у зворотному порядку (новіші спочатку)
-            return sorted(files_with_urls, key=lambda x: bin_sort(x["name"]), reverse=True)
+            return files_with_urls
     except Exception as e:
         logger.error(f"Error fetching releases from GitHub: {e}")
         return None
 
 
 async def list(request):
-    # Перевіряємо кеш
-    now = datetime.now()
-    if (releases_cache["data"] is not None and 
-        releases_cache["timestamp"] is not None and 
-        now - releases_cache["timestamp"] < releases_cache["ttl"]):
-        logger.debug("Returning cached releases list")
-        return JSONResponse(releases_cache["data"])
+    redis_client = request.app.state.redis_client
+
+    releases_cache = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
     
-    # Фільтр для релізних версій (без бета та спеціальних білдів)
-    def release_filter(name):
-        return ("JAAM" in name and
-                "-b" not in name and 
-                "C3" not in name and 
-                "S3" not in name and 
-                "lite" not in name.lower())
-    
-    files_data = await fetch_github_releases(release_filter)
+    files_data = get_file_names(logger, releases_cache, release_filter, strip_pattern="JAAM_")
     
     # Обмежуємо до 5 найновіших релізів
     files_data = files_data[:5]
-    
-    # Зберігаємо повну інформацію в кеш
-    releases_cache["data"] = files_data
-    releases_cache["timestamp"] = now
     
     # Повертаємо тільки назви файлів
     return JSONResponse([f["name"] for f in files_data])
 
 
 async def list_beta(request):
-    # Перевіряємо кеш
-    now = datetime.now()
-    if (beta_releases_cache["data"] is not None and 
-        beta_releases_cache["timestamp"] is not None and 
-        now - beta_releases_cache["timestamp"] < beta_releases_cache["ttl"]):
-        logger.debug("Returning cached beta releases list")
-        return JSONResponse(beta_releases_cache["data"])
+    redis_client = request.app.state.redis_client
+
+    releases_cache = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
     
-    # Фільтр для бета-версій (лише з -b)
-    def beta_filter(name):
-        return ("JAAM" in name and 
-                "-b" in name and 
-                "C3" not in name and 
-                "S3" not in name and 
-                "lite" not in name.lower())
-    
-    files_data = await fetch_github_releases(beta_filter)
+    files_data = get_file_names(logger, releases_cache, beta_filter, strip_pattern="JAAM_")
 
     # Обмежуємо до 10 найновіших бета-версій
     files_data = files_data[:10]
-
-    # Зберігаємо повну інформацію в кеш
-    beta_releases_cache["data"] = files_data
-    beta_releases_cache["timestamp"] = now
     
     # Повертаємо тільки назви файлів
     return JSONResponse([f["name"] for f in files_data])
 
 
 async def update(request):
-    from starlette.responses import RedirectResponse
+    redis_client = request.app.state.redis_client
     
     filename = request.path_params["filename"]
+
+    files_data = await get_redis_data(logger, redis_client, "releases:production", default_response=[])
     
-    # Перевіряємо кеш релізів
-    if releases_cache["data"] is None:
-        # Якщо кеш порожній, отримуємо дані
-        def release_filter(name):
-            return ("JAAM" in name and
-                    "-b" not in name and 
-                    "C3" not in name and 
-                    "S3" not in name and 
-                    "lite" not in name.lower())
-        
-        files_data = await fetch_github_releases(release_filter)
+    
+    if filename == "latest" or filename == "jaam":
+        # Повертаємо перший (найновіший) файл
         if files_data:
-            releases_cache["data"] = files_data[:5]
-            releases_cache["timestamp"] = datetime.now()
+            return FileResponse(f"{shared_path}/{files_data[0]['name']}")
+        raise HTTPException(status_code=404, detail="No releases found")
+    else:
+        # Шукаємо конкретний файл в кеші
+        target_filename = f"{filename}.bin"
+        for file_info in files_data:
+            if file_info["name"] == target_filename:
+                return FileResponse(f"{shared_path}/{file_info['name']}")
+        raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
+
+
+async def update_fusion(request):
+    redis_client = request.app.state.redis_client
     
-    files_data = releases_cache["data"] or []
+    filename = request.path_params["filename"]
+
+    files_data = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
     
     if filename == "latest" or filename == "jaam":
         # Повертаємо перший (найновіший) файл
@@ -235,117 +241,192 @@ async def update(request):
             if file_info["name"] == target_filename:
                 return RedirectResponse(url=file_info["url"])
         raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
-
-
-async def update_board(request):
-    return FileResponse(f'{shared_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
-
+    
 
 async def update_beta(request):
-    if request.path_params["filename"] == "latest_beta":
-        filenames = sorted(
-            [
-                file
-                for file in os.listdir(shared_beta_path)
-                if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
-            ],
-            key=bin_sort,
-            reverse=True,
+    redis_client = request.app.state.redis_client
+    
+    filename = request.path_params["filename"]
+
+    files_data = await get_redis_data(logger, redis_client, "releases:beta", default_response=[])
+    
+    if filename == "latest_beta" or filename == "jaam_beta":
+        # Повертаємо перший (найновіший) файл
+        if files_data:
+            return FileResponse(f"{shared_path_beta}/{files_data[0]['name']}")
+        raise HTTPException(status_code=404, detail="No releases found")
+    else:
+        # Шукаємо конкретний файл в кеші
+        target_filename = f"{filename}.bin"
+        for file_info in files_data:
+            if file_info["name"] == target_filename:
+                return FileResponse(f"{shared_path_beta}/{file_info['name']}")
+        raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
+    
+
+async def update_fusion_beta(request):
+    redis_client = request.app.state.redis_client
+    
+    filename = request.path_params["filename"]
+
+    files_data = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
+    
+    if filename == "latest_beta" or filename == "jaam_beta":
+        # Повертаємо перший (найновіший) файл
+        if files_data:
+            return RedirectResponse(url=files_data[0]["url"])
+        raise HTTPException(status_code=404, detail="No releases found")
+    else:
+        # Шукаємо конкретний файл в кеші
+        target_filename = f"{filename}.bin"
+        for file_info in files_data:
+            if file_info["name"] == target_filename:
+                return RedirectResponse(url=file_info["url"])
+        raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
+
+
+# Legacy function - disabled (shared_path not defined)
+# async def update_board(request):
+#     return FileResponse(f'{shared_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
+
+
+# Legacy functions - disabled (shared_path and shared_beta_path not defined)
+# async def update(request):
+#     if request.path_params["filename"] == "latest" or request.path_params["filename"] == "jaam":
+#         filenames = sorted(
+#             [
+#                 file
+#                 for file in os.listdir(shared_path_beta)
+#                 if (os.path.isfile(os.path.join(shared_path_beta, file)) and file.endswith(".bin"))
+#             ],
+#             key=bin_sort,
+#             reverse=True,
+#         )
+#         filenames = [filename for filename in filenames if not filename.startswith("4.")]
+#         return FileResponse(f"{shared_path_beta}/{filenames[0]}")
+#     if request.path_params["filename"] == "jaam_beta":
+#         filenames = sorted(
+#             [
+#                 file
+#                 for file in os.listdir(shared_path_beta)
+#                 if (os.path.isfile(os.path.join(shared_path_beta, file)) and file.endswith(".bin"))
+#             ],
+#             key=bin_sort,
+#             reverse=True,
+#         )
+#         return FileResponse(f"{shared_path_beta}/{filenames[0]}")
+#     return FileResponse(f'{shared_path_beta}/{request.path_params["filename"]}.bin')
+
+
+# async def update_beta_board(request):
+#     return FileResponse(f'{shared_beta_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
+
+
+async def update_cache(redis_client):
+    while True:
+        try:
+            logger.debug("start update_cache")
+
+            old_data = await get_redis_data(logger,redis_client, "releases:data", default_response=[])
+
+            releases = await fetch_github_releases()
+            if releases:
+                if releases != old_data:
+                    
+                    await set_redis_data(logger, redis_client, "releases:data", releases)
+                    await redis_client.publish("releases:data:updated", "1")
+                    logger.info(f"✅ Оновлені дані releases:data {len(releases)} збережено в Redis")
+                else:
+                    logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+            else:
+                logger.debug("❌  Дані відсутні, пропускаємо збереження")
+            logger.debug("end update_cache")
+            await asyncio.sleep(update_loop_time)
+        except asyncio.CancelledError:
+            logger.error("❌ update_cache: task canceled. Shutting down...")
+            await redis_client.close()
+            break
+        except Exception as e:
+            logger.error(f"❌ Error in update_cache: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+            await asyncio.sleep(update_loop_time)
+
+
+@asynccontextmanager
+async def lifespan(app: Starlette):
+    # Startup: create Redis connection
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding='utf-8',
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30
+    )
+    
+    try:
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+        
+        # Store redis_client in app state
+        app.state.redis_client = redis_client
+        
+        # Start background tasks
+        update_cache_task = asyncio.create_task(
+            run_with_restart(
+                logger,
+                update_cache,
+                redis_client,
+                "update_cache"
+            )
         )
-        filenames = [filename for filename in filenames if not filename.startswith("4.")]
-        return FileResponse(f"{shared_beta_path}/{filenames[0]}")
-    if request.path_params["filename"] == "jaam_beta":
-        filenames = sorted(
-            [
-                file
-                for file in os.listdir(shared_path)
-                if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
-            ],
-            key=bin_sort,
-            reverse=True,
-        )
-        return FileResponse(f"{shared_path}/{filenames[0]}")
-    return FileResponse(f'{shared_beta_path}/{request.path_params["filename"]}.bin')
+        
+        yield
+        
+        # Shutdown: cleanup
+        logger.info("⏹️  Shutting down...")
+        update_cache_task.cancel()
+        try:
+            await update_cache_task
+        except asyncio.CancelledError:
+            pass
+        
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
-async def update_beta_board(request):
-    return FileResponse(f'{shared_beta_path}/{request.path_params["board"]}/{request.path_params["filename"]}.bin')
-
-
-async def update_cache():
-    filenames = sorted(
-        [
-            file
-            for file in os.listdir(shared_path)
-            if (os.path.isfile(os.path.join(shared_path, file)) and file.endswith(".bin"))
-        ]
-    )
-    beta_filenames = sorted(
-        [
-            file
-            for file in os.listdir(shared_beta_path)
-            if (os.path.isfile(os.path.join(shared_beta_path, file)) and file.endswith(".bin"))
-        ]
-    )
-    # s3_filenames = sorted(
-    #     [
-    #         file
-    #         for file in os.listdir(f"{shared_path}/s3/")
-    #         if (os.path.isfile(os.path.join(f"{shared_path}/s3/", file)) and file.endswith(".bin"))
-    #     ],
-    #     key=bin_sort,
-    #     reverse=True,
-    # )
-    s3_beta_filenames = sorted(
-        [
-            file
-            for file in os.listdir(f"{shared_beta_path}/s3/")
-            if (os.path.isfile(os.path.join(f"{shared_beta_path}/s3/", file)) and file.endswith(".bin"))
-        ],
-        key=bin_sort,
-        reverse=True,
-    )
-    # c3_filenames = sorted(
-    #     [
-    #         file
-    #         for file in os.listdir(f"{shared_path}/c3/")
-    #         if (os.path.isfile(os.path.join(f"{shared_path}/c3/", file)) and file.endswith(".bin"))
-    #     ],
-    #     key=bin_sort,
-    #     reverse=True,
-    # )
-    c3_beta_filenames = sorted(
-        [
-            file
-            for file in os.listdir(f"{shared_beta_path}/c3/")
-            if (os.path.isfile(os.path.join(f"{shared_beta_path}/c3/", file)) and file.endswith(".bin"))
-        ],
-        key=bin_sort,
-        reverse=True,
-    )
-    #await mc.set(b"bins", json.dumps(filenames).encode("utf-8"))
-    #await mc.set(b"test_bins", json.dumps(beta_filenames).encode("utf-8"))
-    # await mc.set(b"s3_bins", json.dumps(s3_filenames).encode("utf-8"))
-    #await mc.set(b"s3_test_bins", json.dumps(s3_beta_filenames).encode("utf-8"))
-    # await mc.set(b"c3_bins", json.dumps(c3_filenames).encode("utf-8"))
-    #await mc.set(b"c3_test_bins", json.dumps(c3_beta_filenames).encode("utf-8"))
+async def home(request):
+    response = """
+    <!DOCTYPE html>
+    <html lang='en'>
+    </html>
+    """
+    return HTMLResponse(response)
 
 
 app = Starlette(
     debug=debug,
     exception_handlers=exception_handlers,
+    lifespan=lifespan,
     routes=[
-        Route("/", main),
+        Route("/", home),
         Route("/list", list),
         Route("/betalist", list_beta),
         Route("/{filename}.bin", update),
         Route("/beta/{filename}.bin", update_beta),
-        Route("/{board}/{filename}.bin", update_board),
-        Route("/beta/{board}/{filename}.bin", update_beta_board),
+        Route("/fusion/{filename}.bin", update_fusion),
+        Route("/fusion/beta/{filename}.bin", update_fusion_beta),
+        # Route("/{board}/{filename}.bin", update_board),
+        # Route("/beta/{board}/{filename}.bin", update_beta_board),
     ],
 )
 
-
 if __name__ == "__main__":
-    #asyncio.run(update_cache())
     uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips=["*"])

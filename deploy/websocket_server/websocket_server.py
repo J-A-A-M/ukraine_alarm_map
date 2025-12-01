@@ -817,20 +817,14 @@ async def alerts_data(
                 logger.info(f"{client_ip}:{chip_id} <<< new weather")
                 client["weather"] = shared_data.weather_v1
             if client["bins"] != shared_data.bins and "-s3" not in firmware and "-c3" not in firmware:
-                temp_bins = list(shared_data.bins)
-                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
-                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
-                    temp_bins.append("latest.bin")
+                temp_bins = [bin["name"] for bin in shared_data.bins]
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "bins", "bins": %s}' % temp_bins
                 await websocket.send(payload)
                 logger.info(f"{client_ip}:{chip_id} <<< new bins")
                 client["bins"] = shared_data.bins
             if client["test_bins"] != shared_data.test_bins and "-s3" not in firmware and "-c3" not in firmware:
-                temp_bins = list(shared_data.test_bins)
-                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
-                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
-                    temp_bins.append("latest_beta.bin")
+                temp_bins = [bin["name"] for bin in shared_data.test_bins]
                 temp_bins.sort(key=bin_sort, reverse=True)
                 payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
                 await websocket.send(payload)
@@ -1146,13 +1140,13 @@ async def update_legacy_data(shared_data, redis_client):
             "attr_name": "global_notifications_v1",
             "default_response": []
         },
-        "bins": {
-            "redis_key": "bins",
+        "releases_production": {
+            "redis_key": "releases:production",
             "attr_name": "bins",
             "default_response": []
         },
-        "test_bins": {
-            "redis_key": "test_bins",
+        "releases_beta": {
+            "redis_key": "releases:beta",
             "attr_name": "test_bins",
             "default_response": []
         },
@@ -1193,8 +1187,8 @@ async def update_legacy_data(shared_data, redis_client):
         "websocket:v1:legacy:energy:updated": "websocket_v1_energy",
         "websocket:v1:legacy:radiation:updated": "websocket_v1_radiation",
         "websocket:v1:legacy:global_notifications:updated": "websocket_v1_global_notifications",
-        "bins:updated": "bins",
-        "test_bins:updated": "test_bins",
+        "releases:production:updated": "releases_production",
+        "releases:beta:updated": "releases_beta",
         "s3_bins:updated": "s3_bins",
         "s3_test_bins:updated": "s3_test_bins",
         "c3_bins:updated": "c3_bins",

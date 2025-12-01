@@ -66,11 +66,13 @@ docker run --name map_updater \
     --restart unless-stopped \
     --network=jaam \
     -d \
+    -v shared_data:/shared_data \
     --env UPDATER_PERIOD="$UPDATER_PERIOD" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
+    --env SHARED_PATH="/shared_data" \
     map_updater
 
 echo "Container deployed successfully!"

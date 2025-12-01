@@ -41,6 +41,38 @@ def get_random_proxy(proxies):
     return random.choice(proxies.split("::")).strip()
 
 
+# Фільтр для бета-версій (лише з -b)
+def beta_filter(name):
+    return ("JAAM" in name and 
+            "C3" not in name and 
+            "S3" not in name and 
+            "lite" not in name.lower())
+
+
+def release_filter(name):
+    return ("JAAM" in name and
+            "-b" not in name and 
+            "C3" not in name and 
+            "S3" not in name and 
+            "lite" not in name.lower())
+
+def get_file_names(logger, releases, filter_func=None, strip_pattern=None):
+    if not releases:
+        logger.warning("No releases data found in Redis")
+        return []
+    
+    if filter_func:
+        filtered_files = [{"name": f["name"], "url": f["url"]} for f in releases if filter_func(f["name"])]
+    else:
+        filtered_files = [{"name": f["name"], "url": f["url"]} for f in releases]
+    
+    # Прибираємо маску де завгодно у назві файлу
+    if strip_pattern:
+        filtered_files = [{"name": f["name"].replace(strip_pattern, ""), "url": f["url"]} for f in filtered_files]
+    
+    return filtered_files
+
+
 async def service_is_fine(logger, redis_client, key):
     """
     Зберегти час останнього успішного виклику в Redis

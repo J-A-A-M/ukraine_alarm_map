@@ -67,6 +67,7 @@ docker run --name map_update_server \
     --restart unless-stopped \
     --network=jaam \
     -d \
+    -v shared_data:/shared_data \
     -p "$PORT":"$PORT"  \
     --env PORT="$PORT" \
     --env REDIS_HOST="$REDIS_HOST" \
@@ -76,4 +77,3 @@ docker run --name map_update_server \
     map_update_server
 
 echo "Container deployed successfully!"
-
