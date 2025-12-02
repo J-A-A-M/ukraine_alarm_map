@@ -79,7 +79,7 @@ docker run --name map_update_server \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
-    --env GITHUB_TOKEN="$GITHUB_TOKEN
+    --env GITHUB_TOKEN="$GITHUB_TOKEN" \
     --env LOGGING="$LOGGING" \
     map_update_server
 
