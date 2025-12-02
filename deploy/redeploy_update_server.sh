@@ -4,6 +4,7 @@
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
+GITHUB_TOKEN=""
 PORT=8090
 LOGGING="INFO"
 
@@ -20,6 +21,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -db|--redis-db)
             REDIS_DB="$2"
+            shift 2
+            ;;
+        -g|--github-token)
+            GITHUB_TOKEN="$2"
             shift 2
             ;;
         -p|--port)
@@ -42,6 +47,7 @@ echo "UPDATE_SERVER"
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
+echo "GITHUB_TOKEN: $GITHUB_TOKEN"
 echo "PORT: $PORT"
 echo "LOGGING: $LOGGING"
 
@@ -73,6 +79,7 @@ docker run --name map_update_server \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
+    --env GITHUB_TOKEN="$GITHUB_TOKEN
     --env LOGGING="$LOGGING" \
     map_update_server
 
