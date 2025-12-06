@@ -683,8 +683,8 @@ async def alerts_data_fusion(
 
                     await asyncio.sleep(0.01)  # 10ms замість 100ms
 
-    except asyncio.exceptions.CancelledError:
-        logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled, closing connection")
+    except asyncio.CancelledError as e:
+        logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled - {e}")
     except ChipIdTimeoutException:
         logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
     except FirmwareTimeoutException:
@@ -863,8 +863,8 @@ async def alerts_data(
                 client["test_bins"] = shared_data.c3_test_bins
 
             await asyncio.sleep(0.5)
-        except asyncio.exceptions.CancelledError:
-            logger.info(f"{client_ip}:{client_id} !!! alerts_data cancelled, closing connection")
+        except asyncio.CancelledError:
+            logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled - {e}")
             break
         except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
