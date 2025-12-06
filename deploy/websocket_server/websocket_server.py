@@ -573,11 +573,12 @@ def fing_changed_regions(old_state, new_state):
 async def alerts_data_fusion(
     websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
 ):
+    pubsub = None
     try:
         chip_id = await get_client_chip_id(client)
         firmware = await get_client_firmware(client)
         redis_client = shared_data.redis_client
-        pubsub = None
+        
         #logger.debug(f"{client_ip}:{chip_id}: check")
         match alert_version:
             case AlertVersion.v1:
@@ -682,6 +683,8 @@ async def alerts_data_fusion(
 
                     await asyncio.sleep(0.01)  # 10ms замість 100ms
 
+    except asyncio.exceptions.CancelledError:
+        logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled, closing connection")
     except ChipIdTimeoutException:
         logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
     except FirmwareTimeoutException:
@@ -860,6 +863,9 @@ async def alerts_data(
                 client["test_bins"] = shared_data.c3_test_bins
 
             await asyncio.sleep(0.5)
+        except asyncio.exceptions.CancelledError:
+            logger.info(f"{client_ip}:{client_id} !!! alerts_data cancelled, closing connection")
+            break
         except ChipIdTimeoutException:
             logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
             break
