@@ -685,10 +685,10 @@ async def alerts_data_fusion(
 
     except asyncio.CancelledError as e:
         logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled - {e}")
-    except ChipIdTimeoutException:
-        logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-    except FirmwareTimeoutException:
-        logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+    except ChipIdTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection - {e}")
+    except FirmwareTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection - {e}")
     except Exception as e:
         logger.error(f"{client_ip}:{client_id} !!! alerts_data_fusion Exception - {e}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
@@ -863,14 +863,14 @@ async def alerts_data(
                 client["test_bins"] = shared_data.c3_test_bins
 
             await asyncio.sleep(0.5)
-        except asyncio.CancelledError:
-            logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled - {e}")
+        except asyncio.CancelledError as e:
+            logger.info(f"{client_ip}:{client_id} !!! alerts_data cancelled - {e}")
             break
-        except ChipIdTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
+        except ChipIdTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection - {e}")
             break
-        except FirmwareTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
+        except FirmwareTimeoutException as e:
+            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection - {e}")
             break
         except Exception as e:
             logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
