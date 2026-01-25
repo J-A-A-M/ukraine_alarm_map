@@ -517,7 +517,7 @@ async def update_websocket_v1_weather(redis_client, run_once=False):
     async def process():
         try:
             # Отримуємо значення паралельно (одночасно, але з правильною обробкою типів)
-            cache = await get_redis_data(logger, redis_client, "weather:openweathermap:data", default_response={"states": {}, "info": {"last_update": None}})
+            cache = await get_redis_data(logger, redis_client, "weather:openweathermap:data", default_response=[])
 
             data = [0] * LEGACY_LED_COUNT
 
