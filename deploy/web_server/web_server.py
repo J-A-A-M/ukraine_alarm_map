@@ -25,19 +25,19 @@ try:
         get_current_datetime,
         calculate_time_difference,
         format_time,
-        get_redis_data_by_pattern
+        get_redis_data_by_pattern,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
+
     from utils import (
         get_redis_data,
         get_current_datetime,
         calculate_time_difference,
         format_time,
-        get_redis_data_by_pattern
+        get_redis_data_by_pattern,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -45,13 +45,13 @@ regions = {}
 try:
     # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
     regions_path = Path(__file__).resolve().parent / "regions.json"
-    with open(regions_path, 'r', encoding='utf-8') as f:
+    with open(regions_path, "r", encoding="utf-8") as f:
         regions = json.load(f)
 except FileNotFoundError:
     # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
     try:
         regions_path = Path(__file__).resolve().parent.parent / "regions.json"
-        with open(regions_path, 'r', encoding='utf-8') as f:
+        with open(regions_path, "r", encoding="utf-8") as f:
             regions = json.load(f)
     except FileNotFoundError:
         # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
@@ -91,29 +91,31 @@ redis_client = None
 # Будується один раз при запуску для оптимізації
 region_to_state_cache = {}
 
+
 def build_region_cache():
     """
     Будує кеш для швидкого пошуку області за regionId
     Ключ: regionId, Значення: назва області (state)
     """
     global region_to_state_cache
-    
+
     # Спочатку створюємо словник stateId -> state_name
     state_names = {}
     for data in regions.values():
-        region_id = data.get('regionId')
-        state_id = data.get('stateId')
+        region_id = data.get("regionId")
+        state_id = data.get("stateId")
         if region_id == state_id:  # Це область (state)
-            state_names[state_id] = data.get('name')
-    
+            state_names[state_id] = data.get("name")
+
     # Тепер для кожного регіону знаходимо назву його області
     for data in regions.values():
-        region_id = data.get('regionId')
-        state_id = data.get('stateId')
+        region_id = data.get("regionId")
+        state_id = data.get("stateId")
         if state_id in state_names:
             region_to_state_cache[region_id] = state_names[state_id]
-    
+
     logger.info(f"Region cache built: {len(region_to_state_cache)} entries")
+
 
 # Будуємо кеш при імпорті модуля
 if regions:
@@ -123,13 +125,13 @@ if regions:
 def get_state_name_by_region_id(region_id):
     """
     Швидкий пошук назви області за regionId
-    
+
     Args:
         region_id: ID регіону (може бути району або самої області)
-    
+
     Returns:
         str: Назва області або None якщо не знайдено
-    
+
     Examples:
         >>> get_state_name_by_region_id(13)  # Івано-Франківська область
         'Івано-Франківська область'
@@ -156,7 +158,6 @@ async def server_error(request: Request, exc: HTTPException):
 
 
 exception_handlers = {404: not_found, 500: server_error}
-
 
 
 # regions = {
@@ -316,7 +317,7 @@ async def main(request):
 
 
 def get_region_name(search_key, region_id):
-    return next((data['name'] for _, data in regions.items() if data.get(search_key) == region_id), None)
+    return next((data["name"] for _, data in regions.items() if data.get(search_key) == region_id), None)
 
 
 async def alerts_v1(request):
@@ -333,7 +334,7 @@ async def alerts_v1(request):
                     "type": "state",
                     "disabled_at": None,
                     "enabled_at": None,
-                }               
+                }
 
         for region_data in alerts:
             if region_data["regionType"] == "State":
@@ -348,7 +349,7 @@ async def alerts_v1(request):
             if region_data["regionType"] == "District" and region_data["activeAlerts"]:
                 # Використовуємо нову швидку функцію для пошуку назви області
                 state_name = get_state_name_by_region_id(int(region_data["regionId"]))
-                
+
                 if state_name and state_name in data["states"] and not data["states"][state_name]["enabled"]:
                     data["states"][state_name] = {
                         "district": True,
@@ -357,7 +358,7 @@ async def alerts_v1(request):
                         "disabled_at": None,
                         "enabled_at": format_time(region_data["lastUpdate"]),
                     }
-            
+
     except json.JSONDecodeError:
         data = {"error": "Failed to decode cached data"}
 
@@ -370,14 +371,9 @@ async def alerts_v2(request):
 
         data = {"version": 2, "states": {}}
 
-
         for _, region in regions.items():
             if region["regionId"] > -1 and region["regionId"] == region["stateId"]:
-                data["states"][region["name"]] = {
-                    "alertnow": False,
-                    "district": False,
-                    "changes": None
-                }               
+                data["states"][region["name"]] = {"alertnow": False, "district": False, "changes": None}
 
         for region_data in alerts:
             if region_data["regionType"] == "State":
@@ -390,7 +386,7 @@ async def alerts_v2(request):
             if region_data["regionType"] == "District" and region_data["activeAlerts"]:
                 # Використовуємо нову швидку функцію для пошуку назви області
                 state_name = get_state_name_by_region_id(int(region_data["regionId"]))
-                
+
                 if state_name and state_name in data["states"] and not data["states"][state_name]["alertnow"]:
                     data["states"][state_name] = {
                         "district": True,
@@ -411,15 +407,17 @@ async def alerts_v3(request):
 
         for _, region in regions.items():
             if region["regionId"] > -1 and region["regionId"] == region["stateId"]:
-                data["states"][region["name"]] = False              
+                data["states"][region["name"]] = False
 
         for region_data in alerts:
             if region_data["regionType"] == "State":
-                data["states"][region_data["regionName"]] = True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False
+                data["states"][region_data["regionName"]] = (
+                    True if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"]) else False
+                )
             if region_data["regionType"] == "District" and region_data["activeAlerts"]:
                 # Використовуємо нову швидку функцію для пошуку назви області
                 state_name = get_state_name_by_region_id(int(region_data["regionId"]))
-                
+
                 if state_name and state_name in data["states"] and not data["states"][state_name]:
                     data["states"][state_name] = True
 
@@ -432,7 +430,9 @@ async def alerts_v3(request):
 async def weather_v1(request):
     try:
         weather = await get_redis_data(logger, redis_client, "weather:openweathermap:data", default_response={})
-        last_update = await get_redis_data(logger, redis_client, "weather:openweathermap:last_call", default_response="")
+        last_update = await get_redis_data(
+            logger, redis_client, "weather:openweathermap:last_call", default_response=""
+        )
 
         data = {"version": 1, "states": {}, "info": {}}
 
@@ -455,7 +455,9 @@ async def weather_v1(request):
 async def weather_v2(request):
     try:
         weather = await get_redis_data(logger, redis_client, "weather:openweathermap:data", default_response={})
-        last_update = await get_redis_data(logger, redis_client, "weather:openweathermap:last_call", default_response="")
+        last_update = await get_redis_data(
+            logger, redis_client, "weather:openweathermap:last_call", default_response=""
+        )
 
         data = {"version": 2, "states": {}, "info": {}}
 
@@ -472,19 +474,17 @@ def etryvoga_v1(cached):
     try:
         if cached:
             data = {
-                "version": 1, 
-                "states": {}, 
+                "version": 1,
+                "states": {},
                 "info": {
                     "description": "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
-                    }
-                }
+                },
+            }
             for _, region in regions.items():
                 if region["regionId"] > -1 and region["regionId"] == region["stateId"]:
-                    data["states"][region["name"]] = {
-                        "changes": None
-                    }               
-            for region_id,region_data in cached.items():
-                state_name = get_state_name_by_region_id(int(region_id))            
+                    data["states"][region["name"]] = {"changes": None}
+            for region_id, region_data in cached.items():
+                state_name = get_state_name_by_region_id(int(region_id))
                 if state_name and state_name in data["states"]:
                     data["states"][state_name]["changes"] = format_time(region_data)
         else:
@@ -498,17 +498,17 @@ def etryvoga_v2(cached):
     try:
         if cached:
             data = {
-                "version": 1, 
-                "states": {}, 
+                "version": 1,
+                "states": {},
                 "info": {
                     "description": "Час в GMT+0 з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
-                    }
-                }
+                },
+            }
             for _, region in regions.items():
                 if region["regionId"] > -1 and region["regionId"] == region["stateId"]:
-                    data["states"][region["name"]] = None              
-            for region_id,region_data in cached.items():
-                state_name = get_state_name_by_region_id(int(region_id))            
+                    data["states"][region["name"]] = None
+            for region_id, region_data in cached.items():
+                state_name = get_state_name_by_region_id(int(region_id))
                 if state_name and state_name in data["states"]:
                     data["states"][state_name] = format_time(region_data)
         else:
@@ -522,19 +522,21 @@ def etryvoga_v3(cached):
     try:
         if cached:
             data = {
-                "version": 1, 
-                "states": {}, 
+                "version": 1,
+                "states": {},
                 "info": {
                     "description": "Час в секундах з моменту зміни статусу. Дані з сервісу https://app.etryvoga.com/"
-                    }
-                }
+                },
+            }
             for _, region in regions.items():
                 if region["regionId"] > -1 and region["regionId"] == region["stateId"]:
-                    data["states"][region["name"]] = None              
-            for region_id,region_data in cached.items():
-                state_name = get_state_name_by_region_id(int(region_id))            
+                    data["states"][region["name"]] = None
+            for region_id, region_data in cached.items():
+                state_name = get_state_name_by_region_id(int(region_id))
                 if state_name and state_name in data["states"]:
-                    data["states"][state_name] = calculate_time_difference(format_time(region_data),get_current_datetime())
+                    data["states"][state_name] = calculate_time_difference(
+                        format_time(region_data), get_current_datetime()
+                    )
         else:
             data = {}
     except json.JSONDecodeError:
@@ -591,9 +593,11 @@ async def kabs_v1(request):
     cached = await get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={})
     return JSONResponse(etryvoga_v1(cached), headers={"Content-Type": "application/json; charset=utf-8"})
 
+
 async def kabs_v2(request):
     cached = await get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={})
     return JSONResponse(etryvoga_v2(cached), headers={"Content-Type": "application/json; charset=utf-8"})
+
 
 async def kabs_v3(request):
     cached = await get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={})
@@ -603,9 +607,7 @@ async def kabs_v3(request):
 async def etryvoga_full(request):
     if request.path_params["token"] == data_token:
         etryvoga_full = await get_redis_data(logger, redis_client, "alerts:etryvoga:full:data", default_response={})
-        return JSONResponse(
-            etryvoga_full, headers={"Content-Type": "application/json; charset=utf-8"}
-        )
+        return JSONResponse(etryvoga_full, headers={"Content-Type": "application/json; charset=utf-8"})
     else:
         return JSONResponse({})
 
@@ -645,7 +647,6 @@ async def api_status(request):
         get_redis_data(logger, redis_client, "energy:ukrenergo:last_call", default_response=""),
         get_redis_data(logger, redis_client, "radiation:saveecobot:data:last_call", default_response=""),
     )
-
 
     alert_time_diff = calculate_time_difference(alerts, get_current_datetime())
     weather_time_diff = calculate_time_difference(weather, get_current_datetime())
@@ -718,11 +719,7 @@ async def stats(request):
     if request.path_params["token"] == data_token:
 
         # Отримуємо всі дані клієнтів по масці
-        all_clients_data = await get_redis_data_by_pattern(
-            logger, 
-            redis_client, 
-            "websocket:clients:*"
-        )
+        all_clients_data = await get_redis_data_by_pattern(logger, redis_client, "websocket:clients:*")
 
         websocket_clients = await dataparcer(all_clients_data, "websockets")
 
@@ -736,9 +733,21 @@ async def stats(request):
                 for data in websocket_clients
             },
             "google": websocket_clients,
-            "api": {ip: f"{int(current_time - float(data[0]))} {data[1]}" for ip, data in api_clients.items() if current_time - float(data[0]) <= max_age},
-            "img": {ip: f"{int(current_time - float(data[0]))} {data[1]}" for ip, data in image_clients.items() if current_time - float(data[0]) <= max_age},
-            "web": {ip: f"{int(current_time - float(data[0]))} {data[1]}" for ip, data in web_clients.items() if current_time - float(data[0]) <= max_age},
+            "api": {
+                ip: f"{int(current_time - float(data[0]))} {data[1]}"
+                for ip, data in api_clients.items()
+                if current_time - float(data[0]) <= max_age
+            },
+            "img": {
+                ip: f"{int(current_time - float(data[0]))} {data[1]}"
+                for ip, data in image_clients.items()
+                if current_time - float(data[0]) <= max_age
+            },
+            "web": {
+                ip: f"{int(current_time - float(data[0]))} {data[1]}"
+                for ip, data in web_clients.items()
+                if current_time - float(data[0]) <= max_age
+            },
         }
 
         logger.info(f"Stats: '{response}'")
@@ -793,10 +802,10 @@ async def startup_event():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
     logger.info(f"Redis client initialized: {redis_host}:{redis_port}")
 
@@ -808,6 +817,7 @@ async def shutdown_event():
     if redis_client:
         await redis_client.close()
         logger.info("Redis client closed")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips=["*"])

@@ -36,9 +36,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:missiles:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:missiles:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:missiles:data":
@@ -70,9 +70,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     апдейт часу першої тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:missiles:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:missiles:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:missiles:data":

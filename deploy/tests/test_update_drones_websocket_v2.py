@@ -51,9 +51,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання перших даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -98,9 +98,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     закінчення тривог, має бути актуальна дата закінчення
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -137,9 +137,9 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     оновлення активних тривог, дата активних не має мінятись
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -177,9 +177,9 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     оновлення активних тривог, інший тип, актальних нема
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -216,9 +216,9 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     тривог нема, дані не міняються
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -251,9 +251,9 @@ async def test_6(mock_get_redis_data, mock_set_redis_data):
     є нова тривога
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -290,9 +290,9 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
     зберігання перших даних не повинно відбутись
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:reasons:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)

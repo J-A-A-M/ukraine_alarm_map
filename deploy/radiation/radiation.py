@@ -13,25 +13,13 @@ import sys
 from pathlib import Path
 
 try:
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        truncate_name,
-        run_with_restart
-    )
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        truncate_name,
-        run_with_restart
-    )
+
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
 
 version = 2
 
@@ -80,7 +68,6 @@ async def handle_retry(attempt: int, max_retries: int, base_delay: int) -> bool:
     return True
 
 
-
 async def fetch_data(url: str, max_retries: int = 5, base_delay: int = 10) -> Optional[dict]:
     attempt = 0
     timeout = aiohttp.ClientTimeout(total=30)
@@ -119,11 +106,11 @@ async def fetch_data(url: str, max_retries: int = 5, base_delay: int = 10) -> Op
 
 async def get_sensors(redis_client) -> None:
     last_execution_time = 0
-    
+
     while True:
         try:
             current_time = asyncio.get_event_loop().time()
-            
+
             if current_time - last_execution_time >= sensors_loop_time:
                 sensors_data = await fetch_data(url=sensors_url)
                 if not sensors_data or not sensors_data.get("data"):
@@ -135,26 +122,26 @@ async def get_sensors(redis_client) -> None:
 
                 logger.debug("💾 Зберігаємо оновлені дані в Redis...")
                 await asyncio.gather(
-                        set_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", data),
-                        service_is_fine(logger, redis_client, "radiation:saveecobot:sensors:last_call"),
-                    )
+                    set_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", data),
+                    service_is_fine(logger, redis_client, "radiation:saveecobot:sensors:last_call"),
+                )
                 logger.info("✅ Оновлені дані збережено в Redis")
                 last_execution_time = current_time
-            
+
         except Exception as e:
             logger.error(f"❌ Error in get_sensors: {e}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-        
+
         await asyncio.sleep(1)
 
 
 async def get_data(redis_client) -> None:
     last_execution_time = 0
-    
+
     while True:
         try:
             current_time = asyncio.get_event_loop().time()
-            
+
             if current_time - last_execution_time >= data_loop_time:
                 states_data = await fetch_data(url=data_url)
                 if not states_data or not states_data.get("data"):
@@ -166,9 +153,9 @@ async def get_data(redis_client) -> None:
 
                 logger.debug("💾 Зберігаємо оновлені дані в Redis...")
                 await asyncio.gather(
-                        set_redis_data(logger, redis_client, "radiation:saveecobot:data:data", data),
-                        service_is_fine(logger, redis_client, "radiation:saveecobot:data:last_call"),
-                    )
+                    set_redis_data(logger, redis_client, "radiation:saveecobot:data:data", data),
+                    service_is_fine(logger, redis_client, "radiation:saveecobot:data:last_call"),
+                )
                 await redis_client.publish("radiation:saveecobot:updated", "1")
                 logger.info("✅ Оновлені дані збережено в Redis")
                 last_execution_time = current_time
@@ -176,7 +163,7 @@ async def get_data(redis_client) -> None:
         except Exception as e:
             logger.error(f"❌ Error in get_data: {e}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-        
+
         await asyncio.sleep(1)
 
 
@@ -187,37 +174,23 @@ async def main():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         tasks = [
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    get_sensors,
-                    redis_client,
-                    "get_sensors"
-                )
-            ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    get_data,
-                    redis_client,
-                    "get_data"
-                )
-            ),
+            asyncio.create_task(run_with_restart(logger, get_sensors, redis_client, "get_sensors")),
+            asyncio.create_task(run_with_restart(logger, get_data, redis_client, "get_data")),
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise
@@ -229,4 +202,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

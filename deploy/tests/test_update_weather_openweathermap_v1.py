@@ -45,7 +45,7 @@ def get_weather_mock(**kwargs):
             "wind_deg": 108,
             "wind_gust": 2.79,
             "weather": [{"id": 803, "main": "Clouds", "description": "Рвані хмари", "icon": "04n"}],
-            "region": {"regionId": kwargs.get("regionId", 31)}  # Київ
+            "region": {"regionId": kwargs.get("regionId", 31)},  # Київ
         }
     ]
     return data
@@ -60,11 +60,12 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання перших даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'weather:openweathermap:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "weather:openweathermap:updated", "data": "1"}]
+    )
 
     """перевірка round up"""
+
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "weather:openweathermap:data":
             return get_weather_mock(temp=2.8)
@@ -80,6 +81,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     assert calls[0][0][3] == expected_result
 
     """перевірка match"""
+
     async def get_redis_side_effect2(_logger, _client, key, default_response=None):
         if key == "weather:openweathermap:data":
             return get_weather_mock(temp=4)
@@ -87,9 +89,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect2
     mock_set_redis_data.reset_mock()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'weather:openweathermap:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "weather:openweathermap:updated", "data": "1"}]
+    )
 
     await update_websocket_v1_weather(mock_redis, run_once=True)
     expected_result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0]
@@ -98,6 +100,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     assert calls[0][0][3] == expected_result
 
     """перевірка round down"""
+
     async def get_redis_side_effect3(_logger, _client, key, default_response=None):
         if key == "weather:openweathermap:data":
             return get_weather_mock(temp=5.1)
@@ -105,9 +108,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect3
     mock_set_redis_data.reset_mock()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'weather:openweathermap:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "weather:openweathermap:updated", "data": "1"}]
+    )
 
     await update_websocket_v1_weather(mock_redis, run_once=True)
     expected_result = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0]
@@ -125,9 +128,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     зберігання наступних даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'weather:openweathermap:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "weather:openweathermap:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "weather:openweathermap:data":

@@ -37,9 +37,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:drones:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:drones:data":
@@ -71,9 +71,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     апдейт часу першої тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:drones:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:drones:data":
@@ -109,9 +109,9 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
         mock_get_redis_data.reset_mock()
 
         mock_redis, mock_pubsub = create_mock_redis()
-        mock_pubsub.get_message = AsyncMock(side_effect=[
-            {'type': 'message', 'channel': 'alerts:etryvoga:drones:updated', 'data': '1'}
-        ])
+        mock_pubsub.get_message = AsyncMock(
+            side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+        )
 
         # Використовуємо замикання щоб зберегти region_data для кожної ітерації
         def create_side_effect(region):
@@ -123,6 +123,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
                 elif key == "websocket:v2:legacy:drones":
                     return [[0, 1645674000]] * LEGACY_LED_COUNT
                 return default_response
+
             return get_redis_side_effect
 
         mock_get_redis_data.side_effect = create_side_effect(region_data)
@@ -146,9 +147,9 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     зберігання оновлення там , де нема основної тривоги (21)
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:drones:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:drones:data":
@@ -182,9 +183,9 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     нема заберігання, бо всюди тривога
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:etryvoga:drones:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:etryvoga:drones:data":

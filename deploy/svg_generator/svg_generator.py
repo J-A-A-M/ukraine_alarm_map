@@ -144,7 +144,7 @@ async def get_energy(mc, key_b, default_response={}):
 def get_region_name(search_key, region_id):
     if search_key == "name" and region_id == "Київ":
         return "KIYEW"
-    return next((name for name, data in regions.items() if data.get(search_key) == region_id), 'None')
+    return next((name for name, data in regions.items() if data.get(search_key) == region_id), "None")
 
 
 def get_current_datetime_formatted():
@@ -159,13 +159,13 @@ def calculate_time_difference(timestamp1, timestamp2):
     def normalize_timestamp(timestamp):
         """Normalize timestamp to %Y-%m-%dT%H:%M:%SZ format by removing microseconds if present."""
         # If timestamp contains microseconds (has a dot before Z), remove them
-        if '.' in timestamp and timestamp.endswith('Z'):
+        if "." in timestamp and timestamp.endswith("Z"):
             # Split by dot and take the first part, then add Z back
-            timestamp = timestamp.split('.')[0] + 'Z'
+            timestamp = timestamp.split(".")[0] + "Z"
         return timestamp
-    
+
     format_str = "%Y-%m-%dT%H:%M:%SZ"
-    
+
     # Normalize both timestamps
     timestamp1 = normalize_timestamp(timestamp1)
     timestamp2 = normalize_timestamp(timestamp2)

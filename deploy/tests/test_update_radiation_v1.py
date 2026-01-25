@@ -74,9 +74,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання перших даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
@@ -106,9 +106,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     вітсутність даних про сенсори
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
@@ -137,15 +137,13 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     перевірка підрахунку даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
-            return get_data_mock(
-                ids=["11", "12", "13", "14"], gamma_nsv_h=[80, 90, 90, 80], is_old=[0, 0, 0, 0]
-            )
+            return get_data_mock(ids=["11", "12", "13", "14"], gamma_nsv_h=[80, 90, 90, 80], is_old=[0, 0, 0, 0])
         elif key == "radiation:saveecobot:sensors:data":
             return get_sensors_mock(
                 ids=["11", "12", "13", "14"],
@@ -180,15 +178,13 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     перевірка підрахунку даних з неактуальними даними
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
-            return get_data_mock(
-                ids=["11", "12", "13", "14"], gamma_nsv_h=[83, 90, 95, 80], is_old=[0, 1, 0, 1]
-            )
+            return get_data_mock(ids=["11", "12", "13", "14"], gamma_nsv_h=[83, 90, 95, 80], is_old=[0, 1, 0, 1])
         elif key == "radiation:saveecobot:sensors:data":
             return get_sensors_mock(
                 ids=["11", "12", "13", "14"],
@@ -223,15 +219,13 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     перевірка округлення вниз
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
-            return get_data_mock(
-                ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 104], is_old=[0, 0, 0, 0]
-            )
+            return get_data_mock(ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 104], is_old=[0, 0, 0, 0])
         elif key == "radiation:saveecobot:sensors:data":
             return get_sensors_mock(
                 ids=["11", "12", "13", "14"],
@@ -265,15 +259,13 @@ async def test_6(mock_get_redis_data, mock_set_redis_data):
     перевірка округлення вгору
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
-            return get_data_mock(
-                ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 110], is_old=[0, 0, 0, 0]
-            )
+            return get_data_mock(ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 110], is_old=[0, 0, 0, 0])
         elif key == "radiation:saveecobot:sensors:data":
             return get_sensors_mock(
                 ids=["11", "12", "13", "14"],
@@ -307,9 +299,9 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
     перезберігання нових даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "radiation:saveecobot:data:data":
@@ -340,22 +332,21 @@ async def test_8(mock_get_redis_data, mock_set_redis_data):
     """
     # Фільтруємо тільки регіони з позитивним legacyId та виключаємо спеціальні випадки
     test_regions = {
-        k: v for k, v in regions.items()
-        if v.get('legacyId', -1) > 0
-        and v.get('stateId') not in [12, 22]  # Запоріжжя та Харків мають окремі legacyId для міст
+        k: v
+        for k, v in regions.items()
+        if v.get("legacyId", -1) > 0
+        and v.get("stateId") not in [12, 22]  # Запоріжжя та Харків мають окремі legacyId для міст
     }
 
     for _, region_data in test_regions.items():
         mock_redis, mock_pubsub = create_mock_redis()
-        mock_pubsub.get_message = AsyncMock(side_effect=[
-            {'type': 'message', 'channel': 'radiation:saveecobot:updated', 'data': '1'}
-        ])
+        mock_pubsub.get_message = AsyncMock(
+            side_effect=[{"type": "message", "channel": "radiation:saveecobot:updated", "data": "1"}]
+        )
 
         async def get_redis_side_effect(_logger, _client, key, default_response=None):
             if key == "radiation:saveecobot:data:data":
-                return get_data_mock(
-                    ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 110], is_old=[0, 0, 1, 0]
-                )
+                return get_data_mock(ids=["11", "12", "13", "14"], gamma_nsv_h=[81, 96, 92, 110], is_old=[0, 0, 1, 0])
             elif key == "radiation:saveecobot:sensors:data":
                 return get_sensors_mock(
                     ids=["11", "12", "13", "14"],

@@ -33,9 +33,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:alerts:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:alerts:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:ws:alerts:data":
@@ -60,7 +60,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
         "strategic_missiles": 0,
     }
 
-    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"]
+    calls = [
+        call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"
+    ]
     assert len(calls) > 0
     assert calls[0][0][3] == expected_result
 
@@ -74,9 +76,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     дані не змінились і не зберігаються
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:alerts:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:alerts:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:ws:alerts:data":
@@ -100,7 +102,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     await update_websocket_v1_global_notifications(mock_redis, run_once=True)
 
     # Перевіряємо що дані НЕ збереглись (бо не змінились)
-    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"]
+    calls = [
+        call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"
+    ]
     assert len(calls) == 0
 
 
@@ -113,9 +117,9 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     перевірка мапінгу
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:ws:alerts:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:alerts:updated", "data": "1"}]
+    )
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:ws:alerts:data":
@@ -162,6 +166,8 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
         "strategic_missiles": 1,
     }
 
-    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"]
+    calls = [
+        call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:global_notifications"
+    ]
     assert len(calls) > 0
     assert calls[0][0][3] == expected_result

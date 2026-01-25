@@ -14,25 +14,13 @@ import sys
 from pathlib import Path
 
 try:
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        run_with_restart,
-        get_random_proxy
-    )
+    from utils import service_is_fine, get_redis_data, set_redis_data, run_with_restart, get_random_proxy
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        run_with_restart,
-        get_random_proxy
-    )
+
+    from utils import service_is_fine, get_redis_data, set_redis_data, run_with_restart, get_random_proxy
 
 version = 2
 
@@ -213,7 +201,7 @@ async def connect_and_send(redis_client):
                 try:
                     response = await asyncio.wait_for(websocket.recv(), timeout=1)
                     logger.debug(f"Received: {response}")
-                    await loop_response_prosess(redis_client,response)
+                    await loop_response_prosess(redis_client, response)
                 except websockets.exceptions.ConnectionClosedError:
                     break
                 except asyncio.TimeoutError:
@@ -229,23 +217,23 @@ async def initial_response_prosess(redis_client, response):
         id = response["id"]
         data = response["result"]["publications"][0]["data"]
         if id == int(ws_response_initial_key_alerts):
-            old_data = await get_redis_data(logger,redis_client, "alerts:ws:alerts:data", default_response="")
+            old_data = await get_redis_data(logger, redis_client, "alerts:ws:alerts:data", default_response="")
             logger.debug(f"\n------\nParced initial {ws_response_loop_key_alerts}: {data}\n------")
             if old_data != data:
                 await set_redis_data(logger, redis_client, "alerts:ws:alerts:data", data)
                 await redis_client.publish("alerts:ws:alerts:updated", "1")
                 logger.info("✅ Оновлені дані alerts:ws:alerts:data збережено в Redis")
-            else:  
+            else:
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts:ws:alerts:last_call")
         if id == int(ws_response_initial_key_info):
-            old_data = await get_redis_data(logger,redis_client, "alerts:ws:reasons:data", default_response="")
+            old_data = await get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response="")
             logger.debug(f"\n------\nParced initial {ws_response_loop_key_info}: {data}\n------")
             if old_data != data:
                 await set_redis_data(logger, redis_client, "alerts:ws:reasons:data", data)
                 await redis_client.publish("alerts:ws:reasons:updated", "1")
                 logger.info("✅ Оновлені дані alerts:ws:reasons:data збережено в Redis")
-            else:  
+            else:
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts:ws:reasons:last_call")
         await service_is_fine(logger, redis_client, "alerts:ws:last_call")
@@ -260,23 +248,23 @@ async def loop_response_prosess(redis_client, response):
         id = response["result"]["channel"]
         data = response["result"]["data"]["data"]
         if id == ws_response_loop_key_alerts:
-            old_data = await get_redis_data(logger,redis_client, "alerts:ws:alerts:data", default_response="")
+            old_data = await get_redis_data(logger, redis_client, "alerts:ws:alerts:data", default_response="")
             logger.debug(f"\n------\nParced loop {ws_response_loop_key_alerts}: {data}\n------")
             if old_data != data:
                 await set_redis_data(logger, redis_client, "alerts:ws:alerts:data", data)
                 await redis_client.publish("alerts:ws:alerts:updated", "1")
                 logger.info("✅ Оновлені дані alerts:ws:alerts:data збережено в Redis")
-            else:  
+            else:
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts:ws:alerts:last_call")
         if id == ws_response_loop_key_info:
-            old_data = await get_redis_data(logger,redis_client, "alerts:ws:reasons:data", default_response="")
+            old_data = await get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response="")
             logger.debug(f"\n------\nParced loop {ws_response_loop_key_info}: {data}\n------")
             if old_data != data:
                 await set_redis_data(logger, redis_client, "alerts:ws:reasons:data", data)
                 await redis_client.publish("alerts:ws:reasons:updated", "1")
                 logger.info("✅ Оновлені дані alerts:ws:reasons:data збережено в Redis")
-            else:  
+            else:
                 logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
             await service_is_fine(logger, redis_client, "alerts:ws:reasons:last_call")
         await service_is_fine(logger, redis_client, "alerts:ws:last_call")
@@ -293,30 +281,22 @@ async def main():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         tasks = [
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    connect_and_send,
-                    redis_client,
-                    "connect_and_send",
-                    60
-                )
-            ),
+            asyncio.create_task(run_with_restart(logger, connect_and_send, redis_client, "connect_and_send", 60)),
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise

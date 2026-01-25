@@ -45,9 +45,9 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання перших даних
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'energy:ukrenergo:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "energy:ukrenergo:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -81,9 +81,9 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     новий регіон, старий має зникнути
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'energy:ukrenergo:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "energy:ukrenergo:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -120,9 +120,9 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     наявний регіон, дата не має помінятись
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'energy:ukrenergo:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "energy:ukrenergo:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
@@ -164,19 +164,20 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     # бо енергетичні дані приходять тільки для областей, не для міст/районів
     # Пропускаємо stateId 12 та 22, бо вони мають міста з різними legacyId (28 та 27)
     state_level_regions = {
-        k: v for k, v in regions.items()
-        if v.get('regionId') == v.get('stateId') 
-        and v.get('legacyId', -1) > 0
-        and v.get('stateId') not in [12, 22]  # Запоріжжя та Харків мають окремі legacyId для міст
+        k: v
+        for k, v in regions.items()
+        if v.get("regionId") == v.get("stateId")
+        and v.get("legacyId", -1) > 0
+        and v.get("stateId") not in [12, 22]  # Запоріжжя та Харків мають окремі legacyId для міст
     }
 
     for _, region_data in state_level_regions.items():
         energy_websocket_v1 = [[0, 1645674000] for _ in range(LEGACY_LED_COUNT)]
-        
+
         mock_redis, mock_pubsub = create_mock_redis()
-        mock_pubsub.get_message = AsyncMock(side_effect=[
-            {'type': 'message', 'channel': 'energy:ukrenergo:updated', 'data': '1'}
-        ])
+        mock_pubsub.get_message = AsyncMock(
+            side_effect=[{"type": "message", "channel": "energy:ukrenergo:updated", "data": "1"}]
+        )
 
         async def get_redis_side_effect(_logger, _client, key, default_response=None):
             if key == "energy:ukrenergo:data":

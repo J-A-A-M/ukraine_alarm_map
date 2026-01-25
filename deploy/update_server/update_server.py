@@ -30,7 +30,7 @@ except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
+
     from utils import (
         get_redis_data,
         set_redis_data,
@@ -60,18 +60,10 @@ logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(mes
 logger = logging.getLogger(__name__)
 
 # Кеш для списку релізів
-releases_cache = {
-    "data": None,
-    "timestamp": None,
-    "ttl": timedelta(minutes=60)  # Кешуємо на 60 хвилин
-}
+releases_cache = {"data": None, "timestamp": None, "ttl": timedelta(minutes=60)}  # Кешуємо на 60 хвилин
 
 # Кеш для списку бета-версій
-beta_releases_cache = {
-    "data": None,
-    "timestamp": None,
-    "ttl": timedelta(minutes=60)  # Кешуємо на 60 хвилин
-}
+beta_releases_cache = {"data": None, "timestamp": None, "ttl": timedelta(minutes=60)}  # Кешуємо на 60 хвилин
 
 HTML_404_PAGE = """page not found"""
 HTML_500_PAGE = """request error"""
@@ -131,39 +123,38 @@ async def main(request):
 
 
 async def fetch_github_releases():
-    """Отримує релізи з GitHub та фільтрує .bin файли """
+    """Отримує релізи з GitHub та фільтрує .bin файли"""
     try:
         headers = {"Accept": "application/vnd.github+json"}
         if github_token:
             headers["Authorization"] = f"Bearer {github_token}"
-            
+
         async with httpx.AsyncClient() as client:
             # Отримуємо всі релізи з пагінацією (до 100 на сторінку)
             response = await client.get(
                 "https://api.github.com/repos/J-A-A-M/ukraine_alarm_map/releases",
                 headers=headers,
                 params={"per_page": 100},  # Максимум релізів на запит
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             releases = response.json()
-            
+
             # Логуємо інформацію про ліміти та кількість релізів
             if "X-RateLimit-Remaining" in response.headers:
-                logger.info(f"GitHub API rate limit remaining: {response.headers['X-RateLimit-Remaining']}/{response.headers.get('X-RateLimit-Limit', 'unknown')}")
+                logger.info(
+                    f"GitHub API rate limit remaining: {response.headers['X-RateLimit-Remaining']}/{response.headers.get('X-RateLimit-Limit', 'unknown')}"
+                )
             logger.info(f"Fetched {len(releases)} releases from GitHub")
-            
+
             files_with_urls = []
             for release in releases:
                 if "assets" in release:
                     for asset in release["assets"]:
                         name = asset["name"]
-                        if name.endswith(".bin"): # and filter_func(name):
-                            files_with_urls.append({
-                                "name": name,
-                                "url": asset["browser_download_url"]
-                            })
-            
+                        if name.endswith(".bin"):  # and filter_func(name):
+                            files_with_urls.append({"name": name, "url": asset["browser_download_url"]})
+
             logger.info(f"Filtered {len(files_with_urls)} .bin files")
             # Сортуємо за версією у зворотному порядку (новіші спочатку)
             return files_with_urls
@@ -176,12 +167,12 @@ async def list(request):
     redis_client = request.app.state.redis_client
 
     releases_cache = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
-    
+
     files_data = get_file_names(logger, releases_cache, release_filter, strip_pattern="JAAM_")
-    
+
     # Обмежуємо до 5 найновіших релізів
     files_data = files_data[:5]
-    
+
     # Повертаємо тільки назви файлів
     return JSONResponse([f["name"] for f in files_data])
 
@@ -190,24 +181,23 @@ async def list_beta(request):
     redis_client = request.app.state.redis_client
 
     releases_cache = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
-    
+
     files_data = get_file_names(logger, releases_cache, beta_filter, strip_pattern="JAAM_")
 
     # Обмежуємо до 10 найновіших бета-версій
     files_data = files_data[:10]
-    
+
     # Повертаємо тільки назви файлів
     return JSONResponse([f["name"] for f in files_data])
 
 
 async def update(request):
     redis_client = request.app.state.redis_client
-    
+
     filename = request.path_params["filename"]
 
     files_data = await get_redis_data(logger, redis_client, "releases:production", default_response=[])
-    
-    
+
     if filename == "latest" or filename == "jaam":
         # Повертаємо перший (найновіший) файл
         if files_data:
@@ -224,11 +214,11 @@ async def update(request):
 
 async def update_fusion(request):
     redis_client = request.app.state.redis_client
-    
+
     filename = request.path_params["filename"]
 
     files_data = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
-    
+
     if filename == "latest" or filename == "jaam":
         # Повертаємо перший (найновіший) файл
         if files_data:
@@ -241,15 +231,15 @@ async def update_fusion(request):
             if file_info["name"] == target_filename:
                 return RedirectResponse(url=file_info["url"])
         raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
-    
+
 
 async def update_beta(request):
     redis_client = request.app.state.redis_client
-    
+
     filename = request.path_params["filename"]
 
     files_data = await get_redis_data(logger, redis_client, "releases:beta", default_response=[])
-    
+
     if filename == "latest_beta" or filename == "jaam_beta":
         # Повертаємо перший (найновіший) файл
         if files_data:
@@ -262,15 +252,15 @@ async def update_beta(request):
             if file_info["name"] == target_filename:
                 return FileResponse(f"{shared_path_beta}/{file_info['name']}")
         raise HTTPException(status_code=404, detail=f"File {target_filename} not found")
-    
+
 
 async def update_fusion_beta(request):
     redis_client = request.app.state.redis_client
-    
+
     filename = request.path_params["filename"]
 
     files_data = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
-    
+
     if filename == "latest_beta" or filename == "jaam_beta":
         # Повертаємо перший (найновіший) файл
         if files_data:
@@ -327,12 +317,12 @@ async def update_cache(redis_client):
         try:
             logger.debug("start update_cache")
 
-            old_data = await get_redis_data(logger,redis_client, "releases:data", default_response=[])
+            old_data = await get_redis_data(logger, redis_client, "releases:data", default_response=[])
 
             releases = await fetch_github_releases()
             if releases:
                 if releases != old_data:
-            
+
                     await set_redis_data(logger, redis_client, "releases:data", releases)
                     await redis_client.publish("releases:data:updated", "1")
                     logger.info(f"✅ Оновлені дані releases:data {len(releases)} збережено в Redis")
@@ -361,31 +351,24 @@ async def lifespan(app: Starlette):
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         # Store redis_client in app state
         app.state.redis_client = redis_client
-        
+
         # Start background tasks
-        update_cache_task = asyncio.create_task(
-            run_with_restart(
-                logger,
-                update_cache,
-                redis_client,
-                "update_cache"
-            )
-        )
-        
+        update_cache_task = asyncio.create_task(run_with_restart(logger, update_cache, redis_client, "update_cache"))
+
         yield
-        
+
         # Shutdown: cleanup
         logger.info("⏹️  Shutting down...")
         update_cache_task.cancel()
@@ -393,7 +376,7 @@ async def lifespan(app: Starlette):
             await update_cache_task
         except asyncio.CancelledError:
             pass
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise

@@ -10,25 +10,13 @@ import sys
 from pathlib import Path
 
 try:
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        get_current_datetime,
-        run_with_restart
-    )
+    from utils import service_is_fine, get_redis_data, set_redis_data, get_current_datetime, run_with_restart
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
-    from utils import (
-        service_is_fine,
-        get_redis_data,
-        set_redis_data,
-        get_current_datetime,
-        run_with_restart
-    )
+
+    from utils import service_is_fine, get_redis_data, set_redis_data, get_current_datetime, run_with_restart
 
 version = 3
 
@@ -113,7 +101,7 @@ async def get_weather_openweathermap(redis_client):
             # Зберігаємо час останнього успішного оновлення
             service_is_fine(logger, redis_client, "weather:openweathermap:last_call"),
         )
-        
+
         # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
         await redis_client.publish("weather:openweathermap:updated", "1")
         logger.info("✅ Оновлені дані збережено в Redis")
@@ -131,29 +119,24 @@ async def main():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         tasks = [
             asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    get_weather_openweathermap,
-                    redis_client,
-                    "get_weather_openweathermap"
-                )
+                run_with_restart(logger, get_weather_openweathermap, redis_client, "get_weather_openweathermap")
             ),
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise

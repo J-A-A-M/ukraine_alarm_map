@@ -18,20 +18,20 @@ try:
         set_redis_data,
         get_current_datetime,
         calculate_time_difference,
-        run_with_restart
+        run_with_restart,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
+
     from utils import (
         service_is_fine,
         get_redis_data,
         set_redis_data,
         get_current_datetime,
         calculate_time_difference,
-        run_with_restart
+        run_with_restart,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -39,13 +39,13 @@ regions = {}
 try:
     # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
     regions_path = Path(__file__).resolve().parent / "regions.json"
-    with open(regions_path, 'r', encoding='utf-8') as f:
+    with open(regions_path, "r", encoding="utf-8") as f:
         regions = json.load(f)
 except FileNotFoundError:
     # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
     try:
         regions_path = Path(__file__).resolve().parent.parent / "regions.json"
-        with open(regions_path, 'r', encoding='utf-8') as f:
+        with open(regions_path, "r", encoding="utf-8") as f:
             regions = json.load(f)
     except FileNotFoundError:
         # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
@@ -152,11 +152,17 @@ async def get_data():
     energy_cached_data = []
 
     for region_name, region_data in regions.items():
-        if region_data['stateId'] != region_data['regionId'] or region_data['stateId'] <= 0 or region_data['stateId'] == 9999:
+        if (
+            region_data["stateId"] != region_data["regionId"]
+            or region_data["stateId"] <= 0
+            or region_data["stateId"] == 9999
+        ):
             continue
         region_energy = await get_region_data(region_id=region_data["stateId"], headers=headers)
         if region_energy:
-            logger.info(f"▶️ Fetched data from region {region_data['name']}: {region_energy.get('state', {}).get('id', 'N/A')}")
+            logger.info(
+                f"▶️ Fetched data from region {region_data['name']}: {region_energy.get('state', {}).get('id', 'N/A')}"
+            )
             energy_cached_data.append(region_energy)
 
         await asyncio.sleep(request_time)
@@ -180,9 +186,9 @@ async def get_ukrenergo_data(redis_client) -> None:
                 continue
             logger.debug("💾 Зберігаємо оновлені дані в Redis...")
             await asyncio.gather(
-                    set_redis_data(logger, redis_client, "energy:ukrenergo:data", data),
-                    service_is_fine(logger, redis_client, "energy:ukrenergo:last_call"),
-                )
+                set_redis_data(logger, redis_client, "energy:ukrenergo:data", data),
+                service_is_fine(logger, redis_client, "energy:ukrenergo:last_call"),
+            )
             await redis_client.publish("energy:ukrenergo:updated", "1")
             logger.info("✅ Оновлені дані збережено в Redis")
         except Exception as e:
@@ -198,29 +204,22 @@ async def main():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         tasks = [
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    get_ukrenergo_data,
-                    redis_client,
-                    "get_ukrenergo_data"
-                )
-            ),
+            asyncio.create_task(run_with_restart(logger, get_ukrenergo_data, redis_client, "get_ukrenergo_data")),
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise

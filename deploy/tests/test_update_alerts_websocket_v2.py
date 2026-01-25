@@ -31,13 +31,16 @@ def create_mock_redis():
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-    "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
-    "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
-    "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+        "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
+        "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_1(mock_get_redis_data, mock_set_redis_data):
@@ -46,9 +49,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги по State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -81,10 +82,13 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_2(mock_get_redis_data, mock_set_redis_data):
@@ -93,9 +97,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги з Disrict в State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -107,7 +109,12 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
                     "regionEngName": "",
                     "lastUpdate": "2025-01-15T10:00:00Z",
                     "activeAlerts": [
-                        {"regionId": "66", "regionType": "District", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"}
+                        {
+                            "regionId": "66",
+                            "regionType": "District",
+                            "type": "AIR",
+                            "lastUpdate": "2025-01-15T10:00:00Z",
+                        }
                     ],
                 }
             ]
@@ -128,11 +135,14 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-    "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+        "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_3(mock_get_redis_data, mock_set_redis_data):
@@ -141,9 +151,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     зберігання першої тривоги з Disrict,State в State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -155,7 +163,12 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
                     "regionEngName": "",
                     "lastUpdate": "2025-01-15T10:00:00Z",
                     "activeAlerts": [
-                        {"regionId": "66", "regionType": "District", "type": "AIR", "lastUpdate": "2025-01-15T09:00:00Z"},
+                        {
+                            "regionId": "66",
+                            "regionType": "District",
+                            "type": "AIR",
+                            "lastUpdate": "2025-01-15T09:00:00Z",
+                        },
                         {"regionId": "61", "regionType": "State", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"},
                     ],
                 }
@@ -177,9 +190,12 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_4(mock_get_redis_data, mock_set_redis_data):
@@ -188,9 +204,7 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     спроба зберегти оновлення часу існуючої тривоги з Disrict,State в State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -225,10 +239,13 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_5(mock_get_redis_data, mock_set_redis_data):
@@ -237,9 +254,7 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     спроба зберегти оновлення тривоги з Disrict,State в State разов з новю тривогою в іншому State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -285,9 +300,12 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.get_current_timestamp", return_value=1)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
@@ -297,9 +315,7 @@ async def test_6(mock_get_redis_data, mock_set_redis_data, mock_timestamp):
     прибирання активної тривоги
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -323,9 +339,12 @@ async def test_6(mock_get_redis_data, mock_set_redis_data, mock_timestamp):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_7(mock_get_redis_data, mock_set_redis_data):
@@ -334,9 +353,7 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
     активних тривог нема, перевірка зберігання дати завершення попередніх тривог в memcache
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -360,10 +377,13 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_8(mock_get_redis_data, mock_set_redis_data):
@@ -372,9 +392,7 @@ async def test_8(mock_get_redis_data, mock_set_redis_data):
     нова активна тривога в іншому State, перевірка зберігання дати завершення попередніх тривог в memcache
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -410,11 +428,14 @@ async def test_8(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-    "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+        "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_9(mock_get_redis_data, mock_set_redis_data):
@@ -423,9 +444,7 @@ async def test_9(mock_get_redis_data, mock_set_redis_data):
     перевірка тривоги по District, коли вже є по State, але закінчилась, дані не повинна мінятись
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -437,8 +456,18 @@ async def test_9(mock_get_redis_data, mock_set_redis_data):
                     "regionEngName": "Luhanska region",
                     "lastUpdate": "2025-01-15T10:00:00Z",
                     "activeAlerts": [
-                        {"regionId": "66", "regionType": "District", "type": "AIR", "lastUpdate": "2025-01-15T11:00:00Z"},
-                        {"regionId": "61", "regionType": "District", "type": "AIR", "lastUpdate": "2025-01-15T15:00:00Z"},
+                        {
+                            "regionId": "66",
+                            "regionType": "District",
+                            "type": "AIR",
+                            "lastUpdate": "2025-01-15T11:00:00Z",
+                        },
+                        {
+                            "regionId": "61",
+                            "regionType": "District",
+                            "type": "AIR",
+                            "lastUpdate": "2025-01-15T15:00:00Z",
+                        },
                     ],
                 }
             ]
@@ -461,11 +490,14 @@ async def test_9(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-    "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+        "BEREHOVE-DSTR": {"name": "Берегівський район", "regionId": 61, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_10(mock_get_redis_data, mock_set_redis_data):
@@ -474,9 +506,7 @@ async def test_10(mock_get_redis_data, mock_set_redis_data):
     спроба зберегти оновлення тривоги з Disrict,State, інший порядок даних, тривога вже є
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -489,7 +519,12 @@ async def test_10(mock_get_redis_data, mock_set_redis_data):
                     "lastUpdate": "2025-01-15T10:00:00Z",
                     "activeAlerts": [
                         {"regionId": "61", "regionType": "State", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"},
-                        {"regionId": "66", "regionType": "District", "type": "AIR", "lastUpdate": "2025-01-15T10:00:00Z"},
+                        {
+                            "regionId": "66",
+                            "regionType": "District",
+                            "type": "AIR",
+                            "lastUpdate": "2025-01-15T10:00:00Z",
+                        },
                     ],
                 }
             ]
@@ -512,10 +547,13 @@ async def test_10(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_11(mock_get_redis_data, mock_set_redis_data):
@@ -524,9 +562,7 @@ async def test_11(mock_get_redis_data, mock_set_redis_data):
     тривога в Community
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -538,7 +574,12 @@ async def test_11(mock_get_redis_data, mock_set_redis_data):
                     "regionEngName": "",
                     "lastUpdate": "2022-04-04T16:45:00Z",
                     "activeAlerts": [
-                        {"regionId": "495", "regionType": "Community", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                        {
+                            "regionId": "495",
+                            "regionType": "Community",
+                            "type": "AIR",
+                            "lastUpdate": "2022-04-04T16:45:00Z",
+                        }
                     ],
                 }
             ]
@@ -558,10 +599,13 @@ async def test_11(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_12(mock_get_redis_data, mock_set_redis_data):
@@ -570,9 +614,7 @@ async def test_12(mock_get_redis_data, mock_set_redis_data):
     спроба переписати тривогу в State додатковим District
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -617,9 +659,12 @@ async def test_12(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_13(mock_get_redis_data, mock_set_redis_data):
@@ -628,9 +673,7 @@ async def test_13(mock_get_redis_data, mock_set_redis_data):
     спроба переписати тривогу в District додатковим State
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -665,10 +708,13 @@ async def test_13(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "UZHHOROD-DSTR": {"name": "Ужгородський район", "regionId": 66, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_14(mock_get_redis_data, mock_set_redis_data):
@@ -677,9 +723,7 @@ async def test_14(mock_get_redis_data, mock_set_redis_data):
     спроба переписати тривогу в State через District в момент коли State зникає
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -714,10 +758,13 @@ async def test_14(mock_get_redis_data, mock_set_redis_data):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.regions", new={
-    "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
-    "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
-})
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "PERECHYN": {"name": "Перечинська територіальна громада", "regionId": 495, "legacyId": 1, "stateId": 11},
+    },
+)
 @patch("updater.updater.set_redis_data", new_callable=AsyncMock)
 @patch("updater.updater.get_redis_data", new_callable=AsyncMock)
 async def test_15(mock_get_redis_data, mock_set_redis_data):
@@ -726,9 +773,7 @@ async def test_15(mock_get_redis_data, mock_set_redis_data):
     тривога в Community
     """
     mock_redis, mock_pubsub = create_mock_redis()
-    mock_pubsub.get_message = AsyncMock(side_effect=[
-        {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-    ])
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
         if key == "alerts:api:data":
@@ -776,9 +821,9 @@ async def test_16(mock_get_redis_data, mock_set_redis_data):
 
     for _, region_data in regions.items():
         mock_redis, mock_pubsub = create_mock_redis()
-        mock_pubsub.get_message = AsyncMock(side_effect=[
-            {'type': 'message', 'channel': 'alerts:api:updated', 'data': '1'}
-        ])
+        mock_pubsub.get_message = AsyncMock(
+            side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}]
+        )
 
         async def get_redis_side_effect(_logger, _client, key, default_response=None):
             if key == "alerts:api:data":

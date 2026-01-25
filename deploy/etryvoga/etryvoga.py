@@ -20,13 +20,13 @@ try:
         get_current_datetime,
         calculate_time_difference,
         format_time,
-        run_with_restart
+        run_with_restart,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
-    
+
     from utils import (
         service_is_fine,
         get_redis_data,
@@ -34,7 +34,7 @@ except ImportError:
         get_current_datetime,
         calculate_time_difference,
         format_time,
-        run_with_restart
+        run_with_restart,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -42,13 +42,13 @@ regions = {}
 try:
     # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
     regions_path = Path(__file__).resolve().parent / "regions.json"
-    with open(regions_path, 'r', encoding='utf-8') as f:
+    with open(regions_path, "r", encoding="utf-8") as f:
         regions = json.load(f)
 except FileNotFoundError:
     # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
     try:
         regions_path = Path(__file__).resolve().parent.parent / "regions.json"
-        with open(regions_path, 'r', encoding='utf-8') as f:
+        with open(regions_path, "r", encoding="utf-8") as f:
             regions = json.load(f)
     except FileNotFoundError:
         # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
@@ -83,9 +83,10 @@ def get_region_data(slug, title):
     if slug not in regions:
         # Fallback: remove emojis and special symbols from title and search by source_name
         import re
+
         # Remove emojis and special symbols from the beginning of the title
-        cleaned_title = re.sub(r'^[\W\s]+', '', title).strip()
-        
+        cleaned_title = re.sub(r"^[\W\s]+", "", title).strip()
+
         # Search for this string in regions by source_name field
         for region_key, region_value in regions.items():
             if region_value.get("source_name") == cleaned_title:
@@ -93,20 +94,15 @@ def get_region_data(slug, title):
                 break
         else:
             # If still not found, return UNKNOWN
-            return 'UNKNOWN', 0
-    
+            return "UNKNOWN", 0
+
     _name = regions[slug]["name"]
     _id = regions[slug]["regionId"]
     return _name, _id
 
 
 async def save_etryvoga_type_data(
-    logger,
-    redis_client,
-    data_type: str,
-    redis_key: str,
-    old_data: dict,
-    new_data: dict
+    logger, redis_client, data_type: str, redis_key: str, old_data: dict, new_data: dict
 ) -> bool:
     if old_data != new_data:
         logger.debug(f"⚠️ {redis_key} DATA NEW: {new_data}")
@@ -132,7 +128,7 @@ async def get_etryvoga_data(redis_client):
                 get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
                 get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
                 get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
-                get_redis_data(logger, redis_client, "alerts:etryvoga:last_id", 0)
+                get_redis_data(logger, redis_client, "alerts:etryvoga:last_id", 0),
             )
 
             # Створюємо нові словники для збереження оброблених даних
@@ -152,7 +148,9 @@ async def get_etryvoga_data(redis_client):
                             type="type", state="state_name", region="region", body="body", time="diff"
                         )
                     )
-                    logger.debug("------------ ----- ------------------------------ ------------------------- -----------")
+                    logger.debug(
+                        "------------ ----- ------------------------------ ------------------------- -----------"
+                    )
                     for message in data[::-1]:
                         _name, _id = get_region_data(message.get("region", "ERROR"), message["title"])
                         message["regionId"] = _id
@@ -183,7 +181,9 @@ async def get_etryvoga_data(redis_client):
                             case _:
                                 pass
                         last_id = int(message.get("id", 0))
-                    logger.debug("------------ ----- ------------------------------ ------------------------- -----------")
+                    logger.debug(
+                        "------------ ----- ------------------------------ ------------------------- -----------"
+                    )
 
                     if last_id == last_id_data:
                         await service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call")
@@ -192,34 +192,40 @@ async def get_etryvoga_data(redis_client):
                         continue
 
                     logger.debug("💾 Перевіряємо та зберігаємо etryvoga data")
-                    
+
                     # Зберігаємо кожен тип даних окремо, тільки якщо є зміни
                     save_results = await asyncio.gather(
                         save_etryvoga_type_data(
-                            logger, redis_client, "explosions",
-                            "alerts:etryvoga:explosions", old_explosions_data, explosions_data
+                            logger,
+                            redis_client,
+                            "explosions",
+                            "alerts:etryvoga:explosions",
+                            old_explosions_data,
+                            explosions_data,
                         ),
                         save_etryvoga_type_data(
-                            logger, redis_client, "missiles",
-                            "alerts:etryvoga:missiles", old_missiles_data, missiles_data
+                            logger,
+                            redis_client,
+                            "missiles",
+                            "alerts:etryvoga:missiles",
+                            old_missiles_data,
+                            missiles_data,
                         ),
                         save_etryvoga_type_data(
-                            logger, redis_client, "drones",
-                            "alerts:etryvoga:drones", old_drones_data, drones_data
+                            logger, redis_client, "drones", "alerts:etryvoga:drones", old_drones_data, drones_data
                         ),
                         save_etryvoga_type_data(
-                            logger, redis_client, "kabs",
-                            "alerts:etryvoga:kabs", old_kabs_data, kabs_data
+                            logger, redis_client, "kabs", "alerts:etryvoga:kabs", old_kabs_data, kabs_data
                         ),
                     )
-                    
+
                     # Завжди зберігаємо повні дані та last_id
                     await asyncio.gather(
                         set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", data),
                         set_redis_data(logger, redis_client, "alerts:etryvoga:last_id", last_id),
-                        service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call")
+                        service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call"),
                     )
-                    
+
                     # Публікуємо повідомлення про оновлення тільки якщо хоча б один тип даних змінився
                     if any(save_results):
                         await redis_client.publish("alerts:etryvoga:updated", "1")
@@ -254,29 +260,22 @@ async def main():
         db=redis_db,
         password=redis_password,
         decode_responses=True,
-        encoding='utf-8',
+        encoding="utf-8",
         socket_connect_timeout=5,
         socket_keepalive=True,
-        health_check_interval=30
+        health_check_interval=30,
     )
-    
+
     try:
         await redis_client.ping()
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
-        
+
         tasks = [
-            asyncio.create_task(
-                run_with_restart(
-                    logger,
-                    get_etryvoga_data,
-                    redis_client,
-                    "get_etryvoga_data"
-                )
-            ),
+            asyncio.create_task(run_with_restart(logger, get_etryvoga_data, redis_client, "get_etryvoga_data")),
         ]
-        
+
         await asyncio.gather(*tasks)
-        
+
     except redis.ConnectionError as e:
         logger.error(f"❌ Failed to connect to Redis: {e}")
         raise
@@ -285,6 +284,7 @@ async def main():
     finally:
         await redis_client.aclose()
         logger.info("🔌 Redis connection closed")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
