@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from updater.updater import update_websocket_v1_drones, regions
 
-
 """
 pip install pytest pytest-asyncio
 

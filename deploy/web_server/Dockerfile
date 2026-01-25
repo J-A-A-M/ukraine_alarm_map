@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 ENV TZ="Europe/Kyiv"
 COPY web_server/web_server.py .
 COPY web_server/jaam_v1.css .

@@ -7,3 +7,4 @@
 .pio/
 .venv/
 *.pyc
+.python-version
