@@ -198,33 +198,33 @@ def get_region_name(region_id):
     """
     Знаходить назву області за regionId.
     Якщо передано regionId району, знаходить область, до якої він належить.
-    
+
     Args:
         region_id: Числовий ідентифікатор регіону або району
-        
+
     Returns:
         Ключ регіону-області (наприклад, 'VINNYTSA', 'DNIPROPETROVSKAYA') або None, якщо не знайдено
     """
     # Знаходимо запис з вказаним regionId
-    region_data = next(
-        (data for name, data in regions.items() if data.get("regionId") == region_id),
-        None
-    )
-    
+    region_data = next((data for name, data in regions.items() if data.get("regionId") == region_id), None)
+
     if not region_data:
         return None
-    
+
     # Отримуємо stateId (ідентифікатор області)
     state_id = region_data.get("stateId")
-    
+
     if not state_id:
         return None
-    
+
     # Знаходимо область, де regionId == stateId
     return next(
-        (name for name, data in regions.items() 
-         if data.get("regionId") == state_id and data.get("regionId") == data.get("stateId")),
-        None
+        (
+            name
+            for name, data in regions.items()
+            if data.get("regionId") == state_id and data.get("regionId") == data.get("stateId")
+        ),
+        None,
     )
 
 
@@ -232,21 +232,24 @@ def get_region_name_by_source_name(source_name):
     """
     Знаходить назву регіону (область) за назвою з джерела даних.
     Повертає лише області (де regionId == stateId).
-    
+
     Args:
         source_name: Текстова назва регіону (наприклад, "Київ", "Вінницька область")
-        
+
     Returns:
         Ключ регіону (наприклад, 'KIYEW', 'VINNYTSA') або None, якщо не знайдено
     """
     # Спеціальний випадок для Києва
     if source_name == "Київ":
         return "KIYEW"
-    
+
     return next(
-        (name for name, data in regions.items() 
-         if data.get("name") == source_name and data.get("regionId") == data.get("stateId")),
-        None
+        (
+            name
+            for name, data in regions.items()
+            if data.get("name") == source_name and data.get("regionId") == data.get("stateId")
+        ),
+        None,
     )
 
 
@@ -283,38 +286,38 @@ def calculate_time_difference(timestamp1, timestamp2):
 async def svg_generator_alerts(redis_client):
     stored_data = {}
     while True:
-         try:
+        try:
             logger.debug("start alerts map generaton")
             local_time = get_current_datetime_formatted()
 
             alerts_svg_data = {}
 
             alerts_cache, drones_cache, missiles_cache, explosions_cache, kabs_cache, ws_cache = await asyncio.gather(
-               get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
-               get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
-               get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
-               get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
-               get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
-               get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
             )
 
             for region_data in alerts_cache:
-               if region_data["regionType"] == "State":
-                     region_id = int(region_data["regionId"])
-                     region_name = get_region_name(region_id)
-                     time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-                     alerts_svg_data[region_name] = (
+                if region_data["regionType"] == "State":
+                    region_id = int(region_data["regionId"])
+                    region_name = get_region_name(region_id)
+                    time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                    alerts_svg_data[region_name] = (
                         (COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN)
                         if any(alert["type"] == "AIR" for alert in region_data["activeAlerts"])
                         else (COLOR_SAFE if time_diff > 300 else COLOR_SAFE_BEGIN)
-                     )
-               if region_data["regionType"] == "District" and any(
+                    )
+                if region_data["regionType"] == "District" and any(
                     alert["type"] == "AIR" for alert in region_data["activeAlerts"]
-               ):
-                     region_id = int(region_data["regionId"])
-                     state_name = get_region_name(region_id)
-                     time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
-                     alerts_svg_data[state_name] = COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN
+                ):
+                    region_id = int(region_data["regionId"])
+                    state_name = get_region_name(region_id)
+                    time_diff = calculate_time_difference(region_data["lastUpdate"], get_current_datetime())
+                    alerts_svg_data[state_name] = COLOR_ALERT if time_diff > 300 else COLOR_ALERT_BEGIN
 
             for reason in ws_cache["reasons"]:
                 state_id = reason["parentRegionId"]
@@ -377,52 +380,54 @@ async def svg_generator_alerts(redis_client):
             stored_data = alerts_svg_data
             logger.info("end alerts map generation")
 
-         except Exception as e:
+        except Exception as e:
             logger.error(f"svg_generator_alerts: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-         await asyncio.sleep(loop_time)
+        await asyncio.sleep(loop_time)
 
 
 async def svg_generator_weather(redis_client):
     stored_data = {}
     while True:
-         try:
+        try:
             logger.debug("start weather map generation")
-            
+
             local_time = get_current_datetime_formatted()
 
             weather_svg_data = {}
 
-            weather_cache = await get_redis_data(logger, redis_client, "weather:openweathermap:data", default_response=[])
+            weather_cache = await get_redis_data(
+                logger, redis_client, "weather:openweathermap:data", default_response=[]
+            )
             for region_data in weather_cache:
-               state_id = int(region_data['region']['regionId'])
-               state_name = get_region_name(state_id)
-               weather_svg_data[state_name] = calculate_html_color_from_temp(int(round(region_data["temp"], 0)))
+                state_id = int(region_data["region"]["regionId"])
+                state_name = get_region_name(state_id)
+                weather_svg_data[state_name] = calculate_html_color_from_temp(int(round(region_data["temp"], 0)))
 
             if weather_svg_data == stored_data:
-               await asyncio.sleep(loop_time)
-               continue
+                await asyncio.sleep(loop_time)
+                continue
 
             file_path = os.path.join(shared_path, "weather_map.png")
             await generate_map(
-               time=local_time,
-               output_file=file_path,
-               show_weather_info=True,
-               **weather_svg_data,
+                time=local_time,
+                output_file=file_path,
+                show_weather_info=True,
+                **weather_svg_data,
             )
             stored_data = weather_svg_data
             logger.info("end weather map generation")
 
-         except Exception as e:
+        except Exception as e:
             logger.error(f"svg_generator_weather: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-         await asyncio.sleep(loop_time)
+        await asyncio.sleep(loop_time)
 
 
 async def svg_generator_energy(redis_client):
     stored_data = {}
     while True:
-         try:
+        try:
             logger.debug("start energy map generation")
             local_time = get_current_datetime_formatted()
 
@@ -431,94 +436,94 @@ async def svg_generator_energy(redis_client):
             energy_cache = await get_redis_data(logger, redis_client, "energy:ukrenergo:data", default_response=[])
 
             for region_data in energy_cache:
-               state_id = int(region_data['regionId'])
-               state_name = get_region_name(state_id)
-               match region_data["state"]["id"]:
-                  case 0:
-                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
-                  case 3:
-                     energy_svg_data[state_name] = COLOR_ENERGY_OK
-                  case 4:
-                     energy_svg_data[state_name] = COLOR_ENERGY_WARNING
-                  case 9:
-                     energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
-                  case 10:
-                     energy_svg_data[state_name] = COLOR_ENERGY_EMERGENCY
-                  case _:
-                     energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                state_id = int(region_data["regionId"])
+                state_name = get_region_name(state_id)
+                match region_data["state"]["id"]:
+                    case 0:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
+                    case 3:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OK
+                    case 4:
+                        energy_svg_data[state_name] = COLOR_ENERGY_WARNING
+                    case 9:
+                        energy_svg_data[state_name] = COLOR_ENERGY_OFFLINE
+                    case 10:
+                        energy_svg_data[state_name] = COLOR_ENERGY_EMERGENCY
+                    case _:
+                        energy_svg_data[state_name] = COLOR_ENERGY_UNKNOWN
 
             if energy_svg_data == stored_data:
-               await asyncio.sleep(loop_time_long)
-               continue
+                await asyncio.sleep(loop_time_long)
+                continue
 
             file_path = os.path.join(shared_path, "energy_map.png")
             await generate_map(
-               time=local_time,
-               output_file=file_path,
-               show_energy_info=True,
-               **energy_svg_data,
+                time=local_time,
+                output_file=file_path,
+                show_energy_info=True,
+                **energy_svg_data,
             )
             stored_data = energy_svg_data
             logger.info("end energy map generation")
 
-         except Exception as e:
+        except Exception as e:
             logger.error(f"svg_generator_energy: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-         await asyncio.sleep(loop_time_long)
+        await asyncio.sleep(loop_time_long)
 
 
 async def svg_generator_radiation(redis_client):
     stored_data = {}
     while True:
-         try:
+        try:
             logger.debug("start radiation map generation")
             local_time = get_current_datetime_formatted()
 
             radiation_svg_data = {}
-            
+
             data_cache, sensors_cache = await asyncio.gather(
-               get_redis_data(logger, redis_client, "radiation:saveecobot:data:data", default_response=[]),
-               get_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", default_response={}),
+                get_redis_data(logger, redis_client, "radiation:saveecobot:data:data", default_response=[]),
+                get_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", default_response={}),
             )
 
             temp_data = {}
             for sensor_data in data_cache:
-               if sensor_data["is_old"]:
-                  continue
+                if sensor_data["is_old"]:
+                    continue
 
-               state_name = sensors_cache.get(str(sensor_data["sensor_id"]), {}).get("region_name")
-               if not state_name:
-                  continue
-               if not temp_data.get(state_name):
-                  temp_data[state_name] = []
-               temp_data[state_name].append(sensor_data["gamma_nsv_h"])
+                state_name = sensors_cache.get(str(sensor_data["sensor_id"]), {}).get("region_name")
+                if not state_name:
+                    continue
+                if not temp_data.get(state_name):
+                    temp_data[state_name] = []
+                temp_data[state_name].append(sensor_data["gamma_nsv_h"])
 
             for state_name, radiation_data in temp_data.items():
-               state_name = get_region_name_by_source_name(state_name)
+                state_name = get_region_name_by_source_name(state_name)
 
-               if not state_name:
-                  continue
+                if not state_name:
+                    continue
 
-               radiation_svg_data[state_name] = calculate_html_color_from_radiation(statistics.median(radiation_data))
+                radiation_svg_data[state_name] = calculate_html_color_from_radiation(statistics.median(radiation_data))
 
             if radiation_svg_data == stored_data:
-               await asyncio.sleep(loop_time_long)
-               continue
+                await asyncio.sleep(loop_time_long)
+                continue
 
             file_path = os.path.join(shared_path, "radiation_map.png")
             await generate_map(
-               time=local_time,
-               output_file=file_path,
-               show_radiation_info=True,
-               **radiation_svg_data,
+                time=local_time,
+                output_file=file_path,
+                show_radiation_info=True,
+                **radiation_svg_data,
             )
             stored_data = radiation_svg_data
             logger.info("end radiation map generation")
 
-         except Exception as e:
+        except Exception as e:
             logger.error(f"svg_generator_radiation: {e}")
             logger.debug(f"Повний стек помилки:", exc_info=True)
-         await asyncio.sleep(loop_time_long)
+        await asyncio.sleep(loop_time_long)
 
 
 async def generate_flag():
@@ -646,7 +651,9 @@ async def generate_map(
     **kwargs,
 ):
     logger.debug("generator start")
-    logger.debug(f"generator params: time={time}, output_file={output_file}, show_alert_info={show_alert_info}, show_weather_info={show_weather_info}, show_energy_info={show_energy_info}, show_radiation_info={show_radiation_info}, default_color={default_color}, kwargs={kwargs}")
+    logger.debug(
+        f"generator params: time={time}, output_file={output_file}, show_alert_info={show_alert_info}, show_weather_info={show_weather_info}, show_energy_info={show_energy_info}, show_radiation_info={show_radiation_info}, default_color={default_color}, kwargs={kwargs}"
+    )
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
          enable-background="new 0 0 1546.93 1040.822" xml:space="preserve" inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
@@ -1449,18 +1456,12 @@ async def main():
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
 
         tasks = [
-            asyncio.create_task(
-                run_with_restart(logger, svg_generator_alerts, redis_client, "svg_generator_alerts")
-            ),
-            asyncio.create_task(
-                run_with_restart(logger, svg_generator_weather, redis_client, "svg_generator_alerts")
-            ),
-            asyncio.create_task(
-                run_with_restart(logger, svg_generator_energy, redis_client, "svg_generator_alerts")
-            ),
+            asyncio.create_task(run_with_restart(logger, svg_generator_alerts, redis_client, "svg_generator_alerts")),
+            asyncio.create_task(run_with_restart(logger, svg_generator_weather, redis_client, "svg_generator_alerts")),
+            asyncio.create_task(run_with_restart(logger, svg_generator_energy, redis_client, "svg_generator_alerts")),
             asyncio.create_task(
                 run_with_restart(logger, svg_generator_radiation, redis_client, "svg_generator_alerts")
-            )
+            ),
         ]
 
         await asyncio.gather(*tasks)
