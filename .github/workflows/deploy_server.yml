@@ -63,7 +63,10 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_weather.sh -w ${{ secrets.WEATHER_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_weather.sh \
+                  -w ${{ secrets.WEATHER_TOKEN }} \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Etryvoga
             if: ${{ inputs.redeploy_etryvoga }}
             uses: appleboy/ssh-action@v1.2.0
@@ -76,7 +79,11 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_etryvoga.sh -e ${{ secrets.ETRYVOGA_HOST }} -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_etryvoga.sh \
+                  -e ${{ secrets.ETRYVOGA_HOST }} \
+                  -ed ${{ secrets.ETRYVOGA_DISTRICTS_HOST }} \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Alerts
             if: ${{ inputs.redeploy_alerts }}
             uses: appleboy/ssh-action@v1.2.0
@@ -89,7 +96,11 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_alerts.sh -a ${{ secrets.AIR_ALARM_API_KEY }} -p 2 -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_alerts.sh \
+                  -a ${{ secrets.AIR_ALARM_API_KEY }} \
+                  -p 2 \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Alerts websocket parser
             if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
@@ -102,7 +113,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_alerts_ws.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                bash redeploy_alerts_ws.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -pr ${{ secrets.PROXIES }} \
                   -su ${{ secrets.WS_SOURCE_URL }} \
                   -tid ${{ secrets.WS_TOKEN_ID }} \
@@ -125,7 +138,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_ukrenergo.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                bash redeploy_ukrenergo.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -r ${{ secrets.UKRENERGO_REQUEST_PERIOD }} \
                   -u ${{ secrets.UKRENERGO_UPDATE_PERIOD }} \
                   -s ${{ secrets.UKRENERGO_SOURCE_URL }} \
@@ -144,7 +159,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_radiation.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }} \
+                bash redeploy_radiation.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -a ${{ secrets.SAVEECOBOT_API_KEY }} \
                   -s ${{ secrets.SAVEECOBOT_SENSORS_URL }} \
                   -d ${{ secrets.SAVEECOBOT_DATA_URL }} \
@@ -161,7 +178,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_updater.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_updater.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Svg Generator
             if: ${{ inputs.redeploy_svg_generator }}
             uses: appleboy/ssh-action@v1.2.0
@@ -174,7 +193,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_svg_generator.sh -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_svg_generator.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Update Server (bin list)
             if: ${{ inputs.redeploy_update_server }}
             uses: appleboy/ssh-action@v1.2.0
@@ -187,7 +208,11 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_update_server.sh -s '/root/ukraine_alarm_map/bin' -sb '/root/ukraine_alarm_map/bin_beta' -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_update_server.sh \
+                  -s '/root/ukraine_alarm_map/bin' \
+                  -sb '/root/ukraine_alarm_map/bin_beta' \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
@@ -200,7 +225,10 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_web_server.sh -d ${{ secrets.WEB_TOKEN }} -m ${{ secrets.CLOUD_MEMCACHED_HOST }}
+                bash redeploy_web_server.sh \
+                  -d ${{ secrets.WEB_TOKEN }} \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

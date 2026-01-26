@@ -18,7 +18,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_nginx.sh -c ${{ secrets.CLOUD_NGINX_CONFIG }} -l ${{ secrets.CLOUD_NGINX_LOGS }}
+                bash redeploy_nginx.sh \
+                  -c ${{ secrets.CLOUD_NGINX_CONFIG }} \
+                  -l ${{ secrets.CLOUD_NGINX_LOGS }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

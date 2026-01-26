@@ -62,8 +62,6 @@ version = 4
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8080)
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
-memcached_port = int(os.environ.get("MEMCACHED_PORT") or 11211)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 data_token = os.environ.get("DATA_TOKEN") or "token"
 
