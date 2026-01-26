@@ -75,30 +75,30 @@ cd redis
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_redis -f Dockerfile .
+docker build -t redis -f Dockerfile .
 
 # Graceful shutdown of the old container (if exists)
-if docker ps -q -f name=map_redis | grep -q .; then
+if docker ps -q -f name=redis | grep -q .; then
     echo "Redis container is running, performing graceful shutdown..."
     
     # Force save data before stopping
     echo "Saving Redis data..."
-    docker exec map_redis redis-cli -a "$REDIS_PASSWORD" SAVE 2>/dev/null || \
-    docker exec map_redis redis-cli SAVE 2>/dev/null || true
+    docker exec redis redis-cli -a "$REDIS_PASSWORD" SAVE 2>/dev/null || \
+    docker exec redis redis-cli SAVE 2>/dev/null || true
     
     # Wait a moment for save to complete
     sleep 2
     
     # Stop container gracefully (Redis gets SIGTERM, has time to save)
     echo "Stopping container gracefully..."
-    docker stop -t 10 map_redis || true
+    docker stop -t 10 redis || true
 else
     echo "No running Redis container found."
 fi
 
 # Remove the old container
 echo "Removing old container..."
-docker rm map_redis || true
+docker rm redis || true
 
 # Create data directory if it doesn't exist
 echo "Creating data directory..."
@@ -119,7 +119,7 @@ fi
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_redis \
+docker run --name redis \
     --restart unless-stopped \
     --network=jaam -d \
     -p $REDIS_PORT:6379 \
@@ -130,7 +130,7 @@ docker run --name map_redis \
     --env REDIS_SAVE_INTERVAL="$REDIS_SAVE_INTERVAL" \
     --env REDIS_APPENDONLY="$REDIS_APPENDONLY" \
     --env LOGGING="$LOGGING" \
-    map_redis
+    redis
 
 echo "Container deployed successfully!"
 
