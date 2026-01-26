@@ -59,7 +59,7 @@ jobs:
                 git pull
                 bash redeploy_websocket_server_dev.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -s ${{ secrets.API_SECRET }} \
                   -i ${{ secrets.MEASUREMENT_ID }} \
                   -r ${{ inputs.random_mode && 'True' || 'False' }} \

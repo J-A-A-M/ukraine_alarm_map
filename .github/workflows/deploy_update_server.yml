@@ -25,7 +25,7 @@ jobs:
                   -s '/root/ukraine_alarm_map/bin' \
                   -sb '/root/ukraine_alarm_map/bin_beta' \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pv ${{ secrets.CLOUD_REDIS_PASSWORD }}
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
