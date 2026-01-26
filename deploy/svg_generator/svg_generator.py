@@ -646,6 +646,7 @@ async def generate_map(
     **kwargs,
 ):
     logger.debug("generator start")
+    logger.debug(f"generator params: time={time}, output_file={output_file}, show_alert_info={show_alert_info}, show_weather_info={show_weather_info}, show_energy_info={show_energy_info}, show_radiation_info={show_radiation_info}, default_color={default_color}, kwargs={kwargs}")
     svg_data = f"""
       <svg version="1.0" id="svg2" x="0px" y="0px" width="1500" height="1000" viewBox="0 0 1546.392 1030.928"
          enable-background="new 0 0 1546.93 1040.822" xml:space="preserve" inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
