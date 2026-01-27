@@ -142,7 +142,7 @@ class RedisBackedClient(dict):
                 redis_key = f"websocket:clients:{self._client_key}"
                 await asyncio.wait_for(
                     set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl),
-                    timeout=5.0  # Таймаут 5 секунд для запису в Redis
+                    timeout=5.0,  # Таймаут 5 секунд для запису в Redis
                 )
                 self._last_sync_time = current_time
                 logger.debug(f"Client {self._client_key} synced to Redis")
@@ -179,10 +179,7 @@ class RedisBackedClient(dict):
         """Видаляє клієнта з Redis"""
         try:
             redis_key = f"websocket:clients:{self._client_key}"
-            await asyncio.wait_for(
-                self._redis_client.delete(redis_key),
-                timeout=5.0  # Таймаут 5 секунд для видалення
-            )
+            await asyncio.wait_for(self._redis_client.delete(redis_key), timeout=5.0)  # Таймаут 5 секунд для видалення
             logger.debug(f"Client {self._client_key} deleted from Redis")
         except asyncio.TimeoutError:
             logger.warning(f"Redis delete timeout for client {self._client_key}")
@@ -410,8 +407,7 @@ async def get_geo_ip_data(ip, request):
     cache_key = f"geo_ip:{ip}"
     try:
         cached_data = await asyncio.wait_for(
-            redis_client.hgetall(cache_key),
-            timeout=3.0  # Таймаут 3 секунди для читання з кешу
+            redis_client.hgetall(cache_key), timeout=3.0  # Таймаут 3 секунди для читання з кешу
         )
         if cached_data:
             ttl = await asyncio.wait_for(redis_client.ttl(cache_key), timeout=2.0)
@@ -425,13 +421,9 @@ async def get_geo_ip_data(ip, request):
     data = await _fetch_geo_ip_data_from_sources(ip, request)
     try:
         await asyncio.wait_for(
-            redis_client.hset(cache_key, mapping=data),
-            timeout=3.0  # Таймаут 3 секунди для запису в кеш
+            redis_client.hset(cache_key, mapping=data), timeout=3.0  # Таймаут 3 секунди для запису в кеш
         )
-        await asyncio.wait_for(
-            redis_client.expire(cache_key, geo_ip_cache_ttl),
-            timeout=2.0
-        )
+        await asyncio.wait_for(redis_client.expire(cache_key, geo_ip_cache_ttl), timeout=2.0)
         logger.debug(f"{ip} >>> data cached in Redis hash with automatic TTL {geo_ip_cache_ttl}s")
     except asyncio.TimeoutError:
         logger.warning(f"⚠️ Redis cache write timeout for {ip} - continuing without cache")
