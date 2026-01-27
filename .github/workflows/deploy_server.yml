@@ -51,6 +51,21 @@ jobs:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
+          - name: Redeploy Updater
+            if: ${{ inputs.redeploy_updater }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_updater.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Weather
             if: ${{ inputs.redeploy_weather }}
             uses: appleboy/ssh-action@v1.2.0
@@ -166,21 +181,6 @@ jobs:
                   -s ${{ secrets.SAVEECOBOT_SENSORS_URL }} \
                   -d ${{ secrets.SAVEECOBOT_DATA_URL }} \
                   -pr ${{ secrets.PROXIES }}
-          - name: Redeploy Updater
-            if: ${{ inputs.redeploy_updater }}
-            uses: appleboy/ssh-action@v1.2.0
-            with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
-              script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
-                bash redeploy_updater.sh \
-                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Svg Generator
             if: ${{ inputs.redeploy_svg_generator }}
             uses: appleboy/ssh-action@v1.2.0
