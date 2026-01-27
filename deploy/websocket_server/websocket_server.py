@@ -139,6 +139,9 @@ class RedisBackedClient(dict):
                     else:
                         client_data["alerts_hash"] = client_data["alerts_hash"]
 
+                # Очищаємо дані від некоректних UTF-8 символів (surrogates)
+                client_data = sanitize_for_json(client_data)
+
                 redis_key = f"websocket:clients:{self._client_key}"
                 await asyncio.wait_for(
                     set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl),
@@ -257,6 +260,25 @@ def bin_sort(bin):
         patch = int(major_minor_patch[2])
 
     return (major, minor, patch, beta)
+
+
+def sanitize_for_json(obj):
+    """
+    Очищає об'єкт від некоректних символів для JSON серіалізації.
+    Видаляє surrogate pairs та інші проблемні символи.
+    """
+    if isinstance(obj, str):
+        # Видаляємо surrogate pairs та інші некоректні символи
+        return obj.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+    elif isinstance(obj, dict):
+        return {sanitize_for_json(k): sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(sanitize_for_json(item) for item in obj)
+    elif isinstance(obj, (int, float, bool, type(None))):
+        return obj
+    else:
+        # Для інших типів спробуємо конвертувати в строку та очистити
+        return str(obj).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
 
 
 def generate_random_hash(lenght):
@@ -457,7 +479,7 @@ def _get_geo_ip_defaults(ip, request):
             except Exception:
                 pass  # Якщо GeoLite2 теж не вдалося, залишаємо дефолтні
 
-        return {
+        data = {
             "hostname": "unknown",
             "city": str(city),
             "region": str(region),
@@ -467,6 +489,8 @@ def _get_geo_ip_defaults(ip, request):
             "postal": str(postal_code),
             "timezone": str(timezone),
         }
+        # Очищаємо дані від некоректних символів
+        return sanitize_for_json(data)
     except Exception as e:
         logger.warning(f"Error getting geo defaults for {ip}: {e}")
         return {
@@ -579,6 +603,8 @@ async def _fetch_geo_ip_data_from_sources(ip, request):
                     data = await response.json()
                     # remove first word from data["org"] if starting with AS
                     data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                    # Очищаємо дані від некоректних символів
+                    data = sanitize_for_json(data)
                     logger.debug(f"{ip} >>> data from IPINFO: {data}")
                     return data
     except asyncio.TimeoutError:
@@ -614,19 +640,18 @@ async def _fetch_geo_ip_data_from_sources(ip, request):
                 longitude = longitude or 0
                 postal_code = postal_code or "not-found"
 
-        country = country.encode("utf-8", "ignore").decode("utf-8")
-        region = region.encode("utf-8", "ignore").decode("utf-8")
-        city = city.encode("utf-8", "ignore").decode("utf-8")
         data = {
             "hostname": "unknown",
-            "city": city,
-            "region": region,
-            "country": country,
+            "city": str(city),
+            "region": str(region),
+            "country": str(country),
             "loc": f"{latitude},{longitude}",
             "org": "unknown",
-            "postal": postal_code,
-            "timezone": timezone,
+            "postal": str(postal_code),
+            "timezone": str(timezone),
         }
+        # Очищаємо дані від некоректних символів
+        data = sanitize_for_json(data)
         logger.debug(f"{ip} >>> data from headers/GeoLite2: {data}")
         return data
 
