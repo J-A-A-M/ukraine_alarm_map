@@ -210,7 +210,7 @@ jobs:
                 git pull
                 bash redeploy_update_server.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \ 
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -g ${{ secrets.G_TOKEN }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server }}
