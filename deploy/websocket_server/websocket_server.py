@@ -142,7 +142,7 @@ class RedisBackedClient(dict):
                 redis_key = f"websocket:clients:{self._client_key}"
                 await asyncio.wait_for(
                     set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl),
-                    timeout=5.0,  # Таймаут 5 секунд для запису в Redis
+                    timeout=3.0,  # Таймаут 3 секунди для запису в Redis
                 )
                 self._last_sync_time = current_time
                 logger.debug(f"Client {self._client_key} synced to Redis")
@@ -179,7 +179,7 @@ class RedisBackedClient(dict):
         """Видаляє клієнта з Redis"""
         try:
             redis_key = f"websocket:clients:{self._client_key}"
-            await asyncio.wait_for(self._redis_client.delete(redis_key), timeout=5.0)  # Таймаут 5 секунд для видалення
+            await asyncio.wait_for(self._redis_client.delete(redis_key), timeout=2.0)  # Таймаут 2 секунди для видалення
             logger.debug(f"Client {self._client_key} deleted from Redis")
         except asyncio.TimeoutError:
             logger.warning(f"Redis delete timeout for client {self._client_key}")
@@ -217,6 +217,9 @@ class SharedData:
         self.blocked_ips = []
         self.test_id = None
         self.redis_client = None
+        # Semaphore для контролю кількості одночасних Geo IP запитів (макс 50)
+        # Це використовується тільки для фонових запитів, основні підключення не блокуються
+        self.geo_ip_semaphore = asyncio.Semaphore(50)
 
 
 shared_data = SharedData()
@@ -398,11 +401,131 @@ async def get_client_ip(connection: ServerConnection):
     )
 
 
+async def get_geo_ip_data_cached_or_default(ip, request, client_key=None):
+    """
+    Швидкий запит Geo IP даних: спочатку перевіряє Redis cache, потім дає дефолтні дані
+    та запускає асинхронне оновлення на фоні (без блокування підключення).
+    Це дозволяє майже миттєво підключити клієнта, незалежно від стану ipinfo.io
+    """
+    redis_client = shared_data.redis_client
+    cache_key = f"geo_ip:{ip}"
+
+    # Спробуємо прочитати з Redis cache (дуже швидко, ~1-10ms)
+    if redis_client:
+        try:
+            cached_data = await asyncio.wait_for(
+                redis_client.hgetall(cache_key), timeout=0.5  # Коротка затримка для читання з кешу
+            )
+            if cached_data:
+                logger.debug(f"{ip} >>> Geo data from Redis cache")
+                return dict(cached_data)
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.debug(f"{ip} >>> Cache miss or timeout, using defaults: {e}")
+
+    # Дефолтні дані з Cloudflare headers та локальної інформації
+    data = _get_geo_ip_defaults(ip, request)
+
+    # Запускаємо асинхронне оновлення на фоні (без очікування)
+    if redis_client:
+        asyncio.create_task(_fetch_and_cache_geo_ip(ip, request, cache_key, redis_client, client_key))
+
+    return data
+
+
+def _get_geo_ip_defaults(ip, request):
+    """Отримує дефолтні Geo IP дані з Cloudflare headers та GeoLite2"""
+    try:
+        country = request.headers.get("cf-ipcountry", "unknown")
+        region = request.headers.get("cf-region", "unknown")
+        city = request.headers.get("cf-ipcity", "unknown")
+        timezone = request.headers.get("cf-timezone", "UTC")
+        longitude = request.headers.get("cf-iplongitude", "0")
+        latitude = request.headers.get("cf-iplatitude", "0")
+        postal_code = request.headers.get("cf-postal-code", "unknown")
+
+        # Якщо Cloudflare дані не повні, використовуємо GeoLite2
+        if not all([country, region, city, timezone]):
+            try:
+                response = geo.city(ip)
+                city = city or response.city.name or "unknown"
+                region = region or response.subdivisions.most_specific.name or "unknown"
+                country = country or response.country.iso_code or "unknown"
+                timezone = timezone or response.location.time_zone or "UTC"
+                latitude = latitude or str(response.location.latitude) or "0"
+                longitude = longitude or str(response.location.longitude) or "0"
+                postal_code = postal_code or response.postal.code or "unknown"
+            except Exception:
+                pass  # Якщо GeoLite2 теж не вдалося, залишаємо дефолтні
+
+        return {
+            "hostname": "unknown",
+            "city": str(city),
+            "region": str(region),
+            "country": str(country),
+            "loc": f"{latitude},{longitude}",
+            "org": "unknown",
+            "postal": str(postal_code),
+            "timezone": str(timezone),
+        }
+    except Exception as e:
+        logger.warning(f"Error getting geo defaults for {ip}: {e}")
+        return {
+            "hostname": "unknown",
+            "city": "unknown",
+            "region": "unknown",
+            "country": "unknown",
+            "loc": "0,0",
+            "org": "unknown",
+            "postal": "unknown",
+            "timezone": "UTC",
+        }
+
+
+async def _fetch_and_cache_geo_ip(ip, request, cache_key, redis_client, client_key=None):
+    """
+    Асинхронне завдання для отримання Geo IP даних з ipinfo.io та кешування в Redis.
+    Запускається на фоні без блокування підключення клієнта.
+    Також оновлює дані в активному клієнту, якщо він ще підключений.
+    """
+    try:
+        async with shared_data.geo_ip_semaphore:
+            data = await _fetch_geo_ip_data_from_sources(ip, request)
+
+            # Кешуємо в Redis
+            try:
+                await asyncio.wait_for(redis_client.hset(cache_key, mapping=data), timeout=2.0)
+                await asyncio.wait_for(redis_client.expire(cache_key, geo_ip_cache_ttl), timeout=1.0)
+                logger.debug(f"{ip} >>> Geo data cached in Redis")
+            except asyncio.TimeoutError:
+                logger.warning(f"⚠️ Redis cache write timeout for {ip}")
+            except Exception as e:
+                logger.warning(f"⚠️ Error caching geo data for {ip}: {e}")
+
+            # Оновлюємо дані у активного клієнта (якщо він ще підключений)
+            if client_key and client_key in shared_data.clients:
+                try:
+                    client = shared_data.clients[client_key]
+                    if isinstance(client, RedisBackedClient):
+                        # Оновлюємо дані в клієнті
+                        client["city"] = data.get("city", client.get("city", "unknown"))
+                        client["region"] = data.get("region", client.get("region", "unknown"))
+                        client["country"] = data.get("country", client.get("country", "unknown"))
+                        client["timezone"] = data.get("timezone", client.get("timezone", "UTC"))
+                        client["org"] = data.get("org", client.get("org", "unknown"))
+                        client["location"] = data.get("loc", client.get("location", "0,0"))
+                        logger.debug(f"{ip} >>> Updated client {client_key} with fresh geo data")
+                except Exception as e:
+                    logger.warning(f"⚠️ Error updating client {client_key} with geo data: {e}")
+    except Exception as e:
+        logger.warning(f"⚠️ Background geo fetch failed for {ip}: {e}")
+
+
 async def get_geo_ip_data(ip, request):
     redis_client = shared_data.redis_client
     if not redis_client:
         logger.error("Redis client not initialized in get_geo_ip_data")
-        return await _fetch_geo_ip_data_from_sources(ip, request)
+        async with shared_data.geo_ip_semaphore:
+            return await _fetch_geo_ip_data_from_sources(ip, request)
 
     cache_key = f"geo_ip:{ip}"
     try:
@@ -418,7 +541,10 @@ async def get_geo_ip_data(ip, request):
     except Exception as e:
         logger.warning(f"⚠️ Error reading from Redis hash cache: {e}")
 
-    data = await _fetch_geo_ip_data_from_sources(ip, request)
+    # Використовуємо semaphore для контролю паралельних запитів
+    async with shared_data.geo_ip_semaphore:
+        data = await _fetch_geo_ip_data_from_sources(ip, request)
+
     try:
         await asyncio.wait_for(
             redis_client.hset(cache_key, mapping=data), timeout=3.0  # Таймаут 3 секунди для запису в кеш
@@ -435,25 +561,28 @@ async def get_geo_ip_data(ip, request):
 
 async def _fetch_geo_ip_data_from_sources(ip, request):
     try:
-        # Спроба отримати дані з ipinfo.io
+        # Спроба отримати дані з ipinfo.io з таймаутом 3 секунди
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
-                # example:
-                # {
-                #   "hostname": "188-163-48-155.broadband.kyivstar.net",
-                #   "city": "Kramatorsk",
-                #   "region": "Donetsk",
-                #   "country": "UA",
-                #   "loc": "48.7305,37.5879",
-                #   "org": "AS15895 \"Kyivstar\" PJSC",
-                #   "postal": "84300",
-                #   "timezone": "Europe/Kyiv"
-                # }
-                data = await response.json()
-                # remove first word from data["org"] if starting with AS
-                data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
-                logger.debug(f"{ip} >>> data from IPINFO: {data}")
-                return data
+            async with asyncio.timeout(3.0):  # Таймаут 3 секунди для запиту
+                async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
+                    # example:
+                    # {
+                    #   "hostname": "188-163-48-155.broadband.kyivstar.net",
+                    #   "city": "Kramatorsk",
+                    #   "region": "Donetsk",
+                    #   "country": "UA",
+                    #   "loc": "48.7305,37.5879",
+                    #   "org": "AS15895 \"Kyivstar\" PJSC",
+                    #   "postal": "84300",
+                    #   "timezone": "Europe/Kyiv"
+                    # }
+                    data = await response.json()
+                    # remove first word from data["org"] if starting with AS
+                    data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                    logger.debug(f"{ip} >>> data from IPINFO: {data}")
+                    return data
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ ipinfo.io request timeout for {ip} - using fallback")
     except Exception as e:
         logger.warning(f"⚠️ Error fetching from ipinfo.io: {e}")
 
@@ -962,14 +1091,15 @@ async def echo(websocket: ServerConnection):
             logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
             return
 
-        geo_ip_data = await get_geo_ip_data(client_ip, websocket.request)
+        client_key = f"{client_ip}:{client_id}"
+
+        # Швидке отримання Geo IP даних без блокування (дефолтні дані + фоновий запит)
+        geo_ip_data = await get_geo_ip_data_cached_or_default(client_ip, websocket.request, client_key)
 
         # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
         #     shared_data.blocked_ips.append(client_ip)
         #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
         #     return
-
-        client_key = f"{client_ip}:{client_id}"
 
         # Створюємо нового клієнта (при реконекті ID завжди новий, тому не шукаємо старого)
         initial_data = {
@@ -1007,8 +1137,9 @@ async def echo(websocket: ServerConnection):
 
         # Створюємо Redis-backed клієнта з TTL 120 секунд (2 хвилини)
         # Це забезпечує збереження даних на випадок несподіваного завершення сервера
-        # Клієнт зберігається ТІЛЬКИ в Redis (не в shared_data.clients)
         client = await create_redis_backed_client(client_key, shared_data.redis_client, initial_data, ttl=120)
+        # Зберігаємо клієнта в shared_data.clients для доступу з фонових задач
+        shared_data.clients[client_key] = client
         if google_stat_send:
             tracker = shared_data.trackers[f"{client_ip}_{client_id}"] = GtagMP(
                 api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
@@ -1086,14 +1217,17 @@ async def echo(websocket: ServerConnection):
         chip_id = get_chip_id(client, client_id) if client else client_id
         logger.error(f"{client_ip}:{chip_id}: Exception - {e}")
     finally:
-        client_key = f"{client_ip}_{client_id}"
+        client_key = f"{client_ip}:{client_id}"
         if google_stat_send and client_key in shared_data.trackers:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
             await send_google_stat(tracker, offline_event)
             del shared_data.trackers[client_key]
 
-        # Видаляємо клієнта з Redis
+        # Видаляємо клієнта з пам'яті та Redis
+        if client_key in shared_data.clients:
+            del shared_data.clients[client_key]
+
         if client and isinstance(client, RedisBackedClient):
             try:
                 await client.delete_from_redis()
