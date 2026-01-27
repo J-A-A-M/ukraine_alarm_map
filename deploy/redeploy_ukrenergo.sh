@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             UKRENERGO_SOURCE_URL="$2"
             shift 2
             ;;
-        -p|--proxies)
+        -pr|--proxies)
             PROXIES="$2"
             shift 2
             ;;

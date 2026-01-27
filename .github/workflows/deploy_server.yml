@@ -209,10 +209,9 @@ jobs:
                 git switch ${{ github.ref_name }}
                 git pull
                 bash redeploy_update_server.sh \
-                  -s '/root/ukraine_alarm_map/bin' \
-                  -sb '/root/ukraine_alarm_map/bin_beta' \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \ 
+                  -g ${{ secrets.G_TOKEN }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
