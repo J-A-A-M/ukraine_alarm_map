@@ -114,11 +114,22 @@ class RedisBackedClient(dict):
         self._sync_lock = asyncio.Lock()
         self._pending_sync = False
         self._sync_task = None
+        self._last_sync_time = 0  # Timestamp останньої синхронізації
+        self._min_sync_interval = 2.0  # Мінімальний інтервал між синхронізаціями (секунди)
 
     async def _sync_to_redis(self):
         """Синхронізує поточний стан клієнта в Redis"""
         async with self._sync_lock:
             try:
+                # Перевіряємо rate limiting
+                current_time = asyncio.get_event_loop().time()
+                time_since_last_sync = current_time - self._last_sync_time
+                if time_since_last_sync < self._min_sync_interval:
+                    logger.debug(
+                        f"Client {self._client_key} sync skipped (rate limit: {time_since_last_sync:.2f}s < {self._min_sync_interval}s)"
+                    )
+                    return
+
                 # Серіалізуємо дані клієнта в JSON
                 client_data = {k: v for k, v in self.items()}
                 # Конвертуємо байтові хеші в hex для JSON серіалізації
@@ -129,8 +140,14 @@ class RedisBackedClient(dict):
                         client_data["alerts_hash"] = client_data["alerts_hash"]
 
                 redis_key = f"websocket:clients:{self._client_key}"
-                await set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl)
+                await asyncio.wait_for(
+                    set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl),
+                    timeout=5.0  # Таймаут 5 секунд для запису в Redis
+                )
+                self._last_sync_time = current_time
                 logger.debug(f"Client {self._client_key} synced to Redis")
+            except asyncio.TimeoutError:
+                logger.warning(f"Redis sync timeout for client {self._client_key} - operation will be retried")
             except Exception as e:
                 logger.error(f"Failed to sync client {self._client_key} to Redis: {e}")
 
@@ -141,7 +158,7 @@ class RedisBackedClient(dict):
 
     async def _delayed_sync(self):
         """Затримана синхронізація для батчингу змін"""
-        await asyncio.sleep(0.1)  # Коротка затримка для батчингу
+        await asyncio.sleep(1.0)  # Збільшена затримка для кращого батчингу змін
         await self._sync_to_redis()
 
     def __setitem__(self, key, value):
@@ -162,8 +179,13 @@ class RedisBackedClient(dict):
         """Видаляє клієнта з Redis"""
         try:
             redis_key = f"websocket:clients:{self._client_key}"
-            await self._redis_client.delete(redis_key)
+            await asyncio.wait_for(
+                self._redis_client.delete(redis_key),
+                timeout=5.0  # Таймаут 5 секунд для видалення
+            )
             logger.debug(f"Client {self._client_key} deleted from Redis")
+        except asyncio.TimeoutError:
+            logger.warning(f"Redis delete timeout for client {self._client_key}")
         except Exception as e:
             logger.error(f"Failed to delete client {self._client_key} from Redis: {e}")
 
@@ -258,8 +280,9 @@ async def create_redis_backed_client(
         RedisBackedClient: Клієнт з автоматичною синхронізацією
     """
     client = RedisBackedClient(client_key, redis_client, initial_data, ttl)
-    # Зберігаємо початковий стан в Redis
-    await client.force_sync()
+    # НЕ зберігаємо початковий стан одразу - це відбудеться автоматично при першій зміні
+    # або через 1 секунду через механізм _delayed_sync. Це зменшує навантаження на Redis
+    # при одночасному підключенні багатьох клієнтів.
     return client
 
 
@@ -386,19 +409,32 @@ async def get_geo_ip_data(ip, request):
 
     cache_key = f"geo_ip:{ip}"
     try:
-        cached_data = await redis_client.hgetall(cache_key)
+        cached_data = await asyncio.wait_for(
+            redis_client.hgetall(cache_key),
+            timeout=3.0  # Таймаут 3 секунди для читання з кешу
+        )
         if cached_data:
-            ttl = await redis_client.ttl(cache_key)
+            ttl = await asyncio.wait_for(redis_client.ttl(cache_key), timeout=2.0)
             logger.debug(f"{ip} >>> data from Redis hash cache (TTL: {ttl}s remaining)")
             return dict(cached_data)
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ Redis cache read timeout for {ip} - fetching from source")
     except Exception as e:
         logger.warning(f"⚠️ Error reading from Redis hash cache: {e}")
 
     data = await _fetch_geo_ip_data_from_sources(ip, request)
     try:
-        await redis_client.hset(cache_key, mapping=data)
-        await redis_client.expire(cache_key, geo_ip_cache_ttl)
+        await asyncio.wait_for(
+            redis_client.hset(cache_key, mapping=data),
+            timeout=3.0  # Таймаут 3 секунди для запису в кеш
+        )
+        await asyncio.wait_for(
+            redis_client.expire(cache_key, geo_ip_cache_ttl),
+            timeout=2.0
+        )
         logger.debug(f"{ip} >>> data cached in Redis hash with automatic TTL {geo_ip_cache_ttl}s")
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ Redis cache write timeout for {ip} - continuing without cache")
     except Exception as e:
         logger.warning(f"⚠️ Error saving to Redis hash cache: {e}")
 
@@ -1446,7 +1482,7 @@ async def main():
     ):
         await asyncio.gather(
             update_legacy_data(shared_data, redis_client),
-            # update_fusion_data(shared_data, redis_client),
+            update_fusion_data(shared_data, redis_client),
             print_clients(shared_data, redis_client),
         )
 
