@@ -39,7 +39,7 @@ redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
 
-logger.info(f"Web password set to: '{password}'")
+logger.info("Web password is configured.")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -48,7 +48,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         auth_token = request.cookies.get("auth_token", "")
-        logger.debug(f"Auth check - cookie: '{auth_token}', expected: '{password}', match: {auth_token == password}")
+        has_cookie = bool(auth_token)
+        logger.debug(f"Auth check - has_cookie: {has_cookie}, match: {auth_token == password}")
 
         if auth_token != password:
             return RedirectResponse(url="/login", status_code=303)
@@ -240,7 +241,7 @@ async def auth_handler(request: Request):
             form_data = await request.form()
             password = form_data.get("password", "")
 
-        logger.info(f"Login attempt - received: '{password}', expected: '{password}', match: {password == password}")
+        logger.info(f"Login attempt received, match: {password == password}")
 
         if password == password:
             response = RedirectResponse(url="/", status_code=303)
