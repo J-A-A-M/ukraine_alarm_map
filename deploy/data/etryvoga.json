@@ -1,0 +1,2858 @@
+[
+{
+"districts": [],
+"slug": "ALL",
+"name": "Вся Україна"
+},
+{
+"districts": [
+{
+"slug": "IVANO-FRANKIVSKYI-DSTR",
+"name": "Івано-Франківський район",
+"cities": [
+{
+"slug": "IVANO-FRANKIVSK-CITY",
+"name": "Івано-Франківськ"
+},
+{
+"slug": "BOHORODCHANY-CITY",
+"name": "Богородчани"
+},
+{
+"slug": "BURSHTYN-CITY",
+"name": "Бурштин"
+},
+{
+"slug": "HALYCH-CITY",
+"name": "Галич"
+},
+{
+"slug": "ROHATYN-CITY",
+"name": "Рогатин"
+},
+{
+"slug": "TLUMACH-CITY",
+"name": "Тлумач"
+}
+]
+},
+{
+"slug": "VERKHOVYNSKYI-DSTR",
+"name": "Верховинський район",
+"cities": [
+{
+"slug": "VERKHOVYNA-CITY",
+"name": "Верховина"
+}
+]
+},
+{
+"slug": "KALUSKYI-DSTR",
+"name": "Калуський район",
+"cities": [
+{
+"slug": "DOLYNA-CITY",
+"name": "Долина"
+},
+{
+"slug": "KALUSH",
+"name": "Калуш"
+},
+{
+"slug": "ROZHNIATIV-CITY",
+"name": "Рожнятів"
+}
+]
+},
+{
+"slug": "KOLOMYISKYI-DSTR",
+"name": "Коломийський район",
+"cities": [
+{
+"slug": "HORODENKA-CITY",
+"name": "Городенка"
+},
+{
+"slug": "KOLOMYIA-CITY",
+"name": "Коломия"
+},
+{
+"slug": "SNIATYN-CITY",
+"name": "Снятин"
+}
+]
+},
+{
+"slug": "KOSIVSKYI-DSTR",
+"name": "Косівський район",
+"cities": [
+{
+"slug": "KOSIV-CITY",
+"name": "Косів"
+}
+]
+},
+{
+"slug": "NADVIRNIANSKYI-DSTR",
+"name": "Надвірнянський район",
+"cities": [
+{
+"slug": "NADVIRNA-CITY",
+"name": "Надвірна"
+},
+{
+"slug": "YAREMCHE-CITY",
+"name": "Яремче"
+}
+]
+}
+],
+"slug": "IVANOFRANKIWSKA",
+"name": "Івано-Франківська обл."
+},
+{
+"districts": [
+{
+"slug": "VOLODIMIR-VOLINSKYI-DSTR",
+"name": "Володимирський район",
+"cities": [
+{
+"slug": "IVANYCHI-CITY",
+"name": "Іваничі"
+},
+{
+"slug": "VOLODYMYR-CITY",
+"name": "Володимир"
+},
+{
+"slug": "LOKACHI-CITY",
+"name": "Локачі"
+},
+{
+"slug": "NOVOVOLYNSK-CITY",
+"name": "Нововолинськ"
+}
+]
+},
+{
+"slug": "KAMIN-KASHIRSKYI-DSTR",
+"name": "Камінь-Каширський район",
+"cities": [
+{
+"slug": "KAMIN-KASHIRSKIJ-CITY",
+"name": "Камінь-Каширський"
+},
+{
+"slug": "LIUBESHIV-CITY",
+"name": "Любешів"
+},
+{
+"slug": "MANEVYCHI-CITY",
+"name": "Маневичі"
+}
+]
+},
+{
+"slug": "KOVELSKYI-DSTR",
+"name": "Ковельський район",
+"cities": [
+{
+"slug": "HOLOBY-CITY",
+"name": "Голоби"
+},
+{
+"slug": "KOVEL-CITY",
+"name": "Ковель"
+},
+{
+"slug": "LIUBOML-CITY",
+"name": "Любомль"
+},
+{
+"slug": "RATNE-CITY",
+"name": "Ратне"
+},
+{
+"slug": "STARA-VYZHIVKA-CITY",
+"name": "Стара Вижівка"
+},
+{
+"slug": "TURIISTK-CITY",
+"name": "Турійськ"
+},
+{
+"slug": "SHATSK-CITY",
+"name": "Шацьк"
+}
+]
+},
+{
+"slug": "LUCKYI-DSTR",
+"name": "Луцький район",
+"cities": [
+{
+"slug": "HOROKHIV-CITY",
+"name": "Горохів"
+},
+{
+"slug": "KIVERTSI-CITY",
+"name": "Ківерці"
+},
+{
+"slug": "LUTSK-CITY",
+"name": "Луцьк"
+},
+{
+"slug": "ROZHYSHCHE-CITY",
+"name": "Рожище"
+}
+]
+}
+],
+"slug": "VOLYNSKA",
+"name": "Волинська обл."
+},
+{
+"districts": [
+{
+"slug": "VINNYTSKYI-DSTR",
+"name": "Вінницький район",
+"cities": [
+{
+"slug": "ILLINTSI-CITY",
+"name": "Іллінці"
+},
+{
+"slug": "VINNYTSIA-CITY",
+"name": "Вінниця"
+},
+{
+"slug": "HNIVAN-CITY",
+"name": "Гнівань"
+},
+{
+"slug": "LYPOVETS-CITY",
+"name": "Липовець"
+},
+{
+"slug": "LITYN-CITY",
+"name": "Літин"
+},
+{
+"slug": "NEMYRIV-CITY",
+"name": "Немирів"
+},
+{
+"slug": "ORATIV-CITY",
+"name": "Оратів"
+},
+{
+"slug": "POHREBYSHCHE-CITY",
+"name": "Погребище"
+},
+{
+"slug": "TYVRIV-CITY",
+"name": "Тиврів"
+}
+]
+},
+{
+"slug": "HAISYNSKYI-DSTR",
+"name": "Гайсинський район",
+"cities": [
+{
+"slug": "BERSHAD-CITY",
+"name": "Бершадь"
+},
+{
+"slug": "HAISYN-CITY",
+"name": "Гайсин"
+},
+{
+"slug": "LADYZHYN-CITY",
+"name": "Ладижин"
+},
+{
+"slug": "TEPLYK-CITY",
+"name": "Теплик"
+},
+{
+"slug": "TROSTIANETS-CITY",
+"name": "Тростянець"
+},
+{
+"slug": "CHECHELNYK-CITY",
+"name": "Чечельник"
+}
+]
+},
+{
+"slug": "ZHMERYNSKYI-DSTR",
+"name": "Жмеринський район",
+"cities": [
+{
+"slug": "BAR-CITY",
+"name": "Бар"
+},
+{
+"slug": "ZHMERYNKA-CITY",
+"name": "Жмеринка"
+},
+{
+"slug": "SHARHOROD-CITY",
+"name": "Шаргород"
+}
+]
+},
+{
+"slug": "MOHYLIV-PODILSKYI-DSTR",
+"name": "Могилів-Подільський район",
+"cities": [
+{
+"slug": "MOHYLIV-PODILSKYI-CITY",
+"name": "Могилів-Подільський"
+},
+{
+"slug": "MURAVANIKURYLIVTSI-CITY",
+"name": "Муровані Курилівці"
+},
+{
+"slug": "CHERNIVTSI-VIN-CITY",
+"name": "Чернівці"
+},
+{
+"slug": "YAMPIL-CITY",
+"name": "Ямпіль"
+}
+]
+},
+{
+"slug": "TULCHYNSKYI-DSTR",
+"name": "Тульчинський район",
+"cities": [
+{
+"slug": "KRYZHOPIL-CITY",
+"name": "Крижопіль"
+},
+{
+"slug": "PISHCHANKA-CITY",
+"name": "Піщанка"
+},
+{
+"slug": "TOMASHPIL-CITY",
+"name": "Томашпіль"
+},
+{
+"slug": "TULCHYN-CITY",
+"name": "Тульчин"
+}
+]
+},
+{
+"slug": "KHMILNYTSKYI-DSTR",
+"name": "Хмільницький район",
+"cities": [
+{
+"slug": "KALYNIVKA-CITY",
+"name": "Калинівка"
+},
+{
+"slug": "KOZIATYN-CITY",
+"name": "Козятин"
+},
+{
+"slug": "HMILNIK-CITY",
+"name": "Хмільник"
+}
+]
+}
+],
+"slug": "VINNYTSA",
+"name": "Вінницька обл."
+},
+{
+"districts": [
+{
+"slug": "DNIPROVSKYI-DSTR",
+"name": "Дніпровський район",
+"cities": [
+{
+"slug": "DNIPRO-CITY",
+"name": "Дніпро"
+},
+{
+"slug": "PETRYKIVKA-CITY",
+"name": "Петриківка"
+},
+{
+"slug": "SOLONE-CITY",
+"name": "Солоне"
+},
+{
+"slug": "TSARYCHANKA-CITY",
+"name": "Царичанка"
+}
+]
+},
+{
+"slug": "KAMIANSKYI-DSTR",
+"name": "Кам'янський район",
+"cities": [
+{
+"slug": "VERKHNIODNIPROVSK-CITY",
+"name": "Верхньодніпровськ"
+},
+{
+"slug": "VERHIVCEVE-CITY",
+"name": "Верхівцеве"
+},
+{
+"slug": "VILNOGIRSK-CITY",
+"name": "Вільногірськ"
+},
+{
+"slug": "KAMIANSKE-CITY",
+"name": "Кам'янське"
+},
+{
+"slug": "KRYNYCHKY-CITY",
+"name": "Кринички"
+},
+{
+"slug": "PIATYKHATKY-CITY",
+"name": "П’ятихатки"
+}
+]
+},
+{
+"slug": "KRYVORIZKYI-DSTR",
+"name": "Криворізький район",
+"cities": [
+{
+"slug": "APOSTOLOVE-CITY",
+"name": "Апостолове"
+},
+{
+"slug": "VELIKA-KOSTROMKA-CITY",
+"name": "Велика Долина"
+},
+{
+"slug": "ZELENODOLSK-CITY",
+"name": "Зеленодольськ"
+},
+{
+"slug": "KRYVYOI-RIH-CITY",
+"name": "Кривий Ріг"
+},
+{
+"slug": "MAR-YANSKE-CITY",
+"name": "Мар'янське"
+},
+{
+"slug": "SOFIIVKA-CITY",
+"name": "Софіївка"
+},
+{
+"slug": "SHYROKE-CITY",
+"name": "Широке"
+}
+]
+},
+{
+"slug": "NIKOPOLSKYI-DSTR",
+"name": "Нікопольський район",
+"cities": [
+{
+"slug": "MARHANETS-CITY",
+"name": "Марганець"
+},
+{
+"slug": "NIKOPOL-CITY",
+"name": "Нікополь"
+},
+{
+"slug": "POKROV-CITY",
+"name": "Покров"
+},
+{
+"slug": "TOMAKIVKA-CITY",
+"name": "Томаківка"
+}
+]
+},
+{
+"slug": "PAVLOHRADSKYI-DSTR",
+"name": "Павлоградський район",
+"cities": [
+{
+"slug": "VASYLKIVKA-CITY",
+"name": "Васильківка"
+},
+{
+"slug": "PAVLOHRAD-CITY",
+"name": "Павлоград"
+},
+{
+"slug": "YURIVKA-CITY",
+"name": "Юр’ївка"
+}
+]
+},
+{
+"slug": "NOVOMOSKOVSKYI-DSTR",
+"name": "Самарівський район",
+"cities": [
+{
+"slug": "MAHDALYNIVKA-CITY",
+"name": "Магдалинівка"
+},
+{
+"slug": "NOVOMOSKOVSK-CITY",
+"name": "Самар"
+}
+]
+},
+{
+"slug": "SYNELNYKIVSKYI-DSTR",
+"name": "Синельниківський район",
+"cities": [
+{
+"slug": "MEZHOVA-CITY",
+"name": "Межова"
+},
+{
+"slug": "NOVOPAVLIVKA-CITY",
+"name": "Новопавлівка"
+},
+{
+"slug": "PETROPAVLIVKA-CITY",
+"name": "Петропавлівка"
+},
+{
+"slug": "POKROVSKE",
+"name": "Покровське"
+},
+{
+"slug": "SINELNIKOVO-CITY",
+"name": "Синельникове"
+},
+{
+"slug": "CHAPLYNE-CITY",
+"name": "Чаплине"
+},
+{
+"slug": "PERSHOTRAVNENSK-CITY",
+"name": "Шахтарське"
+}
+]
+}
+],
+"slug": "DNIPROPETROVSKAYA",
+"name": "Дніпропетровська обл."
+},
+{
+"districts": [
+{
+"slug": "BAKHMUTSKYI-DSTR",
+"name": "Бахмутський район",
+"cities": [
+{
+"slug": "BAKHMUT-CITY",
+"name": "Бахмут"
+},
+{
+"slug": "SVITLODARSK-CITY",
+"name": "Світлодарськ"
+},
+{
+"slug": "SOLEDAR-CITY",
+"name": "Соледар"
+},
+{
+"slug": "TORECK-CITY",
+"name": "Торецьк"
+},
+{
+"slug": "CHASIV-YAR-CITY",
+"name": "Часів Яр"
+}
+]
+},
+{
+"slug": "VOLNOVASKYI-DSTR",
+"name": "Волноваський район",
+"cities": [
+{
+"slug": "VELIKA-NOVOSILKA-CITY",
+"name": "Велика Новосілка"
+},
+{
+"slug": "VUGLEDAR-CITY",
+"name": "Вугледар"
+}
+]
+},
+{
+"slug": "HORLIVSKYI-DSTR",
+"name": "Горлівський район",
+"cities": [
+{
+"slug": "IENAKIIEVE-CITY",
+"name": "Єнакієве"
+},
+{
+"slug": "HORLIVKA-CITY",
+"name": "Горлівка"
+},
+{
+"slug": "SNIZHNE-CITY",
+"name": "Сніжне"
+},
+{
+"slug": "CHYSTIAKOVE-CITY",
+"name": "Чистякове"
+},
+{
+"slug": "SHAKHTARSK-CITY",
+"name": "Шахтарськ"
+}
+]
+},
+{
+"slug": "DONETSKYI-DSTR",
+"name": "Донецький район",
+"cities": [
+{
+"slug": "DONETSK-CITY",
+"name": "Донецьк"
+},
+{
+"slug": "MAKIIVKA-CITY",
+"name": "Макіївка"
+},
+{
+"slug": "KHARTSYZK-CITY",
+"name": "Харцизьк"
+}
+]
+},
+{
+"slug": "KALMIUSKYI-DSTR",
+"name": "Кальміуський район",
+"cities": [
+{
+"slug": "KALMIUSKE-CITY",
+"name": "Кальміуське"
+}
+]
+},
+{
+"slug": "KRAMATORSKYI-DSTR",
+"name": "Краматорський район",
+"cities": [
+{
+"slug": "DRUZHKIVKA-CITY",
+"name": "Дружківка"
+},
+{
+"slug": "KOSTIANTYNIVKA-CITY",
+"name": "Костянтинівка"
+},
+{
+"slug": "KRAMATORSK-CITY",
+"name": "Краматорськ"
+},
+{
+"slug": "LIMAN-CITY",
+"name": "Лиман"
+},
+{
+"slug": "NOVODONETSKE-CITY",
+"name": "Новодонецьке"
+},
+{
+"slug": "SVYATOGIRSK-CITY",
+"name": "Святогірськ"
+},
+{
+"slug": "SLOVIANSK-CITY",
+"name": "Слов'янськ"
+}
+]
+},
+{
+"slug": "MARIUPOLSKYI-DSTR",
+"name": "Маріупольський район",
+"cities": [
+{
+"slug": "MARIUPOL-CITY",
+"name": "Маріуполь"
+}
+]
+},
+{
+"slug": "POKROVSKYI-DSTR",
+"name": "Покровський район",
+"cities": [
+{
+"slug": "AVDIYIVKA-CITY",
+"name": "Авдіївка"
+},
+{
+"slug": "DOBROPILLYA-CITY",
+"name": "Добропілля"
+},
+{
+"slug": "KURAHOVE-CITY",
+"name": "Курахове"
+},
+{
+"slug": "MAR-YINKA-CITY",
+"name": "Мар'їнка"
+},
+{
+"slug": "MYRNOHRAD-CITY",
+"name": "Мирноград"
+},
+{
+"slug": "POKROVSK-CITY",
+"name": "Покровськ"
+}
+]
+}
+],
+"slug": "DONETSKAYA",
+"name": "Донецька обл."
+},
+{
+"districts": [
+{
+"slug": "BERDYCHIVSKYI-DSTR",
+"name": "Бердичівський район",
+"cities": [
+{
+"slug": "ANDRUSHIVKA-CITY",
+"name": "Андрушівка"
+},
+{
+"slug": "BERDYCHIV-CITY",
+"name": "Бердичів"
+},
+{
+"slug": "RUZHYN-CITY",
+"name": "Ружин"
+}
+]
+},
+{
+"slug": "ZHYTOMYRSKYI-DSTR",
+"name": "Житомирський район",
+"cities": [
+{
+"slug": "BRUSYLIV-CITY",
+"name": "Брусилів"
+},
+{
+"slug": "ZHYTOMYR-CITY",
+"name": "Житомир"
+},
+{
+"slug": "KOROSTYSHIV-CITY",
+"name": "Коростишів"
+},
+{
+"slug": "LIUBAR-CITY",
+"name": "Любар"
+},
+{
+"slug": "OZERNE-CITY",
+"name": "Озерне"
+},
+{
+"slug": "POPILNIA-CITY",
+"name": "Попільня"
+},
+{
+"slug": "PULYNY-CITY",
+"name": "Пулини"
+},
+{
+"slug": "RADOMISHL-CITY",
+"name": "Радомишль"
+},
+{
+"slug": "RADOMYSHL-CITY",
+"name": "Радомишль"
+},
+{
+"slug": "ROMANIV-CITY",
+"name": "Романів"
+},
+{
+"slug": "KHOROSHIV-CITY",
+"name": "Хорошів"
+},
+{
+"slug": "CHERNIAKHIV-CITY",
+"name": "Черняхів"
+},
+{
+"slug": "CHUDNIV-CITY",
+"name": "Чуднів"
+}
+]
+},
+{
+"slug": "NOVOHRAD-VOLYNSKYI-DSTR",
+"name": "Звягельський район",
+"cities": [
+{
+"slug": "YEMILCHYNE-CITY",
+"name": "Ємільчине"
+},
+{
+"slug": "BARANIVKA-CITY",
+"name": "Баранівка"
+},
+{
+"slug": "NOVOHRAD-VOLYNSKYOI-CITY",
+"name": "Звягель"
+}
+]
+},
+{
+"slug": "KOROSTENSKYI-DSTR",
+"name": "Коростенський район",
+"cities": [
+{
+"slug": "IRSHANSK-CITY",
+"name": "Іршанськ"
+},
+{
+"slug": "KOROSTEN-CITY",
+"name": "Коростень"
+},
+{
+"slug": "LUHYNY-CITY",
+"name": "Лугини"
+},
+{
+"slug": "MALYN-CITY",
+"name": "Малин"
+},
+{
+"slug": "NARODYCHI-CITY",
+"name": "Народичі"
+},
+{
+"slug": "OVRUCK-CITY",
+"name": "Овруч"
+},
+{
+"slug": "OLEVSK-CITY",
+"name": "Олевськ"
+}
+]
+}
+],
+"slug": "ZHYTOMYRSKA",
+"name": "Житомирська обл."
+},
+{
+"districts": [
+{
+"slug": "BEREHIVSKYI-DSTR",
+"name": "Берегівський район",
+"cities": [
+{
+"slug": "BEREHOVE-CITY",
+"name": "Берегове"
+},
+{
+"slug": "VYNOHRADIV-CITY",
+"name": "Виноградів"
+}
+]
+},
+{
+"slug": "MUKACHIVSKYI-DSTR",
+"name": "Мукачівський район",
+"cities": [
+{
+"slug": "VOLOVETS-CITY",
+"name": "Воловець"
+},
+{
+"slug": "MUKACHEVO-CITY",
+"name": "Мукачево"
+},
+{
+"slug": "SVALIAVA-CITY",
+"name": "Свалява"
+}
+]
+},
+{
+"slug": "RAKHIVSKYI-DSTR",
+"name": "Рахівський район",
+"cities": [
+{
+"slug": "RAKHIV-CITY",
+"name": "Рахів"
+}
+]
+},
+{
+"slug": "TIACHIVSKYI-DSTR",
+"name": "Тячівський район",
+"cities": [
+{
+"slug": "TIACHIV-CITY",
+"name": "Тячів"
+}
+]
+},
+{
+"slug": "UZHHORODSKYI-DSTR",
+"name": "Ужгородський район",
+"cities": [
+{
+"slug": "VELYKYI-BEREZNYI-CITY",
+"name": "Великий Березний"
+},
+{
+"slug": "PERECHYN-CITY",
+"name": "Перечин"
+},
+{
+"slug": "UZHHOROD-CITY",
+"name": "Ужгород"
+}
+]
+},
+{
+"slug": "KHUSTSKYI-DSTR",
+"name": "Хустський район",
+"cities": [
+{
+"slug": "IRSHAVA-CITY",
+"name": "Іршава"
+},
+{
+"slug": "MIZHHIRIA-CITY",
+"name": "Міжгір’я"
+},
+{
+"slug": "KHUST-CITY",
+"name": "Хуст"
+}
+]
+}
+],
+"slug": "ZAKARPATSKA",
+"name": "Закарпатська обл."
+},
+{
+"districts": [
+{
+"slug": "BERDIANSKYI-DSTR",
+"name": "Бердянський район",
+"cities": [
+{
+"slug": "BERDIANSK-CITY",
+"name": "Бердянськ"
+},
+{
+"slug": "PRYMORSK-CITY",
+"name": "Приморськ"
+},
+{
+"slug": "CHERNIHIVKA-CITY",
+"name": "Чернігівка"
+}
+]
+},
+{
+"slug": "VASYLIVSKYI-DSTR",
+"name": "Василівський район",
+"cities": [
+{
+"slug": "VELYKA-BILOZERKA-CITY",
+"name": "Велика Білозерка"
+},
+{
+"slug": "ENERHODAR-CITY",
+"name": "Енергодар"
+},
+{
+"slug": "KAMIANKA-DNIPROVSKA-CITY",
+"name": "Кам'янка-Дніпровська"
+},
+{
+"slug": "MYKHAILIVKA-CITY",
+"name": "Михайлівка"
+}
+]
+},
+{
+"slug": "ZAPORIZKYI-DSTR",
+"name": "Запорізький район",
+"cities": [
+{
+"slug": "BILENKE-CITY",
+"name": "Біленьке"
+},
+{
+"slug": "VILNIANSK-CITY",
+"name": "Вільнянськ"
+},
+{
+"slug": "ZAPORIZHZHIA-CITY",
+"name": "Запоріжжя"
+},
+{
+"slug": "KOMISHUVAHA-CITY",
+"name": "Комишуваха"
+},
+{
+"slug": "NOVOMYKHAILIVKA-CITY",
+"name": "Новомихайлівка"
+},
+{
+"slug": "TAVRIISKE-CITY",
+"name": "Таврійське"
+}
+]
+},
+{
+"slug": "MELITOPOLSKYI-DSTR",
+"name": "Мелітопольський район",
+"cities": [
+{
+"slug": "VESELE-CITY",
+"name": "Веселе"
+},
+{
+"slug": "MELITOPOL-CITY",
+"name": "Мелітополь"
+},
+{
+"slug": "PRYAZOVSKE-CITY",
+"name": "Приазовське"
+},
+{
+"slug": "YAKYMIVKA-CITY",
+"name": "Якимівка"
+}
+]
+},
+{
+"slug": "POLOHIVSKYI-DSTR",
+"name": "Пологівський район",
+"cities": [
+{
+"slug": "BILMAK-CITY",
+"name": "Більмак"
+},
+{
+"slug": "GULYAJPOLE-CITY",
+"name": "Гуляйполе"
+},
+{
+"slug": "KAM-YANKA-CITY",
+"name": "Кам'янка"
+},
+{
+"slug": "ORIHIV-CITY",
+"name": "Оріхів"
+},
+{
+"slug": "POLOGI-CITY",
+"name": "Пологи"
+},
+{
+"slug": "ROZIVKA-CITY",
+"name": "Розівка"
+},
+{
+"slug": "TOKMAK-CITY",
+"name": "Токмак"
+}
+]
+}
+],
+"slug": "ZAPORIZKA",
+"name": "Запорізька обл."
+},
+{
+"districts": [],
+"slug": "KIYEW",
+"name": "Київ"
+},
+{
+"districts": [
+{
+"slug": "BORYSPILSKYI-DSTR",
+"name": "Бориспільський район",
+"cities": [
+{
+"slug": "BORYSPIL-CITY",
+"name": "Бориспіль"
+},
+{
+"slug": "PEREYASLAV-CITY",
+"name": "Переяслав"
+},
+{
+"slug": "YAGOTIN-CITY",
+"name": "Яготин"
+}
+]
+},
+{
+"slug": "BROVARSKYI-DSTR",
+"name": "Броварський район",
+"cities": [
+{
+"slug": "BARYSHIVKA-CITY",
+"name": "Баришівка"
+},
+{
+"slug": "BROVARY-CITY",
+"name": "Бровари"
+},
+{
+"slug": "ZGURIVKA-CITY",
+"name": "Згурівка"
+},
+{
+"slug": "SEMIPOLKI-CITY",
+"name": "Семиполки"
+}
+]
+},
+{
+"slug": "BUCHANSKYI-DSTR",
+"name": "Бучанський район",
+"cities": [
+{
+"slug": "IRPIN-CITY",
+"name": "Ірпінь"
+},
+{
+"slug": "BORODYANKA-CITY",
+"name": "Бородянка"
+},
+{
+"slug": "BUCHA-CITY",
+"name": "Буча"
+},
+{
+"slug": "BILOGORODKA-CITY",
+"name": "Білогородка"
+},
+{
+"slug": "VISHNEVE-CITY",
+"name": "Вишневе"
+},
+{
+"slug": "VORZEL-CITY",
+"name": "Ворзель"
+},
+{
+"slug": "GOSTOMEL-CITY",
+"name": "Гостомель"
+},
+{
+"slug": "MAKARIV-CITY",
+"name": "Макарів"
+}
+]
+},
+{
+"slug": "BILOTSERKIVSKYI-DSTR",
+"name": "Білоцерківський район",
+"cities": [
+{
+"slug": "BILA-TSERKVA-CITY",
+"name": "Біла Церква"
+},
+{
+"slug": "VOLODARKA-CITY",
+"name": "Володарка"
+},
+{
+"slug": "SKVIRA-CITY",
+"name": "Сквира"
+},
+{
+"slug": "STAVYSCHE-CITY",
+"name": "Ставище"
+},
+{
+"slug": "TARASHCHA-CITY",
+"name": "Тараща"
+},
+{
+"slug": "TETIIV-CITY",
+"name": "Тетіїв"
+},
+{
+"slug": "UZIN-CITY",
+"name": "Узин"
+}
+]
+},
+{
+"slug": "VYSHHORODSKYI-DSTR",
+"name": "Вишгородський район",
+"cities": [
+{
+"slug": "IVANKIV-CITY",
+"name": "Іванків"
+},
+{
+"slug": "VISHGOROD-CITY",
+"name": "Вишгород"
+},
+{
+"slug": "DYMER-CITY",
+"name": "Димер"
+},
+{
+"slug": "POLISKE-CITY",
+"name": "Поліське"
+},
+{
+"slug": "SLAVUTICH-CITY",
+"name": "Славутич"
+}
+]
+},
+{
+"slug": "OBUKHIVSKYI-DSTR",
+"name": "Обухівський район",
+"cities": [
+{
+"slug": "BOHUSLAV-CITY",
+"name": "Богуслав"
+},
+{
+"slug": "VASYLKIV-CITY",
+"name": "Васильків"
+},
+{
+"slug": "KAGARLIK-CITY",
+"name": "Кагарлик"
+},
+{
+"slug": "MIRONIVKA-CITY",
+"name": "Миронівка"
+},
+{
+"slug": "OBUHIV-CITY",
+"name": "Обухів"
+},
+{
+"slug": "RZHYSHCHIV-CITY",
+"name": "Ржищів"
+}
+]
+},
+{
+"slug": "FASTIVSKYI-DSTR",
+"name": "Фастівський район",
+"cities": [
+{
+"slug": "BOIARKA-CITY",
+"name": "Боярка"
+},
+{
+"slug": "FASTIV-CITY",
+"name": "Фастів"
+}
+]
+}
+],
+"slug": "KIYEWSKAYA",
+"name": "Київська обл."
+},
+{
+"districts": [
+{
+"slug": "YEVPATORIISKYI-DSTR",
+"name": "Євпаторійський район",
+"cities": [
+{
+"slug": "YEVPATORIIA-CITY",
+"name": "Євпаторія"
+}
+]
+},
+{
+"slug": "BAKHCHYSARAISKYI-DSTR",
+"name": "Бахчисарайський район",
+"cities": [
+{
+"slug": "BAKHCHYSARAI-CITY",
+"name": "Бахчисарай"
+}
+]
+},
+{
+"slug": "BILOHIRSKYI-DSTR",
+"name": "Білогірський район",
+"cities": [
+{
+"slug": "BILOHIRSK-CITY",
+"name": "Білогірськ"
+}
+]
+},
+{
+"slug": "DZHANKOISKYI-DSTR",
+"name": "Джанкойський район",
+"cities": [
+{
+"slug": "DZHANKOJ-CITY",
+"name": "Джанкой"
+}
+]
+},
+{
+"slug": "KERCHENSKYI-DSTR",
+"name": "Керченський район",
+"cities": [
+{
+"slug": "KERCH-CITY",
+"name": "Керч"
+},
+{
+"slug": "SEVASTOPOL-CITY",
+"name": "Севастополь"
+}
+]
+},
+{
+"slug": "KURMANSKYI-DSTR",
+"name": "Курманський район",
+"cities": [
+{
+"slug": "KURMAN-CITY",
+"name": "Курман"
+}
+]
+},
+{
+"slug": "PEREKOPSKYI-DSTR",
+"name": "Перекопський район",
+"cities": [
+{
+"slug": "YANY-KAPU-CITY",
+"name": "Яни Капу"
+}
+]
+},
+{
+"slug": "SIMFEROPOLSKYI-DSTR",
+"name": "Сімферопольський район",
+"cities": [
+{
+"slug": "SIMFEROPOL-CITY",
+"name": "Сімферополь"
+}
+]
+},
+{
+"slug": "FEODOSIISKYI-DSTR",
+"name": "Феодосійський район",
+"cities": [
+{
+"slug": "FEODOSIIA-CITY",
+"name": "Феодосія"
+}
+]
+},
+{
+"slug": "YALTYNSKYI-DSTR",
+"name": "Ялтинський район",
+"cities": [
+{
+"slug": "YALTA-CITY",
+"name": "Ялта"
+}
+]
+}
+],
+"slug": "KRIMEA",
+"name": "Крим"
+},
+{
+"districts": [
+{
+"slug": "HOLOVANIVSKYI-DSTR",
+"name": "Голованівський район",
+"cities": [
+{
+"slug": "GOLOVANIVSK-CITY",
+"name": "Голованівськ"
+}
+]
+},
+{
+"slug": "KROPYVNYTSKYI-DSTR",
+"name": "Кропивницький район",
+"cities": [
+{
+"slug": "BOBRYNETS-CITY",
+"name": "Бобринець"
+},
+{
+"slug": "DOLYNSKA-CITY",
+"name": "Долинська"
+},
+{
+"slug": "ZNAMIANKA-CITY",
+"name": "Знам’янка"
+},
+{
+"slug": "KROPYVNYTSKYOI-CITY",
+"name": "Кропивницький"
+}
+]
+},
+{
+"slug": "NOVOUKRAINSKYI-DSTR",
+"name": "Новоукраїнський район",
+"cities": [
+{
+"slug": "NOVOUKRAYINSK-CITY",
+"name": "Новоукраїнка"
+}
+]
+},
+{
+"slug": "OLEKSANDRIISKYI-DSTR",
+"name": "Олександрійський район",
+"cities": [
+{
+"slug": "OLEKSANDRIIA-CITY",
+"name": "Олександрія"
+},
+{
+"slug": "ONUFRIIVKA-CITY",
+"name": "Онуфріївка"
+},
+{
+"slug": "SVITLOVODSK-CITY",
+"name": "Світловодськ"
+}
+]
+}
+],
+"slug": "KIROWOGRADSKA",
+"name": "Кіровоградська обл."
+},
+{
+"districts": [
+{
+"slug": "ALCHEVSKYI-DSTR",
+"name": "Алчевський район",
+"cities": [
+{
+"slug": "ALCHEVSK-CITY",
+"name": "Алчевськ"
+},
+{
+"slug": "BRIANKA-CITY",
+"name": "Брянка"
+},
+{
+"slug": "KADIIVKA-CITY",
+"name": "Кадіївка"
+}
+]
+},
+{
+"slug": "DOVZHANSKYI-DSTR",
+"name": "Довжанський район",
+"cities": [
+{
+"slug": "DOVZHANSK-CITY",
+"name": "Довжанськ"
+}
+]
+},
+{
+"slug": "LUHANSKYI-DSTR",
+"name": "Луганський район",
+"cities": [
+{
+"slug": "LUHANSK-CITY",
+"name": "Луганськ"
+}
+]
+},
+{
+"slug": "ROVENKIVSKYI-DSTR",
+"name": "Ровеньківський район",
+"cities": [
+{
+"slug": "ANTRATSYT-CITY",
+"name": "Антрацит"
+},
+{
+"slug": "ROVENKY-CITY",
+"name": "Ровеньки"
+},
+{
+"slug": "KHRUSTALNYOI-CITY",
+"name": "Хрустальний"
+}
+]
+},
+{
+"slug": "SVATIVSKYI-DSTR",
+"name": "Сватівський район",
+"cities": [
+{
+"slug": "RUBIZHNE-CITY",
+"name": "Рубіжне"
+}
+]
+},
+{
+"slug": "STAROBILSKYI-DSTR",
+"name": "Старобільський район",
+"cities": [
+{
+"slug": "STAROBILSK-CITY",
+"name": "Старобільськ"
+}
+]
+},
+{
+"slug": "SIEVIERODONETSKYI-DSTR",
+"name": "Сіверськодонецький район",
+"cities": [
+{
+"slug": "ZOLOTE-CITY",
+"name": "Золоте"
+},
+{
+"slug": "LYSYCHANSK-CITY",
+"name": "Лисичанськ"
+},
+{
+"slug": "SIEVIERODONETSK-CITY",
+"name": "Сіверськодонецьк"
+}
+]
+},
+{
+"slug": "SHCHASTYNSKYI-DSTR",
+"name": "Щастинський район",
+"cities": [
+{
+"slug": "NOVOAIDAR-CITY",
+"name": "Новоайдар"
+}
+]
+}
+],
+"slug": "LUGANSKA",
+"name": "Луганська обл."
+},
+{
+"districts": [
+{
+"slug": "DROGOBICKYI-DSTR",
+"name": "Дрогобицький район",
+"cities": [
+{
+"slug": "DROHOBYCH-CITY",
+"name": "Дрогобич"
+}
+]
+},
+{
+"slug": "ZOLOCHIVSKYI-DSTR",
+"name": "Золочівський район",
+"cities": [
+{
+"slug": "BUSK-CITY",
+"name": "Буськ"
+},
+{
+"slug": "ZOLOCHIV-LV-CITY",
+"name": "Золочів"
+}
+]
+},
+{
+"slug": "LVIVSKYI-DSTR",
+"name": "Львівський район",
+"cities": [
+{
+"slug": "BIBRKA-CITY",
+"name": "Бібрка"
+},
+{
+"slug": "LVIV-CITY",
+"name": "Львів"
+}
+]
+},
+{
+"slug": "SAMBIRSKYI-DSTR",
+"name": "Самбірський район",
+"cities": [
+{
+"slug": "SAMBIR-CITY",
+"name": "Самбір"
+}
+]
+},
+{
+"slug": "STRIJSKYI-DSTR",
+"name": "Стрийський район",
+"cities": [
+{
+"slug": "STRYOI-CITY",
+"name": "Стрий"
+}
+]
+},
+{
+"slug": "CHERVONOGRADSKYI-DSTR",
+"name": "Шептицький район",
+"cities": [
+{
+"slug": "DOBROTVIR-CITY",
+"name": "Добротвір"
+},
+{
+"slug": "CHERVONOHRAD-CITY",
+"name": "Шептицький"
+}
+]
+},
+{
+"slug": "YAVORIVSKYI-DSTR",
+"name": "Яворівський район",
+"cities": [
+{
+"slug": "YAVORIV-CITY",
+"name": "Яворів"
+}
+]
+}
+],
+"slug": "LVIVKA",
+"name": "Львівська обл."
+},
+{
+"districts": [
+{
+"slug": "BASHTANSKYI-DSTR",
+"name": "Баштанський район",
+"cities": [
+{
+"slug": "BASHTANKA-CITY",
+"name": "Баштанка"
+},
+{
+"slug": "NOVIJ-BUG-CITY",
+"name": "Новий Буг"
+},
+{
+"slug": "SNIHURIVKA-CITY",
+"name": "Снігурівка"
+}
+]
+},
+{
+"slug": "VOZNESENSKYI-DSTR",
+"name": "Вознесенський район",
+"cities": [
+{
+"slug": "YELANEC-CITY",
+"name": "Єланець"
+},
+{
+"slug": "VOZNESENSK-CITY",
+"name": "Вознесенськ"
+},
+{
+"slug": "YUZHNOUKRAYINSK-CITY",
+"name": "Південноукраїнськ (Южноукраїнськ)"
+}
+]
+},
+{
+"slug": "MYKOLAIVSKYI-DSTR",
+"name": "Миколаївський район",
+"cities": [
+{
+"slug": "KUTSURUB-CITY",
+"name": "Куцуруб"
+},
+{
+"slug": "MYKOLAIV-CITY",
+"name": "Миколаїв"
+},
+{
+"slug": "OCHAKIV-CITY",
+"name": "Очаків"
+}
+]
+},
+{
+"slug": "PERVOMAISKYI-DSTR",
+"name": "Первомайський район",
+"cities": [
+{
+"slug": "ARBUZINKA-CITY",
+"name": "Арбузинка"
+},
+{
+"slug": "KRIVE-OZERO-CITY",
+"name": "Криве Озеро"
+},
+{
+"slug": "PERVOMAOISK-CITY",
+"name": "Первомайськ"
+}
+]
+}
+],
+"slug": "MYKOLAYIV",
+"name": "Миколаївська обл."
+},
+{
+"districts": [
+{
+"slug": "IZMAILSKYI-DSTR",
+"name": "Ізмаїльський район",
+"cities": [
+{
+"slug": "IZMAIL-CITY",
+"name": "Ізмаїл"
+},
+{
+"slug": "VYLKOVE-CITY",
+"name": "Вилкове"
+},
+{
+"slug": "KILIYA-CITY",
+"name": "Кілія"
+}
+]
+},
+{
+"slug": "BEREZIVSKYI-DSTR",
+"name": "Березівський район",
+"cities": [
+{
+"slug": "BEREZIVKA-CITY",
+"name": "Березівка"
+}
+]
+},
+{
+"slug": "BOLHRADSKYI-DSTR",
+"name": "Болградський район",
+"cities": [
+{
+"slug": "ARTSYZ-CITY",
+"name": "Арциз"
+},
+{
+"slug": "BOLHRAD-CITY",
+"name": "Болград"
+}
+]
+},
+{
+"slug": "BILHOROD-DNISTROVSKYI-DSTR",
+"name": "Білгород-Дністровський район",
+"cities": [
+{
+"slug": "BILHOROD-DNISTROVSKYOI-CITY",
+"name": "Білгород-Дністровський"
+},
+{
+"slug": "SARATA-CITY",
+"name": "Сарата"
+},
+{
+"slug": "SERGIYIVKA-CITY",
+"name": "Сергіївка"
+},
+{
+"slug": "TATARBUNARY-CITY",
+"name": "Татарбунари"
+},
+{
+"slug": "TUZLY-CITY",
+"name": "Тузли"
+}
+]
+},
+{
+"slug": "ODESKYI-DSTR",
+"name": "Одеський район",
+"cities": [
+{
+"slug": "BILYAYIVKA-CITY",
+"name": "Біляївка"
+},
+{
+"slug": "ZATOKA-CITY",
+"name": "Затока"
+},
+{
+"slug": "OVIDIOPOL-CITY",
+"name": "Овідіополь"
+},
+{
+"slug": "ODESA-CITY",
+"name": "Одеса"
+},
+{
+"slug": "YUZHNE-CITY",
+"name": "Південне (Южне)"
+},
+{
+"slug": "USATOVE-CITY",
+"name": "Усатове"
+},
+{
+"slug": "CHORNOMORSK-CITY",
+"name": "Чорноморськ"
+},
+{
+"slug": "CHORNOMORSKE-CITY",
+"name": "Чорноморське"
+}
+]
+},
+{
+"slug": "PODILSKYI-DSTR",
+"name": "Подільський район",
+"cities": [
+{
+"slug": "PODILSK-CITY",
+"name": "Подільськ"
+}
+]
+},
+{
+"slug": "ROZDILNIANSKYI-DSTR",
+"name": "Роздільнянський район",
+"cities": [
+{
+"slug": "LIMANSKE-CITY",
+"name": "Лиманське"
+},
+{
+"slug": "ROZDILNA-CITY",
+"name": "Роздільна"
+}
+]
+}
+],
+"slug": "ODESKA",
+"name": "Одеська обл."
+},
+{
+"districts": [
+{
+"slug": "KREMENCHUTSKYI-DSTR",
+"name": "Кременчуцький район",
+"cities": [
+{
+"slug": "HLOBYNE-CITY",
+"name": "Глобине"
+},
+{
+"slug": "HORISHNI-PLAVNI-CITY",
+"name": "Горішні Плавні"
+},
+{
+"slug": "KREMENCHUK-CITY",
+"name": "Кременчук"
+}
+]
+},
+{
+"slug": "LUBENSKYI-DSTR",
+"name": "Лубенський район",
+"cities": [
+{
+"slug": "GREBINKA-CITY",
+"name": "Гребінка"
+},
+{
+"slug": "LUBNY-CITY",
+"name": "Лубни"
+},
+{
+"slug": "PIRYATIN-CITY",
+"name": "Пирятин"
+},
+{
+"slug": "HOROL-CITY",
+"name": "Хорол"
+}
+]
+},
+{
+"slug": "MYRHORODSKYI-DSTR",
+"name": "Миргородський район",
+"cities": [
+{
+"slug": "HADIACH-CITY",
+"name": "Гадяч"
+},
+{
+"slug": "LOKHVYTSIA-CITY",
+"name": "Лохвиця"
+},
+{
+"slug": "MIRGOROD-CITY",
+"name": "Миргород"
+}
+]
+},
+{
+"slug": "POLTAVSKYI-DSTR",
+"name": "Полтавський район",
+"cities": [
+{
+"slug": "KARLOVKA-CITY",
+"name": "Карлівка"
+},
+{
+"slug": "KOBELIAKY-CITY",
+"name": "Кобеляки"
+},
+{
+"slug": "NOVISANZHARY-CITY",
+"name": "Нові Санжари"
+},
+{
+"slug": "POLTAVA-CITY",
+"name": "Полтава"
+},
+{
+"slug": "RESHETYLVKA-CITY",
+"name": "Решетилівка"
+}
+]
+}
+],
+"slug": "POLTASKA",
+"name": "Полтавська обл."
+},
+{
+"districts": [
+{
+"slug": "VARASKYI-DSTR",
+"name": "Вараський район",
+"cities": [
+{
+"slug": "VARASH-CITY",
+"name": "Вараш"
+}
+]
+},
+{
+"slug": "DUBENSKYI-DSTR",
+"name": "Дубенський район",
+"cities": [
+{
+"slug": "DUBNO-CITY",
+"name": "Дубно"
+}
+]
+},
+{
+"slug": "RIVNENSKYI-DSTR",
+"name": "Рівненський район",
+"cities": [
+{
+"slug": "BEREZNE-CITY",
+"name": "Березне"
+},
+{
+"slug": "ZDOLBUNIV-CITY",
+"name": "Здолбунів"
+},
+{
+"slug": "KOREC-CITY",
+"name": "Корець"
+},
+{
+"slug": "KOSTOPIL-CITY",
+"name": "Костопіль"
+},
+{
+"slug": "OSTROH-CITY",
+"name": "Острог"
+},
+{
+"slug": "RIVNE-CITY",
+"name": "Рівне"
+}
+]
+},
+{
+"slug": "SARNENSKYI-DSTR",
+"name": "Сарненський район",
+"cities": [
+{
+"slug": "DUBROVYTSIA-CITY",
+"name": "Дубровиця"
+},
+{
+"slug": "ROKYTNE-CITY",
+"name": "Рокитне"
+},
+{
+"slug": "SARNI-CITY",
+"name": "Сарни"
+}
+]
+}
+],
+"slug": "RIVENSKA",
+"name": "Рівненська обл."
+},
+{
+"districts": [
+{
+"slug": "KONOTOPSKYI-DSTR",
+"name": "Конотопський район",
+"cities": [
+{
+"slug": "BURIN-CITY",
+"name": "Буринь"
+},
+{
+"slug": "KONOTOP-CITY",
+"name": "Конотоп"
+},
+{
+"slug": "KROLEVETS-CITY",
+"name": "Кролевець"
+},
+{
+"slug": "NOVA-SLOBODA-CITY",
+"name": "Нова Слобода"
+},
+{
+"slug": "PUTIVL-CITY",
+"name": "Путивль"
+}
+]
+},
+{
+"slug": "OKHTYRSKYI-DSTR",
+"name": "Охтирський район",
+"cities": [
+{
+"slug": "VELIKA-PISARIVKA-CITY",
+"name": "Велика Писарівка"
+},
+{
+"slug": "OKHTYRKA-CITY",
+"name": "Охтирка"
+},
+{
+"slug": "TROSTYANEC-CITY",
+"name": "Тростянець"
+}
+]
+},
+{
+"slug": "ROMENSKYI-DSTR",
+"name": "Роменський район",
+"cities": [
+{
+"slug": "LYPOVA-DOLYNA-CITY",
+"name": "Липова Долина"
+},
+{
+"slug": "NEDRIGAJLIV-CITY",
+"name": "Недригайлів"
+},
+{
+"slug": "ROMNI-CITY",
+"name": "Ромни"
+}
+]
+},
+{
+"slug": "SUMSKYI-DSTR",
+"name": "Сумський район",
+"cities": [
+{
+"slug": "ISKRISKIVSHIVSHINA-CITY",
+"name": "Іскрисківщина"
+},
+{
+"slug": "ATINSKE-CITY",
+"name": "Атинське"
+},
+{
+"slug": "BASIVKA-CITY",
+"name": "Басівка"
+},
+{
+"slug": "YABUDKI-CITY",
+"name": "Будки"
+},
+{
+"slug": "BILOPILLIA-CITY",
+"name": "Білопілля"
+},
+{
+"slug": "VOLFINE-CITY",
+"name": "Волфине"
+},
+{
+"slug": "VOROZHBA-CITY",
+"name": "Ворожба"
+},
+{
+"slug": "KATERINIVKA-CITY",
+"name": "Катеринівка"
+},
+{
+"slug": "KRASNOPILLYA-CITY",
+"name": "Краснопілля"
+},
+{
+"slug": "KINDRATIVKA-CITY",
+"name": "Кіндратівка"
+},
+{
+"slug": "LEBEDIN-CITY",
+"name": "Лебедин"
+},
+{
+"slug": "MEZENIVKA-CITY",
+"name": "Мезенівка"
+},
+{
+"slug": "MIKOLAYIVKA-CITY",
+"name": "Миколаївка"
+},
+{
+"slug": "MIROPILLYA-CITY",
+"name": "Миропілля"
+},
+{
+"slug": "MOGRICYA-CITY",
+"name": "Могриця"
+},
+{
+"slug": "OBODI-CITY",
+"name": "Ободи"
+},
+{
+"slug": "PAVLIVKA-CITY",
+"name": "Павлівка"
+},
+{
+"slug": "RIZHIVKA-CITY",
+"name": "Рижівка"
+},
+{
+"slug": "SUMY-CITY",
+"name": "Суми"
+},
+{
+"slug": "UGROYIDI-CITY",
+"name": "Угроїди"
+},
+{
+"slug": "HOTIN-CITY",
+"name": "Хотінь"
+},
+{
+"slug": "YUNAKIVKA-CITY",
+"name": "Юнаківка"
+}
+]
+},
+{
+"slug": "SHOSTKYNSKYI-DSTR",
+"name": "Шосткинський район",
+"cities": [
+{
+"slug": "VORONIZH-CITY",
+"name": "Вороніж"
+},
+{
+"slug": "GLUHIV-CITY",
+"name": "Глухів"
+},
+{
+"slug": "ESMAN-CITY",
+"name": "Есмань"
+},
+{
+"slug": "ZNOB-NOVGORODSKE-CITY",
+"name": "Зноб-Новгородське"
+},
+{
+"slug": "SVESA-CITY",
+"name": "Свеса"
+},
+{
+"slug": "SEREDINA-BUDA-CITY",
+"name": "Середина-Буда"
+},
+{
+"slug": "SHALIGINE-CITY",
+"name": "Шалигине"
+},
+{
+"slug": "SHOSTKA-CITY",
+"name": "Шостка"
+},
+{
+"slug": "YAMPILS-SUM-CITY",
+"name": "Ямпіль"
+}
+]
+}
+],
+"slug": "SUMSKA",
+"name": "Сумська обл."
+},
+{
+"districts": [
+{
+"slug": "KREMENECKYI-DSTR",
+"name": "Кременецький район",
+"cities": [
+{
+"slug": "KREMENETS-CITY",
+"name": "Кременець"
+}
+]
+},
+{
+"slug": "TERNOPILSKYI-DSTR",
+"name": "Тернопільський район",
+"cities": [
+{
+"slug": "BEREZHANY-CITY",
+"name": "Бережани"
+},
+{
+"slug": "ZBARAZH-CITY",
+"name": "Збараж"
+},
+{
+"slug": "KOZOVA-CITY",
+"name": "Козова"
+},
+{
+"slug": "TERNOPIL-CITY",
+"name": "Тернопіль"
+}
+]
+},
+{
+"slug": "CHORTKIVSKYI-DSTR",
+"name": "Чортківський район",
+"cities": [
+{
+"slug": "CHORTKIV-CITY",
+"name": "Чортків"
+}
+]
+}
+],
+"slug": "TERNOPILSKA",
+"name": "Тернопільська обл."
+},
+{
+"districts": [
+{
+"slug": "TEST-DSTR",
+"name": "Тестовий район",
+"cities": [
+{
+"slug": "TEST-CITY",
+"name": "Тестове місто"
+}
+]
+}
+],
+"slug": "TEST",
+"name": "Тест"
+},
+{
+"districts": [
+{
+"slug": "IZIUMSKYI-DSTR",
+"name": "Ізюмський район",
+"cities": [
+{
+"slug": "IZIUM-CITY",
+"name": "Ізюм"
+},
+{
+"slug": "BALAKLIYA-CITY",
+"name": "Балаклія"
+},
+{
+"slug": "BOROVA-CITY",
+"name": "Борова"
+}
+]
+},
+{
+"slug": "KRASNOHRADSKYI-DSTR",
+"name": "Берестинський район",
+"cities": [
+{
+"slug": "KRASNOGRAD-CITY",
+"name": "Берестин"
+}
+]
+},
+{
+"slug": "BOHODUKHIVSKYI-DSTR",
+"name": "Богодухівський район",
+"cities": [
+{
+"slug": "BOGODUHIV-CITY",
+"name": "Богодухів"
+},
+{
+"slug": "ZOLOCHIV-CITY",
+"name": "Золочів"
+}
+]
+},
+{
+"slug": "KUPIANSKYI-DSTR",
+"name": "Куп'янський район",
+"cities": [
+{
+"slug": "KUP-YANSK-CITY",
+"name": "Куп'янськ"
+}
+]
+},
+{
+"slug": "LOZIVSKYI-DSTR",
+"name": "Лозівський район",
+"cities": [
+{
+"slug": "PERVOMAJSKIJ-CITY",
+"name": "Златопіль"
+},
+{
+"slug": "LOZOVA-KHARKIVSKA-CITY",
+"name": "Лозова"
+}
+]
+},
+{
+"slug": "KHARKIVSKYI-DSTR",
+"name": "Харківський район",
+"cities": [
+{
+"slug": "DERGACHI-CITY",
+"name": "Дергачі"
+},
+{
+"slug": "KOZACHA-LOPAN-CITY",
+"name": "Козача Лопань"
+},
+{
+"slug": "LIPCI-CITY",
+"name": "Липці"
+},
+{
+"slug": "MEREFA-CITY",
+"name": "Мерефа"
+},
+{
+"slug": "PISOCHINO-CITY",
+"name": "Пісочин"
+},
+{
+"slug": "KHARKIV-CITY",
+"name": "Харків"
+},
+{
+"slug": "CIRKUNI-CITY",
+"name": "Циркуни"
+}
+]
+},
+{
+"slug": "CHUHUIVSKYI-DSTR",
+"name": "Чугуївський район",
+"cities": [
+{
+"slug": "BILIJ-KOLODYAZ-CITY",
+"name": "Білий Колодязь"
+},
+{
+"slug": "VOVCHANSK-CITY",
+"name": "Вовчанськ"
+},
+{
+"slug": "KOROBOCHKINE-CITY",
+"name": "Коробочкине"
+},
+{
+"slug": "CHUGUYIV-CITY",
+"name": "Чугуїв"
+}
+]
+}
+],
+"slug": "HARKIVSKA",
+"name": "Харківська обл."
+},
+{
+"districts": [
+{
+"slug": "BERYSLAVSKYI-DSTR",
+"name": "Бериславський район",
+"cities": [
+{
+"slug": "BERISLAV-CITY",
+"name": "Берислав"
+},
+{
+"slug": "NOVOVORONTSOVKA-CITY",
+"name": "Нововоронцовка"
+},
+{
+"slug": "OSOKORIVKA-CITY",
+"name": "Осокорівка"
+}
+]
+},
+{
+"slug": "HENICHESKYI-DSTR",
+"name": "Генічеський район",
+"cities": [
+{
+"slug": "GENICHESK-CITY",
+"name": "Генічеськ"
+}
+]
+},
+{
+"slug": "KAKHOVSKYI-DSTR",
+"name": "Каховський район",
+"cities": [
+{
+"slug": "KAHOVKA-CITY",
+"name": "Каховка"
+},
+{
+"slug": "NOVA-KAKHOVKA-CITY",
+"name": "Нова Каховка"
+},
+{
+"slug": "TAVRIJSK-CITY",
+"name": "Таврійськ"
+},
+{
+"slug": "CHAPLINKA-CITY",
+"name": "Чаплинка"
+}
+]
+},
+{
+"slug": "SKADOVSKYI-DSTR",
+"name": "Скадовський район",
+"cities": [
+{
+"slug": "SKADOVSK-CITY",
+"name": "Скадовськ"
+}
+]
+},
+{
+"slug": "KHERSONSKYI-DSTR",
+"name": "Херсонський район",
+"cities": [
+{
+"slug": "ANTONIVKA-CITY",
+"name": "Антонівка"
+},
+{
+"slug": "BILOZERKA-CITY",
+"name": "Білозерка"
+},
+{
+"slug": "OLEKSANDRIVKA-CITY",
+"name": "Олександрівка"
+},
+{
+"slug": "OLESHKI-CITY",
+"name": "Олешки"
+},
+{
+"slug": "KHERSON-CITY",
+"name": "Херсон"
+},
+{
+"slug": "CHORNOBAYIVKA-CITY",
+"name": "Чорнобаївка"
+}
+]
+}
+],
+"slug": "HERSONSKA",
+"name": "Херсонська обл."
+},
+{
+"districts": [
+{
+"slug": "KAMIANETS-PODILSKYI-DSTR",
+"name": "Кам'янець-Подільський район",
+"cities": [
+{
+"slug": "KAMIANETS-PODILSKYOI-CITY",
+"name": "Кам'янець-Подільський"
+}
+]
+},
+{
+"slug": "KHMELNYTSKYI-DSTR",
+"name": "Хмельницький район",
+"cities": [
+{
+"slug": "ADAMPIL-CITY",
+"name": "Адампіль"
+},
+{
+"slug": "VOLOCHISK-CITY",
+"name": "Волочиськ"
+},
+{
+"slug": "KRASYLIV-CITY",
+"name": "Красилів"
+},
+{
+"slug": "STAROKOSTYANTINIV-CITY",
+"name": "Старокостянтинів"
+},
+{
+"slug": "TEOFIPOL-CITY",
+"name": "Теофіполь"
+},
+{
+"slug": "KHMELNYTSKYOI-CITY",
+"name": "Хмельницький"
+}
+]
+},
+{
+"slug": "SHEPETIVSKYI-DSTR",
+"name": "Шепетівський район",
+"cities": [
+{
+"slug": "NETISHYN-CITY",
+"name": "Нетішин"
+},
+{
+"slug": "POLONNE-CITY",
+"name": "Полонне"
+},
+{
+"slug": "SLAVUTA-CITY",
+"name": "Славута"
+},
+{
+"slug": "SHEPETIVKA-CITY",
+"name": "Шепетівка"
+}
+]
+}
+],
+"slug": "HMELNYCKA",
+"name": "Хмельницька обл."
+},
+{
+"districts": [
+{
+"slug": "ZVENYHORODSKYI-DSTR",
+"name": "Звенигородський район",
+"cities": [
+{
+"slug": "VATUTINE-CITY",
+"name": "Багачеве"
+},
+{
+"slug": "ZVENIGORODKA-CITY",
+"name": "Звенигородка"
+}
+]
+},
+{
+"slug": "ZOLOTONISKYI-DSTR",
+"name": "Золотоніський район",
+"cities": [
+{
+"slug": "ZOLOTONOSHA-CITY",
+"name": "Золотоноша"
+}
+]
+},
+{
+"slug": "UMANSKYI-DSTR",
+"name": "Уманський район",
+"cities": [
+{
+"slug": "ZHASHKIV-CITY",
+"name": "Жашків"
+},
+{
+"slug": "UMAN-CITY",
+"name": "Умань"
+}
+]
+},
+{
+"slug": "CHERKASKYI-DSTR",
+"name": "Черкаський район",
+"cities": [
+{
+"slug": "KANIV-CITY",
+"name": "Канів"
+},
+{
+"slug": "KORSUN-CITY",
+"name": "Корсунь-Шевченківський"
+},
+{
+"slug": "SMILA-CITY",
+"name": "Сміла"
+},
+{
+"slug": "CHERKASY-CITY",
+"name": "Черкаси"
+}
+]
+}
+],
+"slug": "CHERKASKA",
+"name": "Черкаська обл."
+},
+{
+"districts": [
+{
+"slug": "VYZHNYTSKYI-DSTR",
+"name": "Вижницький район",
+"cities": [
+{
+"slug": "VYZHNYTSIA-CITY",
+"name": "Вижниця"
+},
+{
+"slug": "PUTYLA-CITY",
+"name": "Путила"
+}
+]
+},
+{
+"slug": "DNISTROVSKYI-DSTR",
+"name": "Дністровський район",
+"cities": [
+{
+"slug": "KELMENTSI-CITY",
+"name": "Кельменці"
+},
+{
+"slug": "SOKYRIANY-CITY",
+"name": "Сокиряни"
+},
+{
+"slug": "KHOTYN-CITY",
+"name": "Хотин"
+}
+]
+},
+{
+"slug": "CHERNIVETSKYI-DSTR",
+"name": "Чернівецький район",
+"cities": [
+{
+"slug": "HERTSA-CITY",
+"name": "Герца"
+},
+{
+"slug": "CHERNIVTSI-CITY",
+"name": "Чернівці"
+}
+]
+}
+],
+"slug": "CHERNIVETSKA",
+"name": "Чернівецька обл."
+},
+{
+"districts": [
+{
+"slug": "KORIUKIVSKYI-DSTR",
+"name": "Корюківський район",
+"cities": [
+{
+"slug": "KORIUKIVKA-CITY",
+"name": "Корюківка"
+},
+{
+"slug": "MENA-CITY",
+"name": "Мена"
+},
+{
+"slug": "SNOVSK-CITY",
+"name": "Сновськ"
+},
+{
+"slug": "SOSNYTSIA-CITY",
+"name": "Сосниця"
+},
+{
+"slug": "KHOLMY-CITY",
+"name": "Холми"
+}
+]
+},
+{
+"slug": "NOVHOROD-SIVERSKYI-DSTR",
+"name": "Новгород-Сіверський район",
+"cities": [
+{
+"slug": "KOROP-CITY",
+"name": "Короп"
+},
+{
+"slug": "NOVHOROD-SIVERSKYI",
+"name": "Новгород-Сіверський"
+},
+{
+"slug": "SEMENIVKA-CITY",
+"name": "Семенівка"
+}
+]
+},
+{
+"slug": "NIZHYNSKYI-DSTR",
+"name": "Ніжинський район",
+"cities": [
+{
+"slug": "BATURYN-CITY",
+"name": "Батурин"
+},
+{
+"slug": "BAHMACH-CITY",
+"name": "Бахмач"
+},
+{
+"slug": "BOBROVYTSIA-СITY",
+"name": "Бобровиця"
+},
+{
+"slug": "BORZNA-CITY",
+"name": "Борзна"
+},
+{
+"slug": "NOSIVKA-CITY",
+"name": "Носівка"
+},
+{
+"slug": "NIZHYN-CITY",
+"name": "Ніжин"
+}
+]
+},
+{
+"slug": "PRYLUTSKYI-DSTR",
+"name": "Прилуцький район",
+"cities": [
+{
+"slug": "ICHNYA-CITY",
+"name": "Ічня"
+},
+{
+"slug": "VARVA-CITY",
+"name": "Варва"
+},
+{
+"slug": "PRYLUKY-CITY",
+"name": "Прилуки"
+},
+{
+"slug": "SRIBNE-CITY",
+"name": "Срібне"
+},
+{
+"slug": "TALALAYIVKA-CITY",
+"name": "Талалаївка"
+}
+]
+},
+{
+"slug": "CHERNIHIVSKYI-DSTR",
+"name": "Чернігівський район",
+"cities": [
+{
+"slug": "GONCHARIVSKE-CITY",
+"name": "Гончарівське"
+},
+{
+"slug": "HORODNIA-CITY",
+"name": "Городня"
+},
+{
+"slug": "DESNA-CITY",
+"name": "Десна"
+},
+{
+"slug": "KOZELETS-CITY",
+"name": "Козелець"
+},
+{
+"slug": "KULYKIVKA-CITY",
+"name": "Куликівка"
+},
+{
+"slug": "LIUBECH-CITY",
+"name": "Любеч"
+},
+{
+"slug": "OSTER-CITY",
+"name": "Остер"
+},
+{
+"slug": "RIPKY-CITY",
+"name": "Ріпки"
+},
+{
+"slug": "CHERNIHIV-CITY",
+"name": "Чернігів"
+}
+]
+}
+],
+"slug": "CHERNIGIWSKA",
+"name": "Чернігівська обл."
+}
+]
