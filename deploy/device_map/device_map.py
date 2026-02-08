@@ -46,36 +46,36 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path in ["/login", "/auth"]:
             return await call_next(request)
-        
+
         auth_token = request.cookies.get("auth_token", "")
         logger.debug(f"Auth check - cookie: '{auth_token}', expected: '{password}', match: {auth_token == password}")
-        
+
         if auth_token != password:
             return RedirectResponse(url="/login", status_code=303)
-        
+
         return await call_next(request)
-        
+
         return await call_next(request)
 
 
 async def get_devices_locations(redis_client):
     try:
         all_clients = await get_redis_data_by_pattern(logger, redis_client, "websocket:clients:*")
-        
+
         devices = []
         for client_key, client_data in all_clients.items():
             if not client_data or not isinstance(client_data, dict):
                 continue
-                
+
             location = client_data.get("location", "0,0")
-            
+
             if not location or location == "0,0":
                 continue
-            
+
             try:
                 lat, lon = location.split(",")
                 lat, lon = float(lat), float(lon)
-                
+
                 client_ip = "unknown"
                 client_id = "unknown"
                 try:
@@ -85,15 +85,15 @@ async def get_devices_locations(redis_client):
                         client_id = key_parts[1]
                 except:
                     pass
-                
+
                 online_time = "невідомо"
                 connect_time_str = client_data.get("connect_time", "")
                 if connect_time_str:
                     try:
-                        connect_dt = datetime.datetime.fromisoformat(connect_time_str.replace('Z', '+00:00'))
+                        connect_dt = datetime.datetime.fromisoformat(connect_time_str.replace("Z", "+00:00"))
                         now = datetime.datetime.now(datetime.timezone.utc)
                         time_diff = now - connect_dt.astimezone(datetime.timezone.utc)
-                        
+
                         total_seconds = int(time_diff.total_seconds())
                         hours = total_seconds // 3600
                         minutes = (total_seconds % 3600) // 60
@@ -101,7 +101,7 @@ async def get_devices_locations(redis_client):
                         online_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                     except Exception as e:
                         logger.debug(f"Could not parse connect_time: {connect_time_str}, error: {e}")
-                
+
                 device_info = {
                     "location": location,
                     "lat": lat,
@@ -120,10 +120,10 @@ async def get_devices_locations(redis_client):
             except (ValueError, AttributeError) as e:
                 logger.warning(f"Invalid location format for client {client_key}: {location}, error: {e}")
                 continue
-        
+
         logger.info(f"Found {len(devices)} devices with valid locations")
         return devices
-        
+
     except Exception as e:
         logger.error(f"Error getting devices locations: {e}")
         return []
@@ -232,25 +232,19 @@ async def login_page(request: Request):
 async def auth_handler(request: Request):
     try:
         content_type = request.headers.get("content-type", "")
-        
+
         if "application/json" in content_type:
             data = await request.json()
             password = data.get("password", "")
         else:
             form_data = await request.form()
             password = form_data.get("password", "")
-        
+
         logger.info(f"Login attempt - received: '{password}', expected: '{password}', match: {password == password}")
-        
+
         if password == password:
             response = RedirectResponse(url="/", status_code=303)
-            response.set_cookie(
-                key="auth_token",
-                value=password,
-                max_age=86400 * 7,
-                httponly=True,
-                samesite="lax"
-            )
+            response.set_cookie(key="auth_token", value=password, max_age=86400 * 7, httponly=True, samesite="lax")
             logger.info("Login successful, cookie set")
             return response
         else:
@@ -506,9 +500,7 @@ app = Starlette(
         Route("/auth", auth_handler, methods=["POST"]),
         Route("/api/devices", api_devices),
     ],
-    middleware=[
-        Middleware(AuthMiddleware)
-    ],
+    middleware=[Middleware(AuthMiddleware)],
     on_startup=[startup],
     on_shutdown=[shutdown],
 )
