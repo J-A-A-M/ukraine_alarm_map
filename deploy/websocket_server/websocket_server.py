@@ -369,7 +369,6 @@ async def get_client_chip_id(client, chip_id_event):
         raise ChipIdTimeoutException("Chip ID timeout")
     
 
-
 async def get_client_firmware(client, firmware_event):
     try:
         await asyncio.wait_for(firmware_event.wait(), timeout=10.0)
@@ -1571,6 +1570,7 @@ async def main():
             )
     finally:
         await shared_data.http_session.close()
+        await redis_client.aclose()
 
 
 if __name__ == "__main__":
