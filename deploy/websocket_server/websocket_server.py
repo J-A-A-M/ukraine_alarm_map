@@ -1154,7 +1154,7 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
             payload = (timeouts_count + 1).to_bytes(1, "big")
             pong_waiter = await websocket.ping(payload)
             logger.debug(f"{client_ip}:{chip_id} >>> ping with payload: {payload.hex()} (binary)")
-            latency = await asyncio.wait_for(pong_waiter, ping_timeout)
+            latency = await asyncio.wait_for(asyncio.shield(pong_waiter), ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
             client["latency"] = int(latency * 1000)  # convert to ms
             timeouts_count = 0
