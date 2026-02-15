@@ -367,7 +367,7 @@ async def get_client_chip_id(client, chip_id_event):
         return client["chip_id"]
     except asyncio.TimeoutError:
         raise ChipIdTimeoutException("Chip ID timeout")
-    
+
 
 async def get_client_firmware(client, firmware_event):
     try:
@@ -605,7 +605,9 @@ async def _fetch_geo_ip_data_from_sources(ip, request):
     return _get_geo_ip_fallback(ip, request)
 
 
-async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city, chip_id_event, firmware_event):
+async def message_handler(
+    websocket: ServerConnection, client, client_id, client_ip, country, region, city, chip_id_event, firmware_event
+):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
@@ -700,7 +702,14 @@ def find_changed_regions(old_state, new_state):
 
 
 async def alerts_data_fusion(
-    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version, chip_id_event=None, firmware_event=None
+    websocket: ServerConnection,
+    client,
+    client_id,
+    client_ip,
+    shared_data: SharedData,
+    alert_version,
+    chip_id_event=None,
+    firmware_event=None,
 ):
     pubsub = None
     try:
@@ -774,14 +783,19 @@ async def alerts_data_fusion(
                                                 logger, redis_client, "websocket:v1:fusion:alerts", default_response={}
                                             ),
                                             get_redis_data(
-                                                logger, redis_client, "websocket:v1:fusion:alerts_previous", default_response={}
+                                                logger,
+                                                redis_client,
+                                                "websocket:v1:fusion:alerts_previous",
+                                                default_response={},
                                             ),
                                         )
 
                                         changed_region_ids = find_changed_regions(old_state, new_state)
                                         empty_region_ids = find_empty_regions(old_state, new_state)
 
-                                        logger.debug(f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}")
+                                        logger.debug(
+                                            f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}"
+                                        )
                                         logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
 
                                         header = struct.pack("<B", TYPE_ALERTS_BATCH)
@@ -810,7 +824,10 @@ async def alerts_data_fusion(
                                         client["weather_fusion"] = state
                                     case "websocket:v1:fusion:etryvoga:updated":
                                         state = await get_redis_data(
-                                            logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:etryvoga:data",
+                                            default_response={},
                                         )
                                         header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
                                         notifications = make_alert_batch(state.keys(), state)
@@ -823,7 +840,9 @@ async def alerts_data_fusion(
                                         continue
 
                     except (redis.ConnectionError, redis.TimeoutError) as e:
-                        logger.warning(f"{client_ip}:{chip_id} !!! Redis connection lost in fusion pub/sub: {e}, reconnecting in 5s...")
+                        logger.warning(
+                            f"{client_ip}:{chip_id} !!! Redis connection lost in fusion pub/sub: {e}, reconnecting in 5s..."
+                        )
                         if pubsub:
                             try:
                                 await pubsub.aclose()
@@ -849,7 +868,14 @@ async def alerts_data_fusion(
 
 
 async def alerts_data(
-    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version, chip_id_event=None, firmware_event=None
+    websocket: ServerConnection,
+    client,
+    client_id,
+    client_ip,
+    shared_data: SharedData,
+    alert_version,
+    chip_id_event=None,
+    firmware_event=None,
 ):
     pubsub = None
     all_channels = []
@@ -862,33 +888,129 @@ async def alerts_data(
         match alert_version:
             case AlertVersion.v1:
                 version_channels = {
-                    "websocket:v1:legacy:alerts:updated": ("websocket:v1:legacy:alerts", "alerts", "alerts", "alerts", None),
+                    "websocket:v1:legacy:alerts:updated": (
+                        "websocket:v1:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
                 }
             case AlertVersion.v2:
                 version_channels = {
-                    "websocket:v1:legacy:explosions:updated": ("websocket:v1:legacy:explosions", "explosions", "explosions", "explosions", "int_list"),
-                    "websocket:v2:legacy:alerts:updated": ("websocket:v2:legacy:alerts", "alerts", "alerts", "alerts", None),
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
                 }
             case AlertVersion.v3:
                 version_channels = {
-                    "websocket:v1:legacy:explosions:updated": ("websocket:v1:legacy:explosions", "explosions", "explosions", "explosions", "int_list"),
-                    "websocket:v2:legacy:alerts:updated": ("websocket:v2:legacy:alerts", "alerts", "alerts", "alerts", None),
-                    "websocket:v1:legacy:missiles:updated": ("websocket:v1:legacy:missiles", "missiles", "missiles", "missiles", "int_list"),
-                    "websocket:v1:legacy:drones:updated": ("websocket:v1:legacy:drones", "drones", "drones", "drones", "int_list"),
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                    "websocket:v1:legacy:missiles:updated": (
+                        "websocket:v1:legacy:missiles",
+                        "missiles",
+                        "missiles",
+                        "missiles",
+                        "int_list",
+                    ),
+                    "websocket:v1:legacy:drones:updated": (
+                        "websocket:v1:legacy:drones",
+                        "drones",
+                        "drones",
+                        "drones",
+                        "int_list",
+                    ),
                 }
             case AlertVersion.v4:
                 version_channels = {
-                    "websocket:v1:legacy:explosions:updated": ("websocket:v1:legacy:explosions", "explosions", "explosions", "explosions", "int_list"),
-                    "websocket:v2:legacy:alerts:updated": ("websocket:v2:legacy:alerts", "alerts", "alerts", "alerts", None),
-                    "websocket:v1:legacy:missiles:updated": ("websocket:v1:legacy:missiles", "missiles", "missiles", "missiles", "int_list"),
-                    "websocket:v1:legacy:drones:updated": ("websocket:v1:legacy:drones", "drones", "drones", "drones", "int_list"),
-                    "websocket:v2:legacy:missiles:updated": ("websocket:v2:legacy:missiles", "missiles2", "missiles2", "missiles", None),
-                    "websocket:v2:legacy:drones:updated": ("websocket:v2:legacy:drones", "drones2", "drones2", "drones", None),
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                    "websocket:v1:legacy:missiles:updated": (
+                        "websocket:v1:legacy:missiles",
+                        "missiles",
+                        "missiles",
+                        "missiles",
+                        "int_list",
+                    ),
+                    "websocket:v1:legacy:drones:updated": (
+                        "websocket:v1:legacy:drones",
+                        "drones",
+                        "drones",
+                        "drones",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:missiles:updated": (
+                        "websocket:v2:legacy:missiles",
+                        "missiles2",
+                        "missiles2",
+                        "missiles",
+                        None,
+                    ),
+                    "websocket:v2:legacy:drones:updated": (
+                        "websocket:v2:legacy:drones",
+                        "drones2",
+                        "drones2",
+                        "drones",
+                        None,
+                    ),
                     "websocket:v1:legacy:kabs:updated": ("websocket:v1:legacy:kabs", "kabs", "kabs", "kabs", None),
                     "websocket:v2:legacy:kabs:updated": ("websocket:v2:legacy:kabs", "kabs2", "kabs2", "kabs", None),
-                    "websocket:v1:legacy:energy:updated": ("websocket:v1:legacy:energy", "energy", "energy", "energy", None),
-                    "websocket:v1:legacy:radiation:updated": ("websocket:v1:legacy:radiation", "radiation", "radiation", "radiation", None),
-                    "websocket:v1:legacy:global_notifications:updated": ("websocket:v1:legacy:global_notifications", "global_notifications", "global_notifications", "global_notifications", None),
+                    "websocket:v1:legacy:energy:updated": (
+                        "websocket:v1:legacy:energy",
+                        "energy",
+                        "energy",
+                        "energy",
+                        None,
+                    ),
+                    "websocket:v1:legacy:radiation:updated": (
+                        "websocket:v1:legacy:radiation",
+                        "radiation",
+                        "radiation",
+                        "radiation",
+                        None,
+                    ),
+                    "websocket:v1:legacy:global_notifications:updated": (
+                        "websocket:v1:legacy:global_notifications",
+                        "global_notifications",
+                        "global_notifications",
+                        "global_notifications",
+                        None,
+                    ),
                 }
 
         weather_channel = "websocket:v1:legacy:weather:updated"
@@ -979,8 +1101,12 @@ async def alerts_data(
                         logger.debug(f"📬 {client_ip}:{chip_id} Отримано повідомлення з каналу: {channel}")
 
                         if channel in version_channels:
-                            redis_key, client_field, payload_name, payload_data_key, transform = version_channels[channel]
-                            await handle_data_channel(redis_key, client_field, payload_name, payload_data_key, transform)
+                            redis_key, client_field, payload_name, payload_data_key, transform = version_channels[
+                                channel
+                            ]
+                            await handle_data_channel(
+                                redis_key, client_field, payload_name, payload_data_key, transform
+                            )
                         elif channel == weather_channel:
                             await handle_weather()
                         elif channel == bins_channel:
@@ -991,7 +1117,9 @@ async def alerts_data(
                             logger.warning(f"{client_ip}:{chip_id} !!! unknown legacy channel: {channel}")
 
             except (redis.ConnectionError, redis.TimeoutError) as e:
-                logger.warning(f"{client_ip}:{chip_id} !!! Redis connection lost in legacy pub/sub: {e}, reconnecting in 5s...")
+                logger.warning(
+                    f"{client_ip}:{chip_id} !!! Redis connection lost in legacy pub/sub: {e}, reconnecting in 5s..."
+                )
                 if pubsub:
                     try:
                         await pubsub.aclose()
@@ -1125,31 +1253,76 @@ async def echo(websocket: ServerConnection):
         match websocket.request.path:
             case "/data_v1":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1, chip_id_event, firmware_event),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v1,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v2":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2, chip_id_event, firmware_event),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v2,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v3":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3, chip_id_event, firmware_event),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v3,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v4":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v4, chip_id_event, firmware_event),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v4,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_fusion_v1":
                 producer_task = asyncio.create_task(
-                    alerts_data_fusion(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1, chip_id_event, firmware_event),
+                    alerts_data_fusion(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v1,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
@@ -1564,8 +1737,8 @@ async def main():
             ping_timeout=None,
         ):
             await asyncio.gather(
-                #update_legacy_data(shared_data, redis_client),
-                #update_fusion_data(shared_data, redis_client),
+                # update_legacy_data(shared_data, redis_client),
+                # update_fusion_data(shared_data, redis_client),
                 print_clients(shared_data, redis_client),
             )
     finally:
