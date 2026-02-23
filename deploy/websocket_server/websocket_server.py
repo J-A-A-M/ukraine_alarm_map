@@ -98,6 +98,7 @@ TYPE_NOTIFICATIONS_BATCH = 0xA2
 TYPE_WEATHER_BATCH = 0xA3
 TYPE_GRID_BATCH = 0xA4
 TYPE_RADIATION_BATCH = 0xA5
+TYPE_FIRMWARE_UPDATE_BATCH = 0xA6
 
 
 class RedisBackedClient(dict):
@@ -750,6 +751,11 @@ async def alerts_data_fusion(
                 weather_payload = weather_header + weather
                 await websocket.send(weather_payload)
                 logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
+
+                releases = await get_redis_data(logger, redis_client, "releases:production", default_response=[])
+                firmware_payload = make_firmware_batch(releases)
+                await websocket.send(firmware_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} versions)")
                 client["initial"] = False
 
                 # Мапінг каналів
@@ -757,6 +763,7 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     "websocket:v1:fusion:weather:updated",
                     "websocket:v1:fusion:etryvoga:updated",
+                    "releases:production:updated",
                 ]
 
                 # Pub/Sub цикл з reconnection
@@ -835,6 +842,15 @@ async def alerts_data_fusion(
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
                                         client["notifications_fusion"] = state
+                                    case "releases:production:updated":
+                                        releases = await get_redis_data(
+                                            logger, redis_client, "releases:production", default_response=[]
+                                        )
+                                        payload = make_firmware_batch(releases)
+                                        await websocket.send(payload)
+                                        logger.info(
+                                            f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} versions)"
+                                        )
                                     case _:
                                         logger.warning(f"Невідомий канал: {channel}")
                                         continue
@@ -1688,6 +1704,37 @@ def make_weather_batch(new_state: dict[int, int]) -> bytes:
     for rid, temp in new_state.items():
         body += struct.pack("<H B", int(rid), int(temp) & 0xFF)
     return body
+
+
+def make_firmware_batch(releases: list) -> bytes:
+    """
+    Формат пакета прошивок (TYPE_FIRMWARE_UPDATE_BATCH = 0xA6):
+    [Header: 1 byte] [Records: N * 5 bytes]
+    Record (5 bytes, fixed):
+      [Major: 1 byte]       - uint8
+      [Minor: 1 byte]       - uint8
+      [Patch: 1 byte]       - uint8
+      [Beta: 2 bytes]       - uint16 little-endian (0 якщо не beta)
+    Кількість записів = (length - 1) / 5
+    Версія з тегу: "5.0.1" -> (5,0,1,0) | "5.0.0-b127" -> (5,0,0,127)
+    """
+
+    def parse_tag(tag: str):
+        is_beta = "-b" in tag
+        parts = tag.split("-b")
+        nums = parts[0].split(".")
+        major = int(nums[0]) if len(nums) > 0 else 0
+        minor = int(nums[1]) if len(nums) > 1 else 0
+        patch = int(nums[2]) if len(nums) > 2 else 0
+        beta = int(parts[1]) if is_beta and len(parts) > 1 else 0
+        return major, minor, patch, beta
+
+    header = struct.pack("<B", TYPE_FIRMWARE_UPDATE_BATCH)
+    records = bytearray()
+    for release in releases:
+        major, minor, patch, beta = parse_tag(release["tag"])
+        records += struct.pack("<BBBH", major, minor, patch, beta)
+    return header + records
 
 
 async def process_request(connection: ServerConnection, request: Request):

@@ -62,6 +62,7 @@ update_period = int(os.environ.get("UPDATE_PERIOD", 1))
 update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
 shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
+sink_local_files = os.environ.get("SINK_LOCAL_FILES", "True").lower() == "true"
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -904,10 +905,12 @@ async def update_releases_v1(redis_client, run_once=False):
                 get_redis_data(logger, redis_client, "releases:production", default_response={}),
             )
 
-            data = (get_file_names(logger, releases_cache, release_filter, strip_pattern="JAAM_"))[:5]
+            production_releases = [r for r in releases_cache if not r["prerelease"] and release_filter(r["name"])]
+            data = get_file_names(logger, production_releases, strip_pattern="JAAM_")[:5]
             if data != stored_data:
                 # Синхронізуємо локальні файли з GitHub
-                await sync_local_files(data, shared_path)
+                if sink_local_files:
+                    await sync_local_files(data, shared_path)
 
                 logger.debug("💾 Зберігаємо releases:production")
                 await asyncio.gather(set_redis_data(logger, redis_client, "releases:production", data))
@@ -926,10 +929,12 @@ async def update_releases_v1(redis_client, run_once=False):
                 get_redis_data(logger, redis_client, "releases:beta", default_response={}),
             )
 
-            data = (get_file_names(logger, releases_cache, beta_filter, strip_pattern="JAAM_"))[:10]
+            beta_releases = [r for r in releases_cache if r["prerelease"] and beta_filter(r["name"])]
+            data = get_file_names(logger, beta_releases, strip_pattern="JAAM_")[:10]
             if data != stored_data:
                 # Синхронізуємо локальні файли з GitHub
-                await sync_local_files(data, shared_path_beta)
+                if sink_local_files:
+                    await sync_local_files(data, shared_path_beta)
 
                 logger.debug("💾 Зберігаємо releases:beta")
                 await asyncio.gather(set_redis_data(logger, redis_client, "releases:beta", data))
@@ -938,7 +943,7 @@ async def update_releases_v1(redis_client, run_once=False):
             else:
                 logger.info("ℹ️  releases:beta не змінився")
         except Exception as e:
-            logger.error(f"❌ update_releases_v1(process_releases): {str(e)}")
+            logger.error(f"❌ update_releases_v1(process_beta): {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
     # Основний цикл очікування повідомлень з Pub/Sub

@@ -153,7 +153,14 @@ async def fetch_github_releases():
                     for asset in release["assets"]:
                         name = asset["name"]
                         if name.endswith(".bin"):  # and filter_func(name):
-                            files_with_urls.append({"name": name, "url": asset["browser_download_url"]})
+                            files_with_urls.append(
+                                {
+                                    "name": name,
+                                    "tag": release["tag_name"],
+                                    "prerelease": release["prerelease"],
+                                    "url": asset["browser_download_url"],
+                                }
+                            )
 
             logger.info(f"Filtered {len(files_with_urls)} .bin files")
             # Сортуємо за версією у зворотному порядку (новіші спочатку)

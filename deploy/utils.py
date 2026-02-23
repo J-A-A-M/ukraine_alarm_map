@@ -56,13 +56,17 @@ def get_file_names(logger, releases, filter_func=None, strip_pattern=None):
         return []
 
     if filter_func:
-        filtered_files = [{"name": f["name"], "url": f["url"]} for f in releases if filter_func(f["name"])]
+        filtered_files = [
+            {"name": f["name"], "tag": f["tag"], "url": f["url"]} for f in releases if filter_func(f["name"])
+        ]
     else:
-        filtered_files = [{"name": f["name"], "url": f["url"]} for f in releases]
+        filtered_files = [{"name": f["name"], "tag": f["tag"], "url": f["url"]} for f in releases]
 
     # Прибираємо маску де завгодно у назві файлу
     if strip_pattern:
-        filtered_files = [{"name": f["name"].replace(strip_pattern, ""), "url": f["url"]} for f in filtered_files]
+        filtered_files = [
+            {"name": f["name"].replace(strip_pattern, ""), "tag": f["tag"], "url": f["url"]} for f in filtered_files
+        ]
 
     return filtered_files
 
