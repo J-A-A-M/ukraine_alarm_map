@@ -752,10 +752,10 @@ async def alerts_data_fusion(
                 await websocket.send(weather_payload)
                 logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
 
-                releases = await get_redis_data(logger, redis_client, "releases:production", default_response=[])
+                releases = await get_redis_data(logger, redis_client, "releases:beta", default_response=[])
                 firmware_payload = make_firmware_batch(releases)
                 await websocket.send(firmware_payload)
-                logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} versions)")
+                logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
                 client["initial"] = False
 
                 # Мапінг каналів
@@ -763,7 +763,7 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     "websocket:v1:fusion:weather:updated",
                     "websocket:v1:fusion:etryvoga:updated",
-                    #"releases:production:updated",
+                    # "releases:production:updated",
                     "releases:beta:updated",
                 ]
 
