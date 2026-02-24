@@ -763,7 +763,8 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     "websocket:v1:fusion:weather:updated",
                     "websocket:v1:fusion:etryvoga:updated",
-                    "releases:production:updated",
+                    #"releases:production:updated",
+                    "releases:beta:updated",
                 ]
 
                 # Pub/Sub цикл з reconnection
@@ -842,14 +843,23 @@ async def alerts_data_fusion(
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
                                         client["notifications_fusion"] = state
-                                    case "releases:production:updated":
+                                    # case "releases:production:updated":
+                                    #     releases = await get_redis_data(
+                                    #         logger, redis_client, "releases:production", default_response=[]
+                                    #     )
+                                    #     payload = make_firmware_batch(releases)
+                                    #     await websocket.send(payload)
+                                    #     logger.info(
+                                    #         f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} prod versions)"
+                                    #     )
+                                    case "releases:beta:updated":
                                         releases = await get_redis_data(
-                                            logger, redis_client, "releases:production", default_response=[]
+                                            logger, redis_client, "releases:beta", default_response=[]
                                         )
                                         payload = make_firmware_batch(releases)
                                         await websocket.send(payload)
                                         logger.info(
-                                            f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} versions)"
+                                            f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} beta versions)"
                                         )
                                     case _:
                                         logger.warning(f"Невідомий канал: {channel}")
