@@ -929,7 +929,7 @@ async def update_releases_v1(redis_client, run_once=False):
                 get_redis_data(logger, redis_client, "releases:beta", default_response={}),
             )
 
-            beta_releases = [r for r in releases_cache if r["prerelease"] and beta_filter(r["name"])]
+            beta_releases = [r for r in releases_cache if beta_filter(r["name"])]
             data = get_file_names(logger, beta_releases, strip_pattern="JAAM_")[:10]
             if data != stored_data:
                 # Синхронізуємо локальні файли з GitHub

@@ -132,7 +132,7 @@ async def fetch_github_releases():
         async with httpx.AsyncClient() as client:
             # Отримуємо всі релізи з пагінацією (до 100 на сторінку)
             response = await client.get(
-                "https://api.github.com/repos/J-A-A-M/ukraine_alarm_map/releases",
+                "https://api.github.com/repos/J-A-A-M/jaam_fusion/releases",
                 headers=headers,
                 params={"per_page": 100},  # Максимум релізів на запит
                 timeout=10.0,
