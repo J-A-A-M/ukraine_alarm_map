@@ -43,11 +43,23 @@ def get_random_proxy(proxies):
 
 # Фільтр для бета-версій (лише з -b)
 def beta_filter(name):
-    return "JAAM" in name and "C3" not in name and "S3" not in name and "lite" not in name.lower()
+    return (
+        "JAAM" in name
+        and "-b" in name
+        and "c3" not in name.lower()
+        and "s3" not in name.lower()
+        and "lite" not in name.lower()
+    )
 
 
 def release_filter(name):
-    return "JAAM" in name and "-b" not in name and "C3" not in name and "S3" not in name and "lite" not in name.lower()
+    return (
+        "JAAM" in name
+        and "-b" not in name
+        and "c3" not in name.lower()
+        and "s3" not in name.lower()
+        and "lite" not in name.lower()
+    )
 
 
 def get_file_names(logger, releases, filter_func=None, strip_pattern=None):

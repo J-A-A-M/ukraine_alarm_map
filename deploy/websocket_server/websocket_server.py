@@ -1090,7 +1090,6 @@ async def alerts_data(
             data = await get_redis_data(logger, redis_client, redis_key, default_response=[])
             if client[client_field] != data:
                 if are_dicts:
-                    #temp_bins = [b["name"] for b in data if not b.get("tag", "").startswith("5")]
                     temp_bins = [b["name"] for b in data]
                 else:
                     temp_bins = list(data)
@@ -1742,8 +1741,13 @@ def make_firmware_batch(releases: list) -> bytes:
 
     header = struct.pack("<B", TYPE_FIRMWARE_UPDATE_BATCH)
     records = bytearray()
+    seen = set()
     for release in releases:
         major, minor, patch, beta = parse_tag(release["tag"])
+        key = (major, minor, patch, beta)
+        if key in seen:
+            continue
+        seen.add(key)
         records += struct.pack("<BBBH", major, minor, patch, beta)
     return header + records
 
