@@ -1090,7 +1090,13 @@ async def alerts_data(
             data = await get_redis_data(logger, redis_client, redis_key, default_response=[])
             if client[client_field] != data:
                 if are_dicts:
-                    temp_bins = [b["tag"] for b in data if b not in temp_bins]
+                    seen = set()
+                    temp_bins = []
+                    for b in data:
+                        if b["tag"] in seen:
+                            continue
+                        seen.add(b["tag"])
+                        temp_bins.append(b["tag"])
                 else:
                     temp_bins = list(data)
                 temp_bins.sort(key=bin_sort, reverse=True)
