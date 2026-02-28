@@ -1096,7 +1096,7 @@ async def alerts_data(
                         if b["tag"] in seen:
                             continue
                         seen.add(b["tag"])
-                        temp_bins.append(b["tag"])
+                        temp_bins.append(f'{b["tag"]}.bin')
                 else:
                     temp_bins = list(data)
                 temp_bins.sort(key=bin_sort, reverse=True)
