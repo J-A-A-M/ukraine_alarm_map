@@ -120,6 +120,13 @@ custom_state_ids = {
 # Масив виключень для slug, які треба перемапити на особливі ключі
 slug_exceptions = {
     "ZOLOCHIV-LV-CITY": "Золочів (Львівська)",
+    "TROSTIANETS-CITY": "Тростянець (Вінницька)",
+    "YAMPIL-CITY": "Ямпіль (Вінницька)",
+    "KALYNIVKA-CITY": "Калинівка (Вінницька)",
+    "MYKOLAIVKA-CITY": "Миколаївка (Дніпропетровська)",
+    "CHERNIVTSI-VIN-CITY": "Чернівці (Вінницька)",
+    "OLEKSANDRIVKA-K-CITY": "Олександрівка (Кіровоградська)",
+    "OLEKSANDRIVKA-OD-CITY": "Олександрівка (Одеська)",
 }
 
 legacy_map = {
@@ -150,8 +157,6 @@ legacy_map = {
     "Чернівецька область": 25,
     "м. Київ": 26,
     "Київ": 26,
-    "Харків": 27,
-    "Запоріжжя": 28,
 }
 
 
@@ -369,11 +374,15 @@ for region in etryvoga:
             # Якщо slug у виключеннях — використовуємо особливий ключ для міста
             if city.get("slug") in slug_exceptions:
                 city_key = slug_exceptions[city["slug"]]
+                # Для виключень назва міста може бути неоднозначною (є в кількох областях),
+                # тому ігноруємо city_to_state і покладаємось на контекст району
+                city_id = None
+                state_cyr = district_to_state.get(district_cyr)
             else:
                 city_key = (
                     mapped_city_name.replace("м. ", "", 1) if mapped_city_name.startswith("м. ") else mapped_city_name
                 )
-            state_cyr = city_to_state.get(city_cyr) or district_to_state.get(district_cyr)
+                state_cyr = city_to_state.get(city_cyr) or district_to_state.get(district_cyr)
             legacy_id = legacy_map.get(state_cyr)
             state_id = name_to_id.get(state_cyr)
             # Для міст — якщо немає city_id, генеруємо на основі slug
@@ -443,7 +452,7 @@ for region in etryvoga:
 #     f.write('}\n')
 
 # Додаю збереження slug_map
-with open(base / "gen_data.json", "w", encoding="utf-8") as f:
+with open(base / "../regions.json", "w", encoding="utf-8") as f:
     # Визначаємо максимальну довжину slug і назви
     max_slug_len = max(len(str(k)) for k in slug_map.keys()) if slug_map else 0
     max_name_len = max(len(str(v["name"])) for v in slug_map.values()) if slug_map else 0
