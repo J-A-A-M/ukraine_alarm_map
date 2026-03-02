@@ -22,17 +22,31 @@ import sys
 from pathlib import Path
 
 try:
-    from utils import get_redis_data, set_redis_data, \
-    TYPE_ALERTS_BATCH, TYPE_NOTIFICATIONS_BATCH, TYPE_WEATHER_BATCH, \
-    TYPE_GRID_BATCH, TYPE_RADIATION_BATCH, TYPE_FIRMWARE_UPDATE_BATCH
+    from utils import (
+        get_redis_data,
+        set_redis_data,
+        TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
+        TYPE_WEATHER_BATCH,
+        TYPE_GRID_BATCH,
+        TYPE_RADIATION_BATCH,
+        TYPE_FIRMWARE_UPDATE_BATCH,
+    )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
 
-    from utils import get_redis_data, set_redis_data, \
-    TYPE_ALERTS_BATCH, TYPE_NOTIFICATIONS_BATCH, TYPE_WEATHER_BATCH, \
-    TYPE_GRID_BATCH, TYPE_RADIATION_BATCH, TYPE_FIRMWARE_UPDATE_BATCH
+    from utils import (
+        get_redis_data,
+        set_redis_data,
+        TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
+        TYPE_WEATHER_BATCH,
+        TYPE_GRID_BATCH,
+        TYPE_RADIATION_BATCH,
+        TYPE_FIRMWARE_UPDATE_BATCH,
+    )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
 regions = {}
@@ -778,7 +792,12 @@ async def alerts_data_fusion(
 
                                 match channel:
                                     case "websocket:v1:fusion:alerts:updated":
-                                        payload_hex = await get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", default_response="")
+                                        payload_hex = await get_redis_data(
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:alerts_payload",
+                                            default_response="",
+                                        )
                                         payload = bytes.fromhex(payload_hex) if payload_hex else b""
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")

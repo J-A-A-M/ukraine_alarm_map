@@ -20,7 +20,7 @@ try:
         release_filter,
         beta_filter,
         Debouncer,
-        TYPE_ALERTS_BATCH
+        TYPE_ALERTS_BATCH,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -35,7 +35,7 @@ except ImportError:
         release_filter,
         beta_filter,
         Debouncer,
-        TYPE_ALERTS_BATCH
+        TYPE_ALERTS_BATCH,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -987,7 +987,6 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
         """
         return sum(body_alerts) % 0x10000  # 65536
 
-
     async def find_empty_regions(old_state, new_state):
         """
         Повертає список регіонів, які відсутні в новому стані, але присутні в старому.
@@ -1053,14 +1052,13 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             logger.debug(f"⚠️ ALERTS FUSION DATA: {new_state}")
             if new_state != old_state:
                 changed_region_ids, empty_region_ids = await asyncio.gather(
-                    find_changed_regions(old_state, new_state),
-                    find_empty_regions(old_state, new_state)
+                    find_changed_regions(old_state, new_state), find_empty_regions(old_state, new_state)
                 )
 
                 alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
                 alerts = bytearray()
 
-                for rid in changed_region_ids+empty_region_ids:
+                for rid in changed_region_ids + empty_region_ids:
                     flags16 = new_state.get(rid, 0)
                     alerts += struct.pack("<H H", int(rid), flags16)
 
