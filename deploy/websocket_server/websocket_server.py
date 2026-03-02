@@ -719,12 +719,18 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_payload_hex, notifications_cache, weather_cache = await asyncio.gather(
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", default_response=""),
+                alerts_cache, notifications_cache, weather_cache = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={}),
                 )
-                alerts_payload = bytes.fromhex(alerts_payload_hex) if alerts_payload_hex else b""
+                alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
+                alerts = bytearray()
+                for rid, flags16 in alerts_cache.items():
+                    alerts += struct.pack("<H H", int(rid), flags16)
+                alerts_hash_actual = struct.pack("<H", 0)
+                alerts_hash_initial = struct.pack("<H", 0)
+                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
                 await websocket.send(alerts_payload)
                 client["notifications_fusion"] = notifications_cache
                 client["weather_fusion"] = weather_cache
