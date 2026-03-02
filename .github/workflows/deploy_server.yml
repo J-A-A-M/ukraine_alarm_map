@@ -210,7 +210,7 @@ jobs:
                 git pull
                 bash redeploy_device_map.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
