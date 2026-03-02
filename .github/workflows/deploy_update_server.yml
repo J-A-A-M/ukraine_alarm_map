@@ -25,7 +25,6 @@ jobs:
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -g ${{ secrets.G_TOKEN }}
-                  -wp ${{ secrets.WEB_PASSWORD }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
