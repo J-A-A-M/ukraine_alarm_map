@@ -1294,47 +1294,47 @@ async def main():
         logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
 
         tasks = [
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_alerts, redis_client, "update_websocket_v1_alerts")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v2_alerts, redis_client, "update_websocket_v2_alerts")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_drones, redis_client, "update_websocket_v1_drones")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_missiles, redis_client, "update_websocket_v1_missiles")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_kabs, redis_client, "update_websocket_v1_kabs")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_explosions, redis_client, "update_websocket_v1_explosions")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_weather, redis_client, "update_websocket_v1_weather")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v2_drones, redis_client, "update_websocket_v2_drones")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v2_missiles, redis_client, "update_websocket_v2_missiles")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_energy, redis_client, "update_websocket_v1_energy")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v1_radiation, redis_client, "update_websocket_v1_radiation")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(
-            #         logger,
-            #         update_websocket_v1_global_notifications,
-            #         redis_client,
-            #         "update_websocket_v1_global_notifications",
-            #     )
-            # ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_alerts, redis_client, "update_websocket_v1_alerts")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v2_alerts, redis_client, "update_websocket_v2_alerts")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_drones, redis_client, "update_websocket_v1_drones")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_missiles, redis_client, "update_websocket_v1_missiles")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_kabs, redis_client, "update_websocket_v1_kabs")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_explosions, redis_client, "update_websocket_v1_explosions")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_weather, redis_client, "update_websocket_v1_weather")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v2_drones, redis_client, "update_websocket_v2_drones")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v2_missiles, redis_client, "update_websocket_v2_missiles")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_energy, redis_client, "update_websocket_v1_energy")
+            ),
+            asyncio.create_task(
+                run_with_restart(logger, update_websocket_v1_radiation, redis_client, "update_websocket_v1_radiation")
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    update_websocket_v1_global_notifications,
+                    redis_client,
+                    "update_websocket_v1_global_notifications",
+                )
+            ),
             asyncio.create_task(run_with_restart(logger, update_releases_v1, redis_client, "update_releases_v1")),
             asyncio.create_task(
                 run_with_restart(
