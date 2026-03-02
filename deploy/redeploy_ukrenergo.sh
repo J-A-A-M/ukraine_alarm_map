@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Default values
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 UKRENERGO_REQUEST_PERIOD=""
 UKRENERGO_UPDATE_PERIOD=""
 UKRENERGO_SOURCE_URL=""
@@ -13,8 +15,16 @@ LOGGING="INFO"
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -r|--request-period)
@@ -54,7 +64,9 @@ done
 
 echo "UKRENERGO"
 
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "UKRENERGO_REQUEST_PERIOD: $UKRENERGO_REQUEST_PERIOD"
 echo "UKRENERGO_UPDATE_PERIOD: $UKRENERGO_UPDATE_PERIOD"
 echo "UKRENERGO_SOURCE_URL: $UKRENERGO_SOURCE_URL"
@@ -68,13 +80,9 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd ukrenergo
-
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_ukrenergo -f Dockerfile .
+docker build -t map_ukrenergo -f ukrenergo/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
@@ -86,7 +94,9 @@ echo "Deploying new container..."
 docker run --name map_ukrenergo \
         --restart unless-stopped \
         --network=jaam -d \
-        --env MEMCACHED_HOST="$MEMCACHED_HOST" \
+        --env REDIS_HOST="$REDIS_HOST" \
+        --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+        --env REDIS_DB="$REDIS_DB" \
         --env UKRENERGO_REQUEST_PERIOD="$UKRENERGO_REQUEST_PERIOD" \
         --env UKRENERGO_UPDATE_PERIOD="$UKRENERGO_UPDATE_PERIOD" \
         --env UKRENERGO_SOURCE_URL="$UKRENERGO_SOURCE_URL" \

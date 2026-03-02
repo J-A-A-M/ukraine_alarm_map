@@ -1,450 +1,383 @@
 import pytest
-import json
 from unittest.mock import AsyncMock, patch
-from aiomcache import Client
-from updater.updater import update_alerts_websocket_v1
+from updater.updater import update_websocket_v1_alerts
 
 """
 pip install pytest pytest-asyncio
 """
 
-districts = {
-    "1": {"regionName": "Закарпатська область", "regionType": "State", "parentId": None, "stateId": "1"},
-    "2": {"regionName": "Івано-Франківська область", "regionType": "State", "parentId": None, "stateId": "2"},
-    "6": {"regionName": "Район в області", "regionType": "District", "parentId": "1", "stateId": "1"},
-    "7": {"regionName": "Район 2 в області", "regionType": "District", "parentId": "1", "stateId": "1"},
-    "15": {"regionName": "Громада 1 в районі", "regionType": "Community", "parentId": "6", "stateId": "1"},
-    "170": {"regionName": "Неіснуюча область", "regionType": "State", "parentId": "170", "stateId": "170"},
-}
-
 LEGACY_LED_COUNT = 28
 
 
+def create_mock_redis():
+    """Створює мок Redis клієнта з правильно налаштованим pubsub"""
+    from unittest.mock import MagicMock
+
+    mock_redis = AsyncMock()
+    mock_pubsub = AsyncMock()
+
+    # pubsub() має повертати об'єкт синхронно, а не корутину
+    mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
+
+    mock_pubsub.subscribe = AsyncMock()
+    mock_pubsub.unsubscribe = AsyncMock()
+    mock_pubsub.aclose = AsyncMock()
+
+    return mock_redis, mock_pubsub
+
+
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_1(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+        "VERKHOVYNSKYI-DSTR": {"name": "Верховинський район", "regionId": 67, "legacyId": 2, "stateId": 13},
+        "IVANO-FRANKIVSKYI-DSTR": {"name": "Івано-Франківський район", "regionId": 68, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_1(mock_get_redis_data, mock_set_redis_data):
     """
-    нема даних для вебсокета в мемкеш
+    нема даних для вебсокета в redis
     зберігання першої тривоги по State
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
-            "regionEngName": "Luhanska region",
+            "regionEngName": "Zakarpatska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
     expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_2(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+        "VERKHOVYNSKYI-DSTR": {"name": "Верховинський район", "regionId": 67, "legacyId": 2, "stateId": 13},
+        "IVANO-FRANKIVSKYI-DSTR": {"name": "Івано-Франківський район", "regionId": 68, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_2(mock_get_redis_data, mock_set_redis_data):
     """
-    нема даних для вебсокета в мемкеш
-    зберігання першої тривоги з Disrict в State
+    нема даних для вебсокета в redis
+    зберігання першої тривоги з District в State
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
-            "regionName": "Закарпатська область",
+            "regionName": "Івано-Франківська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    expected_result[1] = 1
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_3(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+        "VERKHOVYNSKYI-DSTR": {"name": "Верховинський район", "regionId": 67, "legacyId": 2, "stateId": 13},
+        "IVANO-FRANKIVSKYI-DSTR": {"name": "Івано-Франківський район", "regionId": 68, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_3(mock_get_redis_data, mock_set_redis_data):
     """
-    нема даних для вебсокета в мемкеш
-    зберігання першої комбінованої тривоги з Disrict,State в State
+    нема даних для вебсокета в redis
+    зберігання першої комбінованої тривоги з District, State в State
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
+            "regionId": "13",
             "regionType": "State",
-            "regionName": "Закарпатська область",
+            "regionName": "Івано-Франківська область",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "13", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
             ],
         }
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    expected_result[1] = 1
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_4(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_4(mock_get_redis_data, mock_set_redis_data):
     """
-    є дані в вебсокеті про тривоги
-    зберігання іншої тривоги по State і прибирання неактуальної
+    тривога в Community - має ігноруватись
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
-            "regionType": "State",
-            "regionName": "Закарпатська область",
-            "regionEngName": "Luhanska region",
-            "lastUpdate": "2022-04-04T16:45:00Z",
-            "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
-            ],
-        }
-    ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [
-        0,
-        1,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ]
-
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
-
-    expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
-
-
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_5(mock_get_alerts, mock_get_regions, mock_get_cache_data):
-    """
-    є дані в вебсокеті про тривоги
-    зберігання іншої тривоги в State з District і прибирання неактуальної
-    """
-
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
-        {
-            "regionId": "1",
-            "regionType": "State",
-            "regionName": "Закарпатська область",
-            "regionEngName": "",
-            "lastUpdate": "2022-04-04T16:45:00Z",
-            "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
-            ],
-        }
-    ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [
-        0,
-        1,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ]
-
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
-
-    expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
-
-
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_6(mock_get_alerts, mock_get_regions, mock_get_cache_data):
-    """
-    є дані в вебсокеті про тривоги
-    зберігання іншої тривоги в State з State,District і прибирання неактуальної
-    """
-
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
-        {
-            "regionId": "1",
-            "regionType": "State",
-            "regionName": "Закарпатська область",
-            "regionEngName": "",
-            "lastUpdate": "2022-04-04T16:45:00Z",
-            "activeAlerts": [
-                {"regionId": "6", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
-            ],
-        }
-    ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = [
-        0,
-        1,
-        1,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ]
-
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
-
-    expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
-
-
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_7(mock_get_alerts, mock_get_regions, mock_get_cache_data):
-    """
-    нема даних для вебсокета в мемкеш
-    тривога в Community
-    """
-
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
-        {
-            "regionId": "15",
+            "regionId": "632",
             "regionType": "Community",
-            "regionName": "Закарпатська область",
+            "regionName": "Івано-Франківськ",
             "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "15", "regionType": "Community", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "632", "regionType": "Community", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         }
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_8(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_5(mock_get_redis_data, mock_set_redis_data):
     """
-    Неіснуючий регіон в списку legacy тривог
+    Неіснуючий регіон в списку legacy тривог - має ігноруватись
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
-            "regionEngName": "Luhanska region",
+            "regionEngName": "Zakarpatska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
         {
-            "regionId": "170",
+            "regionId": "999",
             "regionType": "State",
             "regionName": "Неіснуюча область",
             "regionEngName": "Error region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "170", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "999", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
-    expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    expected_result[0] = 1  # Тільки перша область
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-@patch("updater.updater.get_cache_data", new_callable=AsyncMock)
-@patch("updater.updater.get_regions", new_callable=AsyncMock)
-@patch("updater.updater.get_alerts", new_callable=AsyncMock)
-async def test_9(mock_get_alerts, mock_get_regions, mock_get_cache_data):
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+        "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "regionId": 13, "legacyId": 2, "stateId": 13},
+        "VERKHOVYNSKYI-DSTR": {"name": "Верховинський район", "regionId": 67, "legacyId": 2, "stateId": 13},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_6(mock_get_redis_data, mock_set_redis_data):
     """
-    Неіснуючий регіон в кеші регіонів
+    Тест множинних тривог в різних областях
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    mock_get_alerts.return_value = [
+    mock_get_redis_data.return_value = [
         {
-            "regionId": "1",
+            "regionId": "11",
             "regionType": "State",
             "regionName": "Закарпатська область",
-            "regionEngName": "Luhanska region",
+            "regionEngName": "Zakarpatska region",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "1", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
         {
-            "regionId": "176",
+            "regionId": "13",
             "regionType": "State",
-            "regionName": "Неіснуюча область 2",
-            "regionEngName": "Error region",
+            "regionName": "Івано-Франківська область",
+            "regionEngName": "",
             "lastUpdate": "2022-04-04T16:45:00Z",
             "activeAlerts": [
-                {"regionId": "170", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
+                {"regionId": "67", "regionType": "District", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"}
             ],
         },
     ]
-    mock_get_regions.return_value = districts
-    mock_get_cache_data.return_value = []
 
-    await update_alerts_websocket_v1(mock_mc, run_once=True)
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
+
+    expected_result = [0] * LEGACY_LED_COUNT
+    expected_result[0] = 1  # Закарпатська
+    expected_result[1] = 1  # Івано-Франківська
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
+
+
+@pytest.mark.asyncio
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_7(mock_get_redis_data, mock_set_redis_data):
+    """
+    Тест не-AIR тривоги - має ігноруватись
+    """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
+
+    mock_get_redis_data.return_value = [
+        {
+            "regionId": "11",
+            "regionType": "State",
+            "regionName": "Закарпатська область",
+            "regionEngName": "Zakarpatska region",
+            "lastUpdate": "2022-04-04T16:45:00Z",
+            "activeAlerts": [
+                {"regionId": "11", "regionType": "State", "type": "NUCLEAR", "lastUpdate": "2022-04-04T16:45:00Z"}
+            ],
+        }
+    ]
+
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
+
+    expected_result = [0] * LEGACY_LED_COUNT
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result
+
+
+@pytest.mark.asyncio
+@patch(
+    "updater.updater.regions",
+    new={
+        "ZAKARPATSKA": {"name": "Закарпатська область", "regionId": 11, "legacyId": 1, "stateId": 11},
+    },
+)
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_8(mock_get_redis_data, mock_set_redis_data):
+    """
+    Тест комбінації AIR і не-AIR тривог - тільки AIR має враховуватись
+    """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(side_effect=[{"type": "message", "channel": "alerts:api:updated", "data": "1"}])
+
+    mock_get_redis_data.return_value = [
+        {
+            "regionId": "11",
+            "regionType": "State",
+            "regionName": "Закарпатська область",
+            "regionEngName": "Zakarpatska region",
+            "lastUpdate": "2022-04-04T16:45:00Z",
+            "activeAlerts": [
+                {"regionId": "11", "regionType": "State", "type": "AIR", "lastUpdate": "2022-04-04T16:45:00Z"},
+                {"regionId": "11", "regionType": "State", "type": "ARTILLERY", "lastUpdate": "2022-04-04T16:45:00Z"},
+            ],
+        }
+    ]
+
+    await update_websocket_v1_alerts(mock_redis, run_once=True)
 
     expected_result = [0] * LEGACY_LED_COUNT
     expected_result[0] = 1
-    mock_mc.set.assert_awaited_with(b"alerts_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+
+    mock_set_redis_data.assert_awaited()
+    call_args = mock_set_redis_data.call_args
+    assert call_args[0][2] == "websocket:v1:legacy:alerts"
+    assert call_args[0][3] == expected_result

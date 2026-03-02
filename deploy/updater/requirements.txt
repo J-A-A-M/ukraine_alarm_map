@@ -1,1 +1,2 @@
-aiomcache==0.8.2
+redis==5.0.1
+httpx==0.27.0

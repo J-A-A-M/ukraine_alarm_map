@@ -5,14 +5,29 @@ import os
 import logging
 import random
 import datetime
-from aiomcache import Client
 from aiohttp_socks import ProxyConnector
 from typing import Optional
 
-version = 1
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
+
+version = 2
 
 debug_level = os.environ.get("LOGGING") or "INFO"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 proxies = os.environ.get("PROXIES")
 api_key = os.environ.get("SAVEECOBOT_API_KEY")
 sensors_url = os.environ.get("SAVEECOBOT_SENSORS_URL")
@@ -53,10 +68,6 @@ async def handle_retry(attempt: int, max_retries: int, base_delay: int) -> bool:
     return True
 
 
-async def service_is_fine(mc: Client, key_b: bytes) -> None:
-    await mc.set(key_b, get_current_datetime().encode("utf-8"))
-
-
 async def fetch_data(url: str, max_retries: int = 5, base_delay: int = 10) -> Optional[dict]:
     attempt = 0
     timeout = aiohttp.ClientTimeout(total=30)
@@ -93,62 +104,101 @@ async def fetch_data(url: str, max_retries: int = 5, base_delay: int = 10) -> Op
     return None
 
 
-async def get_sensors(mc: Client) -> None:
+async def get_sensors(redis_client) -> None:
+    last_execution_time = 0
+
     while True:
         try:
-            sensors_data = await fetch_data(url=sensors_url)
-            if not sensors_data or not sensors_data.get("data"):
-                logger.error("Failed to fetch sensors data, empty or incorrect response")
-                await asyncio.sleep(sensors_loop_time)
-                continue
+            current_time = asyncio.get_event_loop().time()
 
-            sensors_cached_data = {
-                "states": {state_data["sensor_id"]: state_data for state_data in sensors_data["data"]},
-                "info": {
-                    "last_update": get_current_datetime(),
-                },
-            }
+            if current_time - last_execution_time >= sensors_loop_time:
+                sensors_data = await fetch_data(url=sensors_url)
+                if not sensors_data or not sensors_data.get("data"):
+                    logger.error("❌ Failed to fetch sensors data, empty or incorrect response")
+                    await asyncio.sleep(60)
+                    continue
 
-            logger.debug(f"Store radiation sensors data: {get_current_datetime()}")
-            await mc.set(b"radiation_sensors_saveecobot", json.dumps(sensors_cached_data).encode("utf-8"))
-            await service_is_fine(mc, b"saveecobot_radiation_sensors_api_last_call")
-            logger.info("Radiation sensors data stored")
+                data = {state_data["sensor_id"]: state_data for state_data in sensors_data["data"]}
+
+                logger.debug("💾 Зберігаємо оновлені дані в Redis...")
+                await asyncio.gather(
+                    set_redis_data(logger, redis_client, "radiation:saveecobot:sensors:data", data),
+                    service_is_fine(logger, redis_client, "radiation:saveecobot:sensors:last_call"),
+                )
+                logger.info("✅ Оновлені дані збережено в Redis")
+                last_execution_time = current_time
+
         except Exception as e:
-            logger.error(f"Error in get_sensors: {e}")
-        await asyncio.sleep(sensors_loop_time)
+            logger.error(f"❌ Error in get_sensors: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+        await asyncio.sleep(1)
 
 
-async def get_states(mc: Client) -> None:
+async def get_data(redis_client) -> None:
+    last_execution_time = 0
+
     while True:
         try:
-            data = await fetch_data(url=data_url)
-            if not data or not data.get("data"):
-                logger.error("Failed to fetch sensors data, empty or incorrect response")
-                await asyncio.sleep(data_loop_time)
-                continue
+            current_time = asyncio.get_event_loop().time()
 
-            cached_data = {
-                "states": data["data"],
-                "info": {
-                    "last_update": get_current_datetime(),
-                },
-            }
+            if current_time - last_execution_time >= data_loop_time:
+                states_data = await fetch_data(url=data_url)
+                if not states_data or not states_data.get("data"):
+                    logger.error("Failed to fetch sensors data, empty or incorrect response")
+                    await asyncio.sleep(60)
+                    continue
 
-            logger.debug(f"Store radiation data: {get_current_datetime()}")
-            await mc.set(b"radiation_data_saveecobot", json.dumps(cached_data).encode("utf-8"))
-            await service_is_fine(mc, b"saveecobot_radiation_data_api_last_call")
-            logger.info("Radiation data stored")
+                data = states_data["data"]
+
+                logger.debug("💾 Зберігаємо оновлені дані в Redis...")
+                await asyncio.gather(
+                    set_redis_data(logger, redis_client, "radiation:saveecobot:data:data", data),
+                    service_is_fine(logger, redis_client, "radiation:saveecobot:data:last_call"),
+                )
+                await redis_client.publish("radiation:saveecobot:updated", "1")
+                logger.info("✅ Оновлені дані збережено в Redis")
+                last_execution_time = current_time
+
         except Exception as e:
-            logger.error(f"Error in get_states: {e}")
-        await asyncio.sleep(data_loop_time)
+            logger.error(f"❌ Error in get_data: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+        await asyncio.sleep(1)
 
 
-async def main() -> None:
-    mc = Client(memcached_host, 11211)
+async def main():
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+
     try:
-        await asyncio.gather(asyncio.create_task(get_sensors(mc)), asyncio.create_task(get_states(mc)))
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+
+        tasks = [
+            asyncio.create_task(run_with_restart(logger, get_sensors, redis_client, "get_sensors")),
+            asyncio.create_task(run_with_restart(logger, get_data, redis_client, "get_data")),
+        ]
+
+        await asyncio.gather(*tasks)
+
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

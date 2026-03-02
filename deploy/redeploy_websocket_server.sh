@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Default values
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 WEBSOCKET_PORT=38440
 PING_INTERVAL=60
 PING_TIMEOUT=30
@@ -18,8 +20,16 @@ while [[ $# -gt 0 ]]; do
             WEBSOCKET_PORT="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -s|--api-secret)
@@ -63,7 +73,9 @@ done
 
 echo "WEBSOCKET SERVER"
 
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
 echo "PING_INTERVAL: $PING_INTERVAL"
 echo "PING_TIMEOUT: $PING_TIMEOUT"
@@ -79,13 +91,9 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd websocket_server
-
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_websocket_server -f Dockerfile .
+docker build -t map_websocket_server -f websocket_server/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
@@ -94,7 +102,25 @@ docker rm map_websocket_server || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_websocket_server --restart unless-stopped --network=jaam -d -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" --env WEBSOCKET_PORT="$WEBSOCKET_PORT" --env API_SECRET="$API_SECRET" --env MEASUREMENT_ID="$MEASUREMENT_ID" --env PING_INTERVAL="$PING_INTERVAL" --env PING_TIMEOUT="$PING_TIMEOUT" --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env ENVIRONMENT="$ENVIRONMENT" --env LOGGING="$LOGGING" --env GOOGLE_STAT="$GOOGLE_STAT" --env IP_INFO_TOKEN="$IP_INFO_TOKEN" map_websocket_server
+docker run --name map_websocket_server \
+    --restart unless-stopped \
+    --network=jaam \
+    -d \
+    -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" \
+    --env WEBSOCKET_PORT="$WEBSOCKET_PORT" \
+    --env API_SECRET="$API_SECRET" \
+    --env MEASUREMENT_ID="$MEASUREMENT_ID" \
+    --env PING_INTERVAL="$PING_INTERVAL" \
+    --env PING_TIMEOUT="$PING_TIMEOUT" \
+    --env PING_TIMEOUT_COUNT="$PING_TIMEOUT_COUNT" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
+    --env ENVIRONMENT="$ENVIRONMENT" \
+    --env LOGGING="$LOGGING" \
+    --env GOOGLE_STAT="$GOOGLE_STAT" \
+    --env IP_INFO_TOKEN="$IP_INFO_TOKEN" \
+    map_websocket_server
 
 echo "Container deployed successfully!"
 

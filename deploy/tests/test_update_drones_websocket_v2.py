@@ -1,9 +1,6 @@
 import pytest
-import json
-import datetime
-from unittest.mock import Mock, AsyncMock, patch, call
-from aiomcache import Client
-from updater.updater import update_drones_websocket_v2
+from unittest.mock import Mock, AsyncMock, MagicMock, patch, call
+from updater.updater import update_websocket_v2_drones
 
 """
 pip install pytest pytest-asyncio
@@ -11,6 +8,21 @@ pip install pytest pytest-asyncio
 """
 
 LEGACY_LED_COUNT = 28
+
+
+def create_mock_redis():
+    """Створює мок Redis клієнта з правильно налаштованим pubsub"""
+    mock_redis = AsyncMock()
+    mock_pubsub = AsyncMock()
+
+    # pubsub() має повертати об'єкт синхронно, а не корутину
+    mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
+
+    mock_pubsub.subscribe = AsyncMock()
+    mock_pubsub.unsubscribe = AsyncMock()
+    mock_pubsub.aclose = AsyncMock()
+
+    return mock_redis, mock_pubsub
 
 
 def get_reasons_mock(**kwargs):
@@ -31,261 +43,275 @@ def get_reasons_mock(**kwargs):
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_1():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_1(mock_get_redis_data, mock_set_redis_data):
     """
     нема даних в memcache
     зберігання перших даних
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": get_reasons_mock(),
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return get_reasons_mock()
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        elif key == "alerts:api:data":
+            # Створюємо AIR alerts для регіонів з reasons
+            return [
+                {"regionId": "11", "activeAlerts": [{"regionId": "11", "type": "AIR"}]},
+                {"regionId": "124", "activeAlerts": [{"regionId": "124", "type": "AIR"}]},
+                {"regionId": "123", "activeAlerts": [{"regionId": "123", "type": "AIR"}]},
+                {"regionId": "13", "activeAlerts": [{"regionId": "13", "type": "AIR"}]},
+                {"regionId": "21", "activeAlerts": [{"regionId": "21", "type": "AIR"}]},
+            ]
+        return default_response
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    mock_get_redis_data.side_effect = get_redis_side_effect
+
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
 
         expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
-
         expected_drones[0] = [1, mock_timestamp]
         expected_drones[1] = [1, mock_timestamp]
         expected_drones[2] = [1, mock_timestamp]
 
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_drones
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_2():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_2(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache
     закінчення тривог, має бути актуальна дата закінчення
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": {"reasons": []},
-            b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return {"reasons": []}
+        elif key == "websocket:v2:legacy:drones":
+            return websocket_data
+        elif key == "alerts:api:data":
+            return []
+        return default_response
+
+    mock_get_redis_data.side_effect = get_redis_side_effect
+
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_drones
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_3():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_3(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache
     оновлення активних тривог, дата активних не має мінятись
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": {
-                "reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]}]
-            },
-            b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]}]}
+        elif key == "websocket:v2:legacy:drones":
+            return websocket_data
+        elif key == "alerts:api:data":
+            return [{"regionId": "11", "activeAlerts": [{"regionId": "11", "type": "AIR"}]}]
+        return default_response
+
+    mock_get_redis_data.side_effect = get_redis_side_effect
+
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
         expected_drones[0] = [1, 1600000000]
 
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_drones
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_4():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_4(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache
     оновлення активних тривог, інший тип, актальних нема
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Ballistic"]}]},
-            b"drones_websocket_v2": websocket_data,
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Ballistic"]}]}
+        elif key == "websocket:v2:legacy:drones":
+            return websocket_data
+        elif key == "alerts:api:data":
+            return [{"regionId": "11", "activeAlerts": [{"regionId": "11", "type": "AIR"}]}]
+        return default_response
+
+    mock_get_redis_data.side_effect = get_redis_side_effect
+
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_drones
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_5():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_5(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache, нульові
     тривог нема, дані не міняються
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": {"reasons": []},
-            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return {"reasons": []}
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        elif key == "alerts:api:data":
+            return []
+        return default_response
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-        mock_mc.set.assert_not_called()
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
+
+        # Перевіряємо що не було викликів set_redis_data для websocket:v2:legacy:drones
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) == 0
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_6():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_6(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache, нульові
     є нова тривога
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": {"reasons": [{"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]}]},
-            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-            b"alerts_websocket_v1": [1] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return {"reasons": [{"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]}]}
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        elif key == "alerts:api:data":
+            return [{"regionId": "13", "activeAlerts": [{"regionId": "13", "type": "AIR"}]}]
+        return default_response
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    mock_get_redis_data.side_effect = get_redis_side_effect
+
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
 
         expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
         expected_drones[1] = [1, mock_timestamp]
 
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v2", json.dumps(expected_drones).encode("utf-8"))
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_drones
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_7():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_7(mock_get_redis_data, mock_set_redis_data):
     """
     нема даних в memcache
     нема тривог
     зберігання перших даних не повинно відбутись
     """
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
-
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"ws_info": get_reasons_mock(),
-            b"alerts_websocket_v1": [0] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
-
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+    )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
-    with (
-        patch("updater.updater.get_cache_data", mock_get_cache_data),
-        patch("updater.updater.get_current_timestamp", mock_get_current_timestamp),
-    ):
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:ws:reasons:data":
+            return get_reasons_mock()
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        elif key == "alerts:api:data":
+            # Немає AIR alerts, тому drones не повинні зберегтись
+            return []
+        return default_response
 
-        await update_drones_websocket_v2(mock_mc, run_once=True)
-        assert mock_get_cache_data.call_count == 3
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-        mock_mc.set.assert_not_called()
+    with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
+        await update_websocket_v2_drones(mock_redis, run_once=True)
+
+        # Перевіряємо що не було викликів set_redis_data для websocket:v2:legacy:drones
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
+        assert len(calls) == 0

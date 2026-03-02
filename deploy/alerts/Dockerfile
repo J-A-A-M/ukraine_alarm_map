@@ -1,6 +1,7 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 ENV TZ="Europe/Kyiv"
-COPY alerts.py .
-RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+COPY alerts/alerts.py .
+COPY utils.py .
+RUN --mount=type=bind,source=alerts/requirements.txt,target=/tmp/requirements.txt \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
-CMD python alerts.py
+CMD ["python", "alerts.py"]

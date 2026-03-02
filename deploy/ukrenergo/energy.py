@@ -5,13 +5,59 @@ import os
 import logging
 import random
 import datetime
-from aiomcache import Client
 from aiohttp_socks import ProxyConnector
 
-version = 1
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        calculate_time_difference,
+        run_with_restart,
+    )
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        calculate_time_difference,
+        run_with_restart,
+    )
+
+# Імпорт regions.json - спочатку з поточної папки, потім з батьківської
+regions = {}
+try:
+    # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
+    regions_path = Path(__file__).resolve().parent / "regions.json"
+    with open(regions_path, "r", encoding="utf-8") as f:
+        regions = json.load(f)
+except FileNotFoundError:
+    # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
+    try:
+        regions_path = Path(__file__).resolve().parent.parent / "regions.json"
+        with open(regions_path, "r", encoding="utf-8") as f:
+            regions = json.load(f)
+    except FileNotFoundError:
+        # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
+        logging.warning("regions.json not found, using empty regions dict")
+
+version = 2
 
 debug_level = os.environ.get("LOGGING") or "INFO"
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 proxies = os.environ.get("PROXIES")
 source_url = os.environ.get("UKRENERGO_SOURCE_URL")
 request_time = int(os.environ.get("UKRENERGO_REQUEST_PERIOD", 5))
@@ -29,44 +75,6 @@ if not matrix:
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
-
-
-regions = {
-    "Закарпатська область": {"id": 11, "legacy_id": 1},
-    "Івано-Франківська область": {"id": 13, "legacy_id": 2},
-    "Тернопільська область": {"id": 21, "legacy_id": 3},
-    "Львівська область": {"id": 27, "legacy_id": 4},
-    "Волинська область": {"id": 8, "legacy_id": 5},
-    "Рівненська область": {"id": 5, "legacy_id": 6},
-    "Житомирська область": {"id": 10, "legacy_id": 7},
-    "Київська область": {"id": 14, "legacy_id": 8},
-    "Чернігівська область": {"id": 25, "legacy_id": 9},
-    "Сумська область": {"id": 20, "legacy_id": 10},
-    "Харківська область": {"id": 22, "legacy_id": 11},
-    "Луганська область": {"id": 16, "legacy_id": 12},
-    "Донецька область": {"id": 28, "legacy_id": 13},
-    "Запорізька область": {"id": 12, "legacy_id": 14},
-    "Херсонська область": {"id": 23, "legacy_id": 15},
-    # "Автономна Республіка Крим": {"id": 9999, "legacy_id": 16},
-    "Одеська область": {"id": 18, "legacy_id": 17},
-    "Миколаївська область": {"id": 17, "legacy_id": 18},
-    "Дніпропетровська область": {"id": 9, "legacy_id": 19},
-    "Полтавська область": {"id": 19, "legacy_id": 20},
-    "Черкаська область": {"id": 24, "legacy_id": 21},
-    "Кіровоградська область": {"id": 15, "legacy_id": 22},
-    "Вінницька область": {"id": 4, "legacy_id": 23},
-    "Хмельницька область": {"id": 3, "legacy_id": 24},
-    "Чернівецька область": {"id": 26, "legacy_id": 25},
-    "м. Київ": {"id": 31, "legacy_id": 26},
-}
-
-
-def get_current_datetime():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-async def service_is_fine(mc, key_b):
-    await mc.set(key_b, get_current_datetime().encode("utf-8"))
 
 
 async def handle_retry(attempt, max_retries, base_delay):
@@ -95,36 +103,33 @@ async def get_region_data(region_id, headers):
         try:
             proxy = get_random_proxy()
             if proxy:
-                logger.info(f"Fetching source URL: {url} via proxy {proxy}")
+                logger.debug(f"▶️ Fetching source URL: {url} via proxy {proxy}")
             connector = ProxyConnector.from_url(proxy) if proxy else None
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
                 async with session.get(url, headers=headers) as response:
                     if response.status != 200:
-                        logger.error(f"Request failed for region {region_id}, status: {response.status}")
+                        logger.error(f"❌ Request failed for region {region_id}, status: {response.status}")
                         return None
 
                     try:
                         return await response.json()
                     except json.JSONDecodeError:
-                        logger.error(f"JSON decoding error for region {region_id}")
+                        logger.error(f"❌ JSON decoding error for region {region_id}")
                         return None
         except asyncio.TimeoutError:
-            error_msg = f"Timeout occurred for region {region_id}"
-            logger.warning(error_msg)
+            logger.warning(f"❌ Timeout occurred for region {region_id}")
             retry_success = await handle_retry(attempt, max_retries, base_delay)
             if not retry_success:
                 break
             attempt += 1
         except aiohttp.ClientError as e:
-            error_msg = f"Request error for region {region_id}: {e}"
-            logger.error(error_msg)
+            logger.error(f"❌ Request error for region {region_id}: {e}")
             retry_success = await handle_retry(attempt, max_retries, base_delay)
             if not retry_success:
                 break
             attempt += 1
         except Exception as e:
-            error_msg = f"Unexpected error for region {region_id}: {e}"
-            logger.error(error_msg)
+            logger.error(f"❌ Unexpected error for region {region_id}: {e}")
             retry_success = await handle_retry(attempt, max_retries, base_delay)
             if not retry_success:
                 break
@@ -144,49 +149,85 @@ async def get_data():
         "content-type": "application/json",
     }
 
-    energy_cached_data = {
-        "states": {},
-        "info": {
-            "last_update": None,
-        },
-    }
+    energy_cached_data = []
 
     for region_name, region_data in regions.items():
-        region_energy = await get_region_data(region_id=region_data["id"], headers=headers)
+        if (
+            region_data["stateId"] != region_data["regionId"]
+            or region_data["stateId"] <= 0
+            or region_data["stateId"] == 9999
+        ):
+            continue
+        region_energy = await get_region_data(region_id=region_data["stateId"], headers=headers)
         if region_energy:
-            logger.info(f"fetched data from region {region_data['id']}")
-            energy_cached_data["states"][region_data["id"]] = region_energy
+            logger.info(
+                f"▶️ Fetched data from region {region_data['name']}: {region_energy.get('state', {}).get('id', 'N/A')}"
+            )
+            energy_cached_data.append(region_energy)
 
         await asyncio.sleep(request_time)
     return energy_cached_data
 
 
-async def get_ukrenergo_data(mc):
+async def get_ukrenergo_data(redis_client) -> None:
 
     while True:
         try:
-            energy_cached_data = await get_data()
-            if not energy_cached_data or not energy_cached_data.get("states"):
-                logger.error("Failed to fetch energy data, empty or incorrect response")
+            cache = await get_redis_data(logger, redis_client, "energy:ukrenergo:data", default_response=[])
+            data = await get_data()
+            if not data:
+                logger.error("❌ Failed to fetch energy data, empty or incorrect response")
                 await asyncio.sleep(loop_time)
                 continue
-
-            energy_cached_data["info"]["last_update"] = get_current_datetime()
-            logger.debug("store energy data: %s" % get_current_datetime())
-            await mc.set(b"energy_ukrenergo", json.dumps(energy_cached_data).encode("utf-8"))
-            await service_is_fine(mc, b"ukrenergo_api_last_call")
-            logger.info("energy data stored")
+            if data == cache:
+                await service_is_fine(logger, redis_client, "energy:ukrenergo:last_call")
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+                await asyncio.sleep(loop_time)
+                continue
+            logger.debug("💾 Зберігаємо оновлені дані в Redis...")
+            await asyncio.gather(
+                set_redis_data(logger, redis_client, "energy:ukrenergo:data", data),
+                service_is_fine(logger, redis_client, "energy:ukrenergo:last_call"),
+            )
+            await redis_client.publish("energy:ukrenergo:updated", "1")
+            logger.info("✅ Оновлені дані збережено в Redis")
         except Exception as e:
-            logger.error(f"Error in get_ukrenergo_data: {e}")
+            logger.error(f"❌ Error in get_ukrenergo_data: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
         await asyncio.sleep(loop_time)
 
 
 async def main():
-    mc = Client(memcached_host, 11211)
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+
     try:
-        await asyncio.gather(get_ukrenergo_data(mc))
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+
+        tasks = [
+            asyncio.create_task(run_with_restart(logger, get_ukrenergo_data, redis_client, "get_ukrenergo_data")),
+        ]
+
+        await asyncio.gather(*tasks)
+
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

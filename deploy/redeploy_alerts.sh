@@ -2,7 +2,9 @@
 
 # Default values
 ALERT_TOKEN=""
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 ALERT_PERIOD=10
 LOGGING="INFO"
 
@@ -13,8 +15,16 @@ while [[ $# -gt 0 ]]; do
             ALERT_TOKEN="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -p|--alert-period)
@@ -35,7 +45,9 @@ done
 echo "ALERTS"
 
 echo "ALERT_TOKEN: $ALERT_TOKEN"
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "ALERT_PERIOD: $ALERT_PERIOD"
 echo "LOGGING: $LOGGING"
 
@@ -45,13 +57,9 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd alerts
-
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_alerts -f Dockerfile .
+docker build -t map_alerts -f alerts/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
@@ -60,7 +68,16 @@ docker rm map_alerts || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_alerts --restart unless-stopped --network=jaam -d --env ALERT_PERIOD="$ALERT_PERIOD" --env ALERT_TOKEN="$ALERT_TOKEN" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_alerts
+docker run --name map_alerts \
+    --restart unless-stopped \
+    --network=jaam -d \
+    --env ALERT_PERIOD="$ALERT_PERIOD" \
+    --env ALERT_TOKEN="$ALERT_TOKEN" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
+    --env LOGGING="$LOGGING" \
+    map_alerts
 
 echo "Container deployed successfully!"
 

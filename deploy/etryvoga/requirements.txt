@@ -1,2 +1,2 @@
-aiohttp==3.12.14
-aiomcache==0.8.2
+aiohttp==3.11.11
+redis==5.0.1

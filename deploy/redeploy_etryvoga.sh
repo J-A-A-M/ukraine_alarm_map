@@ -3,7 +3,9 @@
 # Default values
 ETRYVOGA_HOST=""
 ETRYVOGA_DISTRICTS_HOST=""
-MEMCACHED_HOST=""
+REDIS_HOST=""
+REDIS_PASSWORD="redis"
+REDIS_DB="0"
 ETRYVOGA_PERIOD=30
 ETRYVOGA_DISTRICTS_PERIOD=600
 LOGGING="INFO"
@@ -19,8 +21,16 @@ while [[ $# -gt 0 ]]; do
             ETRYVOGA_DISTRICTS_HOST="$2"
             shift 2
             ;;
-        -m|--memcached-host)
-            MEMCACHED_HOST="$2"
+        -m|--redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        -pw|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        -db|--redis-db)
+            REDIS_DB="$2"
             shift 2
             ;;
         -p|--etryvoga-period)
@@ -46,7 +56,9 @@ echo "ETRYVOGA"
 
 echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
 echo "ETRYVOGA_DISTRICTS_HOST: $ETRYVOGA_DISTRICTS_HOST"
-echo "MEMCACHED_HOST: $MEMCACHED_HOST"
+echo "REDIS_HOST: $REDIS_HOST"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_DB: $REDIS_DB"
 echo "ETRYVOGA_PERIOD: $ETRYVOGA_PERIOD"
 echo "ETRYVOGA_DISTRICTS_PERIOD: $ETRYVOGA_DISTRICTS_PERIOD"
 echo "LOGGING: $LOGGING"
@@ -57,13 +69,9 @@ echo "Updating Git repo..."
 #cd /path/to/your/git/repo
 git pull
 
-# Moving to the deployment directory
-echo "Moving to deployment directory..."
-cd etryvoga
-
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_etryvoga -f Dockerfile .
+docker build -t map_etryvoga -f etryvoga/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
@@ -72,7 +80,18 @@ docker rm map_etryvoga || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_etryvoga --restart unless-stopped --network=jaam -d --env ETRYVOGA_HOST="$ETRYVOGA_HOST" --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" --env MEMCACHED_HOST="$MEMCACHED_HOST" --env LOGGING="$LOGGING" map_etryvoga
+docker run --name map_etryvoga \
+    --restart unless-stopped \
+    --network=jaam -d \
+    --env ETRYVOGA_HOST="$ETRYVOGA_HOST" \
+    --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" \
+    --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" \
+    --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" \
+    --env REDIS_HOST="$REDIS_HOST" \
+    --env REDIS_PASSWORD="$REDIS_PASSWORD" \
+    --env REDIS_DB="$REDIS_DB" \
+    --env LOGGING="$LOGGING" \
+    map_etryvoga
 
 echo "Container deployed successfully!"
 

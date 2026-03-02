@@ -1,6 +1,8 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 ENV TZ="Europe/Kyiv"
-COPY energy.py .
-RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+COPY ukrenergo/energy.py .
+COPY utils.py .
+COPY regions.json .
+RUN --mount=type=bind,source=ukrenergo/requirements.txt,target=/tmp/requirements.txt \
     python -m pip install --no-cache-dir -r /tmp/requirements.txt
-CMD python energy.py
+CMD ["python", "energy.py"]

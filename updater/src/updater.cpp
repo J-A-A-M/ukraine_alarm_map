@@ -17,7 +17,7 @@ const char* userPassword = ""; // Пароль до WIFI мережі замов
 const char* firmwareUrl = "http://ws.jaam.net.ua/jaam.bin"; // production
 // const char* firmwareUrl = "http://ws.jaam.net.ua/beta/jaam_beta.bin"; // beta
 
-String identifier = "github";
+String identifier = "JAAM2";
 
 // Домашні регіони
 // "Закарпатська обл." = 11

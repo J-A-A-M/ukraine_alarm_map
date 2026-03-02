@@ -6,16 +6,63 @@ import logging
 import hashlib
 import datetime
 import contextlib
-from aiomcache import Client
-from functools import partial
 
+from copy import copy
+import redis.asyncio as redis
+import sys
+from pathlib import Path
 
-version = 2
+try:
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        calculate_time_difference,
+        format_time,
+        run_with_restart,
+    )
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
+    from utils import (
+        service_is_fine,
+        get_redis_data,
+        set_redis_data,
+        get_current_datetime,
+        calculate_time_difference,
+        format_time,
+        run_with_restart,
+    )
+
+# Імпорт regions.json - спочатку з поточної папки, потім з батьківської
+regions = {}
+try:
+    # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
+    regions_path = Path(__file__).resolve().parent / "regions.json"
+    with open(regions_path, "r", encoding="utf-8") as f:
+        regions = json.load(f)
+except FileNotFoundError:
+    # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
+    try:
+        regions_path = Path(__file__).resolve().parent.parent / "regions.json"
+        with open(regions_path, "r", encoding="utf-8") as f:
+            regions = json.load(f)
+    except FileNotFoundError:
+        # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
+        logging.warning("regions.json not found, using empty regions dict")
+
+version = 3
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 etryvoga_url = os.environ.get("ETRYVOGA_HOST")
 etryvoga_districts_url = os.environ.get("ETRYVOGA_DISTRICTS_HOST")
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
 etryvoga_districts_loop_time = int(os.environ.get("ETRYVOGA_DISTRICTS_PERIOD", 600))
 
@@ -32,140 +79,63 @@ logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(mes
 logger = logging.getLogger(__name__)
 
 
-regions = {
-    "ZAKARPATSKA": {"name": "Закарпатська область", "id": 11, "legacy_id": 1},
-    "IVANOFRANKIWSKA": {"name": "Івано-Франківська область", "id": 13, "legacy_id": 2},
-    "TERNOPILSKA": {"name": "Тернопільська область", "id": 21, "legacy_id": 3},
-    "LVIVKA": {"name": "Львівська область", "id": 27, "legacy_id": 4},
-    "VOLYNSKA": {"name": "Волинська область", "id": 8, "legacy_id": 5},
-    "RIVENSKA": {"name": "Рівненська область", "id": 5, "legacy_id": 6},
-    "ZHYTOMYRSKA": {"name": "Житомирська область", "id": 10, "legacy_id": 7},
-    "KIYEWSKAYA": {"name": "Київська область", "id": 14, "legacy_id": 8},
-    "CHERNIGIWSKA": {"name": "Чернігівська область", "id": 25, "legacy_id": 9},
-    "SUMSKA": {"name": "Сумська область", "id": 20, "legacy_id": 10},
-    "HARKIVSKA": {"name": "Харківська область", "id": 22, "legacy_id": 11},
-    "LUGANSKA": {"name": "Луганська область", "id": 16, "legacy_id": 12},
-    "DONETSKAYA": {"name": "Донецька область", "id": 28, "legacy_id": 13},
-    "ZAPORIZKA": {"name": "Запорізька область", "id": 12, "legacy_id": 14},
-    "HERSONSKA": {"name": "Херсонська область", "id": 23, "legacy_id": 15},
-    "KRIMEA": {"name": "Автономна Республіка Крим", "id": 9999, "legacy_id": 16},
-    "ODESKA": {"name": "Одеська область", "id": 18, "legacy_id": 17},
-    "MYKOLAYIV": {"name": "Миколаївська область", "id": 17, "legacy_id": 18},
-    "DNIPROPETROVSKAYA": {"name": "Дніпропетровська область", "id": 9, "legacy_id": 19},
-    "POLTASKA": {"name": "Полтавська область", "id": 19, "legacy_id": 20},
-    "CHERKASKA": {"name": "Черкаська область", "id": 24, "legacy_id": 21},
-    "KIROWOGRADSKA": {"name": "Кіровоградська область", "id": 15, "legacy_id": 22},
-    "VINNYTSA": {"name": "Вінницька область", "id": 4, "legacy_id": 23},
-    "HMELNYCKA": {"name": "Хмельницька область", "id": 3, "legacy_id": 24},
-    "CHERNIVETSKA": {"name": "Чернівецька область", "id": 26, "legacy_id": 25},
-    "KIYEW": {"name": "м. Київ", "id": 31, "legacy_id": 26},
-    "KHARKIV-CITY": {"name": "м. Харків", "id": 1293, "legacy_id": 27},
-    "ZAPORIZHZHIA-CITY": {"name": "м. Запоріжжя", "id": 564, "legacy_id": 28},
-    "UNKNOWN": {"name": "Невідомо", "id": 1111, "legacy_id": 1111},
-    "ALL": {"name": "Вся Україна", "id": 2222, "legacy_id": 2222},
-    "TEST": {"name": "Тест", "id": 3333, "legacy_id": 3333},
-}
+def get_region_data(slug, title):
+    if slug not in regions:
+        # Fallback: remove emojis and special symbols from title and search by source_name
+        import re
 
+        # Remove emojis and special symbols from the beginning of the title
+        cleaned_title = re.sub(r"^[\W\s]+", "", title).strip()
 
-def make_hex(json_doc):
-    json_str = json.dumps(json_doc, sort_keys=True)
-    json_bytes = json_str.encode("utf-8")
-    hash_object = hashlib.sha256()
-    hash_object.update(json_bytes)
-    current_hex = hash_object.hexdigest()
-    return current_hex
-
-
-def get_slug(name, districts_slug):
-    slug_name = districts_slug.get(name) or "UNKNOWN"
-    return slug_name
-
-
-def format_time(time):
-    dt = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ")
-    formatted_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return formatted_timestamp
-
-
-async def get_cache_data(mc, key_b, default_response=None):
-    if default_response is None:
-        default_response = {}
-
-    cache = await mc.get(key_b)
-
-    if cache:
-        cache = json.loads(cache.decode("utf-8"))
-    else:
-        cache = default_response
-
-    return cache
-
-
-def get_current_datetime():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def calculate_time_difference(timestamp1, timestamp2):
-    format_str = "%Y-%m-%dT%H:%M:%SZ"
-
-    time1 = datetime.datetime.strptime(timestamp1, format_str)
-    time2 = datetime.datetime.strptime(timestamp2, format_str)
-
-    time_difference = (time2 - time1).total_seconds()
-    return int(abs(time_difference))
-
-
-async def service_is_fine(mc, key_b):
-    await mc.set(key_b, get_current_datetime().encode("utf-8"))
-
-
-async def get_etryvoga_data(mc):
-    while True:
-        if await get_cache_data(mc, b"etryvoga_districts"):
-            break
+        # Search for this string in regions by source_name field
+        for region_key, region_value in regions.items():
+            if region_value.get("source_name") == cleaned_title:
+                slug = region_key
+                break
         else:
-            logger.warning("get_etryvoga_data: wait for districts cache")
-        await asyncio.sleep(1)
+            # If still not found, return UNKNOWN
+            return "UNKNOWN", 0
+
+    _name = regions[slug]["name"]
+    _id = regions[slug]["regionId"]
+    return _name, _id
+
+
+async def save_etryvoga_type_data(
+    logger, redis_client, data_type: str, redis_key: str, old_data: dict, new_data: dict
+) -> bool:
+    if old_data != new_data:
+        logger.debug(f"⚠️ {redis_key} DATA NEW: {new_data}")
+        logger.debug(f"⚠️ {redis_key} DATA OLD: {old_data}")
+        await set_redis_data(logger, redis_client, f"{redis_key}:data", new_data)
+        await service_is_fine(logger, redis_client, f"{redis_key}:last_call")
+        await redis_client.publish(f"{redis_key}:updated", "1")
+        logger.info(f"💾 Збережено оновлені дані для {data_type}")
+        return True
+    else:
+        logger.debug(f"⏭️  Дані для {data_type} не змінилися")
+        return False
+
+
+async def get_etryvoga_data(redis_client):
     while True:
         try:
             logger.debug("start get_etryvoga_data")
 
-            cache_keys = [
-                b"etryvoga_districts_struct",
-                b"explosions_etryvoga",
-                b"missiles_etryvoga",
-                b"drones_etryvoga",
-                b"kabs_etryvoga",
-            ]
-            cached_data = await asyncio.gather(*(mc.get(key) for key in cache_keys))
+            # Отримуємо всі значення паралельно з Redis
+            old_explosions_data, old_missiles_data, old_drones_data, old_kabs_data, last_id_data = await asyncio.gather(
+                get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:etryvoga:last_id", 0),
+            )
 
-            districts_slug_cached, explosions_cached, missiles_cached, drones_cached, kabs_cached = cached_data
-
-            if districts_slug_cached:
-                districts_slug_cached = json.loads(districts_slug_cached)
-            else:
-                districts_slug_cached = {}
-
-            if explosions_cached:
-                explosions_cached_data = json.loads(explosions_cached.decode("utf-8"))
-            else:
-                explosions_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
-
-            if missiles_cached:
-                missiles_cached_data = json.loads(missiles_cached.decode("utf-8"))
-            else:
-                missiles_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
-
-            if drones_cached:
-                drones_cached_data = json.loads(drones_cached.decode("utf-8"))
-            else:
-                drones_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
-
-            if kabs_cached:
-                kabs_cached_data = json.loads(kabs_cached.decode("utf-8"))
-            else:
-                kabs_cached_data = {"version": 1, "states": {}, "info": {"last_update": None, "last_id": 0}}
-
+            # Створюємо нові словники для збереження оброблених даних
+            explosions_data = copy(old_explosions_data)
+            missiles_data = copy(old_missiles_data)
+            drones_data = copy(old_drones_data)
+            kabs_data = copy(old_kabs_data)
             last_id = None
 
             async with aiohttp.ClientSession() as session:
@@ -174,136 +144,146 @@ async def get_etryvoga_data(mc):
                     etryvoga_full = await response.text()
                     data = json.loads(etryvoga_full)
                     logger.debug(
-                        "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
+                        "{type:<12} {time:<5} {region:<30} {state:<25} {body}".format(
                             type="type", state="state_name", region="region", body="body", time="diff"
                         )
                     )
-                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
+                    logger.debug(
+                        "------------ ----- ------------------------------ ------------------------- -----------"
+                    )
                     for message in data[::-1]:
-                        current_hex = make_hex(message)
-
-                        state_name = regions[get_slug(message["region"], districts_slug_cached)]["name"]
-                        state_id = regions[get_slug(message["region"], districts_slug_cached)]["id"]
+                        _name, _id = get_region_data(message.get("region", "ERROR"), message["title"])
+                        message["regionId"] = _id
                         logger.debug(
-                            "{type:<12} {time:<5} {region:<25} {state:<25} {body}".format(
+                            "{type:<12} {time:<5} {rid:<5}{region:<25} {state:<25} {body}".format(
                                 type=message["type"],
-                                state=state_name,
-                                region=message["region"],
+                                state=_name,
+                                rid=_id,
+                                region=message.get("region", "ERROR"),
                                 body=message["body"],
                                 time=calculate_time_difference(
                                     format_time(message["createdAt"]), get_current_datetime()
                                 ),
                             )
                         )
-                        if state_name == "Невідомо":
+                        if _name == "UNKNOWN":
                             continue
-                        region_data = {
-                            "lastUpdate": format_time(message["createdAt"]),
-                        }
+                        region_data = format_time(message["createdAt"])
                         match message["type"]:
                             case "EXPLOSION":
-                                explosions_cached_data["states"][state_id] = region_data
+                                explosions_data[str(_id)] = region_data
                             case "ROCKET" | "ROCKET_FIRE":
-                                missiles_cached_data["states"][state_id] = region_data
-                            case "DRONE" | "RECON_DRONE":
-                                drones_cached_data["states"][state_id] = region_data
+                                missiles_data[str(_id)] = region_data
+                            case "DRONE":
+                                drones_data[str(_id)] = region_data
                             case "KAB":
-                                kabs_cached_data["states"][state_id] = region_data
+                                kabs_data[str(_id)] = region_data
                             case _:
                                 pass
-                        last_id = current_hex
-                    logger.debug("------------ ----- ------------------------- ------------------------- -----------")
-
-                    with contextlib.suppress(KeyError):
-                        del explosions_cached_data["states"]["Невідомо"]
-
-                    explosions_cached_data["info"]["last_id"] = last_id
-                    explosions_cached_data["info"]["last_update"] = get_current_datetime()
-                    missiles_cached_data["info"]["last_id"] = last_id
-                    missiles_cached_data["info"]["last_update"] = get_current_datetime()
-                    drones_cached_data["info"]["last_id"] = last_id
-                    drones_cached_data["info"]["last_update"] = get_current_datetime()
-                    kabs_cached_data["info"]["last_id"] = last_id
-                    kabs_cached_data["info"]["last_update"] = get_current_datetime()
-                    logger.debug("store etryvoga data")
-                    await asyncio.gather(
-                        mc.set(b"explosions_etryvoga", json.dumps(explosions_cached_data).encode("utf-8")),
-                        mc.set(b"missiles_etryvoga", json.dumps(missiles_cached_data).encode("utf-8")),
-                        mc.set(b"drones_etryvoga", json.dumps(drones_cached_data).encode("utf-8")),
-                        mc.set(b"kabs_etryvoga", json.dumps(kabs_cached_data).encode("utf-8")),
-                        mc.set(b"etryvoga_last_id", json.dumps({"last_id": last_id}).encode("utf-8")),
-                        mc.set(b"etryvoga_full", etryvoga_full.encode("utf-8")),
-                        service_is_fine(mc, b"etryvoga_api_last_call"),
+                        last_id = int(message.get("id", 0))
+                    logger.debug(
+                        "------------ ----- ------------------------------ ------------------------- -----------"
                     )
-                    logger.info("etryvoga data stored")
-                    logger.debug("end get_etryvoga_data")
+
+                    if last_id == last_id_data:
+                        await service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call")
+                        logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+                        await asyncio.sleep(etryvoga_loop_time)
+                        continue
+
+                    logger.debug("💾 Перевіряємо та зберігаємо etryvoga data")
+
+                    # Зберігаємо кожен тип даних окремо, тільки якщо є зміни
+                    save_results = await asyncio.gather(
+                        save_etryvoga_type_data(
+                            logger,
+                            redis_client,
+                            "explosions",
+                            "alerts:etryvoga:explosions",
+                            old_explosions_data,
+                            explosions_data,
+                        ),
+                        save_etryvoga_type_data(
+                            logger,
+                            redis_client,
+                            "missiles",
+                            "alerts:etryvoga:missiles",
+                            old_missiles_data,
+                            missiles_data,
+                        ),
+                        save_etryvoga_type_data(
+                            logger, redis_client, "drones", "alerts:etryvoga:drones", old_drones_data, drones_data
+                        ),
+                        save_etryvoga_type_data(
+                            logger, redis_client, "kabs", "alerts:etryvoga:kabs", old_kabs_data, kabs_data
+                        ),
+                    )
+
+                    # Завжди зберігаємо повні дані та last_id
+                    await asyncio.gather(
+                        set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", data),
+                        set_redis_data(logger, redis_client, "alerts:etryvoga:last_id", last_id),
+                        service_is_fine(logger, redis_client, "alerts:etryvoga:full:last_call"),
+                    )
+
+                    # Публікуємо повідомлення про оновлення тільки якщо хоча б один тип даних змінився
+                    if any(save_results):
+                        await redis_client.publish("alerts:etryvoga:updated", "1")
+                        logger.info("✅ Оновлені дані збережено в Redis")
+                    else:
+                        logger.debug("⏭️  Всі типи даних залишилися без змін")
                 else:
-                    logger.error(f"get_etryvoga_data: Request failed with status code {response.status}")
+                    logger.error(f"❌ get_etryvoga_data: Request failed with status code {response.status}")
             await asyncio.sleep(etryvoga_loop_time)
         except KeyError as e:
-            logger.error(f"get_etryvoga_data: Помилка доступу до ключа {e.args[0]}")
-            logger.debug(f"Повний стек помилки:", exc_info=True)
+            logger.error(f"❌ get_etryvoga_data: Помилка доступу до ключа {e.args[0]}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(60)
         except aiohttp.ClientError as e:
-            logger.error(f"get_etryvoga_data: Помилка мережі: {str(e)}")
-            logger.debug(f"Повний стек помилки:", exc_info=True)
+            logger.error(f"❌ get_etryvoga_data: Помилка мережі: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(60)
         except json.JSONDecodeError as e:
-            logger.error(f"get_etryvoga_data: Помилка парсингу JSON: {str(e)}")
-            logger.debug(f"Повний стек помилки:", exc_info=True)
+            logger.error(f"❌ get_etryvoga_data: Помилка парсингу JSON: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(60)
         except Exception as e:
-            logger.error(f"get_etryvoga_data: Неочікувана помилка: {str(e)}")
-            logger.debug(f"Повний стек помилки:", exc_info=True)
+            logger.error(f"❌ get_etryvoga_data: Неочікувана помилка: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(60)
-
-
-async def get_etryvoga_districts(mc):
-    while True:
-        try:
-            async with aiohttp.ClientSession() as session:
-                response = await session.get(etryvoga_districts_url)
-                if response.status == 200:
-                    etryvoga_full = await response.text()
-                    data = json.loads(etryvoga_full)
-                    data_struct = make_districts_struct(data)
-                    logger.debug("store etryvoga_districts")
-                    await asyncio.gather(
-                        mc.set(b"etryvoga_districts", json.dumps(data).encode("utf-8")),
-                        mc.set(b"etryvoga_districts_struct", json.dumps(data_struct).encode("utf-8")),
-                        service_is_fine(mc, b"etryvoga_districts_api_last_call"),
-                    )
-                    logger.info("etryvoga_districts stored")
-                else:
-                    logger.error(f"get_etryvoga_districts: Request failed with status code {response.status}")
-        except Exception as e:
-            logger.error(f"get_etryvoga_districts: {str(e)}")
-        await asyncio.sleep(etryvoga_districts_loop_time)
-
-
-def make_districts_struct(data):
-    region_keys = regions.keys()
-    struct = {}
-    for area in data:
-        area_slug = area["slug"]
-        struct[area_slug] = area_slug
-        for district in area["districts"]:
-            struct[district["slug"]] = area_slug
-            for city in district["cities"]:
-                if city["slug"] in region_keys:
-                    struct[city["slug"]] = city["slug"]
-                else:
-                    struct[city["slug"]] = area_slug
-
-    return struct
 
 
 async def main():
-    mc = Client(memcached_host, 11211)
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+
     try:
-        await asyncio.gather(get_etryvoga_data(mc), get_etryvoga_districts(mc))
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+
+        tasks = [
+            asyncio.create_task(run_with_restart(logger, get_etryvoga_data, redis_client, "get_etryvoga_data")),
+        ]
+
+        await asyncio.gather(*tasks)
+
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

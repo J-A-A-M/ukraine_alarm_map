@@ -1,9 +1,6 @@
 import pytest
-import json
-from unittest.mock import AsyncMock, patch
-from aiomcache import Client
-from updater.updater import update_drones_etryvoga_v1, regions
-
+from unittest.mock import AsyncMock, MagicMock, patch
+from updater.updater import update_websocket_v1_drones, regions
 
 """
 pip install pytest pytest-asyncio
@@ -15,223 +12,197 @@ unix 1736935200 - 2025-01-15T10:00:00Z
 LEGACY_LED_COUNT = 28
 
 
+def create_mock_redis():
+    """Створює мок Redis клієнта з правильно налаштованим pubsub"""
+    mock_redis = AsyncMock()
+    mock_pubsub = AsyncMock()
+
+    # pubsub() має повертати об'єкт синхронно, а не корутину
+    mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
+
+    mock_pubsub.subscribe = AsyncMock()
+    mock_pubsub.unsubscribe = AsyncMock()
+    mock_pubsub.aclose = AsyncMock()
+
+    return mock_redis, mock_pubsub
+
+
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_1():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_1(mock_get_redis_data, mock_set_redis_data):
     """
     нема даних для вебсокета в мемкеш
     зберігання першої тривоги
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:etryvoga:drones:data":
+            return {"11": "2022-02-24T03:40:00Z", "21": "2025-01-15T10:00:00Z"}
+        elif key == "websocket:v1:legacy:drones":
+            return [1645674000] * LEGACY_LED_COUNT
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        return default_response
 
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"drones_etryvoga": {
-                "version": 1,
-                "states": {"11": {"lastUpdate": "2022-02-24T03:40:00Z"}, "21": {"lastUpdate": "2025-01-15T10:00:00Z"}},
-                "info": {
-                    "last_update": "2025-01-26T19:18:55Z",
-                    "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                },
-            },
-            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    await update_websocket_v1_drones(mock_redis, run_once=True)
 
-    with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-        await update_drones_etryvoga_v1(mock_mc, run_once=True)
+    expected_result = [1645674000] * LEGACY_LED_COUNT
+    expected_result[2] = 1736935200
 
-        expected_result = [1645674000] * LEGACY_LED_COUNT
-        expected_result[2] = 1736935200
-
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
+    assert len(calls) > 0
+    assert calls[0][0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_2():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_2(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в memcache
     апдейт часу першої тривоги
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:etryvoga:drones:data":
+            return {"11": "2025-01-15T10:00:00Z"}
+        elif key == "websocket:v1:legacy:drones":
+            return [1645674000] * LEGACY_LED_COUNT
+        elif key == "websocket:v2:legacy:drones":
+            return [[0, 1645674000]] * LEGACY_LED_COUNT
+        return default_response
 
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        mock_responses = {
-            b"drones_etryvoga": {
-                "version": 1,
-                "states": {"11": {"lastUpdate": "2025-01-15T10:00:00Z"}},
-                "info": {
-                    "last_update": "2025-01-26T19:18:55Z",
-                    "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                },
-            },
-            b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-        }
-        return mock_responses.get(key, default)
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    await update_websocket_v1_drones(mock_redis, run_once=True)
 
-    with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-        await update_drones_etryvoga_v1(mock_mc, run_once=True)
+    expected_result = [1645674000] * LEGACY_LED_COUNT
+    expected_result[0] = 1736935200
 
-        expected_result = [1645674000] * LEGACY_LED_COUNT
-        expected_result[0] = 1736935200
-
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
+    assert len(calls) > 0
+    assert calls[0][0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_3():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_3(mock_get_redis_data, mock_set_redis_data):
     """
     перевірка мапінга
     """
+    for _, region_data in regions.items():
+        # Очищуємо моки перед кожною ітерацією
+        mock_set_redis_data.reset_mock()
+        mock_get_redis_data.reset_mock()
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
+        mock_redis, mock_pubsub = create_mock_redis()
+        mock_pubsub.get_message = AsyncMock(
+            side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+        )
 
-    for _, region in regions.items():
+        # Використовуємо замикання щоб зберегти region_data для кожної ітерації
+        def create_side_effect(region):
+            async def get_redis_side_effect(_logger, _client, key, default_response=None):
+                if key == "alerts:etryvoga:drones:data":
+                    return {str(region["regionId"]): "2025-01-15T10:00:00Z"}
+                elif key == "websocket:v1:legacy:drones":
+                    return [1645674000] * LEGACY_LED_COUNT
+                elif key == "websocket:v2:legacy:drones":
+                    return [[0, 1645674000]] * LEGACY_LED_COUNT
+                return default_response
 
-        def mock_get_cache_data_side_effect(mc, key, default=None):
-            mock_responses = {
-                b"drones_etryvoga": {
-                    "version": 1,
-                    "states": {str(region["id"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
-                    "info": {
-                        "last_update": "2025-01-26T19:18:55Z",
-                        "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                    },
-                },
-                b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-            }
-            return mock_responses.get(key, default)
+            return get_redis_side_effect
 
-        mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
-        with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-            expected_result = [1645674000] * LEGACY_LED_COUNT
-            expected_result[region["legacy_id"] - 1] = 1736935200
+        mock_get_redis_data.side_effect = create_side_effect(region_data)
 
-            await update_drones_etryvoga_v1(mock_mc, run_once=True)
+        await update_websocket_v1_drones(mock_redis, run_once=True)
 
-            mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+        expected_result = [1645674000] * LEGACY_LED_COUNT
+        expected_result[region_data["legacyId"] - 1] = 1736935200
+
+        calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
+        assert len(calls) > 0
+        assert calls[0][0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_4():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_4(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в мемкеші
     зберігання оновлення там , де нема основної тривоги (21)
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:etryvoga:drones:data":
+            return {"11": "2025-02-24T03:40:00Z", "21": "2025-02-15T10:00:00Z"}
+        elif key == "websocket:v1:legacy:drones":
+            return [1700000000] * LEGACY_LED_COUNT
+        elif key == "websocket:v2:legacy:drones":
+            drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
+            drones_websocket_v2[0] = [1, 1645674000]
+            return drones_websocket_v2
+        return default_response
 
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
-        drones_websocket_v2[0] = [1, 1645674000]
-        mock_responses = {
-            b"drones_etryvoga": {
-                "version": 1,
-                "states": {"11": {"lastUpdate": "2025-02-24T03:40:00Z"}, "21": {"lastUpdate": "2025-02-15T10:00:00Z"}},
-                "info": {
-                    "last_update": "2025-01-26T19:18:55Z",
-                    "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                },
-            },
-            b"drones_websocket_v1": [1700000000] * LEGACY_LED_COUNT,
-            b"drones_websocket_v2": drones_websocket_v2,
-        }
-        return mock_responses.get(key, default)
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    await update_websocket_v1_drones(mock_redis, run_once=True)
 
-    with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
+    expected_result = [1700000000] * LEGACY_LED_COUNT
+    expected_result[2] = 1739613600
 
-        expected_result = [1700000000] * LEGACY_LED_COUNT
-        expected_result[2] = 1739613600
-
-        await update_drones_etryvoga_v1(mock_mc, run_once=True)
-
-        mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
+    assert len(calls) > 0
+    assert calls[0][0][3] == expected_result
 
 
 @pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_5():
+@patch("updater.updater.set_redis_data", new_callable=AsyncMock)
+@patch("updater.updater.get_redis_data", new_callable=AsyncMock)
+async def test_5(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в мемкеші
     нема заберігання, бо всюди тривога
     """
+    mock_redis, mock_pubsub = create_mock_redis()
+    mock_pubsub.get_message = AsyncMock(
+        side_effect=[{"type": "message", "channel": "alerts:etryvoga:drones:updated", "data": "1"}]
+    )
 
-    mock_mc = AsyncMock(spec=Client)
-    mock_mc.set.return_value = True
+    async def get_redis_side_effect(_logger, _client, key, default_response=None):
+        if key == "alerts:etryvoga:drones:data":
+            return {"11": "2025-02-24T03:40:00Z", "21": "2025-02-15T10:00:00Z"}
+        elif key == "websocket:v1:legacy:drones":
+            # Повертаємо дефолтні значення, оскільки жоден регіон не має оновитись (всі з тривогою)
+            return [1645674000] * LEGACY_LED_COUNT
+        elif key == "websocket:v2:legacy:drones":
+            drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
+            drones_websocket_v2[0] = [1, 1645674000]
+            drones_websocket_v2[2] = [1, 1645674000]
+            return drones_websocket_v2
+        return default_response
 
-    def mock_get_cache_data_side_effect(mc, key, default=None):
-        drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
-        drones_websocket_v2[0] = [1, 1645674000]
-        drones_websocket_v2[2] = [1, 1645674000]
-        mock_responses = {
-            b"drones_etryvoga": {
-                "version": 1,
-                "states": {"11": {"lastUpdate": "2025-02-24T03:40:00Z"}, "21": {"lastUpdate": "2025-02-15T10:00:00Z"}},
-                "info": {
-                    "last_update": "2025-01-26T19:18:55Z",
-                    "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                },
-            },
-            b"drones_websocket_v1": [1700000000] * LEGACY_LED_COUNT,
-            b"drones_websocket_v2": drones_websocket_v2,
-        }
-        return mock_responses.get(key, default)
+    mock_get_redis_data.side_effect = get_redis_side_effect
 
-    mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
+    await update_websocket_v1_drones(mock_redis, run_once=True)
 
-    with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-
-        await update_drones_etryvoga_v1(mock_mc, run_once=True)
-
-        mock_mc.set.assert_not_called()
-
-
-@pytest.mark.asyncio
-@patch("updater.updater.update_period", new=0)
-async def test_6():
-    """
-    перевірка мапінгу
-    """
-
-    for _, region_data in regions.items():
-        mock_mc = AsyncMock(spec=Client)
-        mock_mc.set.return_value = True
-
-        def mock_get_cache_data_side_effect(mc, key, default=None):
-            mock_responses = {
-                b"drones_etryvoga": {
-                    "version": 1,
-                    "states": {str(region_data["id"]): {"lastUpdate": "2025-01-15T10:00:00Z"}},
-                    "info": {
-                        "last_update": "2025-01-26T19:18:55Z",
-                        "last_id": "239a016a03c583633424afb5d418051b0a33a59374d0884912f8062336c09a93",
-                    },
-                },
-                b"drones_websocket_v2": [[0, 1645674000]] * LEGACY_LED_COUNT,
-            }
-            return mock_responses.get(key, default)
-
-        mock_get_cache_data = AsyncMock(side_effect=mock_get_cache_data_side_effect)
-
-        with (patch("updater.updater.get_cache_data", mock_get_cache_data),):
-            await update_drones_etryvoga_v1(mock_mc, run_once=True)
-
-            expected_result = [1645674000] * LEGACY_LED_COUNT
-            expected_result[region_data["legacy_id"] - 1] = 1736935200
-
-            mock_mc.set.assert_awaited_with(b"drones_websocket_v1", json.dumps(expected_result).encode("utf-8"))
+    # Перевіряємо що не було викликів set_redis_data для websocket:v1:legacy:drones
+    calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
+    assert len(calls) == 0

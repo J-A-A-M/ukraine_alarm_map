@@ -3,28 +3,39 @@ import os
 import asyncio
 import aiohttp
 import logging
-import datetime
 
-from aiomcache import Client
 from copy import copy
+import redis.asyncio as redis
+import sys
+from pathlib import Path
 
-version = 3
+try:
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
+    from utils import service_is_fine, get_redis_data, set_redis_data, truncate_name, run_with_restart
+
+version = 4
 
 alarm_url = "https://api.ukrainealarm.com/api/v3/alerts"
 region_url = "https://api.ukrainealarm.com/api/v3/regions"
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 alert_token = os.environ.get("ALERT_TOKEN")
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 alert_loop_time = int(os.environ.get("ALERT_PERIOD", 3))
-regions_loop_time = int(os.environ.get("REGIONS_PERIOD", 3600))
+is_test = os.environ.get("IS_TEST", "false").lower() == "true"
 
 if not alert_token:
     raise ValueError("ALERT_TOKEN environment variable is required")
 if alert_loop_time < 1:
     raise ValueError("ALERT_PERIOD must be >= 1")
-if regions_loop_time < 3600:
-    raise ValueError("REGIONS_PERIOD must be >= 3600")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,144 +43,192 @@ logger = logging.getLogger(__name__)
 headers = {"Authorization": "%s" % alert_token}
 
 
-async def get_cache_data(mc, key_b, default_response=None):
-    if default_response is None:
-        default_response = {}
+def compare_alerts(old_data, new_data):
+    changes = {"has_changes": False, "added": [], "removed": [], "updated": []}
 
-    cache = await mc.get(key_b)
+    # Якщо старих даних немає - всі дані нові
+    if not old_data:
+        changes["has_changes"] = True
+        changes["added"] = new_data
+        return changes
 
-    if cache:
-        cache = json.loads(cache.decode("utf-8"))
-    else:
-        cache = default_response
+    # Створюємо словники для швидкого пошуку за regionId
+    old_dict = {alert["regionId"]: alert for alert in old_data}
+    new_dict = {alert["regionId"]: alert for alert in new_data}
 
-    return cache
-
-
-def get_current_datetime():
-    return datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-async def service_is_fine(mc, key_b):
-    await mc.set(key_b, get_current_datetime().encode("utf-8"))
-
-
-async def get_regions(mc):
-    while True:
-        try:
-            regions = {}
-            logger.debug("start get_regions")
-            async with aiohttp.ClientSession() as session:
-                response = await session.get(region_url, headers=headers)
-                new_data = await response.text()
-                data = json.loads(new_data)
-            for state in data["states"]:
-                if int(state["regionId"]) > 0:
-                    regions[state["regionId"]] = {
-                        "regionName": state["regionName"],
-                        "regionType": state["regionType"],
-                        "parentId": None,
-                        "stateId": state["regionId"],
-                    }
-                    for district in state["regionChildIds"]:
-                        regions[district["regionId"]] = {
-                            "regionName": district["regionName"],
-                            "regionType": district["regionType"],
-                            "parentId": state["regionId"],
-                            "stateId": state["regionId"],
-                        }
-                        for community in district["regionChildIds"]:
-                            regions[community["regionId"]] = {
-                                "regionName": community["regionName"],
-                                "regionType": community["regionType"],
-                                "parentId": district["regionId"],
-                                "stateId": state["regionId"],
-                            }
-
-            await asyncio.gather(
-                mc.set(b"regions_api", json.dumps(regions).encode("utf-8")),
-                service_is_fine(mc, b"regions_api_last_call"),
-            )
-            logger.info("regions data stored")
-            logger.debug("end get_regions")
-            await asyncio.sleep(regions_loop_time)
-        except asyncio.CancelledError:
-            logger.error("get_regions: task canceled. Shutting down...")
-            await mc.close()
-            break
-        except Exception as e:
-            logger.error(f"get_regions: caught an exception: {e}")
-            await asyncio.sleep(60)
-
-
-async def get_alerts(mc):
-    while True:
-        if await get_cache_data(mc, b"regions_api"):
-            break
+    # Шукаємо нові та оновлені регіони
+    for region_id, new_alert in new_dict.items():
+        if region_id not in old_dict:
+            # Новий регіон з тривогою
+            changes["added"].append(new_alert)
+            changes["has_changes"] = True
         else:
-            logger.warning("get_alerts: wait for region cache")
-        await asyncio.sleep(1)
-    while True:
-        try:
-            logger.debug("start get_alerts")
-            cache_tasks = []
+            old_alert = old_dict[region_id]
+            # Перевіряємо чи змінилися activeAlerts
+            if json.dumps(old_alert, sort_keys=True, ensure_ascii=False) != json.dumps(
+                new_alert, sort_keys=True, ensure_ascii=False
+            ):
+                changes["updated"].append(
+                    {"region": new_alert["regionName"], "regionId": region_id, "old": old_alert, "new": new_alert}
+                )
+                changes["has_changes"] = True
 
-            alerts_historical_cache = await get_cache_data(mc, b"alerts_historical_api", [])
-            regions_cache = await get_cache_data(mc, b"regions_api", {})
+    # Шукаємо видалені тривоги
+    for region_id, old_alert in old_dict.items():
+        if region_id not in new_dict:
+            changes["removed"].append(old_alert)
+            changes["has_changes"] = True
 
-            if not alerts_historical_cache:
-                for state_id, state_data in regions_cache.items():
-                    if state_data["regionType"] == "State":
-                        region_alert_url = "%s/%s" % (alarm_url, state_id)
-                        async with aiohttp.ClientSession() as session:
-                            response = await session.get(region_alert_url, headers=headers)
-                            if response.status != 200:
-                                logger.error(
-                                    f"Помилка отримання даних тривог для регіону {state_id}: {response.status}"
-                                )
-                                continue
-                            new_data = await response.text()
-                            region_data = json.loads(new_data)[0]
-                        alerts_historical_cache.append(region_data)
-                await mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
-                cache_tasks.append(
-                    mc.set(b"alerts_historical_api", json.dumps(alerts_historical_cache).encode("utf-8"))
+    return changes
+
+
+def log_changes(changes):
+    if not changes["has_changes"]:
+        logger.debug("📊 Змін в даних тривог не виявлено")
+        return
+
+    logger.info("=" * 71)
+
+    # Нові тривоги
+    if changes["added"]:
+        logger.info(f"🆕 НОВІ ТРИВОГИ ({len(changes['added'])})")
+        for alert in changes["added"]:
+            for active_alert in alert.get("activeAlerts", []):
+                truncated_name = truncate_name(alert["regionName"], 30)
+                logger.info(
+                    f"   ➕ {truncated_name:<30} | "
+                    f"{active_alert['regionId']:<5} | "
+                    f"{active_alert['type']:<12} | "
+                    f"{active_alert['regionType']:<10}"
                 )
 
-            if cache_tasks:
-                await asyncio.gather(*cache_tasks)
+    # Скасовані тривоги
+    if changes["removed"]:
+        logger.info(f"✅ СКАСОВАНІ ТРИВОГИ ({len(changes['removed'])})")
+        for alert in changes["removed"]:
+            for active_alert in alert.get("activeAlerts", []):
+                truncated_name = truncate_name(alert["regionName"], 30)
+                logger.info(
+                    f"   ➖ {truncated_name:<30} | "
+                    f"{active_alert['regionId']:<5} | "
+                    f"{active_alert['type']:<12} | "
+                    f"{active_alert['regionType']:<10}"
+                )
 
+    # Оновлені тривоги
+    if changes["updated"]:
+        logger.info(f"🔄 ОНОВЛЕНІ ТРИВОГИ ({len(changes['updated'])})")
+        for update in changes["updated"]:
+            truncated_name = truncate_name(update["region"], 30)
+            logger.info(f"   🔄 {truncated_name}")
+
+            # Порівнюємо activeAlerts
+            old_alerts = {a["type"]: a for a in update["old"].get("activeAlerts", [])}
+            new_alerts = {a["type"]: a for a in update["new"].get("activeAlerts", [])}
+
+            # Нові типи тривог
+            for alert_type in new_alerts:
+                if alert_type not in old_alerts:
+                    logger.info(f"      ➕ Додано: {alert_type}")
+
+            # Видалені типи тривог
+            for alert_type in old_alerts:
+                if alert_type not in new_alerts:
+                    logger.info(f"      ➖ Видалено: {alert_type}")
+
+            # Оновлені типи
+            for alert_type in new_alerts:
+                if alert_type in old_alerts:
+                    if old_alerts[alert_type] != new_alerts[alert_type]:
+                        logger.info(f"      🔄 Оновлено: {alert_type}")
+
+    logger.info("=" * 71)
+
+
+async def get_alerts(redis_client):
+    while True:
+        try:
+            if is_test:
+                break
+            logger.debug("start get_alerts")
+
+            # Отримуємо дані з API
             async with aiohttp.ClientSession() as session:
                 response = await session.get(alarm_url, headers=headers)
                 new_data = await response.text()
                 data = json.loads(new_data)
 
-            logger.debug("storing alerts data")
-            await asyncio.gather(
-                mc.set(b"alerts_api", json.dumps(data).encode("utf-8")), service_is_fine(mc, b"alerts_api_last_call")
-            )
-            logger.info("alerts data stored")
+            # Отримуємо попередні дані з Redis
+            old_data = await get_redis_data(logger, redis_client, "alerts:api:data", default_response=[])
+
+            # Порівнюємо дані
+            changes = compare_alerts(old_data, data)
+
+            # Логуємо зміни
+            if changes["has_changes"]:
+                log_changes(changes)
+
+                # Зберігаємо дані в Redis тільки якщо є зміни
+                logger.debug("💾 Зберігаємо оновлені дані в Redis...")
+                await asyncio.gather(
+                    # Зберігаємо основні дані тривог
+                    set_redis_data(logger, redis_client, "alerts:api:data", data),
+                    # Зберігаємо час останнього успішного оновлення
+                    service_is_fine(logger, redis_client, "alerts:api:last_call"),
+                )
+
+                # Публікуємо повідомлення про оновлення в Redis Pub/Sub канал
+                await redis_client.publish("alerts:api:updated", "1")
+                logger.info("✅ Оновлені дані збережено в Redis")
+            else:
+                # Оновлюємо тільки час останньої перевірки
+                await service_is_fine(logger, redis_client, "alerts:api:last_call")
+                logger.debug("⏭️  Дані не змінилися, пропускаємо збереження")
+
             logger.debug("end get_alerts")
             await asyncio.sleep(alert_loop_time)
 
         except asyncio.CancelledError:
-            logger.error("get_alerts: task canceled. Shutting down...")
-            await mc.close()
+            logger.error("❌ get_alerts: task canceled. Shutting down...")
+            await redis_client.close()
             break
         except Exception as e:
-            logger.error(f"get_alerts: caught an exception: {e}")
+            logger.error(f"❌ Error in get_alerts: {e}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
             await asyncio.sleep(alert_loop_time)
 
 
 async def main():
-    mc = Client(memcached_host, 11211)
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+
     try:
-        await asyncio.gather(
-            get_regions(mc),
-            get_alerts(mc),
-        )
+        await redis_client.ping()
+        logger.info(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
+
+        tasks = [
+            asyncio.create_task(run_with_restart(logger, get_alerts, redis_client, "get_alerts")),
+        ]
+
+        await asyncio.gather(*tasks)
+
+    except redis.ConnectionError as e:
+        logger.error(f"❌ Failed to connect to Redis: {e}")
+        raise
     except asyncio.exceptions.CancelledError:
-        logger.error("App stopped.")
+        logger.info("⏹️  App stopped by user")
+    finally:
+        await redis_client.aclose()
+        logger.info("🔌 Redis connection closed")
 
 
 if __name__ == "__main__":

@@ -2,21 +2,50 @@ import asyncio
 import logging
 import os
 import json
-import random
+import struct
 import secrets
 import string
 import datetime
 import aiohttp
 
-from aiomcache import Client
 from geoip2 import database, errors
-from functools import partial
 from zoneinfo import ZoneInfo
 from ga4mp import GtagMP
 from websockets import ConnectionClosedError
 from websockets.asyncio.server import serve, ServerConnection, Request, Response
 from logging import WARNING
 from http import HTTPStatus
+from copy import copy
+
+import redis.asyncio as redis
+import sys
+from pathlib import Path
+
+try:
+    from utils import get_redis_data, set_redis_data
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+
+    from utils import get_redis_data, set_redis_data
+
+# Імпорт regions.json - спочатку з поточної папки, потім з батьківської
+regions = {}
+try:
+    # Спочатку пробуємо завантажити з поточної папки (updater/regions.json)
+    regions_path = Path(__file__).resolve().parent / "regions.json"
+    with open(regions_path, "r", encoding="utf-8") as f:
+        regions = json.load(f)
+except FileNotFoundError:
+    # Якщо не знайдено, пробуємо завантажити з батьківської папки (../regions.json)
+    try:
+        regions_path = Path(__file__).resolve().parent.parent / "regions.json"
+        with open(regions_path, "r", encoding="utf-8") as f:
+            regions = json.load(f)
+    except FileNotFoundError:
+        # Якщо regions.json не знайдено взагалі, залишаємо порожній словник
+        logging.warning("regions.json not found, using empty regions dict")
 
 
 class ChipIdTimeoutException(Exception):
@@ -34,15 +63,17 @@ websocket_port = os.environ.get("WEBSOCKET_PORT") or 38440
 ping_interval = int(os.environ.get("PING_INTERVAL") or 20)
 ping_timeout = int(os.environ.get("PING_TIMEOUT") or 20)
 ping_timeout_count = int(os.environ.get("PING_TIMEOUT_COUNT") or 1)
-memcache_fetch_interval = int(os.environ.get("MEMCACHE_FETCH_INTERVAL") or 1)
-random_mode = os.environ.get("RANDOM_MODE", "False").lower() in ("true", "1", "t")
-test_mode = os.environ.get("TEST_MODE", "False").lower() in ("true", "1", "t")
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
 api_secret = os.environ.get("API_SECRET") or ""
 measurement_id = os.environ.get("MEASUREMENT_ID") or ""
 environment = os.environ.get("ENVIRONMENT") or "PROD"
 geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
 ip_info_token = os.environ.get("IP_INFO_TOKEN") or ""
+geo_ip_cache_ttl = int(os.environ.get("GEO_IP_CACHE_TTL") or 86400)  # 24 hours by default
 
 logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -60,39 +91,140 @@ if not gtagmp_logger.handlers:
 gtagmp_logger.propagate = False
 
 
-memcached_host = os.environ.get("MEMCACHED_HOST") or "localhost"
-mc = Client(memcached_host, 11211)
 geo = database.Reader(geo_lite_db_path)
 
-LEGACY_LED_COUNT = 28
+TYPE_ALERTS_BATCH = 0xA1
+TYPE_NOTIFICATIONS_BATCH = 0xA2
+TYPE_WEATHER_BATCH = 0xA3
+TYPE_GRID_BATCH = 0xA4
+TYPE_RADIATION_BATCH = 0xA5
+TYPE_FIRMWARE_UPDATE_BATCH = 0xA6
+
+
+class RedisBackedClient(dict):
+    """
+    Обгортка над словником клієнта, яка автоматично синхронізує зміни з Redis.
+    Зберігає клієнта в Redis при кожній зміні даних.
+    """
+
+    def __init__(self, client_key: str, redis_client, initial_data: dict, ttl: int = 3600):
+        super().__init__(initial_data)
+        self._client_key = client_key
+        self._redis_client = redis_client
+        self._ttl = ttl  # Time to live in seconds (default 1 hour)
+        self._sync_lock = asyncio.Lock()
+        self._pending_sync = False
+        self._sync_task = None
+        self._last_sync_time = 0  # Timestamp останньої синхронізації
+        self._min_sync_interval = 2.0  # Мінімальний інтервал між синхронізаціями (секунди)
+
+    async def _sync_to_redis(self):
+        """Синхронізує поточний стан клієнта в Redis"""
+        async with self._sync_lock:
+            try:
+                # Перевіряємо rate limiting
+                current_time = asyncio.get_event_loop().time()
+                time_since_last_sync = current_time - self._last_sync_time
+                if time_since_last_sync < self._min_sync_interval:
+                    logger.debug(
+                        f"Client {self._client_key} sync skipped (rate limit: {time_since_last_sync:.2f}s < {self._min_sync_interval}s)"
+                    )
+                    return
+
+                # Серіалізуємо дані клієнта в JSON
+                client_data = {k: v for k, v in self.items()}
+                # Конвертуємо байтові хеші в hex для JSON серіалізації
+                if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], (bytes, int)):
+                    if isinstance(client_data["alerts_hash"], bytes):
+                        client_data["alerts_hash"] = client_data["alerts_hash"].hex()
+                    else:
+                        client_data["alerts_hash"] = client_data["alerts_hash"]
+
+                # Очищаємо дані від некоректних UTF-8 символів (surrogates)
+                client_data = sanitize_for_json(client_data)
+
+                redis_key = f"websocket:clients:{self._client_key}"
+                await asyncio.wait_for(
+                    set_redis_data(logger, self._redis_client, redis_key, client_data, expiry=self._ttl),
+                    timeout=3.0,  # Таймаут 3 секунди для запису в Redis
+                )
+                self._last_sync_time = current_time
+                logger.debug(f"Client {self._client_key} synced to Redis")
+            except asyncio.TimeoutError:
+                logger.warning(f"Redis sync timeout for client {self._client_key} - operation will be retried")
+            except Exception as e:
+                logger.error(f"Failed to sync client {self._client_key} to Redis: {e}")
+
+    def _schedule_sync(self):
+        """Планує синхронізацію з Redis (debouncing для зменшення навантаження)"""
+        if self._sync_task is None or self._sync_task.done():
+            self._sync_task = asyncio.create_task(self._delayed_sync())
+
+    async def _delayed_sync(self):
+        """Затримана синхронізація для батчингу змін"""
+        await asyncio.sleep(1.0)  # Збільшена затримка для кращого батчингу змін
+        await self._sync_to_redis()
+
+    def __setitem__(self, key, value):
+        """Override для автоматичної синхронізації при зміні значення"""
+        super().__setitem__(key, value)
+        self._schedule_sync()
+
+    def update(self, *args, **kwargs):
+        """Override для автоматичної синхронізації при масовому оновленні"""
+        super().update(*args, **kwargs)
+        self._schedule_sync()
+
+    async def force_sync(self):
+        """Примусова синхронізація без затримки"""
+        await self._sync_to_redis()
+
+    async def delete_from_redis(self):
+        """Видаляє клієнта з Redis"""
+        try:
+            redis_key = f"websocket:clients:{self._client_key}"
+            await asyncio.wait_for(self._redis_client.delete(redis_key), timeout=2.0)  # Таймаут 2 секунди для видалення
+            logger.debug(f"Client {self._client_key} deleted from Redis")
+        except asyncio.TimeoutError:
+            logger.warning(f"Redis delete timeout for client {self._client_key}")
+        except Exception as e:
+            logger.error(f"Failed to delete client {self._client_key} from Redis: {e}")
 
 
 class SharedData:
     def __init__(self):
-        self.alerts_v1 = "[]"
-        self.alerts_v2 = "[]"
-        self.alerts_v3 = "[]"
-        self.weather_v1 = "[]"
-        self.explosions_v1 = "[]"
-        self.missiles_v1 = "[]"
-        self.missiles_v2 = "[]"
-        self.drones_v1 = "[]"
-        self.drones_v2 = "[]"
-        self.kabs_v1 = "[]"
-        self.kabs_v2 = "[]"
-        self.energy_v1 = "[]"
-        self.radiation_v1 = "[]"
-        self.global_notifications_v1 = "{}"
-        self.bins = "[]"
-        self.test_bins = "[]"
-        self.s3_bins = "[]"
-        self.s3_test_bins = "[]"
-        self.c3_bins = "[]"
-        self.c3_test_bins = "[]"
+        self.alerts_v1 = []
+        self.alerts_v2 = []
+        self.weather_v1 = []
+        self.explosions_v1 = []
+        self.missiles_v1 = []
+        self.missiles_v2 = []
+        self.drones_v1 = []
+        self.drones_v2 = []
+        self.kabs_v1 = []
+        self.kabs_v2 = []
+        self.energy_v1 = []
+        self.radiation_v1 = []
+        self.global_notifications_v1 = {}
+        self.alerts_fusion_actual = {}
+        self.alerts_fusion_previous = {}
+        self.notifications_fusion = {}
+        self.weather_fusion = {}
+        self.bins = []
+        self.test_bins = []
+        self.s3_bins = []
+        self.s3_test_bins = []
+        self.c3_bins = []
+        self.c3_test_bins = []
         self.clients = {}
         self.trackers = {}
         self.blocked_ips = []
         self.test_id = None
+        self.redis_client = None
+        self.http_session = None
+        # Semaphore для контролю кількості одночасних Geo IP запитів (макс 50)
+        # Це використовується тільки для фонових запитів, основні підключення не блокуються
+        self.geo_ip_semaphore = asyncio.Semaphore(50)
 
 
 shared_data = SharedData()
@@ -103,6 +235,7 @@ class AlertVersion:
     v2 = 2
     v3 = 3
     v4 = 4
+    v5 = 5
 
 
 def bin_sort(bin):
@@ -131,33 +264,118 @@ def bin_sort(bin):
     return (major, minor, patch, beta)
 
 
-def generate_random_hash(lenght):
+def sanitize_for_json(obj):
+    """
+    Очищає об'єкт від некоректних символів для JSON серіалізації.
+    Видаляє surrogate pairs та інші проблемні символи.
+    """
+    if isinstance(obj, str):
+        # Видаляємо surrogate pairs та інші некоректні символи
+        return obj.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+    elif isinstance(obj, dict):
+        return {sanitize_for_json(k): sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(sanitize_for_json(item) for item in obj)
+    elif isinstance(obj, (int, float, bool, type(None))):
+        return obj
+    else:
+        # Для інших типів спробуємо конвертувати в строку та очистити
+        return str(obj).encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+
+
+def generate_random_hash(length):
     characters = string.ascii_lowercase + string.digits  # a-z, 0-9
-    return "".join(secrets.choice(characters) for _ in range(lenght))
+    return "".join(secrets.choice(characters) for _ in range(length))
+
+
+async def create_redis_backed_client(
+    client_key: str, redis_client, initial_data: dict, ttl: int = 3600
+) -> RedisBackedClient:
+    """
+    Створює нового клієнта з автоматичною синхронізацією в Redis.
+
+    Args:
+        client_key: Унікальний ключ клієнта (наприклад, "{ip}_{id}")
+        redis_client: Redis клієнт для синхронізації
+        initial_data: Початкові дані клієнта
+        ttl: Час життя запису в Redis (в секундах)
+
+    Returns:
+        RedisBackedClient: Клієнт з автоматичною синхронізацією
+    """
+    client = RedisBackedClient(client_key, redis_client, initial_data, ttl)
+    # НЕ зберігаємо початковий стан одразу - це відбудеться автоматично при першій зміні
+    # або через 1 секунду через механізм _delayed_sync. Це зменшує навантаження на Redis
+    # при одночасному підключенні багатьох клієнтів.
+    return client
+
+
+async def load_client_from_redis(client_key: str, redis_client) -> dict | None:
+    """
+    Завантажує дані клієнта з Redis, якщо вони існують.
+
+    Args:
+        client_key: Унікальний ключ клієнта
+        redis_client: Redis клієнт
+
+    Returns:
+        dict | None: Дані клієнта або None, якщо клієнт не знайдено
+    """
+    try:
+        redis_key = f"websocket:clients:{client_key}"
+        data = await get_redis_data(logger, redis_client, redis_key)
+        if data:
+            client_data = json.loads(data)
+            # Конвертуємо hex хеш назад в int
+            if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], str):
+                try:
+                    client_data["alerts_hash"] = int(client_data["alerts_hash"], 16)
+                except (ValueError, TypeError):
+                    client_data["alerts_hash"] = 0
+            return client_data
+        return None
+    except Exception as e:
+        logger.error(f"Failed to load client {client_key} from Redis: {e}")
+        return None
+
+
+async def count_clients_in_redis(redis_client) -> int:
+    try:
+        pattern = "websocket:clients:*"
+        cursor = 0
+        count = 0
+
+        while True:
+            cursor, keys = await redis_client.scan(cursor, match=pattern, count=1000)
+            count += len(keys)
+
+            if cursor == 0:
+                break
+
+        return count
+    except Exception as e:
+        logger.error(f"Failed to count clients in Redis: {e}")
+        return 0
 
 
 def get_chip_id(client, client_id):
     return client["chip_id"] if client["chip_id"] != "unknown" else client_id
 
 
-async def get_client_chip_id(client):
-    chip_id_timeout = 10.0
-    while client["chip_id"] == "unknown":
-        await asyncio.sleep(0.5)
-        if chip_id_timeout <= 0:
-            raise ChipIdTimeoutException("Chip ID timeout")
-        chip_id_timeout -= 0.5
-    return client["chip_id"]
+async def get_client_chip_id(client, chip_id_event):
+    try:
+        await asyncio.wait_for(chip_id_event.wait(), timeout=10.0)
+        return client["chip_id"]
+    except asyncio.TimeoutError:
+        raise ChipIdTimeoutException("Chip ID timeout")
 
 
-async def get_client_firmware(client):
-    firmware_timeout = 10.0
-    while client["firmware"] == "unknown":
-        await asyncio.sleep(0.5)
-        if firmware_timeout <= 0:
-            raise FirmwareTimeoutException("Firmware timeout")
-        firmware_timeout -= 0.5
-    return client["firmware"]
+async def get_client_firmware(client, firmware_event):
+    try:
+        await asyncio.wait_for(firmware_event.wait(), timeout=10.0)
+        return client["firmware"]
+    except asyncio.TimeoutError:
+        raise FirmwareTimeoutException("Firmware timeout")
 
 
 async def get_client_ip(connection: ServerConnection):
@@ -166,81 +384,231 @@ async def get_client_ip(connection: ServerConnection):
     )
 
 
-async def get_geo_ip_data(ip, mc, request):
-    key = f"geo_ip_{ip}".encode("utf-8")
-    data = await mc.get(key)
-    if data:
-        logger.debug(f"{ip} >>> data from MC: {data}")
-        return json.loads(data)
-    else:
+async def get_geo_ip_data_cached_or_default(ip, request, client_key=None):
+    """
+    Швидкий запит Geo IP даних: спочатку перевіряє Redis cache, потім дає дефолтні дані
+    та запускає асинхронне оновлення на фоні (без блокування підключення).
+    Це дозволяє майже миттєво підключити клієнта, незалежно від стану ipinfo.io
+    """
+    redis_client = shared_data.redis_client
+    cache_key = f"geo_ip:{ip}"
+
+    # Спробуємо прочитати з Redis cache (дуже швидко, ~1-10ms)
+    if redis_client:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
-                    # example:
-                    # {
-                    #   "hostname": "188-163-48-155.broadband.kyivstar.net",
-                    #   "city": "Kramatorsk",
-                    #   "region": "Donetsk",
-                    #   "country": "UA",
-                    #   "loc": "48.7305,37.5879",
-                    #   "org": "AS15895 \"Kyivstar\" PJSC",
-                    #   "postal": "84300",
-                    #   "timezone": "Europe/Kyiv"
-                    # }
-                    data = await response.json()
-                    # remove first word from data["org"] if starting with AS
-                    data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
-                    logger.debug(f"{ip} >>> data from IPINFO: {data}")
-                    await mc.set(key, json.dumps(data).encode("utf-8"), exptime=86400)  # 24 hours
-                    return data
-        except Exception as e:
-            logger.warning(f"Error in get_geo_ip_data: {e}")
-            country = request.headers.get("cf-ipcountry", None)
-            region = request.headers.get("cf-region", None)
-            city = request.headers.get("cf-ipcity", None)
-            timezone = request.headers.get("cf-timezone", None)
-            longitude = request.headers.get("cf-iplongitude", None)
-            latitude = request.headers.get("cf-iplatitude", None)
-            postal_code = request.headers.get("cf-postal-code", None)
+            cached_data = await asyncio.wait_for(
+                redis_client.hgetall(cache_key), timeout=0.5  # Коротка затримка для читання з кешу
+            )
+            if cached_data:
+                logger.debug(f"{ip} >>> Geo data from Redis cache")
+                return dict(cached_data)
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.debug(f"{ip} >>> Cache miss or timeout, using defaults: {e}")
 
-            if not country or not region or not city or not timezone:
+    # Дефолтні дані з Cloudflare headers та локальної інформації
+    data = _get_geo_ip_defaults(ip, request)
+
+    # Запускаємо асинхронне оновлення на фоні (без очікування)
+    if redis_client:
+        asyncio.create_task(_fetch_and_cache_geo_ip(ip, request, cache_key, redis_client, client_key))
+
+    return data
+
+
+def _get_geo_ip_defaults(ip, request):
+    """Отримує дефолтні Geo IP дані з Cloudflare headers та GeoLite2"""
+    try:
+        country = request.headers.get("cf-ipcountry", "unknown")
+        region = request.headers.get("cf-region", "unknown")
+        city = request.headers.get("cf-ipcity", "unknown")
+        timezone = request.headers.get("cf-timezone", "UTC")
+        longitude = request.headers.get("cf-iplongitude", "0")
+        latitude = request.headers.get("cf-iplatitude", "0")
+        postal_code = request.headers.get("cf-postal-code", "unknown")
+
+        # Якщо Cloudflare дані не повні, використовуємо GeoLite2
+        if not all([country, region, city, timezone]):
+            try:
+                response = geo.city(ip)
+                city = city or response.city.name or "unknown"
+                region = region or response.subdivisions.most_specific.name or "unknown"
+                country = country or response.country.iso_code or "unknown"
+                timezone = timezone or response.location.time_zone or "UTC"
+                latitude = latitude or str(response.location.latitude) or "0"
+                longitude = longitude or str(response.location.longitude) or "0"
+                postal_code = postal_code or response.postal.code or "unknown"
+            except Exception:
+                pass  # Якщо GeoLite2 теж не вдалося, залишаємо дефолтні
+
+        data = {
+            "hostname": "unknown",
+            "city": str(city),
+            "region": str(region),
+            "country": str(country),
+            "loc": f"{latitude},{longitude}",
+            "org": "unknown",
+            "postal": str(postal_code),
+            "timezone": str(timezone),
+        }
+        # Очищаємо дані від некоректних символів
+        return sanitize_for_json(data)
+    except Exception as e:
+        logger.warning(f"Error getting geo defaults for {ip}: {e}")
+        return {
+            "hostname": "unknown",
+            "city": "unknown",
+            "region": "unknown",
+            "country": "unknown",
+            "loc": "0,0",
+            "org": "unknown",
+            "postal": "unknown",
+            "timezone": "UTC",
+        }
+
+
+async def _fetch_and_cache_geo_ip(ip, request, cache_key, redis_client, client_key=None):
+    """
+    Асинхронне завдання для отримання Geo IP даних з ipinfo.io та кешування в Redis.
+    Запускається на фоні без блокування підключення клієнта.
+    Також оновлює дані в активному клієнту, якщо він ще підключений.
+    """
+    try:
+        async with shared_data.geo_ip_semaphore:
+            data = await _fetch_geo_ip_data_from_sources(ip, request)
+
+            # Кешуємо в Redis
+            try:
+                await asyncio.wait_for(redis_client.hset(cache_key, mapping=data), timeout=2.0)
+                await asyncio.wait_for(redis_client.expire(cache_key, geo_ip_cache_ttl), timeout=1.0)
+                logger.debug(f"{ip} >>> Geo data cached in Redis")
+            except asyncio.TimeoutError:
+                logger.warning(f"⚠️ Redis cache write timeout for {ip}")
+            except Exception as e:
+                logger.warning(f"⚠️ Error caching geo data for {ip}: {e}")
+
+            # Оновлюємо дані у активного клієнта (якщо він ще підключений)
+            if client_key and client_key in shared_data.clients:
                 try:
-                    response = geo.city(ip)
-                    city = city or response.city.name or "not-in-db"
-                    region = region or response.subdivisions.most_specific.name or "not-in-db"
-                    country = country or response.country.iso_code or "not-in-db"
-                    timezone = timezone or response.location.time_zone or "not-in-db"
-                    latitude = latitude or response.location.latitude or 0
-                    longitude = longitude or response.location.longitude or 0
-                    postal_code = postal_code or response.postal.code or "not-in-db"
-                except errors.AddressNotFoundError:
-                    city = city or "not-found"
-                    region = region or "not-found"
-                    country = country or "not-found"
-                    timezone = timezone or "not-found"
-                    latitude = latitude or 0
-                    longitude = longitude or 0
-                    postal_code = postal_code or "not-found"
-
-            country = country.encode("utf-8", "ignore").decode("utf-8")
-            region = region.encode("utf-8", "ignore").decode("utf-8")
-            city = city.encode("utf-8", "ignore").decode("utf-8")
-            data = {
-                "hostname": "unknown",
-                "city": city,
-                "region": region,
-                "country": country,
-                "loc": f"{latitude},{longitude}",
-                "org": "unknown",
-                "postal": postal_code,
-                "timezone": timezone,
-            }
-            await mc.set(key, json.dumps(data).encode("utf-8"), exptime=3600)  # 1 hour
-            logger.debug(f"{ip} >>> data from headers: {data}")
-            return data
+                    client = shared_data.clients[client_key]
+                    if isinstance(client, RedisBackedClient):
+                        # Оновлюємо дані в клієнті
+                        client["city"] = data.get("city", client.get("city", "unknown"))
+                        client["region"] = data.get("region", client.get("region", "unknown"))
+                        client["country"] = data.get("country", client.get("country", "unknown"))
+                        client["timezone"] = data.get("timezone", client.get("timezone", "UTC"))
+                        client["org"] = data.get("org", client.get("org", "unknown"))
+                        client["location"] = data.get("loc", client.get("location", "0,0"))
+                        logger.debug(f"{ip} >>> Updated client {client_key} with fresh geo data")
+                except Exception as e:
+                    logger.warning(f"⚠️ Error updating client {client_key} with geo data: {e}")
+    except Exception as e:
+        logger.warning(f"⚠️ Background geo fetch failed for {ip}: {e}")
 
 
-async def message_handler(websocket: ServerConnection, client, client_id, client_ip, country, region, city):
+async def get_geo_ip_data(ip, request):
+    redis_client = shared_data.redis_client
+    if not redis_client:
+        logger.error("Redis client not initialized in get_geo_ip_data")
+        async with shared_data.geo_ip_semaphore:
+            return await _fetch_geo_ip_data_from_sources(ip, request)
+
+    cache_key = f"geo_ip:{ip}"
+    try:
+        cached_data = await asyncio.wait_for(
+            redis_client.hgetall(cache_key), timeout=3.0  # Таймаут 3 секунди для читання з кешу
+        )
+        if cached_data:
+            ttl = await asyncio.wait_for(redis_client.ttl(cache_key), timeout=2.0)
+            logger.debug(f"{ip} >>> data from Redis hash cache (TTL: {ttl}s remaining)")
+            return dict(cached_data)
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ Redis cache read timeout for {ip} - fetching from source")
+    except Exception as e:
+        logger.warning(f"⚠️ Error reading from Redis hash cache: {e}")
+
+    # Використовуємо semaphore для контролю паралельних запитів
+    async with shared_data.geo_ip_semaphore:
+        data = await _fetch_geo_ip_data_from_sources(ip, request)
+
+    try:
+        await asyncio.wait_for(
+            redis_client.hset(cache_key, mapping=data), timeout=3.0  # Таймаут 3 секунди для запису в кеш
+        )
+        await asyncio.wait_for(redis_client.expire(cache_key, geo_ip_cache_ttl), timeout=2.0)
+        logger.debug(f"{ip} >>> data cached in Redis hash with automatic TTL {geo_ip_cache_ttl}s")
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ Redis cache write timeout for {ip} - continuing without cache")
+    except Exception as e:
+        logger.warning(f"⚠️ Error saving to Redis hash cache: {e}")
+
+    return data
+
+
+def _get_geo_ip_fallback(ip, request):
+    """Fallback до Cloudflare headers та GeoLite2 коли ipinfo.io недоступний"""
+    country = request.headers.get("cf-ipcountry", None)
+    region = request.headers.get("cf-region", None)
+    city = request.headers.get("cf-ipcity", None)
+    timezone = request.headers.get("cf-timezone", None)
+    longitude = request.headers.get("cf-iplongitude", None)
+    latitude = request.headers.get("cf-iplatitude", None)
+    postal_code = request.headers.get("cf-postal-code", None)
+
+    if not country or not region or not city or not timezone:
+        try:
+            geo_response = geo.city(ip)
+            city = city or geo_response.city.name or "not-in-db"
+            region = region or geo_response.subdivisions.most_specific.name or "not-in-db"
+            country = country or geo_response.country.iso_code or "not-in-db"
+            timezone = timezone or geo_response.location.time_zone or "not-in-db"
+            latitude = latitude or geo_response.location.latitude or 0
+            longitude = longitude or geo_response.location.longitude or 0
+            postal_code = postal_code or geo_response.postal.code or "not-in-db"
+        except errors.AddressNotFoundError:
+            city = city or "not-found"
+            region = region or "not-found"
+            country = country or "not-found"
+            timezone = timezone or "not-found"
+            latitude = latitude or 0
+            longitude = longitude or 0
+            postal_code = postal_code or "not-found"
+
+    data = {
+        "hostname": "unknown",
+        "city": str(city),
+        "region": str(region),
+        "country": str(country),
+        "loc": f"{latitude},{longitude}",
+        "org": "unknown",
+        "postal": str(postal_code),
+        "timezone": str(timezone),
+    }
+    data = sanitize_for_json(data)
+    logger.debug(f"{ip} >>> data from headers/GeoLite2: {data}")
+    return data
+
+
+async def _fetch_geo_ip_data_from_sources(ip, request):
+    try:
+        session = shared_data.http_session
+        async with asyncio.timeout(3.0):
+            async with session.get(f"https://ipinfo.io/{ip}?token={ip_info_token}") as response:
+                data = await response.json()
+                data["org"] = data["org"].split(" ", 1)[1] if data["org"].startswith("AS") else data["org"]
+                data = sanitize_for_json(data)
+                logger.debug(f"{ip} >>> data from IPINFO: {data}")
+                return data
+    except asyncio.TimeoutError:
+        logger.warning(f"ipinfo.io request timeout for {ip} - using fallback")
+    except Exception as e:
+        logger.warning(f"Error fetching from ipinfo.io: {e}")
+
+    return _get_geo_ip_fallback(ip, request)
+
+
+async def message_handler(
+    websocket: ServerConnection, client, client_id, client_ip, country, region, city, chip_id_event, firmware_event
+):
     if google_stat_send:
         tracker = shared_data.trackers[f"{client_ip}_{client_id}"]
     async for message in websocket:
@@ -257,13 +625,9 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
 
             header, data = split_message(message)
             match header:
-                # case "district":
-                #     district_data = await district_data_v1(int(data))
-                #     payload = json.dumps(district_data).encode("utf-8")
-                #     await websocket.send(payload)
-                #     logger.debug(f"{client_ip}:{chip_id} <<< district {payload} ")
                 case "firmware":
                     client["firmware"] = data
+                    firmware_event.set()
                     parts = data.split("_", 1)
                     if google_stat_send:
                         tracker.store.set_user_property("firmware_v", parts[0])
@@ -276,6 +640,7 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
                             tracker.store.set_user_property(key, value)
                 case "chip_id":
                     client["chip_id"] = data
+                    chip_id_event.set()
                     logger.info(f"{client_ip}:{chip_id} >>> chip init: {data}")
                     if google_stat_send:
                         tracker.client_id = data
@@ -307,184 +672,508 @@ async def message_handler(websocket: ServerConnection, client, client_id, client
             break
 
 
-async def alerts_data(
-    websocket: ServerConnection, client, client_id, client_ip, shared_data: SharedData, alert_version
-):
-    while True:
-        try:
-            chip_id = await get_client_chip_id(client)
-            firmware = await get_client_firmware(client)
-            logger.debug(f"{client_ip}:{chip_id}: check")
-            match alert_version:
-                case AlertVersion.v1:
-                    if client["alerts"] != shared_data.alerts_v1:
-                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v1
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
-                        client["alerts"] = shared_data.alerts_v1
-                case AlertVersion.v2:
-                    if client["explosions"] != shared_data.explosions_v1:
-                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
-                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
-                        client["explosions"] = shared_data.explosions_v1
-                    if client["alerts"] != shared_data.alerts_v2:
-                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
-                        client["alerts"] = shared_data.alerts_v2
-                case AlertVersion.v3:
-                    if client["explosions"] != shared_data.explosions_v1:
-                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
-                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
-                        client["explosions"] = shared_data.explosions_v1
-                    if client["alerts"] != shared_data.alerts_v2:
-                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
-                        client["alerts"] = shared_data.alerts_v2
-                    if client["missiles"] != shared_data.missiles_v1:
-                        missiles = json.dumps([int(missile) for missile in json.loads(shared_data.missiles_v1)])
-                        payload = '{"payload": "missiles", "missiles": %s}' % missiles
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
-                        client["missiles"] = shared_data.missiles_v1
-                    if client["drones"] != shared_data.drones_v1:
-                        drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
-                        payload = '{"payload": "drones", "drones": %s}' % drones
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new drones")
-                        client["drones"] = shared_data.drones_v1
-                case AlertVersion.v4:
-                    if client["explosions"] != shared_data.explosions_v1:
-                        explosions = json.dumps([int(explosion) for explosion in json.loads(shared_data.explosions_v1)])
-                        payload = '{"payload": "explosions", "explosions": %s}' % explosions
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new explosions")
-                        client["explosions"] = shared_data.explosions_v1
-                    if client["alerts"] != shared_data.alerts_v2:
-                        payload = '{"payload":"alerts","alerts":%s}' % shared_data.alerts_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new alerts")
-                        client["alerts"] = shared_data.alerts_v2
-                    if client["missiles"] != shared_data.missiles_v1:
-                        missiles = json.dumps([int(missile) for missile in json.loads(shared_data.missiles_v1)])
-                        payload = '{"payload": "missiles", "missiles": %s}' % missiles
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles notification")
-                        client["missiles"] = shared_data.missiles_v1
-                    if client["drones"] != shared_data.drones_v1:
-                        drones = json.dumps([int(drone) for drone in json.loads(shared_data.drones_v1)])
-                        payload = '{"payload": "drones", "drones": %s}' % drones
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new drones notification")
-                        client["drones"] = shared_data.drones_v1
-                    if client["missiles2"] != shared_data.missiles_v2:
-                        payload = '{"payload": "missiles2", "missiles": %s}' % shared_data.missiles_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new missiles")
-                        client["missiles2"] = shared_data.missiles_v2
-                    if client["drones2"] != shared_data.drones_v2:
-                        payload = '{"payload": "drones2", "drones": %s}' % shared_data.drones_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new drones")
-                        client["drones2"] = shared_data.drones_v2
-                    if client["kabs"] != shared_data.kabs_v1:
-                        payload = '{"payload": "kabs", "kabs": %s}' % shared_data.kabs_v1
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs notification")
-                        client["kabs"] = shared_data.kabs_v1
-                    if client["kabs2"] != shared_data.kabs_v2:
-                        payload = '{"payload": "kabs2", "kabs": %s}' % shared_data.kabs_v2
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new kabs")
-                        client["kabs2"] = shared_data.kabs_v2
-                    if client["energy"] != shared_data.energy_v1:
-                        payload = '{"payload": "energy", "energy": %s}' % shared_data.energy_v1
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new energy")
-                        client["energy"] = shared_data.energy_v1
-                    if client["radiation"] != shared_data.radiation_v1:
-                        payload = '{"payload": "radiation", "radiation": %s}' % shared_data.radiation_v1
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new radiation")
-                        client["radiation"] = shared_data.radiation_v1
-                    if client["global_notifications"] != shared_data.global_notifications_v1:
-                        payload = (
-                            '{"payload": "global_notifications", "global_notifications": %s}'
-                            % shared_data.global_notifications_v1
-                        )
-                        await websocket.send(payload)
-                        logger.debug(f"{client_ip}:{chip_id} <<< new global_notifications")
-                        client["global_notifications"] = shared_data.global_notifications_v1
-            if client["weather"] != shared_data.weather_v1:
-                weather = json.dumps([float(weather) for weather in json.loads(shared_data.weather_v1)])
-                payload = '{"payload":"weather","weather":%s}' % weather
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new weather")
-                client["weather"] = shared_data.weather_v1
-            if client["bins"] != shared_data.bins and "-s3" not in firmware and "-c3" not in firmware:
-                temp_bins = list(json.loads(shared_data.bins))
-                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
-                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
-                    temp_bins.append("latest.bin")
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "bins", "bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new bins")
-                client["bins"] = shared_data.bins
-            if client["test_bins"] != shared_data.test_bins and "-s3" not in firmware and "-c3" not in firmware:
-                temp_bins = list(json.loads(shared_data.test_bins))
-                if firmware.startswith("3.") or firmware.startswith("2.") or firmware.startswith("1."):
-                    temp_bins = list(filter(lambda bin: not bin.startswith("4."), temp_bins))
-                    temp_bins.append("latest_beta.bin")
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new test_bins")
-                client["test_bins"] = shared_data.test_bins
-            if client["bins"] != shared_data.s3_bins and "-s3" in firmware:
-                temp_bins = list(json.loads(shared_data.s3_bins))
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "bins", "bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new s3_bins")
-                client["bins"] = shared_data.s3_bins
-            if client["test_bins"] != shared_data.s3_test_bins and "-s3" in firmware:
-                temp_bins = list(json.loads(shared_data.s3_test_bins))
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new s3_test_bins")
-                client["test_bins"] = shared_data.s3_test_bins
-            if client["bins"] != shared_data.c3_bins and "-c3" in firmware:
-                temp_bins = list(json.loads(shared_data.c3_bins))
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "bins", "bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new c3_bins")
-                client["bins"] = shared_data.c3_bins
-            if client["test_bins"] != shared_data.c3_test_bins and "-c3" in firmware:
-                temp_bins = list(json.loads(shared_data.c3_test_bins))
-                temp_bins.sort(key=bin_sort, reverse=True)
-                payload = '{"payload": "test_bins", "test_bins": %s}' % temp_bins
-                await websocket.send(payload)
-                logger.debug(f"{client_ip}:{chip_id} <<< new c3_test_bins")
-                client["test_bins"] = shared_data.c3_test_bins
+def calc_body_alerts_hash(body_alerts: bytes) -> int:
+    """
+    Обчислює простий 16-бітний хеш для body_alerts.
+    """
+    return sum(body_alerts) % 0x10000  # 65536
 
-            await asyncio.sleep(0.5)
-        except ChipIdTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection")
-            break
-        except FirmwareTimeoutException:
-            logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection")
-            break
-        except Exception as e:
-            logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
-            break
+
+def find_empty_regions(old_state, new_state):
+    """
+    Повертає список регіонів, які відсутні в новому стані, але присутні в старому.
+    """
+    empty_region_ids = []
+    for region_id in old_state.keys():
+        if region_id not in new_state:
+            empty_region_ids.append(region_id)
+    return empty_region_ids
+
+
+def find_changed_regions(old_state, new_state):
+    """
+    Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
+    """
+    diff_region_ids = []
+    for region_id, flags16 in new_state.items():
+        prev_flags = old_state.get(region_id)
+        if prev_flags != flags16:
+            diff_region_ids.append(region_id)
+    return diff_region_ids
+
+
+async def alerts_data_fusion(
+    websocket: ServerConnection,
+    client,
+    client_id,
+    client_ip,
+    shared_data: SharedData,
+    alert_version,
+    chip_id_event=None,
+    firmware_event=None,
+):
+    pubsub = None
+    try:
+        chip_id = await get_client_chip_id(client, chip_id_event)
+        firmware = await get_client_firmware(client, firmware_event)
+        redis_client = shared_data.redis_client
+
+        # logger.debug(f"{client_ip}:{chip_id}: check")
+        match alert_version:
+            case AlertVersion.v1:
+                # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
+                alerts_cache, notifications_cache, weather_cache = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={}),
+                )
+                alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
+                alerts = bytearray()
+                for rid, flags16 in alerts_cache.items():
+                    alerts += struct.pack("<H H", int(rid), flags16)
+                alerts_hash_actual = struct.pack("<H", 0)
+                alerts_hash_initial = struct.pack("<H", 0)
+                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                await websocket.send(alerts_payload)
+                client["alerts_hash"] = alerts_hash_initial
+                client["alerts_fusion"] = alerts_cache
+                client["notifications_fusion"] = notifications_cache
+                client["weather_fusion"] = weather_cache
+                logger.info(
+                    f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}"
+                )
+                logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
+
+                weather_header = struct.pack("<B", TYPE_WEATHER_BATCH)
+                weather = bytearray()
+                for rid, flags8 in weather_cache.items():
+                    weather += struct.pack("<H B", int(rid), int(flags8) & 0xFF)
+                weather_payload = weather_header + weather
+                await websocket.send(weather_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
+
+                releases = await get_redis_data(logger, redis_client, "releases:beta", default_response=[])
+                firmware_payload = make_firmware_batch(releases)
+                await websocket.send(firmware_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
+                client["initial"] = False
+
+                # Мапінг каналів
+                channels = [
+                    "websocket:v1:fusion:alerts:updated",
+                    "websocket:v1:fusion:weather:updated",
+                    "websocket:v1:fusion:etryvoga:updated",
+                    # "releases:production:updated",
+                    "releases:beta:updated",
+                ]
+
+                # Pub/Sub цикл з reconnection
+                while True:
+                    try:
+                        redis_client = shared_data.redis_client
+                        pubsub = redis_client.pubsub()
+                        await pubsub.subscribe(*channels)
+                        logger.info(f"📡 {client_ip}:{chip_id} Підписано на {len(channels)} каналів")
+
+                        while True:
+                            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                            if message and message["type"] == "message":
+                                channel = message["channel"]
+                                if isinstance(channel, bytes):
+                                    channel = channel.decode("utf-8")
+
+                                logger.info(f"📬 {client_ip}:{chip_id} Отримано повідомлення з каналу: {channel}")
+
+                                match channel:
+                                    case "websocket:v1:fusion:alerts:updated":
+                                        new_state, old_state = await asyncio.gather(
+                                            get_redis_data(
+                                                logger, redis_client, "websocket:v1:fusion:alerts", default_response={}
+                                            ),
+                                            get_redis_data(
+                                                logger,
+                                                redis_client,
+                                                "websocket:v1:fusion:alerts_previous",
+                                                default_response={},
+                                            ),
+                                        )
+
+                                        changed_region_ids = find_changed_regions(old_state, new_state)
+                                        empty_region_ids = find_empty_regions(old_state, new_state)
+
+                                        logger.debug(
+                                            f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}"
+                                        )
+                                        logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
+
+                                        header = struct.pack("<B", TYPE_ALERTS_BATCH)
+                                        if changed_region_ids or empty_region_ids:
+                                            alerts = make_alert_batch(changed_region_ids + empty_region_ids, new_state)
+                                            alerts_hash_actual = struct.pack("<H", calc_body_alerts_hash(alerts))
+                                            payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
+                                        else:
+                                            payload = b""
+                                        logger.debug(
+                                            f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}"
+                                        )
+                                        await websocket.send(payload)
+                                        logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
+                                        client["alerts_fusion"] = new_state
+                                        client["alerts_hash"] = alerts_hash_actual
+                                    case "websocket:v1:fusion:weather:updated":
+                                        state = await get_redis_data(
+                                            logger, redis_client, "websocket:v1:fusion:weather", default_response={}
+                                        )
+                                        header = struct.pack("<B", TYPE_WEATHER_BATCH)
+                                        weather = make_weather_batch(state)
+                                        payload = header + weather
+                                        await websocket.send(payload)
+                                        logger.info(f"{client_ip}:{chip_id} <<< new weather packet")
+                                        client["weather_fusion"] = state
+                                    case "websocket:v1:fusion:etryvoga:updated":
+                                        state = await get_redis_data(
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:etryvoga:data",
+                                            default_response={},
+                                        )
+                                        header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
+                                        notifications = make_alert_batch(state.keys(), state)
+                                        payload = header + notifications
+                                        await websocket.send(payload)
+                                        logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
+                                        client["notifications_fusion"] = state
+                                    # case "releases:production:updated":
+                                    #     releases = await get_redis_data(
+                                    #         logger, redis_client, "releases:production", default_response=[]
+                                    #     )
+                                    #     payload = make_firmware_batch(releases)
+                                    #     await websocket.send(payload)
+                                    #     logger.info(
+                                    #         f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} prod versions)"
+                                    #     )
+                                    case "releases:beta:updated":
+                                        releases = await get_redis_data(
+                                            logger, redis_client, "releases:beta", default_response=[]
+                                        )
+                                        payload = make_firmware_batch(releases)
+                                        await websocket.send(payload)
+                                        logger.info(
+                                            f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} beta versions)"
+                                        )
+                                    case _:
+                                        logger.warning(f"Невідомий канал: {channel}")
+                                        continue
+
+                    except (redis.ConnectionError, redis.TimeoutError) as e:
+                        logger.warning(
+                            f"{client_ip}:{chip_id} !!! Redis connection lost in fusion pub/sub: {e}, reconnecting in 5s..."
+                        )
+                        if pubsub:
+                            try:
+                                await pubsub.aclose()
+                            except Exception:
+                                pass
+                            pubsub = None
+                        await asyncio.sleep(5)
+
+    except asyncio.CancelledError as e:
+        logger.info(f"{client_ip}:{client_id} !!! alerts_data_fusion cancelled - {e}")
+    except ChipIdTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection - {e}")
+    except FirmwareTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection - {e}")
+    except Exception as e:
+        logger.error(f"{client_ip}:{client_id} !!! alerts_data_fusion Exception - {e}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        if pubsub:
+            await pubsub.unsubscribe(*channels)
+            await pubsub.aclose()
+            logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
+async def alerts_data(
+    websocket: ServerConnection,
+    client,
+    client_id,
+    client_ip,
+    shared_data: SharedData,
+    alert_version,
+    chip_id_event=None,
+    firmware_event=None,
+):
+    pubsub = None
+    all_channels = []
+    try:
+        chip_id = await get_client_chip_id(client, chip_id_event)
+        firmware = await get_client_firmware(client, firmware_event)
+        redis_client = shared_data.redis_client
+
+        version_channels = {}
+        match alert_version:
+            case AlertVersion.v1:
+                version_channels = {
+                    "websocket:v1:legacy:alerts:updated": (
+                        "websocket:v1:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                }
+            case AlertVersion.v2:
+                version_channels = {
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                }
+            case AlertVersion.v3:
+                version_channels = {
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                    "websocket:v1:legacy:missiles:updated": (
+                        "websocket:v1:legacy:missiles",
+                        "missiles",
+                        "missiles",
+                        "missiles",
+                        "int_list",
+                    ),
+                    "websocket:v1:legacy:drones:updated": (
+                        "websocket:v1:legacy:drones",
+                        "drones",
+                        "drones",
+                        "drones",
+                        "int_list",
+                    ),
+                }
+            case AlertVersion.v4:
+                version_channels = {
+                    "websocket:v1:legacy:explosions:updated": (
+                        "websocket:v1:legacy:explosions",
+                        "explosions",
+                        "explosions",
+                        "explosions",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:alerts:updated": (
+                        "websocket:v2:legacy:alerts",
+                        "alerts",
+                        "alerts",
+                        "alerts",
+                        None,
+                    ),
+                    "websocket:v1:legacy:missiles:updated": (
+                        "websocket:v1:legacy:missiles",
+                        "missiles",
+                        "missiles",
+                        "missiles",
+                        "int_list",
+                    ),
+                    "websocket:v1:legacy:drones:updated": (
+                        "websocket:v1:legacy:drones",
+                        "drones",
+                        "drones",
+                        "drones",
+                        "int_list",
+                    ),
+                    "websocket:v2:legacy:missiles:updated": (
+                        "websocket:v2:legacy:missiles",
+                        "missiles2",
+                        "missiles2",
+                        "missiles",
+                        None,
+                    ),
+                    "websocket:v2:legacy:drones:updated": (
+                        "websocket:v2:legacy:drones",
+                        "drones2",
+                        "drones2",
+                        "drones",
+                        None,
+                    ),
+                    "websocket:v1:legacy:kabs:updated": ("websocket:v1:legacy:kabs", "kabs", "kabs", "kabs", None),
+                    "websocket:v2:legacy:kabs:updated": ("websocket:v2:legacy:kabs", "kabs2", "kabs2", "kabs", None),
+                    "websocket:v1:legacy:energy:updated": (
+                        "websocket:v1:legacy:energy",
+                        "energy",
+                        "energy",
+                        "energy",
+                        None,
+                    ),
+                    "websocket:v1:legacy:radiation:updated": (
+                        "websocket:v1:legacy:radiation",
+                        "radiation",
+                        "radiation",
+                        "radiation",
+                        None,
+                    ),
+                    "websocket:v1:legacy:global_notifications:updated": (
+                        "websocket:v1:legacy:global_notifications",
+                        "global_notifications",
+                        "global_notifications",
+                        "global_notifications",
+                        None,
+                    ),
+                }
+
+        weather_channel = "websocket:v1:legacy:weather:updated"
+
+        # Канали bins залежно від firmware
+        if "-s3" in firmware:
+            bins_channel = "s3_bins:updated"
+            test_bins_channel = "s3_test_bins:updated"
+            bins_redis_key = "s3_bins"
+            test_bins_redis_key = "s3_test_bins"
+            bins_are_dicts = False  # s3/c3 bins — це списки строк
+        elif "-c3" in firmware:
+            bins_channel = "c3_bins:updated"
+            test_bins_channel = "c3_test_bins:updated"
+            bins_redis_key = "c3_bins"
+            test_bins_redis_key = "c3_test_bins"
+            bins_are_dicts = False
+        else:
+            bins_channel = "releases:production:updated"
+            test_bins_channel = "releases:beta:updated"
+            bins_redis_key = "releases:production"
+            test_bins_redis_key = "releases:beta"
+            bins_are_dicts = True  # default bins — це список dict з полем "name"
+
+        all_channels = list(version_channels.keys()) + [weather_channel, bins_channel, test_bins_channel]
+
+        async def handle_data_channel(redis_key, client_field, payload_name, payload_data_key, transform):
+            data = await get_redis_data(logger, redis_client, redis_key, default_response=[])
+            if client[client_field] != data:
+                if transform == "int_list":
+                    formatted = json.dumps([int(x) for x in data])
+                elif transform == "float_list":
+                    formatted = json.dumps([float(x) for x in data])
+                else:
+                    formatted = data
+                ws_payload = '{"payload": "%s", "%s": %s}' % (payload_name, payload_data_key, formatted)
+                await websocket.send(ws_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< new {payload_name}")
+                client[client_field] = data
+
+        async def handle_weather():
+            data = await get_redis_data(logger, redis_client, "websocket:v1:legacy:weather", default_response=[])
+            if client["weather"] != data:
+                weather = json.dumps([float(w) for w in data])
+                ws_payload = '{"payload":"weather","weather":%s}' % weather
+                await websocket.send(ws_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< new weather")
+                client["weather"] = data
+
+        async def handle_bins(redis_key, client_field, payload_name, are_dicts):
+            data = await get_redis_data(logger, redis_client, redis_key, default_response=[])
+            if client[client_field] != data:
+                if are_dicts:
+                    seen = set()
+                    temp_bins = []
+                    for b in data:
+                        if b["tag"] in seen:
+                            continue
+                        seen.add(b["tag"])
+                        temp_bins.append(f'{b["tag"]}.bin')
+                else:
+                    temp_bins = list(data)
+                temp_bins.sort(key=bin_sort, reverse=True)
+                ws_payload = '{"payload": "%s", "%s": %s}' % (payload_name, payload_name, temp_bins)
+                await websocket.send(ws_payload)
+                logger.info(f"{client_ip}:{chip_id} <<< new {payload_name}")
+                client[client_field] = data
+
+        # --- Pub/Sub цикл з reconnection ---
+        while True:
+            try:
+                pubsub = redis_client.pubsub()
+                await pubsub.subscribe(*all_channels)
+                logger.info(f"📡 {client_ip}:{chip_id} Підписано на {len(all_channels)} legacy каналів")
+
+                # Відправка початкових/актуальних даних
+                for ch_config in version_channels.values():
+                    redis_key, client_field, payload_name, payload_data_key, transform = ch_config
+                    await handle_data_channel(redis_key, client_field, payload_name, payload_data_key, transform)
+
+                await handle_weather()
+                await handle_bins(bins_redis_key, "bins", "bins", bins_are_dicts)
+                await handle_bins(test_bins_redis_key, "test_bins", "test_bins", bins_are_dicts)
+
+                logger.info(f"{client_ip}:{chip_id} <<< initial legacy data sent")
+
+                while True:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    if message and message["type"] == "message":
+                        channel = message["channel"]
+                        if isinstance(channel, bytes):
+                            channel = channel.decode("utf-8")
+
+                        logger.debug(f"📬 {client_ip}:{chip_id} Отримано повідомлення з каналу: {channel}")
+
+                        if channel in version_channels:
+                            redis_key, client_field, payload_name, payload_data_key, transform = version_channels[
+                                channel
+                            ]
+                            await handle_data_channel(
+                                redis_key, client_field, payload_name, payload_data_key, transform
+                            )
+                        elif channel == weather_channel:
+                            await handle_weather()
+                        elif channel == bins_channel:
+                            await handle_bins(bins_redis_key, "bins", "bins", bins_are_dicts)
+                        elif channel == test_bins_channel:
+                            await handle_bins(test_bins_redis_key, "test_bins", "test_bins", bins_are_dicts)
+                        else:
+                            logger.warning(f"{client_ip}:{chip_id} !!! unknown legacy channel: {channel}")
+
+            except (redis.ConnectionError, redis.TimeoutError) as e:
+                logger.warning(
+                    f"{client_ip}:{chip_id} !!! Redis connection lost in legacy pub/sub: {e}, reconnecting in 5s..."
+                )
+                if pubsub:
+                    try:
+                        await pubsub.aclose()
+                    except Exception:
+                        pass
+                    pubsub = None
+                await asyncio.sleep(5)
+
+    except asyncio.CancelledError as e:
+        logger.info(f"{client_ip}:{client_id} !!! alerts_data cancelled - {e}")
+    except ChipIdTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! chip_id timeout, closing connection - {e}")
+    except FirmwareTimeoutException as e:
+        logger.error(f"{client_ip}:{client_id} !!! firmware timeout, closing connection - {e}")
+    except Exception as e:
+        logger.error(f"{client_ip}:{client_id} !!! alerts_data Exception - {e}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        if pubsub:
+            await pubsub.unsubscribe(*all_channels)
+            await pubsub.aclose()
+            logger.info(f"📡 {client_ip}:{client_id} Відписано від legacy каналів")
 
 
 async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
@@ -494,9 +1183,10 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
     while True:
         chip_id = get_chip_id(client, client_id)
         try:
-            pong_waiter = await websocket.ping()
-            logger.debug(f"{client_ip}:{chip_id} >>> ping")
-            latency = await asyncio.wait_for(pong_waiter, ping_timeout)
+            payload = (timeouts_count + 1).to_bytes(1, "big")
+            pong_waiter = await websocket.ping(payload)
+            logger.debug(f"{client_ip}:{chip_id} >>> ping with payload: {payload.hex()} (binary)")
+            latency = await asyncio.wait_for(asyncio.shield(pong_waiter), ping_timeout)
             logger.debug(f"{client_ip}:{chip_id} <<< pong, latency: {latency}")
             client["latency"] = int(latency * 1000)  # convert to ms
             timeouts_count = 0
@@ -504,14 +1194,16 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
                 ping_event = tracker.create_new_event("ping")
                 ping_event.set_event_param("state", "alive")
                 await send_google_stat(tracker, ping_event)
-            # wait for next ping
             await asyncio.sleep(ping_interval)
         except asyncio.TimeoutError:
             timeouts_count += 1
             if timeouts_count < ping_timeout_count:
-                logger.info(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
+                logger.warning(f"{client_ip}:{chip_id} !!! pong timeout {timeouts_count}, retrying")
                 continue
             logger.warning(f"{client_ip}:{chip_id} !!! pong timeout, closing connection")
+            break
+        except ConnectionClosedError as e:
+            logger.warning(f"{client_ip}:{chip_id} !!! ping_pong connection closed - {e}")
             break
         except Exception as e:
             logger.error(f"{client_ip}:{client_id} !!! ping_pong Exception - {e}")
@@ -519,10 +1211,11 @@ async def ping_pong(websocket: ServerConnection, client, client_id, client_ip):
 
 
 async def send_google_stat(tracker, event):
-    tracker.send(events=[event], date=datetime.datetime.now())
+    await asyncio.to_thread(tracker.send, events=[event], date=datetime.datetime.now())
 
 
 async def echo(websocket: ServerConnection):
+    client = None
     try:
         client_id = generate_random_hash(8)
         # get real header from websocket
@@ -534,31 +1227,40 @@ async def echo(websocket: ServerConnection):
             logger.warning(f"{client_ip}:{client_id} !!! BLOCKED")
             return
 
-        geo_ip_data = await get_geo_ip_data(client_ip, mc, websocket.request)
+        client_key = f"{client_ip}:{client_id}"
+
+        # Швидке отримання Geo IP даних без блокування (дефолтні дані + фоновий запит)
+        geo_ip_data = await get_geo_ip_data_cached_or_default(client_ip, websocket.request, client_key)
 
         # if response.country.iso_code != 'UA' and response.continent.code != 'EU':
         #     shared_data.blocked_ips.append(client_ip)
         #     logger.warning(f"{client_ip}_{client_port} !!! BLOCKED")
         #     return
 
-        client = shared_data.clients[f"{client_ip}_{client_id}"] = {
-            "alerts": "[]",
-            "weather": "[]",
-            "explosions": "[]",
-            "missiles": "[]",
-            "missiles2": "[]",
-            "drones": "[]",
-            "drones2": "[]",
-            "kabs": "[]",
-            "kabs2": "[]",
-            "energy": "[]",
-            "radiation": "[]",
-            "global_notifications": "{}",
-            "bins": "[]",
-            "test_bins": "[]",
+        # Створюємо нового клієнта (при реконекті ID завжди новий, тому не шукаємо старого)
+        initial_data = {
+            "alerts": [],
+            "weather": [],
+            "explosions": [],
+            "missiles": [],
+            "missiles2": [],
+            "drones": [],
+            "drones2": [],
+            "kabs": [],
+            "kabs2": [],
+            "energy": [],
+            "radiation": [],
+            "global_notifications": {},
+            "bins": [],
+            "test_bins": [],
             "firmware": "unknown",
             "chip_id": "unknown",
             "latency": -1,
+            "alerts_fusion": {},
+            "weather_fusion": {},
+            "notifications_fusion": {},
+            "initial": True,  # for v5
+            "alerts_hash": 0,  # for v5
             "city": geo_ip_data["city"],
             "region": geo_ip_data["region"],
             "country": geo_ip_data["country"],
@@ -568,33 +1270,93 @@ async def echo(websocket: ServerConnection):
             "secure_connection": secure_connection,
             "connect_time": datetime.datetime.now(tz=server_timezone).strftime("%Y-%m-%dT%H:%M:%S"),
         }
+
+        # Створюємо Redis-backed клієнта з TTL 120 секунд (2 хвилини)
+        # Це забезпечує збереження даних на випадок несподіваного завершення сервера
+        client = await create_redis_backed_client(client_key, shared_data.redis_client, initial_data, ttl=120)
+        # Зберігаємо клієнта в shared_data.clients для доступу з фонових задач
+        shared_data.clients[client_key] = client
         if google_stat_send:
             tracker = shared_data.trackers[f"{client_ip}_{client_id}"] = GtagMP(
                 api_secret=api_secret, measurement_id=measurement_id, client_id="temp_id"
             )
 
+        chip_id_event = asyncio.Event()
+        firmware_event = asyncio.Event()
+
         match websocket.request.path:
             case "/data_v1":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v1),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v1,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v2":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v2),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v2,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v3":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v3),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v3,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
             case "/data_v4":
                 producer_task = asyncio.create_task(
-                    alerts_data(websocket, client, client_id, client_ip, shared_data, AlertVersion.v4),
+                    alerts_data(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v4,
+                        chip_id_event,
+                        firmware_event,
+                    ),
+                    name=f"alerts_data_{client_id}",
+                )
+
+            case "/data_fusion_v1":
+                producer_task = asyncio.create_task(
+                    alerts_data_fusion(
+                        websocket,
+                        client,
+                        client_id,
+                        client_ip,
+                        shared_data,
+                        AlertVersion.v1,
+                        chip_id_event,
+                        firmware_event,
+                    ),
                     name=f"alerts_data_{client_id}",
                 )
 
@@ -610,6 +1372,8 @@ async def echo(websocket: ServerConnection):
                 geo_ip_data["country"],
                 geo_ip_data["region"],
                 geo_ip_data["city"],
+                chip_id_event,
+                firmware_event,
             ),
             name=f"message_handler_{client_id}",
         )
@@ -633,498 +1397,365 @@ async def echo(websocket: ServerConnection):
                 task.cancel()
             await asyncio.wait(pending)
     except ConnectionClosedError as e:
-        chip_id = get_chip_id(client, client_id)
+        chip_id = get_chip_id(client, client_id) if client else client_id
         logger.warning(f"{client_ip}:{chip_id}: ConnectionClosedError - {e}")
     except Exception as e:
-        chip_id = get_chip_id(client, client_id)
+        chip_id = get_chip_id(client, client_id) if client else client_id
         logger.error(f"{client_ip}:{chip_id}: Exception - {e}")
     finally:
-        if google_stat_send:
+        client_key = f"{client_ip}:{client_id}"
+        if google_stat_send and client_key in shared_data.trackers:
             offline_event = tracker.create_new_event("status")
             offline_event.set_event_param("online", "false")
             await send_google_stat(tracker, offline_event)
-            del shared_data.trackers[f"{client_ip}_{client_id}"]
-        del shared_data.clients[f"{client_ip}_{client_id}"]
-        chip_id = get_chip_id(client, client_id)
+            del shared_data.trackers[client_key]
+
+        # Видаляємо клієнта з пам'яті та Redis
+        if client_key in shared_data.clients:
+            del shared_data.clients[client_key]
+
+        if client and isinstance(client, RedisBackedClient):
+            try:
+                await client.delete_from_redis()
+                logger.debug(f"Client {client_key} deleted from Redis")
+            except Exception as e:
+                logger.error(f"Failed to delete client {client_key} from Redis: {e}")
+
+        chip_id = get_chip_id(client, client_id) if client else client_id
         logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
-async def update_shared_data(shared_data: SharedData, mc):
-    while True:
-        logger.debug("memcache check")
-        (
-            alerts_v1,
-            alerts_v2,
-            alerts_v3,
-            weather_v1,
-            explosions_v1,
-            missiles_v1,
-            missiles_v2,
-            drones_v1,
-            drones_v2,
-            kabs_v1,
-            kabs_v2,
-            energy_v1,
-            radiation_v1,
-            global_notifications_v1,
-            bins,
-            test_bins,
-            s3_bins,
-            s3_test_bins,
-            c3_bins,
-            c3_test_bins,
-        ) = (
-            await get_data_from_memcached(mc) if not test_mode else await get_data_from_memcached_test(shared_data)
-        )
+# async def update_legacy_data(shared_data, redis_client):
+#     """
+#     Неблокуюча обробка Redis Pub/Sub повідомлень з підтримкою паралельної обробки.
+#     Кожне повідомлення обробляється в окремій задачі, що запобігає блокуванню головного циклу.
+#     """
+#     # Словник конфігурацій для кожного типу даних
+#     configs = {
+#         "websocket_v1_alerts": {
+#             "redis_key": "websocket:v1:legacy:alerts",
+#             "attr_name": "alerts_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v2_alerts": {
+#             "redis_key": "websocket:v2:legacy:alerts",
+#             "attr_name": "alerts_v2",
+#             "default_response": [],
+#         },
+#         "websocket_v1_weather": {
+#             "redis_key": "websocket:v1:legacy:weather",
+#             "attr_name": "weather_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v1_explosions": {
+#             "redis_key": "websocket:v1:legacy:explosions",
+#             "attr_name": "explosions_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v1_missiles": {
+#             "redis_key": "websocket:v1:legacy:missiles",
+#             "attr_name": "missiles_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v2_missiles": {
+#             "redis_key": "websocket:v2:legacy:missiles",
+#             "attr_name": "missiles_v2",
+#             "default_response": [],
+#         },
+#         "websocket_v1_drones": {
+#             "redis_key": "websocket:v1:legacy:drones",
+#             "attr_name": "drones_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v2_drones": {
+#             "redis_key": "websocket:v2:legacy:drones",
+#             "attr_name": "drones_v2",
+#             "default_response": [],
+#         },
+#         "websocket_v1_kabs": {"redis_key": "websocket:v1:legacy:kabs", "attr_name": "kabs_v1", "default_response": []},
+#         "websocket_v2_kabs": {"redis_key": "websocket:v2:legacy:kabs", "attr_name": "kabs_v2", "default_response": []},
+#         "websocket_v1_energy": {
+#             "redis_key": "websocket:v1:legacy:energy",
+#             "attr_name": "energy_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v1_radiation": {
+#             "redis_key": "websocket:v1:legacy:radiation",
+#             "attr_name": "radiation_v1",
+#             "default_response": [],
+#         },
+#         "websocket_v1_global_notifications": {
+#             "redis_key": "websocket:v1:legacy:global_notifications",
+#             "attr_name": "global_notifications_v1",
+#             "default_response": [],
+#         },
+#         "releases_production": {"redis_key": "releases:production", "attr_name": "bins", "default_response": []},
+#         "releases_beta": {"redis_key": "releases:beta", "attr_name": "test_bins", "default_response": []},
+#         "s3_bins": {"redis_key": "s3_bins", "attr_name": "s3_bins", "default_response": []},
+#         "s3_test_bins": {"redis_key": "s3_test_bins", "attr_name": "s3_test_bins", "default_response": []},
+#         "c3_bins": {"redis_key": "c3_bins", "attr_name": "c3_bins", "default_response": []},
+#         "c3_test_bins": {"redis_key": "c3_test_bins", "attr_name": "c3_test_bins", "default_response": []},
+#     }
 
-        try:
-            if alerts_v1 != shared_data.alerts_v1:
-                shared_data.alerts_v1 = alerts_v1
-                logger.debug(f"alerts_v1 updated: {alerts_v1}")
-        except Exception as e:
-            logger.error(f"error in alerts_v1: {e}")
+#     # Мапінг каналів до конфігурацій
+#     channel_to_config = {
+#         "websocket:v1:legacy:alerts:updated": "websocket_v1_alerts",
+#         "websocket:v2:legacy:alerts:updated": "websocket_v2_alerts",
+#         "websocket:v1:legacy:weather:updated": "websocket_v1_weather",
+#         "websocket:v1:legacy:explosions:updated": "websocket_v1_explosions",
+#         "websocket:v1:legacy:missiles:updated": "websocket_v1_missiles",
+#         "websocket:v2:legacy:missiles:updated": "websocket_v2_missiles",
+#         "websocket:v1:legacy:drones:updated": "websocket_v1_drones",
+#         "websocket:v2:legacy:drones:updated": "websocket_v2_drones",
+#         "websocket:v1:legacy:kabs:updated": "websocket_v1_kabs",
+#         "websocket:v2:legacy:kabs:updated": "websocket_v2_kabs",
+#         "websocket:v1:legacy:energy:updated": "websocket_v1_energy",
+#         "websocket:v1:legacy:radiation:updated": "websocket_v1_radiation",
+#         "websocket:v1:legacy:global_notifications:updated": "websocket_v1_global_notifications",
+#         "releases:production:updated": "releases_production",
+#         "releases:beta:updated": "releases_beta",
+#         "s3_bins:updated": "s3_bins",
+#         "s3_test_bins:updated": "s3_test_bins",
+#         "c3_bins:updated": "c3_bins",
+#         "c3_test_bins:updated": "c3_test_bins",
+#     }
 
-        try:
-            if alerts_v2 != shared_data.alerts_v2:
-                shared_data.alerts_v2 = alerts_v2
-                logger.debug(f"alerts_v2 updated: {alerts_v2}")
-        except Exception as e:
-            logger.error(f"error in alerts_v2: {e}")
+#     # Створюємо lock для кожної конфігурації
+#     locks = {key: asyncio.Lock() for key in configs.keys()}
 
-        try:
-            if alerts_v3 != shared_data.alerts_v3:
-                shared_data.alerts_v3 = alerts_v3
-                logger.debug(f"alerts_v3 updated: {alerts_v3}")
-        except Exception as e:
-            logger.error(f"error in alerts_v3: {e}")
+#     async def process_data(config_key: str):
+#         """Універсальна функція обробки оновлень даних з синхронізацією"""
+#         config = configs[config_key]
+#         lock = locks[config_key]
 
-        try:
-            if weather_v1 != shared_data.weather_v1:
-                shared_data.weather_v1 = weather_v1
-                logger.debug(f"weather_v1 updated: {weather_v1}")
-        except Exception as e:
-            logger.error(f"error in weather_v1: {e}")
+#         try:
+#             data = await get_redis_data(
+#                 logger, redis_client, config["redis_key"], default_response=config["default_response"]
+#             )
+#             async with lock:
+#                 current_value = getattr(shared_data, config["attr_name"])
+#                 if data != current_value:
+#                     setattr(shared_data, config["attr_name"], data)
+#                     logger.info(f"⚠️ {config['attr_name']} data: {data}")
+#                     logger.info(f"✅ {config['redis_key']} збережено")
+#         except Exception as e:
+#             logger.error(f"❌ {config['redis_key']} error: {str(e)}")
+#             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
-        try:
-            if explosions_v1 != shared_data.explosions_v1:
-                shared_data.explosions_v1 = explosions_v1
-                logger.debug(f"explosions_v1 updated: {explosions_v1}")
-        except Exception as e:
-            logger.error(f"error in explosions_v1: {e}")
+#     # Створюємо Pub/Sub клієнт та підписуємося на всі канали
+#     pubsub = redis_client.pubsub()
+#     channels = list(channel_to_config.keys())
+#     await pubsub.subscribe(*channels)
+#     logger.info(f"📡 Підписано на {len(channels)} каналів")
 
-        try:
-            if missiles_v1 != shared_data.missiles_v1:
-                shared_data.missiles_v1 = missiles_v1
-                logger.debug(f"missiles_v1 updated: {missiles_v1}")
-        except Exception as e:
-            logger.error(f"error in missiles_v1: {e}")
+#     # Основний цикл очікування повідомлень з Pub/Sub
+#     try:
+#         # Ініціалізуємо всі дані при старті
+#         for config_key in configs.keys():
+#             asyncio.create_task(process_data(config_key))
 
-        try:
-            if missiles_v2 != shared_data.missiles_v2:
-                shared_data.missiles_v2 = missiles_v2
-                logger.debug(f"missiles_v2 updated: {missiles_v2}")
-        except Exception as e:
-            logger.error(f"error in missiles_v2: {e}")
+#         while True:
+#             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+#             if message and message["type"] == "message":
+#                 channel = message["channel"]
+#                 # Декодуємо канал, якщо це bytes
+#                 if isinstance(channel, bytes):
+#                     channel = channel.decode("utf-8")
 
-        try:
-            if drones_v1 != shared_data.drones_v1:
-                shared_data.drones_v1 = drones_v1
-                logger.debug(f"drones_v1 updated: {drones_v1}")
-        except Exception as e:
-            logger.error(f"error in drones_v1: {e}")
+#                 logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
 
-        try:
-            if drones_v2 != shared_data.drones_v2:
-                shared_data.drones_v2 = drones_v2
-                logger.debug(f"drones_v2 updated: {drones_v2}")
-        except Exception as e:
-            logger.error(f"error in drones_v2: {e}")
+#                 # Створюємо задачу для неблокуючої обробки
+#                 config_key = channel_to_config.get(channel)
+#                 if config_key:
+#                     asyncio.create_task(process_data(config_key))
+#                 else:
+#                     logger.warning(f"Невідомий канал: {channel}")
 
-        try:
-            if kabs_v1 != shared_data.kabs_v1:
-                shared_data.kabs_v1 = kabs_v1
-                logger.debug(f"kabs_v1 updated: {kabs_v1}")
-        except Exception as e:
-            logger.error(f"error in kabs_v1: {e}")
+#             await asyncio.sleep(0.01)  # 10ms замість 100ms
 
-        try:
-            if kabs_v2 != shared_data.kabs_v2:
-                shared_data.kabs_v2 = kabs_v2
-                logger.debug(f"kabs_v2 updated: {kabs_v2}")
-        except Exception as e:
-            logger.error(f"error in kabs_v2: {e}")
-
-        try:
-            if energy_v1 != shared_data.energy_v1:
-                shared_data.energy_v1 = energy_v1
-                logger.debug(f"energy_v1 updated: {energy_v1}")
-        except Exception as e:
-            logger.error(f"error in energy_v1: {e}")
-
-        try:
-            if radiation_v1 != shared_data.radiation_v1:
-                shared_data.radiation_v1 = radiation_v1
-                logger.debug(f"radiation_v1 updated: {radiation_v1}")
-        except Exception as e:
-            logger.error(f"error in radiation_v1: {e}")
-
-        try:
-            if global_notifications_v1 != shared_data.global_notifications_v1:
-                shared_data.global_notifications_v1 = global_notifications_v1
-                logger.debug(f"global_notifications_v1 updated: {global_notifications_v1}")
-        except Exception as e:
-            logger.error(f"error in global_notifications_v1: {e}")
-
-        try:
-            if bins != shared_data.bins:
-                shared_data.bins = bins
-                logger.debug(f"bins updated: {bins}")
-        except Exception as e:
-            logger.error(f"error in bins: {e}")
-
-        try:
-            if test_bins != shared_data.test_bins:
-                shared_data.test_bins = test_bins
-                logger.debug(f"test bins updated: {test_bins}")
-        except Exception as e:
-            logger.error(f"error in test_bins: {e}")
-
-        try:
-            if s3_bins != shared_data.s3_bins:
-                shared_data.s3_bins = s3_bins
-                logger.debug(f"s3 bins updated: {s3_bins}")
-        except Exception as e:
-            logger.error(f"error in s3 bins: {e}")
-
-        try:
-            if s3_test_bins != shared_data.s3_test_bins:
-                shared_data.s3_test_bins = s3_test_bins
-                logger.debug(f"s3 test bins updated: {s3_test_bins}")
-        except Exception as e:
-            logger.error(f"error in s3 test_bins: {e}")
-
-        try:
-            if c3_bins != shared_data.c3_bins:
-                shared_data.c3_bins = c3_bins
-                logger.debug(f"c3 bins updated: {c3_bins}")
-        except Exception as e:
-            logger.error(f"error in c3 bins: {e}")
-
-        try:
-            if c3_test_bins != shared_data.c3_test_bins:
-                shared_data.c3_test_bins = c3_test_bins
-                logger.debug(f"c3 test bins updated: {c3_test_bins}")
-        except Exception as e:
-            logger.error(f"error in c3 test_bins: {e}")
-
-        await asyncio.sleep(memcache_fetch_interval)
+#     except Exception as e:
+#         logger.error(f"❌ update_legacy_data: {str(e)}")
+#         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+#     finally:
+#         await pubsub.unsubscribe(*channels)
+#         await pubsub.aclose()
+#         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
-async def print_clients(shared_data, mc):
+# async def update_fusion_data(shared_data, redis_client):
+#     """
+#     Неблокуюча обробка Redis Pub/Sub повідомлень з підтримкою паралельної обробки.
+#     Кожне повідомлення обробляється в окремій задачі, що запобігає блокуванню головного циклу.
+#     """
+
+#     # Мапінг каналів до конфігурацій
+#     channel_to_config = {
+#         "websocket:v1:fusion:alerts:updated": "websocket_fusion_v1_alerts",
+#         "websocket:v1:fusion:weather:updated": "websocket_fusion_v1_weather",
+#         "websocket:v1:fusion:etryvoga:updated": "websocket_fusion_v1_etryvoga",
+#     }
+
+#     # Словник конфігурацій для кожного типу даних
+#     configs = {
+#         "websocket_fusion_v1_alerts": {
+#             "redis_key": "websocket:v1:fusion:alerts",
+#             "attr_name": "alerts_fusion_actual",
+#             "attr_previous": "alerts_fusion_previous",  # для збереження попереднього значення
+#             "default_response": {},
+#             "copy_previous": True,  # флаг для копіювання попереднього значення
+#         },
+#         "websocket_fusion_v1_etryvoga": {
+#             "redis_key": "websocket:v1:fusion:etryvoga:data",
+#             "attr_name": "notifications_fusion",
+#             "default_response": {},
+#             "copy_previous": False,
+#         },
+#         "websocket_fusion_v1_weather": {
+#             "redis_key": "websocket:v1:fusion:weather",
+#             "attr_name": "weather_fusion",
+#             "default_response": {},
+#             "copy_previous": False,
+#         },
+#     }
+
+#     # Створюємо lock для кожної конфігурації
+#     locks = {key: asyncio.Lock() for key in configs.keys()}
+
+#     async def process_fusion_data(config_key: str):
+#         """Універсальна функція обробки оновлень fusion даних з синхронізацією"""
+#         config = configs[config_key]
+#         lock = locks[config_key]
+
+#         try:
+#             data = await get_redis_data(
+#                 logger, redis_client, config["redis_key"], default_response=config["default_response"]
+#             )
+#             async with lock:
+#                 current_value = getattr(shared_data, config["attr_name"])
+#                 if data != current_value:
+#                     # Зберігаємо попереднє значення якщо потрібно
+#                     if config.get("copy_previous"):
+#                         setattr(shared_data, config["attr_previous"], copy(current_value))
+
+#                     setattr(shared_data, config["attr_name"], data)
+#                     logger.info(f"⚠️ {config['attr_name']} data: {data}")
+#                     logger.info(f"✅ {config['redis_key']} збережено")
+#         except Exception as e:
+#             logger.error(f"❌ {config['redis_key']} error: {str(e)}")
+#             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+#     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+#     pubsub = redis_client.pubsub()
+#     channels = list(channel_to_config.keys())
+#     await pubsub.subscribe(*channels)
+#     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+#     # Основний цикл очікування повідомлень з Pub/Sub
+#     try:
+#         # Ініціалізуємо всі дані при старті
+#         for config_key in configs.keys():
+#             asyncio.create_task(process_fusion_data(config_key))
+
+#         while True:
+#             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+#             if message and message["type"] == "message":
+#                 channel = message["channel"]
+#                 # Декодуємо канал, якщо це bytes
+#                 if isinstance(channel, bytes):
+#                     channel = channel.decode("utf-8")
+
+#                 logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+
+#                 # Створюємо задачу для неблокуючої обробки
+#                 config_key = channel_to_config.get(channel)
+#                 if config_key:
+#                     asyncio.create_task(process_fusion_data(config_key))
+#                 else:
+#                     logger.warning(f"Невідомий канал: {channel}")
+
+#     except Exception as e:
+#         logger.error(f"❌ update_fusion_data: {str(e)}")
+#         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+#     finally:
+#         await pubsub.unsubscribe(*channels)
+#         await pubsub.aclose()
+#         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
+async def print_clients(shared_data, redis_client):
     while True:
         try:
             await asyncio.sleep(60)
-            logger.info(f"Clients: {len(shared_data.clients)}")
-            for client, data in shared_data.clients.items():
-                logger.debug(client)
-
-            compressed_clients = {}
-            fields = [
-                "firmware",
-                "chip_id",
-                "latency",
-                "country",
-                "region",
-                "city",
-                "timezone",
-                "org",
-                "location",
-                "secure_connection",
-                "connection",
-                "connect_time",
-            ]
-            for _id, _data in shared_data.clients.items():
-                compressed_clients[_id] = {}
-                for _field in fields:
-                    compressed_clients[_id][_field] = _data.get(_field, "")
-            websoсket_key = b"websocket_clients" if environment == "PROD" else b"websocket_clients_dev"
-            await mc.set(websoсket_key, json.dumps(compressed_clients).encode("utf-8"))
-            logger.info(f"update_shared_data: {len(compressed_clients)} clients updated ")
+            count = await count_clients_in_redis(redis_client)
+            logger.info(f"Clients: {count}")
         except Exception as e:
-            logger.error(f"Error in update_shared_data: {e}")
+            logger.error(f"Error in print_clients: {e}")
 
 
-def circular_offset_legacy(n, offset, total=LEGACY_LED_COUNT):
-    return ((n - 1 + offset) % total) + 1
+def make_alert_batch(diff_region_ids: list[int], new_state: dict[int, int]) -> bytes:
+    """
+    Формат пакета:
+    - region_id: 2 байти (unsigned short)
+    - flags16: 2 байти (unsigned short)
+
+    body: послідовність пар (region_id, flags16) для кожного регіону
+    diff_region_ids: список регіонів з змінами(наприклад, [0, 1, 2, ...])
+    new_state: повний словник даних тривог, де ключ — region_id, а значення — flags16 (наприклад, {0: 3, 1: 1, ...})
+    """
+    body = bytearray()
+    for rid in diff_region_ids:
+        flags16 = new_state.get(rid, 0)
+        body += struct.pack("<H H", int(rid), flags16)
+    return body
 
 
-def circular_offset_index(n, offset, total=LEGACY_LED_COUNT):
-    return (n + offset) % total
+def make_weather_batch(new_state: dict[int, int]) -> bytes:
+    """
+    Формат пакета погоди:
+    - region_id: 2 байти (unsigned short)
+    - temp: 1 байт (unsigned char), попередньо закодований у 0..255
+    body: послідовність пар (region_id, temp)
+    """
+    body = bytearray()
+    for rid, temp in new_state.items():
+        body += struct.pack("<H B", int(rid), int(temp) & 0xFF)
+    return body
 
 
-async def get_data_from_memcached_test(shared_data):
-    if shared_data.test_id == None:
-        shared_data.test_id = 12
+def make_firmware_batch(releases: list) -> bytes:
+    """
+    Формат пакета прошивок (TYPE_FIRMWARE_UPDATE_BATCH = 0xA6):
+    [Header: 1 byte] [Records: N * 5 bytes]
+    Record (5 bytes, fixed):
+      [Major: 1 byte]       - uint8
+      [Minor: 1 byte]       - uint8
+      [Patch: 1 byte]       - uint8
+      [Beta: 2 bytes]       - uint16 little-endian (0 якщо не beta)
+    Кількість записів = (length - 1) / 5
+    Версія з тегу: "5.0.1" -> (5,0,1,0) | "5.0.0-b127" -> (5,0,0,127)
+    """
 
-    alerts_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    alerts_v3 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    alerts_v4 = {}
-    weather = [0] * LEGACY_LED_COUNT
-    explosion = [0] * LEGACY_LED_COUNT
-    missile = [0] * LEGACY_LED_COUNT
-    drone = [0] * LEGACY_LED_COUNT
-    kab = [0] * LEGACY_LED_COUNT
-    missile_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    drone_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    kab_v2 = [[0, 1736935200]] * LEGACY_LED_COUNT
-    energy = [[3, 1736935200]] * LEGACY_LED_COUNT
-    radiation = [100] * LEGACY_LED_COUNT
+    def parse_tag(tag: str):
+        is_beta = "-b" in tag
+        parts = tag.split("-b")
+        nums = parts[0].split(".")
+        major = int(nums[0]) if len(nums) > 0 else 0
+        minor = int(nums[1]) if len(nums) > 1 else 0
+        patch = int(nums[2]) if len(nums) > 2 else 0
+        beta = int(parts[1]) if is_beta and len(parts) > 1 else 0
+        return major, minor, patch, beta
 
-    global_notifications_v1 = {
-        "mig": 0,
-        "ships": 0,
-        "tactical": 0,
-        "strategic": 0,
-        "ballistic_missiles": 0,
-        "mig_missiles": 0,
-        "ships_missiles": 0,
-        "tactical_missiles": 0,
-        "strategic_missiles": 0,
-    }
-    random_key = random.choice(list(global_notifications_v1.keys()))
-    global_notifications_v1[random_key] = 1
-
-    region_id = shared_data.test_id
-
-    expl = int(datetime.datetime.now().timestamp())
-
-    alerts_v4 = {
-        ##22:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"],
-        # 31:[str(1), f"{int(datetime.datetime.now().timestamp())-3600}"]
-    }
-
-    alerts_v2[circular_offset_index(region_id - 1, 0)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    alerts_v3[circular_offset_index(region_id - 1, 0)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    alerts_v2[circular_offset_index(region_id - 1, -1)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v3[circular_offset_index(region_id - 1, -1)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v2[circular_offset_index(region_id - 1, -2)] = [
-        "0",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    alerts_v3[circular_offset_index(region_id - 1, -2)] = [
-        "0",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    missile_v2[circular_offset_index(region_id - 1, -3)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    missile_v2[circular_offset_index(region_id - 1, -4)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    missile[circular_offset_index(region_id - 1, -5)] = expl
-    drone_v2[circular_offset_index(region_id - 1, -6)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    drone_v2[circular_offset_index(region_id - 1, -7)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    drone[circular_offset_index(region_id - 1, -8)] = expl
-    kab_v2[circular_offset_index(region_id - 1, -9)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-3600}",
-    ]
-    kab_v2[circular_offset_index(region_id - 1, -10)] = [
-        str(1),
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    kab[circular_offset_index(region_id - 1, -11)] = expl
-    explosion[circular_offset_index(region_id - 1, -12)] = expl
-    weather[circular_offset_index(region_id - 1, 0)] = 30
-    energy[circular_offset_index(region_id - 1, 0)] = [
-        "9",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    energy[circular_offset_index(region_id - 1, -1)] = [
-        "4",
-        f"{int(datetime.datetime.now().timestamp())-60}",
-    ]
-    radiation[circular_offset_index(region_id - 1, 0)] = 2000
-
-    shared_data.test_id = circular_offset_legacy(shared_data.test_id, 1)
-
-    return (
-        "{}",
-        json.dumps(alerts_v2),
-        json.dumps(alerts_v3),
-        json.dumps(weather),
-        json.dumps(explosion),
-        json.dumps(missile),
-        json.dumps(missile_v2),
-        json.dumps(drone),
-        json.dumps(drone_v2),
-        json.dumps(kab),
-        json.dumps(kab_v2),
-        json.dumps(energy),
-        json.dumps(radiation),
-        json.dumps(global_notifications_v1),
-        '["latest.bin"]',
-        '["latest_beta.bin"]',
-        '["latest.bin"]',
-        '["latest_beta.bin"]',
-        '["latest.bin"]',
-        '["latest_beta.bin"]',
-    )
-
-
-async def get_data_from_memcached(mc):
-    alerts_cached_v1 = await mc.get(b"alerts_websocket_v1")
-    alerts_cached_v2 = await mc.get(b"alerts_websocket_v2")
-    alerts_cached_v3 = await mc.get(b"alerts_websocket_v3")
-    weather_cached_v1 = await mc.get(b"weather_websocket_v1")
-    explosions_cached_v1 = await mc.get(b"explosions_websocket_v1")
-    missiles_cached_v1 = await mc.get(b"missiles_websocket_v1")
-    missiles_cached_v2 = await mc.get(b"missiles_websocket_v2")
-    drones_cached_v1 = await mc.get(b"drones_websocket_v1")
-    drones_cached_v2 = await mc.get(b"drones_websocket_v2")
-    kabs_cached_v1 = await mc.get(b"kabs_websocket_v1")
-    kabs_cached_v2 = await mc.get(b"kabs_websocket_v2")
-    energy_cached_v1 = await mc.get(b"energy_websocket_v1")
-    radiation_cached_v1 = await mc.get(b"radiation_websocket_v1")
-    global_notifications_cached_v1 = await mc.get(b"notifications_websocket_v1")
-    bins_cached = await mc.get(b"bins")
-    test_bins_cached = await mc.get(b"test_bins")
-    s3_bins_cached = await mc.get(b"s3_bins")
-    s3_test_bins_cached = await mc.get(b"s3_test_bins")
-    c3_bins_cached = await mc.get(b"c3_bins")
-    c3_test_bins_cached = await mc.get(b"c3_test_bins")
-
-    if random_mode:
-        alerts_v1 = []
-        alerts_v2 = []
-        alerts_v3 = []
-        missiles_v2 = []
-        drones_v2 = []
-        kabs_v2 = []
-        explosions_v1 = [0] * LEGACY_LED_COUNT
-        missiles_v1 = [0] * LEGACY_LED_COUNT
-        drones_v1 = [0] * LEGACY_LED_COUNT
-        kabs_v1 = [0] * LEGACY_LED_COUNT
-        global_notifications_v1 = {}
-        for i in range(LEGACY_LED_COUNT):
-            alerts_v1.append(random.randint(0, 3))
-            diff = random.randint(0, 600)
-            alerts_v2.append(
-                [
-                    random.randint(0, 1),
-                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ]
-            )
-            alerts_v3.append(
-                [
-                    random.randint(0, 2),
-                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ]
-            )
-            missiles_v2.append(
-                [
-                    random.randint(0, 1),
-                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ]
-            )
-            drones_v2.append(
-                [
-                    random.randint(0, 1),
-                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ]
-            )
-            kabs_v2.append(
-                [
-                    random.randint(0, 1),
-                    (datetime.datetime.now() - datetime.timedelta(seconds=diff)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                ]
-            )
-        explosion_index = random.randint(0, LEGACY_LED_COUNT - 1)
-        explosions_v1[explosion_index] = int(datetime.datetime.now().timestamp())
-        missile_index = random.randint(0, LEGACY_LED_COUNT - 1)
-        missiles_v1[missile_index] = int(datetime.datetime.now().timestamp())
-        drone_index = random.randint(0, LEGACY_LED_COUNT - 1)
-        drones_v1[drone_index] = int(datetime.datetime.now().timestamp())
-        kab_index = random.randint(0, LEGACY_LED_COUNT - 1)
-        kabs_v1[kab_index] = int(datetime.datetime.now().timestamp())
-        alerts_cached_data_v1 = json.dumps(alerts_v1[:LEGACY_LED_COUNT])
-        alerts_cached_data_v2 = json.dumps(alerts_v2[:LEGACY_LED_COUNT])
-        alerts_cached_data_v3 = json.dumps(alerts_v3[:LEGACY_LED_COUNT])
-        explosions_cashed_data_v1 = json.dumps(explosions_v1[:LEGACY_LED_COUNT])
-        missiles_cashed_data_v1 = json.dumps(missiles_v1[:LEGACY_LED_COUNT])
-        missiles_cashed_data_v2 = json.dumps(missiles_v2[:LEGACY_LED_COUNT])
-        drones_cashed_data_v1 = json.dumps(drones_v1[:LEGACY_LED_COUNT])
-        drones_cashed_data_v2 = json.dumps(drones_v2[:LEGACY_LED_COUNT])
-        kabs_cashed_data_v1 = json.dumps(kabs_v1[:LEGACY_LED_COUNT])
-        kabs_cashed_data_v2 = json.dumps(kabs_v2[:LEGACY_LED_COUNT])
-        global_notifications_cached_v1 = json.dumps(global_notifications_v1)
-    else:
-        alerts_cached_data_v1 = alerts_cached_v1.decode("utf-8") if alerts_cached_v1 else "[]"
-        alerts_cached_data_v2 = alerts_cached_v2.decode("utf-8") if alerts_cached_v2 else "[]"
-        alerts_cached_data_v3 = alerts_cached_v2.decode("utf-8") if alerts_cached_v3 else "[]"
-        explosions_cashed_data_v1 = explosions_cached_v1.decode("utf-8") if explosions_cached_v1 else "[]"
-        missiles_cashed_data_v1 = missiles_cached_v1.decode("utf-8") if missiles_cached_v1 else "[]"
-        missiles_cashed_data_v2 = missiles_cached_v2.decode("utf-8") if missiles_cached_v2 else "[]"
-        drones_cashed_data_v1 = drones_cached_v1.decode("utf-8") if drones_cached_v1 else "[]"
-        drones_cashed_data_v2 = drones_cached_v2.decode("utf-8") if drones_cached_v2 else "[]"
-        kabs_cashed_data_v1 = kabs_cached_v1.decode("utf-8") if kabs_cached_v1 else "[]"
-        kabs_cashed_data_v2 = kabs_cached_v2.decode("utf-8") if kabs_cached_v2 else "[]"
-        global_notifications_cached_v1 = (
-            global_notifications_cached_v1.decode("utf-8") if global_notifications_cached_v1 else "{}"
-        )
-
-    weather_cached_data_v1 = weather_cached_v1.decode("utf-8") if weather_cached_v1 else "[]"
-    energy_cached_data_v1 = energy_cached_v1.decode("utf-8") if energy_cached_v1 else "[]"
-    radiation_cached_data_v1 = radiation_cached_v1.decode("utf-8") if radiation_cached_v1 else "[]"
-    bins_cached_data = bins_cached.decode("utf-8") if bins_cached else "[]"
-    test_bins_cached_data = test_bins_cached.decode("utf-8") if test_bins_cached else "[]"
-    s3_bins_cached_data = s3_bins_cached.decode("utf-8") if s3_bins_cached else "[]"
-    s3_test_bins_cached_data = s3_test_bins_cached.decode("utf-8") if s3_test_bins_cached else "[]"
-    c3_bins_cached_data = c3_bins_cached.decode("utf-8") if c3_bins_cached else "[]"
-    c3_test_bins_cached_data = c3_test_bins_cached.decode("utf-8") if c3_test_bins_cached else "[]"
-
-    return (
-        alerts_cached_data_v1,
-        alerts_cached_data_v2,
-        alerts_cached_data_v3,
-        weather_cached_data_v1,
-        explosions_cashed_data_v1,
-        missiles_cashed_data_v1,
-        missiles_cashed_data_v2,
-        drones_cashed_data_v1,
-        drones_cashed_data_v2,
-        kabs_cashed_data_v1,
-        kabs_cashed_data_v2,
-        energy_cached_data_v1,
-        radiation_cached_data_v1,
-        global_notifications_cached_v1,
-        bins_cached_data,
-        test_bins_cached_data,
-        s3_bins_cached_data,
-        s3_test_bins_cached_data,
-        c3_bins_cached_data,
-        c3_test_bins_cached_data,
-    )
+    header = struct.pack("<B", TYPE_FIRMWARE_UPDATE_BATCH)
+    records = bytearray()
+    seen = set()
+    for release in releases:
+        major, minor, patch, beta = parse_tag(release["tag"])
+        key = (major, minor, patch, beta)
+        if key in seen:
+            continue
+        seen.add(key)
+        records += struct.pack("<BBBH", major, minor, patch, beta)
+    return header + records
 
 
 async def process_request(connection: ServerConnection, request: Request):
@@ -1134,12 +1765,12 @@ async def process_request(connection: ServerConnection, request: Request):
         logger.info(f"{client_ip}: health check")
         return connection.respond(HTTPStatus.OK, "OK\n")
     # check for valid path
-    if not request.path.startswith("/data_v"):
+    if not request.path.startswith("/data_v") and not request.path.startswith("/data_fusion_v"):
         logger.warning(f"{client_ip}: invalid path - {request.path}")
         return connection.respond(HTTPStatus.NOT_FOUND, "Not Found\n")
 
 
-async def process_response(connection: ServerConnection, request: Request, responce: Response):
+async def process_response(connection: ServerConnection, request: Request, response: Response):
     client_ip = await get_client_ip(connection)
     if connection.protocol.handshake_exc:
         logger.warning(f"{client_ip}: invalid handshake - {connection.protocol.handshake_exc}")
@@ -1148,19 +1779,41 @@ async def process_response(connection: ServerConnection, request: Request, respo
 
 
 async def main():
-    async with serve(
-        echo,
-        "0.0.0.0",
-        websocket_port,
-        process_request=process_request,
-        process_response=process_response,
-        ping_interval=None,
-        ping_timeout=None,
-    ):
-        await asyncio.gather(
-            update_shared_data(shared_data, mc),
-            print_clients(shared_data, mc),
-        )
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        db=redis_db,
+        password=redis_password,
+        decode_responses=True,
+        encoding="utf-8",
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+
+    # Ініціалізуємо Redis client в shared_data для використання в get_geo_ip_data
+    shared_data.redis_client = redis_client
+    shared_data.http_session = aiohttp.ClientSession()
+    logger.info("✅ Redis client and HTTP session initialized in shared_data")
+
+    try:
+        async with serve(
+            echo,
+            "0.0.0.0",
+            websocket_port,
+            process_request=process_request,
+            process_response=process_response,
+            ping_interval=None,
+            ping_timeout=None,
+        ):
+            await asyncio.gather(
+                # update_legacy_data(shared_data, redis_client),
+                # update_fusion_data(shared_data, redis_client),
+                print_clients(shared_data, redis_client),
+            )
+    finally:
+        await shared_data.http_session.close()
+        await redis_client.aclose()
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ WEBSOCKET_SERVER_PORT=2052
 WEBSOCKET_SERVER_SECURE_PORT=2053
 WEBSOCKET_DEV_SERVER_PORT=2082
 WEBSOCKET_DEV_SERVER_SECURE_PORT=2083
-MEMCACHED_ADMIN_PORT=2087
+REDIS_ADMIN_PORT=2087
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -44,8 +44,8 @@ while [[ $# -gt 0 ]]; do
             WEBSOCKET_DEV_SERVER_SECURE_PORT="$2"
             shift 2
             ;;
-        -m|--memcached-admin-port)
-            MEMCACHED_ADMIN_PORT="$2"
+        -m|--redis-admin-port)
+            REDIS_ADMIN_PORT="$2"
             shift 2
             ;;
         *)
@@ -67,7 +67,7 @@ echo "WEBSOCKET_SERVER_PORT: $WEBSOCKET_SERVER_PORT"
 echo "WEBSOCKET_SERVER_SECURE_PORT: $WEBSOCKET_SERVER_SECURE_PORT"
 echo "WEBSOCKET_DEV_SERVER_PORT: $WEBSOCKET_DEV_SERVER_PORT"
 echo "WEBSOCKET_DEV_SERVER_SECURE_PORT: $WEBSOCKET_DEV_SERVER_SECURE_PORT"
-echo "MEMCACHED_ADMIN_PORT: $MEMCACHED_ADMIN_PORT"
+echo "REDIS_ADMIN_PORT: $REDIS_ADMIN_PORT"
 
 
 # Updating the Git repo
@@ -86,7 +86,23 @@ docker rm nginx || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name nginx --restart always --network=jaam -d --env TZ="Europe/Kyiv"  -p "$WEB_SERVER_PORT":"$WEB_SERVER_PORT" -p "$WEB_SERVER_SECURE_PORT":"$WEB_SERVER_SECURE_PORT" -p "$UPDATER_SERVER_PORT":"$UPDATER_SERVER_PORT" -p "$UPDATER_SERVER_SECURE_PORT":"$UPDATER_SERVER_SECURE_PORT" -p "$WEBSOCKET_SERVER_PORT":"$WEBSOCKET_SERVER_PORT" -p "$WEBSOCKET_SERVER_SECURE_PORT":"$WEBSOCKET_SERVER_SECURE_PORT" -p "$WEBSOCKET_DEV_SERVER_PORT":"$WEBSOCKET_DEV_SERVER_PORT" -p "$WEBSOCKET_DEV_SERVER_SECURE_PORT":"$WEBSOCKET_DEV_SERVER_SECURE_PORT" -p "$MEMCACHED_ADMIN_PORT":"$MEMCACHED_ADMIN_PORT" -v "$CONFIG_PATH":/etc/nginx:ro -v "$LOGGING_PATH":/var/log/nginx nginx:latest
+docker run --name nginx \
+    --restart always \
+    --network=jaam \
+    -d \
+    --env TZ="Europe/Kyiv"  \
+    -p "$WEB_SERVER_PORT":"$WEB_SERVER_PORT" \
+    -p "$WEB_SERVER_SECURE_PORT":"$WEB_SERVER_SECURE_PORT" \
+    -p "$UPDATER_SERVER_PORT":"$UPDATER_SERVER_PORT" \
+    -p "$UPDATER_SERVER_SECURE_PORT":"$UPDATER_SERVER_SECURE_PORT" \
+    -p "$WEBSOCKET_SERVER_PORT":"$WEBSOCKET_SERVER_PORT" \
+    -p "$WEBSOCKET_SERVER_SECURE_PORT":"$WEBSOCKET_SERVER_SECURE_PORT" \
+    -p "$WEBSOCKET_DEV_SERVER_PORT":"$WEBSOCKET_DEV_SERVER_PORT" \
+    -p "$WEBSOCKET_DEV_SERVER_SECURE_PORT":"$WEBSOCKET_DEV_SERVER_SECURE_PORT" \
+    -p "$REDIS_ADMIN_PORT":"$REDIS_ADMIN_PORT" \
+    -v "$CONFIG_PATH":/etc/nginx:ro \
+    -v "$LOGGING_PATH":/var/log/nginx \
+    nginx:latest
 
 echo "Container deployed successfully!"
 

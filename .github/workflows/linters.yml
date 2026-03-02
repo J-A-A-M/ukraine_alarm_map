@@ -29,7 +29,7 @@ jobs:
       - name: Run Black in the check mode
         uses: psf/black@stable
         with:
-          options: "--check --verbose --line-length 120 --diff --color --target-version py312"
+          options: "--check --verbose --line-length 120 --diff --color --target-version py313"
           src: ${{ github.workspace }}/deploy
           version: "~= 24.0"
   # run_pytest:
