@@ -196,7 +196,7 @@ jobs:
                 bash redeploy_svg_generator.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
-          - name: Redeploy Update Server (bin list)
+          - name: Redeploy Device Map
             if: ${{ inputs.redeploy_update_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
@@ -208,10 +208,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_update_server.sh \
+                bash redeploy_device_map.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
-                  -g ${{ secrets.G_TOKEN }}
           - name: Redeploy Web Server
             if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
