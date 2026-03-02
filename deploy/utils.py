@@ -3,6 +3,13 @@ import datetime
 import random
 import asyncio
 
+TYPE_ALERTS_BATCH = 0xA1
+TYPE_NOTIFICATIONS_BATCH = 0xA2
+TYPE_WEATHER_BATCH = 0xA3
+TYPE_GRID_BATCH = 0xA4
+TYPE_RADIATION_BATCH = 0xA5
+TYPE_FIRMWARE_UPDATE_BATCH = 0xA6
+
 
 def truncate_name(name, max_length=30):
     if len(name) <= max_length:

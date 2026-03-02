@@ -22,13 +22,17 @@ import sys
 from pathlib import Path
 
 try:
-    from utils import get_redis_data, set_redis_data
+    from utils import get_redis_data, set_redis_data, \
+    TYPE_ALERTS_BATCH, TYPE_NOTIFICATIONS_BATCH, TYPE_WEATHER_BATCH, \
+    TYPE_GRID_BATCH, TYPE_RADIATION_BATCH, TYPE_FIRMWARE_UPDATE_BATCH
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
     if str(parent_dir) not in sys.path:
         sys.path.insert(0, str(parent_dir))
 
-    from utils import get_redis_data, set_redis_data
+    from utils import get_redis_data, set_redis_data, \
+    TYPE_ALERTS_BATCH, TYPE_NOTIFICATIONS_BATCH, TYPE_WEATHER_BATCH, \
+    TYPE_GRID_BATCH, TYPE_RADIATION_BATCH, TYPE_FIRMWARE_UPDATE_BATCH
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
 regions = {}
@@ -92,13 +96,6 @@ gtagmp_logger.propagate = False
 
 
 geo = database.Reader(geo_lite_db_path)
-
-TYPE_ALERTS_BATCH = 0xA1
-TYPE_NOTIFICATIONS_BATCH = 0xA2
-TYPE_WEATHER_BATCH = 0xA3
-TYPE_GRID_BATCH = 0xA4
-TYPE_RADIATION_BATCH = 0xA5
-TYPE_FIRMWARE_UPDATE_BATCH = 0xA6
 
 
 class RedisBackedClient(dict):
@@ -722,26 +719,15 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_cache, notifications_cache, weather_cache = await asyncio.gather(
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                alerts_payload_hex, notifications_cache, weather_cache = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", default_response=""),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={}),
                 )
-                alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
-                alerts = bytearray()
-                for rid, flags16 in alerts_cache.items():
-                    alerts += struct.pack("<H H", int(rid), flags16)
-                alerts_hash_actual = struct.pack("<H", 0)
-                alerts_hash_initial = struct.pack("<H", 0)
-                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                alerts_payload = bytes.fromhex(alerts_payload_hex) if alerts_payload_hex else b""
                 await websocket.send(alerts_payload)
-                client["alerts_hash"] = alerts_hash_initial
-                client["alerts_fusion"] = alerts_cache
                 client["notifications_fusion"] = notifications_cache
                 client["weather_fusion"] = weather_cache
-                logger.info(
-                    f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}"
-                )
                 logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
 
                 weather_header = struct.pack("<B", TYPE_WEATHER_BATCH)
@@ -786,40 +772,10 @@ async def alerts_data_fusion(
 
                                 match channel:
                                     case "websocket:v1:fusion:alerts:updated":
-                                        new_state, old_state = await asyncio.gather(
-                                            get_redis_data(
-                                                logger, redis_client, "websocket:v1:fusion:alerts", default_response={}
-                                            ),
-                                            get_redis_data(
-                                                logger,
-                                                redis_client,
-                                                "websocket:v1:fusion:alerts_previous",
-                                                default_response={},
-                                            ),
-                                        )
-
-                                        changed_region_ids = find_changed_regions(old_state, new_state)
-                                        empty_region_ids = find_empty_regions(old_state, new_state)
-
-                                        logger.debug(
-                                            f"{client_ip}:{chip_id} <<< changed_region_ids: {changed_region_ids}"
-                                        )
-                                        logger.debug(f"{client_ip}:{chip_id} <<< empty_region_ids: {empty_region_ids}")
-
-                                        header = struct.pack("<B", TYPE_ALERTS_BATCH)
-                                        if changed_region_ids or empty_region_ids:
-                                            alerts = make_alert_batch(changed_region_ids + empty_region_ids, new_state)
-                                            alerts_hash_actual = struct.pack("<H", calc_body_alerts_hash(alerts))
-                                            payload = header + alerts_hash_actual + client["alerts_hash"] + alerts
-                                        else:
-                                            payload = b""
-                                        logger.debug(
-                                            f"{client_ip}:{chip_id} <<< alert hashes: actual {alerts_hash_actual.hex()} | previous {client['alerts_hash'].hex()}"
-                                        )
+                                        payload_hex = await get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", default_response="")
+                                        payload = bytes.fromhex(payload_hex) if payload_hex else b""
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
-                                        client["alerts_fusion"] = new_state
-                                        client["alerts_hash"] = alerts_hash_actual
                                     case "websocket:v1:fusion:weather:updated":
                                         state = await get_redis_data(
                                             logger, redis_client, "websocket:v1:fusion:weather", default_response={}

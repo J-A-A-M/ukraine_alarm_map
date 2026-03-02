@@ -1075,7 +1075,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
 
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts")
                 await asyncio.gather(
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", alerts_payload),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", alerts_payload.hex()),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", old_state),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", new_state),
                 )
