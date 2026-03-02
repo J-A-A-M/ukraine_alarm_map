@@ -34,10 +34,10 @@ on:
         type: boolean
         default: false
         description: SVG Generator
-      redeploy_update_server:
+      redeploy_device_map:
         type: boolean
         default: false
-        description: Update server (bin list)
+        description: Device Map
       redeploy_web_server:
         type: boolean
         default: false
@@ -197,7 +197,7 @@ jobs:
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Device Map
-            if: ${{ inputs.redeploy_update_server }}
+            if: ${{ inputs.redeploy_device_map }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
