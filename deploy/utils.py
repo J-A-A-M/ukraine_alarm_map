@@ -270,6 +270,35 @@ async def set_redis_data(logger, redis_client, key, value, expiry=None):
         logger.error(f"Error storing data in Redis for key {key}: {e}")
 
 
+class Debouncer:
+    """Debounce-механізм для asyncio: виконує корутину лише після паузи без нових викликів."""
+
+    def __init__(self, delay: float):
+        self.delay = delay
+        self._task: asyncio.Task | None = None
+
+    async def call(self, coro):
+        """Скасовує попередній pending-виклик і планує новий через self.delay секунд."""
+        if self._task and not self._task.done():
+            self._task.cancel()
+
+        async def _run():
+            await asyncio.sleep(self.delay)
+            await coro
+
+        self._task = asyncio.create_task(_run())
+
+    async def wait(self):
+        """Чекає завершення поточного pending-виклику (для run_once)."""
+        if self._task and not self._task.done():
+            await self._task
+
+    def cancel(self):
+        """Скасовує pending-виклик без очікування."""
+        if self._task and not self._task.done():
+            self._task.cancel()
+
+
 async def run_with_restart(logger, func, redis_client, func_name, restart_delay=5):
     while True:
         try:
