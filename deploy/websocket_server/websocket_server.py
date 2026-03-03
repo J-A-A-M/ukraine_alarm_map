@@ -799,9 +799,7 @@ async def alerts_data_fusion(
                                             default_response="",
                                         )
                                         if not payload_hex:
-                                            logger.warning(
-                                                f"{client_ip}:{chip_id} !!! empty alerts payload, skip send"
-                                            )
+                                            logger.warning(f"{client_ip}:{chip_id} !!! empty alerts payload, skip send")
                                             continue
                                         try:
                                             payload = bytes.fromhex(payload_hex)
