@@ -1352,7 +1352,10 @@ async def main():
             ),
             asyncio.create_task(
                 run_with_restart(
-                    logger, update_websocket_fusion_v1_openweathermap, redis_client, "update_websocket_fusion_v1_openweathermap"
+                    logger,
+                    update_websocket_fusion_v1_openweathermap,
+                    redis_client,
+                    "update_websocket_fusion_v1_openweathermap",
                 )
             ),
             asyncio.create_task(

@@ -73,6 +73,7 @@ D_BY_ID = {v["regionId"]: v["regionName"] for v in KYIV_DISTRICTS.values()}
 
 # ─── Будівники даних ──────────────────────────────────────────────────────────
 
+
 def make_region_record(region_id, region_type, region_name, region_eng_name, alert_types):
     """Запис для alerts:api:data."""
     now = get_current_datetime()
@@ -83,8 +84,7 @@ def make_region_record(region_id, region_type, region_name, region_eng_name, ale
         "regionEngName": region_eng_name,
         "lastUpdate": now,
         "activeAlerts": [
-            {"regionId": region_id, "regionType": region_type, "type": t, "lastUpdate": now}
-            for t in alert_types
+            {"regionId": region_id, "regionType": region_type, "type": t, "lastUpdate": now} for t in alert_types
         ],
     }
 
@@ -124,46 +124,39 @@ SIMULATION_STEPS = [
     [
         ("Бориспільський район", ["AIR", "ARTILLERY"], "alert"),
     ],
-
     # Крок 2: Бориспільський + Броварський тривоги + нотіфікація DRONE
     [
         ("Бориспільський район", ["AIR", "ARTILLERY"], "alert"),
         ("Броварський район", ["AIR", "ARTILLERY"], "alert"),
         ("Броварський район", ["DRONE"], "notification"),
     ],
-
     # Крок 3: Тільки Броварський тривога + ROCKET нотіфікація
     [
         ("Броварський район", ["AIR", "ARTILLERY"], "alert"),
         ("Броварський район", ["ROCKET"], "notification"),
     ],
-
     # Крок 4: Бучанський + Вишгородський тривоги + KAB нотіфікація
     [
         ("Бучанський район", ["AIR", "ARTILLERY"], "alert"),
         ("Вишгородський район", ["AIR", "ARTILLERY"], "alert"),
         ("Бучанський район", ["KAB"], "notification"),
     ],
-
     # Крок 5: Бучанський тривога + кілька нотіфікацій
     [
         ("Бучанський район", ["AIR", "ARTILLERY"], "alert"),
         ("Бучанський район", ["DRONE", "ROCKET"], "notification"),
         ("Вишгородський район", ["DRONE"], "notification"),
     ],
-
     # Крок 6: Обухівський + Білоцерківський тривоги
     [
         ("Обухівський район", ["AIR", "ARTILLERY"], "alert"),
         ("Білоцерківський район", ["AIR", "ARTILLERY"], "alert"),
     ],
-
     # Крок 7: Фастівський тривога + EXPLOSION нотіфікація
     [
         ("Фастівський район", ["AIR", "ARTILLERY"], "alert"),
         ("Фастівський район", ["EXPLOSION"], "notification"),
     ],
-
     # Крок 8: Всі райони тривоги + масові нотіфікації
     [
         ("Бориспільський район", ["AIR"], "alert"),
@@ -177,13 +170,13 @@ SIMULATION_STEPS = [
         ("Броварський район", ["ROCKET"], "notification"),
         ("Бучанський район", ["RECON_DRONE"], "notification"),
     ],
-
     # Крок 9: Відбій — нічого немає
     [],
 ]
 
 
 # ─── Виконання кроку ─────────────────────────────────────────────────────────
+
 
 async def run_step(redis_client, step_idx):
     """Виконати один крок симуляції."""
@@ -235,7 +228,9 @@ async def run_step(redis_client, step_idx):
 
     # ── Нотіфікації ──
     if notif_items:
-        base_id = await get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", default_response=0)
+        base_id = await get_redis_data(
+            logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", default_response=0
+        )
         if base_id is None:
             base_id = 0
         base_id = int(base_id)
@@ -248,13 +243,14 @@ async def run_step(redis_client, step_idx):
 
         await asyncio.gather(
             set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", etryvoga_data),
-            #set_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", max_id),
+            # set_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", max_id),
         )
         await redis_client.publish("alerts:etryvoga:updated", "1")
         logger.debug("📢 Опубліковано alerts:etryvoga:updated")
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
+
 
 async def main():
     """Головна функція симулятора."""

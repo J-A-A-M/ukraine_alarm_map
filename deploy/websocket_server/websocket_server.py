@@ -735,8 +735,10 @@ async def alerts_data_fusion(
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
                 alerts_cache, weather_cache, releases = await asyncio.gather(
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}),
-                    get_redis_data(logger, redis_client, "releases:beta", default_response=[])
+                    get_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
+                    ),
+                    get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
                 )
 
                 if alerts_cache:
@@ -771,7 +773,7 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     "websocket:v1:fusion:openweathermap:updated",
                     "websocket:v1:fusion:etryvoga:updated",
-                    #"releases:production:updated",
+                    # "releases:production:updated",
                     "releases:beta:updated",
                 ]
 
@@ -807,7 +809,10 @@ async def alerts_data_fusion(
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
                                     case "websocket:v1:fusion:openweathermap:updated":
                                         state = await get_redis_data(
-                                            logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:openweathermap:data",
+                                            default_response={},
                                         )
                                         header = struct.pack("<B", TYPE_WEATHER_BATCH)
                                         weather = make_weather_batch(state)
@@ -1243,7 +1248,7 @@ async def echo(websocket: ServerConnection):
             # "weather_fusion": {},
             # "notifications_fusion": {},
             "initial": True,  # for v5
-            #"alerts_hash": 0,  # for v5
+            # "alerts_hash": 0,  # for v5
             "city": geo_ip_data["city"],
             "region": geo_ip_data["region"],
             "country": geo_ip_data["country"],
