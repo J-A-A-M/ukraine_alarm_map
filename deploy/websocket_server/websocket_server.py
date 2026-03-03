@@ -801,9 +801,15 @@ async def alerts_data_fusion(
                                         if not payload_hex:
                                             logger.warning(f"{client_ip}:{chip_id} !!! empty alerts payload, skip send")
                                             continue
+                                        if not isinstance(payload_hex, str):
+                                            logger.error(
+                                                f"{client_ip}:{chip_id} !!! invalid alerts payload type "
+                                                f"{type(payload_hex).__name__}, skip send"
+                                            )
+                                            continue
                                         try:
                                             payload = bytes.fromhex(payload_hex)
-                                        except ValueError:
+                                        except (TypeError, ValueError):
                                             logger.error(
                                                 f"{client_ip}:{chip_id} !!! invalid alerts payload hex, skip send"
                                             )
