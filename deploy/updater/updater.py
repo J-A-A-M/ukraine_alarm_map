@@ -22,6 +22,7 @@ try:
         Debouncer,
         Throttler,
         TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -38,6 +39,7 @@ except ImportError:
         Debouncer,
         Throttler,
         TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -69,6 +71,7 @@ shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
 sink_local_files = os.environ.get("SINK_LOCAL_FILES", "True").lower() == "true"
 fusion_alerts_debounce = float(os.environ.get("FUSION_ALERTS_DEBOUNCE", 1))
 fusion_alerts_throttle = float(os.environ.get("FUSION_ALERTS_THROTTLE", 2))
+fusion_etryvoga_throttle = float(os.environ.get("FUSION_ETRYVOGA_THROTTLE", 0))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -1018,7 +1021,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             alerts_cache, reasons_cache, old_state = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
-                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
+                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response={}),
             )
 
             reasons = reasons_cache.get("reasons", [])
@@ -1067,23 +1070,21 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
 
                 alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_previous + alerts
 
-                logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts")
+                logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts:data")
                 await asyncio.gather(
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_payload", alerts_payload.hex()),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", old_state),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", new_state),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:payload:alerts", alerts_payload.hex()),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", new_state),
                 )
                 await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
-                logger.info("✅ websocket:v1:fusion:alerts збережено")
+                logger.info("✅ websocket:v1:fusion:alerts:data збережено")
             else:
-                logger.info("ℹ️  websocket:v1:fusion:alerts не змінився")
+                logger.info("ℹ️  websocket:v1:fusion:alerts:data не змінився")
 
         except Exception as e:
             logger.error(f"❌ process_alerts error: {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
     # Основний цикл очікування повідомлень з Pub/Sub (з debounce)
-    debouncer = Debouncer(fusion_alerts_debounce)
     throttler = Throttler(fusion_alerts_throttle)
 
     try:
@@ -1157,8 +1158,17 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
                     del data[regionId]
             logger.debug(f"⚠️ ETRYVOGA FUSION DATA: {data}")
             if data:
+                header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
+                notifications = bytearray()
+                for rid in data.keys():
+                    flags16 = data.get(rid, 0)
+                    notifications += struct.pack("<H H", int(rid), flags16)
+                notifications_payload = header + notifications
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:etryvoga:data")
                 await asyncio.gather(
+                    set_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:payload:notifications", notifications_payload.hex()
+                    ),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", data),
                     set_redis_data(
                         logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", first_processed_id
@@ -1174,15 +1184,18 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
     # Основний цикл очікування повідомлень з Pub/Sub
+    throttler = Throttler(fusion_etryvoga_throttle)
+
     try:
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
-                await process_etryvoga()
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_etryvoga_throttle}s")
+                await throttler.call(process_etryvoga)
 
             if run_once:
+                await throttler.wait()
                 break
 
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
@@ -1191,12 +1204,13 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
+        throttler.cancel()
         await pubsub.unsubscribe(*channels)
         await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
-async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
+async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
     channels = ["weather:openweathermap:updated"]
@@ -1240,10 +1254,10 @@ async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
                 data[region["region"]["regionId"]] = await encode_temperature_to_mask(region.get("temp"))
 
             logger.debug(f"⚠️ WEATHER FUSION DATA: {data}")
-            logger.debug("💾 Зберігаємо websocket:v1:fusion:weather")
-            await set_redis_data(logger, redis_client, "websocket:v1:fusion:weather", data)
-            await redis_client.publish("websocket:v1:fusion:weather:updated", "1")
-            logger.info("✅ websocket:v1:fusion:weather збережено")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:openweathermap:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:openweathermap:data", data)
+            await redis_client.publish("websocket:v1:fusion:openweathermap:updated", "1")
+            logger.info("✅ websocket:v1:fusion:openweathermap:data збережено")
         except Exception as e:
             logger.error(f"❌ process_weather error: {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
@@ -1263,7 +1277,7 @@ async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
 
     except Exception as e:
-        logger.error(f"❌ update_websocket_fusion_v1_weather {str(e)}")
+        logger.error(f"❌ update_websocket_fusion_v1_openweathermap {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
@@ -1338,7 +1352,7 @@ async def main():
             ),
             asyncio.create_task(
                 run_with_restart(
-                    logger, update_websocket_fusion_v1_weather, redis_client, "update_websocket_fusion_v1_weather"
+                    logger, update_websocket_fusion_v1_openweathermap, redis_client, "update_websocket_fusion_v1_openweathermap"
                 )
             ),
             asyncio.create_task(

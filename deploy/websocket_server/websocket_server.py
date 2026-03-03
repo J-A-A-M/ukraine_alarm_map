@@ -145,11 +145,11 @@ class RedisBackedClient(dict):
                 # Серіалізуємо дані клієнта в JSON
                 client_data = {k: v for k, v in self.items()}
                 # Конвертуємо байтові хеші в hex для JSON серіалізації
-                if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], (bytes, int)):
-                    if isinstance(client_data["alerts_hash"], bytes):
-                        client_data["alerts_hash"] = client_data["alerts_hash"].hex()
-                    else:
-                        client_data["alerts_hash"] = client_data["alerts_hash"]
+                # if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], (bytes, int)):
+                #     if isinstance(client_data["alerts_hash"], bytes):
+                #         client_data["alerts_hash"] = client_data["alerts_hash"].hex()
+                #     else:
+                #         client_data["alerts_hash"] = client_data["alerts_hash"]
 
                 # Очищаємо дані від некоректних UTF-8 символів (surrogates)
                 client_data = sanitize_for_json(client_data)
@@ -338,11 +338,11 @@ async def load_client_from_redis(client_key: str, redis_client) -> dict | None:
         if data:
             client_data = json.loads(data)
             # Конвертуємо hex хеш назад в int
-            if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], str):
-                try:
-                    client_data["alerts_hash"] = int(client_data["alerts_hash"], 16)
-                except (ValueError, TypeError):
-                    client_data["alerts_hash"] = 0
+            # if "alerts_hash" in client_data and isinstance(client_data["alerts_hash"], str):
+            #     try:
+            #         client_data["alerts_hash"] = int(client_data["alerts_hash"], 16)
+            #     except (ValueError, TypeError):
+            #         client_data["alerts_hash"] = 0
             return client_data
         return None
     except Exception as e:
@@ -733,43 +733,45 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_cache, notifications_cache, weather_cache = await asyncio.gather(
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", default_response={}),
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:weather", default_response={}),
+                alerts_cache, weather_cache, releases = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}),
+                    get_redis_data(logger, redis_client, "releases:beta", default_response=[])
                 )
-                alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
-                alerts = bytearray()
-                for rid, flags16 in alerts_cache.items():
-                    alerts += struct.pack("<H H", int(rid), flags16)
-                alerts_hash_actual = struct.pack("<H", 0)
-                alerts_hash_initial = struct.pack("<H", 0)
-                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
-                await websocket.send(alerts_payload)
-                client["notifications_fusion"] = notifications_cache
-                client["weather_fusion"] = weather_cache
-                logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
 
-                weather_header = struct.pack("<B", TYPE_WEATHER_BATCH)
-                weather = bytearray()
-                for rid, flags8 in weather_cache.items():
-                    weather += struct.pack("<H B", int(rid), int(flags8) & 0xFF)
-                weather_payload = weather_header + weather
-                await websocket.send(weather_payload)
-                logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
+                if alerts_cache:
+                    alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
+                    alerts = bytearray()
+                    for rid, flags16 in alerts_cache.items():
+                        alerts += struct.pack("<H H", int(rid), flags16)
+                    alerts_hash_actual = struct.pack("<H", 0)
+                    alerts_hash_initial = struct.pack("<H", 0)
+                    alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                    await websocket.send(alerts_payload)
+                    logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
 
-                releases = await get_redis_data(logger, redis_client, "releases:beta", default_response=[])
-                firmware_payload = make_firmware_batch(releases)
-                await websocket.send(firmware_payload)
-                logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
+                if weather_cache:
+                    weather_header = struct.pack("<B", TYPE_WEATHER_BATCH)
+                    weather = bytearray()
+                    for rid, flags8 in weather_cache.items():
+                        weather += struct.pack("<H B", int(rid), int(flags8) & 0xFF)
+                    weather_payload = weather_header + weather
+                    await websocket.send(weather_payload)
+                    logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
+
+                if releases:
+                    firmware_payload = make_firmware_batch(releases)
+                    await websocket.send(firmware_payload)
+                    logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
+
                 client["initial"] = False
 
                 # Мапінг каналів
                 channels = [
                     "websocket:v1:fusion:alerts:updated",
-                    "websocket:v1:fusion:weather:updated",
+                    "websocket:v1:fusion:openweathermap:updated",
                     "websocket:v1:fusion:etryvoga:updated",
-                    # "releases:production:updated",
+                    #"releases:production:updated",
                     "releases:beta:updated",
                 ]
 
@@ -792,53 +794,38 @@ async def alerts_data_fusion(
 
                                 match channel:
                                     case "websocket:v1:fusion:alerts:updated":
-                                        payload_hex = await get_redis_data(
+                                        payload = await get_hex_payload(
                                             logger,
                                             redis_client,
-                                            "websocket:v1:fusion:alerts_payload",
-                                            default_response="",
+                                            "websocket:v1:fusion:payload:alerts",
+                                            client_ip,
+                                            chip_id,
                                         )
-                                        if not payload_hex:
-                                            logger.warning(f"{client_ip}:{chip_id} !!! empty alerts payload, skip send")
-                                            continue
-                                        if not isinstance(payload_hex, str):
-                                            logger.error(
-                                                f"{client_ip}:{chip_id} !!! invalid alerts payload type "
-                                                f"{type(payload_hex).__name__}, skip send"
-                                            )
-                                            continue
-                                        try:
-                                            payload = bytes.fromhex(payload_hex)
-                                        except (TypeError, ValueError):
-                                            logger.error(
-                                                f"{client_ip}:{chip_id} !!! invalid alerts payload hex, skip send"
-                                            )
+                                        if payload is False:
                                             continue
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
-                                    case "websocket:v1:fusion:weather:updated":
+                                    case "websocket:v1:fusion:openweathermap:updated":
                                         state = await get_redis_data(
-                                            logger, redis_client, "websocket:v1:fusion:weather", default_response={}
+                                            logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
                                         )
                                         header = struct.pack("<B", TYPE_WEATHER_BATCH)
                                         weather = make_weather_batch(state)
                                         payload = header + weather
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new weather packet")
-                                        client["weather_fusion"] = state
                                     case "websocket:v1:fusion:etryvoga:updated":
-                                        state = await get_redis_data(
+                                        payload = await get_hex_payload(
                                             logger,
                                             redis_client,
-                                            "websocket:v1:fusion:etryvoga:data",
-                                            default_response={},
+                                            "websocket:v1:fusion:payload:notifications",
+                                            client_ip,
+                                            chip_id,
                                         )
-                                        header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
-                                        notifications = make_alert_batch(state.keys(), state)
-                                        payload = header + notifications
+                                        if payload is False:
+                                            continue
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
-                                        client["notifications_fusion"] = state
                                     # case "releases:production:updated":
                                     #     releases = await get_redis_data(
                                     #         logger, redis_client, "releases:production", default_response=[]
@@ -1252,11 +1239,11 @@ async def echo(websocket: ServerConnection):
             "firmware": "unknown",
             "chip_id": "unknown",
             "latency": -1,
-            "alerts_fusion": {},
-            "weather_fusion": {},
-            "notifications_fusion": {},
+            # "alerts_fusion": {},
+            # "weather_fusion": {},
+            # "notifications_fusion": {},
             "initial": True,  # for v5
-            "alerts_hash": 0,  # for v5
+            #"alerts_hash": 0,  # for v5
             "city": geo_ip_data["city"],
             "region": geo_ip_data["region"],
             "country": geo_ip_data["country"],
@@ -1421,263 +1408,6 @@ async def echo(websocket: ServerConnection):
         logger.warning(f"{client_ip}:{chip_id} !!! end")
 
 
-# async def update_legacy_data(shared_data, redis_client):
-#     """
-#     Неблокуюча обробка Redis Pub/Sub повідомлень з підтримкою паралельної обробки.
-#     Кожне повідомлення обробляється в окремій задачі, що запобігає блокуванню головного циклу.
-#     """
-#     # Словник конфігурацій для кожного типу даних
-#     configs = {
-#         "websocket_v1_alerts": {
-#             "redis_key": "websocket:v1:legacy:alerts",
-#             "attr_name": "alerts_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v2_alerts": {
-#             "redis_key": "websocket:v2:legacy:alerts",
-#             "attr_name": "alerts_v2",
-#             "default_response": [],
-#         },
-#         "websocket_v1_weather": {
-#             "redis_key": "websocket:v1:legacy:weather",
-#             "attr_name": "weather_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v1_explosions": {
-#             "redis_key": "websocket:v1:legacy:explosions",
-#             "attr_name": "explosions_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v1_missiles": {
-#             "redis_key": "websocket:v1:legacy:missiles",
-#             "attr_name": "missiles_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v2_missiles": {
-#             "redis_key": "websocket:v2:legacy:missiles",
-#             "attr_name": "missiles_v2",
-#             "default_response": [],
-#         },
-#         "websocket_v1_drones": {
-#             "redis_key": "websocket:v1:legacy:drones",
-#             "attr_name": "drones_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v2_drones": {
-#             "redis_key": "websocket:v2:legacy:drones",
-#             "attr_name": "drones_v2",
-#             "default_response": [],
-#         },
-#         "websocket_v1_kabs": {"redis_key": "websocket:v1:legacy:kabs", "attr_name": "kabs_v1", "default_response": []},
-#         "websocket_v2_kabs": {"redis_key": "websocket:v2:legacy:kabs", "attr_name": "kabs_v2", "default_response": []},
-#         "websocket_v1_energy": {
-#             "redis_key": "websocket:v1:legacy:energy",
-#             "attr_name": "energy_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v1_radiation": {
-#             "redis_key": "websocket:v1:legacy:radiation",
-#             "attr_name": "radiation_v1",
-#             "default_response": [],
-#         },
-#         "websocket_v1_global_notifications": {
-#             "redis_key": "websocket:v1:legacy:global_notifications",
-#             "attr_name": "global_notifications_v1",
-#             "default_response": [],
-#         },
-#         "releases_production": {"redis_key": "releases:production", "attr_name": "bins", "default_response": []},
-#         "releases_beta": {"redis_key": "releases:beta", "attr_name": "test_bins", "default_response": []},
-#         "s3_bins": {"redis_key": "s3_bins", "attr_name": "s3_bins", "default_response": []},
-#         "s3_test_bins": {"redis_key": "s3_test_bins", "attr_name": "s3_test_bins", "default_response": []},
-#         "c3_bins": {"redis_key": "c3_bins", "attr_name": "c3_bins", "default_response": []},
-#         "c3_test_bins": {"redis_key": "c3_test_bins", "attr_name": "c3_test_bins", "default_response": []},
-#     }
-
-#     # Мапінг каналів до конфігурацій
-#     channel_to_config = {
-#         "websocket:v1:legacy:alerts:updated": "websocket_v1_alerts",
-#         "websocket:v2:legacy:alerts:updated": "websocket_v2_alerts",
-#         "websocket:v1:legacy:weather:updated": "websocket_v1_weather",
-#         "websocket:v1:legacy:explosions:updated": "websocket_v1_explosions",
-#         "websocket:v1:legacy:missiles:updated": "websocket_v1_missiles",
-#         "websocket:v2:legacy:missiles:updated": "websocket_v2_missiles",
-#         "websocket:v1:legacy:drones:updated": "websocket_v1_drones",
-#         "websocket:v2:legacy:drones:updated": "websocket_v2_drones",
-#         "websocket:v1:legacy:kabs:updated": "websocket_v1_kabs",
-#         "websocket:v2:legacy:kabs:updated": "websocket_v2_kabs",
-#         "websocket:v1:legacy:energy:updated": "websocket_v1_energy",
-#         "websocket:v1:legacy:radiation:updated": "websocket_v1_radiation",
-#         "websocket:v1:legacy:global_notifications:updated": "websocket_v1_global_notifications",
-#         "releases:production:updated": "releases_production",
-#         "releases:beta:updated": "releases_beta",
-#         "s3_bins:updated": "s3_bins",
-#         "s3_test_bins:updated": "s3_test_bins",
-#         "c3_bins:updated": "c3_bins",
-#         "c3_test_bins:updated": "c3_test_bins",
-#     }
-
-#     # Створюємо lock для кожної конфігурації
-#     locks = {key: asyncio.Lock() for key in configs.keys()}
-
-#     async def process_data(config_key: str):
-#         """Універсальна функція обробки оновлень даних з синхронізацією"""
-#         config = configs[config_key]
-#         lock = locks[config_key]
-
-#         try:
-#             data = await get_redis_data(
-#                 logger, redis_client, config["redis_key"], default_response=config["default_response"]
-#             )
-#             async with lock:
-#                 current_value = getattr(shared_data, config["attr_name"])
-#                 if data != current_value:
-#                     setattr(shared_data, config["attr_name"], data)
-#                     logger.info(f"⚠️ {config['attr_name']} data: {data}")
-#                     logger.info(f"✅ {config['redis_key']} збережено")
-#         except Exception as e:
-#             logger.error(f"❌ {config['redis_key']} error: {str(e)}")
-#             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-
-#     # Створюємо Pub/Sub клієнт та підписуємося на всі канали
-#     pubsub = redis_client.pubsub()
-#     channels = list(channel_to_config.keys())
-#     await pubsub.subscribe(*channels)
-#     logger.info(f"📡 Підписано на {len(channels)} каналів")
-
-#     # Основний цикл очікування повідомлень з Pub/Sub
-#     try:
-#         # Ініціалізуємо всі дані при старті
-#         for config_key in configs.keys():
-#             asyncio.create_task(process_data(config_key))
-
-#         while True:
-#             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-#             if message and message["type"] == "message":
-#                 channel = message["channel"]
-#                 # Декодуємо канал, якщо це bytes
-#                 if isinstance(channel, bytes):
-#                     channel = channel.decode("utf-8")
-
-#                 logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
-
-#                 # Створюємо задачу для неблокуючої обробки
-#                 config_key = channel_to_config.get(channel)
-#                 if config_key:
-#                     asyncio.create_task(process_data(config_key))
-#                 else:
-#                     logger.warning(f"Невідомий канал: {channel}")
-
-#             await asyncio.sleep(0.01)  # 10ms замість 100ms
-
-#     except Exception as e:
-#         logger.error(f"❌ update_legacy_data: {str(e)}")
-#         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-#     finally:
-#         await pubsub.unsubscribe(*channels)
-#         await pubsub.aclose()
-#         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
-
-
-# async def update_fusion_data(shared_data, redis_client):
-#     """
-#     Неблокуюча обробка Redis Pub/Sub повідомлень з підтримкою паралельної обробки.
-#     Кожне повідомлення обробляється в окремій задачі, що запобігає блокуванню головного циклу.
-#     """
-
-#     # Мапінг каналів до конфігурацій
-#     channel_to_config = {
-#         "websocket:v1:fusion:alerts:updated": "websocket_fusion_v1_alerts",
-#         "websocket:v1:fusion:weather:updated": "websocket_fusion_v1_weather",
-#         "websocket:v1:fusion:etryvoga:updated": "websocket_fusion_v1_etryvoga",
-#     }
-
-#     # Словник конфігурацій для кожного типу даних
-#     configs = {
-#         "websocket_fusion_v1_alerts": {
-#             "redis_key": "websocket:v1:fusion:alerts",
-#             "attr_name": "alerts_fusion_actual",
-#             "attr_previous": "alerts_fusion_previous",  # для збереження попереднього значення
-#             "default_response": {},
-#             "copy_previous": True,  # флаг для копіювання попереднього значення
-#         },
-#         "websocket_fusion_v1_etryvoga": {
-#             "redis_key": "websocket:v1:fusion:etryvoga:data",
-#             "attr_name": "notifications_fusion",
-#             "default_response": {},
-#             "copy_previous": False,
-#         },
-#         "websocket_fusion_v1_weather": {
-#             "redis_key": "websocket:v1:fusion:weather",
-#             "attr_name": "weather_fusion",
-#             "default_response": {},
-#             "copy_previous": False,
-#         },
-#     }
-
-#     # Створюємо lock для кожної конфігурації
-#     locks = {key: asyncio.Lock() for key in configs.keys()}
-
-#     async def process_fusion_data(config_key: str):
-#         """Універсальна функція обробки оновлень fusion даних з синхронізацією"""
-#         config = configs[config_key]
-#         lock = locks[config_key]
-
-#         try:
-#             data = await get_redis_data(
-#                 logger, redis_client, config["redis_key"], default_response=config["default_response"]
-#             )
-#             async with lock:
-#                 current_value = getattr(shared_data, config["attr_name"])
-#                 if data != current_value:
-#                     # Зберігаємо попереднє значення якщо потрібно
-#                     if config.get("copy_previous"):
-#                         setattr(shared_data, config["attr_previous"], copy(current_value))
-
-#                     setattr(shared_data, config["attr_name"], data)
-#                     logger.info(f"⚠️ {config['attr_name']} data: {data}")
-#                     logger.info(f"✅ {config['redis_key']} збережено")
-#         except Exception as e:
-#             logger.error(f"❌ {config['redis_key']} error: {str(e)}")
-#             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-
-#     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
-#     pubsub = redis_client.pubsub()
-#     channels = list(channel_to_config.keys())
-#     await pubsub.subscribe(*channels)
-#     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
-
-#     # Основний цикл очікування повідомлень з Pub/Sub
-#     try:
-#         # Ініціалізуємо всі дані при старті
-#         for config_key in configs.keys():
-#             asyncio.create_task(process_fusion_data(config_key))
-
-#         while True:
-#             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-#             if message and message["type"] == "message":
-#                 channel = message["channel"]
-#                 # Декодуємо канал, якщо це bytes
-#                 if isinstance(channel, bytes):
-#                     channel = channel.decode("utf-8")
-
-#                 logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
-
-#                 # Створюємо задачу для неблокуючої обробки
-#                 config_key = channel_to_config.get(channel)
-#                 if config_key:
-#                     asyncio.create_task(process_fusion_data(config_key))
-#                 else:
-#                     logger.warning(f"Невідомий канал: {channel}")
-
-#     except Exception as e:
-#         logger.error(f"❌ update_fusion_data: {str(e)}")
-#         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-#     finally:
-#         await pubsub.unsubscribe(*channels)
-#         await pubsub.aclose()
-#         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
-
-
 async def print_clients(shared_data, redis_client):
     while True:
         try:
@@ -1752,6 +1482,22 @@ def make_firmware_batch(releases: list) -> bytes:
         seen.add(key)
         records += struct.pack("<BBBH", major, minor, patch, beta)
     return header + records
+
+
+async def get_hex_payload(logger, redis_client, redis_key: str, client_ip: str = "", chip_id: str = "") -> bytes | bool:
+    prefix = f"{client_ip}:{chip_id} " if client_ip or chip_id else ""
+    payload_hex = await get_redis_data(logger, redis_client, redis_key, default_response="")
+    if not payload_hex:
+        logger.warning(f"{prefix}!!! empty hex payload for {redis_key}, skip send")
+        return False
+    if not isinstance(payload_hex, str):
+        logger.error(f"{prefix}!!! invalid hex payload type {type(payload_hex).__name__} for {redis_key}, skip send")
+        return False
+    try:
+        return bytes.fromhex(payload_hex)
+    except (TypeError, ValueError):
+        logger.error(f"{prefix}!!! invalid hex payload value for {redis_key}, skip send")
+        return False
 
 
 async def process_request(connection: ServerConnection, request: Request):
