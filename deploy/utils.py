@@ -284,14 +284,14 @@ class Debouncer:
         self.delay = delay
         self._task: asyncio.Task | None = None
 
-    async def call(self, coro):
+    async def call(self, coro_func):
         """Скасовує попередній pending-виклик і планує новий через self.delay секунд."""
         if self._task and not self._task.done():
             self._task.cancel()
 
         async def _run():
             await asyncio.sleep(self.delay)
-            await coro
+            await coro_func()
 
         self._task = asyncio.create_task(_run())
 

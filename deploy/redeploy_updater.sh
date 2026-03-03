@@ -4,7 +4,7 @@
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
-UPDATER_PERIOD=1
+FUSION_ALERTS_DEBOUNCE=1
 LOGGING="INFO"
 
 # Check for arguments
@@ -22,8 +22,8 @@ while [[ $# -gt 0 ]]; do
             REDIS_DB="$2"
             shift 2
             ;;
-        -p|--etryvoga-period)
-            UPDATER_PERIOD="$2"
+        -fa|--fusion-alerts-debounce)
+            FUSION_ALERTS_DEBOUNCE="$2"
             shift 2
             ;;
         -l|--logging)
@@ -42,7 +42,7 @@ echo "UPDATER"
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
-echo "UPDATER_PERIOD: $UPDATER_PERIOD"
+echo "FUSION_ALERTS_DEBOUNCE: $FUSION_ALERTS_DEBOUNCE"
 echo "LOGGING: $LOGGING"
 
 
@@ -67,7 +67,7 @@ docker run --name map_updater \
     --network=jaam \
     -d \
     -v /shared_data:/shared_data \
-    --env UPDATER_PERIOD="$UPDATER_PERIOD" \
+    --env FUSION_ALERTS_DEBOUNCE="$FUSION_ALERTS_DEBOUNCE" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \

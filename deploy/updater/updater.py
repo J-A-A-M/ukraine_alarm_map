@@ -62,8 +62,6 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-update_period = int(os.environ.get("UPDATE_PERIOD", 1))
-update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
 shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
 sink_local_files = os.environ.get("SINK_LOCAL_FILES", "True").lower() == "true"
@@ -1095,7 +1093,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             if message and message["type"] == "message":
                 channel = message["channel"]
                 logger.info(f"📬 Отримано повідомлення з каналу: {channel}, debounce {fusion_alerts_debounce}s")
-                await debouncer.call(process_alerts())
+                await debouncer.call(process_alerts)
 
             if run_once:
                 await debouncer.wait()
