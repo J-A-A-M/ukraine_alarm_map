@@ -1087,6 +1087,8 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
     throttler = Throttler(fusion_alerts_throttle)
 
     try:
+        await process_alerts()  # початковий запуск після підписки (на випадок пропущених подій при рестарті)
+
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
@@ -1097,8 +1099,6 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             if run_once:
                 await throttler.wait()
                 break
-
-            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
 
     except Exception as e:
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
