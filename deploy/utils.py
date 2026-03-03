@@ -282,26 +282,80 @@ class Debouncer:
 
     def __init__(self, delay: float):
         self.delay = delay
-        self._task: asyncio.Task | None = None
+        self._delay_task: asyncio.Task | None = None
+        self._run_task: asyncio.Task | None = None
 
     async def call(self, coro_func):
         """Скасовує попередній pending-виклик і планує новий через self.delay секунд."""
+        if self._delay_task and not self._delay_task.done():
+            self._delay_task.cancel()
+
+        async def _run_after_delay():
+            try:
+                await asyncio.sleep(self.delay)
+            except asyncio.CancelledError:
+                return
+            if self._run_task and not self._run_task.done():
+                await self._run_task
+            self._run_task = asyncio.create_task(coro_func())
+            await self._run_task
+
+        self._delay_task = asyncio.create_task(_run_after_delay())
+
+    async def wait(self):
+        """Чекає завершення поточного pending-виклику (для run_once)."""
+        if self._delay_task and not self._delay_task.done():
+            await self._delay_task
+        if self._run_task and not self._run_task.done():
+            await self._run_task
+
+    def cancel(self):
+        """Скасовує pending-виклик без очікування."""
+        if self._delay_task and not self._delay_task.done():
+            self._delay_task.cancel()
+
+
+class Throttler:
+    """Throttle-механізм для asyncio: при щільному потоку гарантовано виконує таску з певним періодом."""
+
+    def __init__(self, period: float):
+        self.period = period
+        self._task: asyncio.Task | None = None
+        self._pending: bool = False
+        self._last_run: float | None = None
+
+    async def call(self, coro_func):
+        """Якщо таска не запущена — запускає одразу (або після залишку period).
+        Якщо вже виконується — ставить pending, щоб запустити ще раз після завершення.
+        """
         if self._task and not self._task.done():
-            self._task.cancel()
+            self._pending = True
+            return
 
         async def _run():
-            await asyncio.sleep(self.delay)
-            await coro_func()
+            while True:
+                if self._last_run is not None:
+                    wait = self.period - (asyncio.get_running_loop().time() - self._last_run)
+                    if wait > 0:
+                        try:
+                            await asyncio.sleep(wait)
+                        except asyncio.CancelledError:
+                            return
+                self._last_run = asyncio.get_running_loop().time()
+                self._pending = False
+                await coro_func()
+                if not self._pending:
+                    break
 
         self._task = asyncio.create_task(_run())
 
     async def wait(self):
-        """Чекає завершення поточного pending-виклику (для run_once)."""
+        """Чекає завершення поточного виконання (для run_once)."""
         if self._task and not self._task.done():
             await self._task
 
     def cancel(self):
-        """Скасовує pending-виклик без очікування."""
+        """Скасовує поточний виклик без очікування."""
         if self._task and not self._task.done():
             self._task.cancel()
 

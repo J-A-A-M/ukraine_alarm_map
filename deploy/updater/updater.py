@@ -20,6 +20,7 @@ try:
         release_filter,
         beta_filter,
         Debouncer,
+        Throttler,
         TYPE_ALERTS_BATCH,
     )
 except ImportError:
@@ -35,6 +36,7 @@ except ImportError:
         release_filter,
         beta_filter,
         Debouncer,
+        Throttler,
         TYPE_ALERTS_BATCH,
     )
 
@@ -66,6 +68,7 @@ shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
 shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
 sink_local_files = os.environ.get("SINK_LOCAL_FILES", "True").lower() == "true"
 fusion_alerts_debounce = float(os.environ.get("FUSION_ALERTS_DEBOUNCE", 1))
+fusion_alerts_throttle = float(os.environ.get("FUSION_ALERTS_THROTTLE", 2))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -1012,11 +1015,10 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             new_state = {}
 
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, old_state, previous = await asyncio.gather(
+            alerts_cache, reasons_cache, old_state = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
-                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", default_response={}),
             )
 
             reasons = reasons_cache.get("reasons", [])
@@ -1060,10 +1062,6 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
                     flags16 = new_state.get(rid, 0)
                     alerts += struct.pack("<H H", int(rid), flags16)
 
-                alerts_previous = bytearray()
-                for rid, flags16 in old_state.items():
-                    alerts_previous += struct.pack("<H H", int(rid), flags16)
-
                 alerts_hash_actual = struct.pack("<H", 0)
                 alerts_hash_previous = struct.pack("<H", 0)
 
@@ -1086,17 +1084,18 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
 
     # Основний цикл очікування повідомлень з Pub/Sub (з debounce)
     debouncer = Debouncer(fusion_alerts_debounce)
+    throttler = Throttler(fusion_alerts_throttle)
 
     try:
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, debounce {fusion_alerts_debounce}s")
-                await debouncer.call(process_alerts)
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_alerts_throttle}s")
+                await throttler.call(process_alerts)
 
             if run_once:
-                await debouncer.wait()
+                await throttler.wait()
                 break
 
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
@@ -1105,7 +1104,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
-        debouncer.cancel()
+        throttler.cancel()
         await pubsub.unsubscribe(*channels)
         await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")

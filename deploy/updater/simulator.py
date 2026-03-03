@@ -30,7 +30,7 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 2))
+simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 0.5))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)

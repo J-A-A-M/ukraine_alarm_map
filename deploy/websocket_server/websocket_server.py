@@ -798,7 +798,18 @@ async def alerts_data_fusion(
                                             "websocket:v1:fusion:alerts_payload",
                                             default_response="",
                                         )
-                                        payload = bytes.fromhex(payload_hex) if payload_hex else b""
+                                        if not payload_hex:
+                                            logger.warning(
+                                                f"{client_ip}:{chip_id} !!! empty alerts payload, skip send"
+                                            )
+                                            continue
+                                        try:
+                                            payload = bytes.fromhex(payload_hex)
+                                        except ValueError:
+                                            logger.error(
+                                                f"{client_ip}:{chip_id} !!! invalid alerts payload hex, skip send"
+                                            )
+                                            continue
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
                                     case "websocket:v1:fusion:weather:updated":
