@@ -6,7 +6,7 @@ run-name: Deploy Update Server from '${{ github.ref_name }}' branch
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
-    deploy_websocket:
+    deploy_update_server:
         needs: pytests
         runs-on: ubuntu-latest
         steps:

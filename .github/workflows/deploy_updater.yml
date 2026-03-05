@@ -1,4 +1,5 @@
 name: 🔄 Deploy Update Server
+permissions: {}
 on:
   workflow_dispatch:
     
@@ -6,7 +7,7 @@ run-name: Deploy Updater from '${{ github.ref_name }}' branch
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
-    deploy_websocket:
+    deploy_updater:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
