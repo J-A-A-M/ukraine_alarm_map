@@ -58,22 +58,16 @@ version = 3
 
 debug_level = os.environ.get("LOGGING") or "INFO"
 etryvoga_url = os.environ.get("ETRYVOGA_HOST")
-etryvoga_districts_url = os.environ.get("ETRYVOGA_DISTRICTS_HOST")
 redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
 etryvoga_loop_time = int(os.environ.get("ETRYVOGA_PERIOD", 30))
-etryvoga_districts_loop_time = int(os.environ.get("ETRYVOGA_DISTRICTS_PERIOD", 600))
 
 if not etryvoga_url:
     raise ValueError("ETRYVOGA_HOST environment variable is required")
-if not etryvoga_districts_url:
-    raise ValueError("ETRYVOGA_DISTRICTS_HOST environment variable is required")
 if etryvoga_loop_time < 10:
     raise ValueError("ETRYVOGA_PERIOD must be >= 10")
-if etryvoga_districts_loop_time < 600:
-    raise ValueError("ETRYVOGA_PERIOD must be >= 600")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)

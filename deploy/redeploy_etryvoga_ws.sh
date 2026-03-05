@@ -1,18 +1,17 @@
 #!/bin/bash
 
 # Default values
-ETRYVOGA_HOST=""
+ETRYVOGA_WS_HOST=""
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
-ETRYVOGA_PERIOD=30
 LOGGING="INFO"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -e|--etryvoga-host)
-            ETRYVOGA_HOST="$2"
+        -e|--etryvoga-ws-host)
+            ETRYVOGA_WS_HOST="$2"
             shift 2
             ;;
         -m|--redis-host)
@@ -27,10 +26,6 @@ while [[ $# -gt 0 ]]; do
             REDIS_DB="$2"
             shift 2
             ;;
-        -p|--etryvoga-period)
-            ETRYVOGA_PERIOD="$2"
-            shift 2
-            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -42,13 +37,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "ETRYVOGA"
+echo "ETRYVOGA_WS"
 
-echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
+echo "ETRYVOGA_WS_HOST: $ETRYVOGA_WS_HOST"
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
-echo "ETRYVOGA_PERIOD: $ETRYVOGA_PERIOD"
 echo "LOGGING: $LOGGING"
 
 
@@ -59,25 +53,23 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_etryvoga -f etryvoga/Dockerfile .
+docker build -t map_etryvoga_ws -f etryvoga_ws/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_etryvoga || true
-docker rm map_etryvoga || true
+docker stop map_etryvoga_ws || true
+docker rm map_etryvoga_ws || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_etryvoga \
+docker run --name map_etryvoga_ws \
     --restart unless-stopped \
     --network=jaam -d \
-    --env ETRYVOGA_HOST="$ETRYVOGA_HOST" \
-    --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" \
+    --env ETRYVOGA_WS_HOST="$ETRYVOGA_WS_HOST" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
-    map_etryvoga
+    map_etryvoga_ws
 
 echo "Container deployed successfully!"
-
