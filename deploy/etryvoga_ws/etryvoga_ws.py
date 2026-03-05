@@ -105,11 +105,7 @@ async def handle_notification(redis_client, data, explosions_data, missiles_data
 
     _name, _id = get_region_data(slug, title)
 
-    logger.debug(
-        "{type:<15} {rid:<5}{region:<30} {body}".format(
-            type=msg_type, rid=_id, region=slug, body=body
-        )
-    )
+    logger.debug("{type:<15} {rid:<5}{region:<30} {body}".format(type=msg_type, rid=_id, region=slug, body=body))
 
     if _name == "UNKNOWN":
         logger.warning(f"⚠️ Невідомий регіон: slug={slug!r}, title={title!r}")
