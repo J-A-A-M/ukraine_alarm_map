@@ -1073,14 +1073,14 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
 
                 alerts_payload = alerts_header + hash_actual + hash_previous + alerts
 
-                
-
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts:data")
                 await asyncio.gather(
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:payload:alerts", alerts_payload.hex()),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", new_state),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", alerts_hash_current),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", alerts_hash_actual),
+                    set_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", alerts_hash_actual
+                    ),
                 )
                 await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
                 logger.info("✅ websocket:v1:fusion:alerts:data збережено")

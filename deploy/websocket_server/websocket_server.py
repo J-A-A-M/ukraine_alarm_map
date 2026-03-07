@@ -736,7 +736,9 @@ async def alerts_data_fusion(
                 alerts_cache, alerts_hash_actual, alerts_hash_previous, weather_cache, releases = await asyncio.gather(
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0),
+                    get_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
+                    ),
                     get_redis_data(
                         logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
                     ),
