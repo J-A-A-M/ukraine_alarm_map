@@ -1018,10 +1018,11 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             new_state = {}
 
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, old_state = await asyncio.gather(
+            alerts_cache, reasons_cache, old_state, alerts_hash_actual = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response={}),
+                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
             )
 
             reasons = reasons_cache.get("reasons", [])
@@ -1065,15 +1066,21 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
                     flags16 = new_state.get(rid, 0)
                     alerts += struct.pack("<H H", int(rid), flags16)
 
-                alerts_hash_actual = struct.pack("<H", 0)
-                alerts_hash_previous = struct.pack("<H", 0)
+                alerts_hash_current = await calc_body_alerts_hash(alerts)
 
-                alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_previous + alerts
+                hash_actual = struct.pack("<H", alerts_hash_current)
+                hash_previous = struct.pack("<H", alerts_hash_actual)
+
+                alerts_payload = alerts_header + hash_actual + hash_previous + alerts
+
+                
 
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts:data")
                 await asyncio.gather(
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:payload:alerts", alerts_payload.hex()),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", new_state),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", alerts_hash_current),
+                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", alerts_hash_actual),
                 )
                 await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
                 logger.info("✅ websocket:v1:fusion:alerts:data збережено")

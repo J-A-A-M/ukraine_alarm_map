@@ -733,8 +733,10 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_cache, weather_cache, releases = await asyncio.gather(
+                alerts_cache, alerts_hash_actual, alerts_hash_previous, weather_cache, releases = await asyncio.gather(
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0),
                     get_redis_data(
                         logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
                     ),
@@ -746,9 +748,9 @@ async def alerts_data_fusion(
                     alerts = bytearray()
                     for rid, flags16 in alerts_cache.items():
                         alerts += struct.pack("<H H", int(rid), flags16)
-                    alerts_hash_actual = struct.pack("<H", 0)
-                    alerts_hash_initial = struct.pack("<H", 0)
-                    alerts_payload = alerts_header + alerts_hash_actual + alerts_hash_initial + alerts
+                    hash_actual = struct.pack("<H", alerts_hash_actual)
+                    hash_previous = struct.pack("<H", alerts_hash_previous)
+                    alerts_payload = alerts_header + hash_actual + hash_previous + alerts
                     await websocket.send(alerts_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial alert packet")
 
