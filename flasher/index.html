@@ -6,6 +6,7 @@
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>JAAM Flasher</title>
     <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
+    <link rel='stylesheet' href='styles.css'>
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -72,47 +73,42 @@
             </div>
             <div class='by col-md-9 mt-2'>
                 <div class='center'>
-                    <esp-web-install-button manifest="manifest.json">
-                        <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.4</button>
-                        <div slot="unsupported">
-                            <div class='alert alert-danger'>
-                                <p>Ваш браузер не підтримується!</p>
-                                <p>Спробуйте встановити через Chrome, Edge або Opera.</p>
+                    <div>
+                        <label for="release-select" style="font-weight: bold; margin-right: 10px;">Виберіть версію:</label>
+                        <select id="release-select" class="form-control" style="margin-bottom: 15px;">
+                            <option value="">Завантаження релізів...</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Release Notes -->
+                <div id="release-notes-section" style="display: none; margin: 15px 0; text-align: left;">
+                    <div class="release-notes-panel release-notes-content" id="release-notes-content"></div>
+                </div>
+                <div class='center'>
+                    <div id="install-buttons" style="display: none;">
+                        <esp-web-install-button id="stable-install-btn">
+                            <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate" id="stable-btn-text">Встановити</button>
+                            <div slot="unsupported">
+                                <div class='alert alert-danger'>
+                                    <p>Ваш браузер не підтримується!</p>
+                                    <p>Спробуйте встановити через Chrome, Edge або Opera.</p>
+                                </div>
                             </div>
-                        </div>
-                        <div slot="not-allowed">
-                            <div class='alert alert-danger'>
-                                <p>Встановлення через HTTP заборонено!</p>
-                                <p>Спробуйте встановити через HTTPS.</p>
+                            <div slot="not-allowed">
+                                <div class='alert alert-danger'>
+                                    <p>Встановлення через HTTP заборонено!</p>
+                                    <p>Спробуйте встановити через HTTPS.</p>
+                                </div>
                             </div>
-                        </div>
-                    </esp-web-install-button>
-                    <esp-web-install-button manifest="manifest-beta.json">
-                        <button class='btn btn-info' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.5 Beta 127</button>
-                        <span slot="unsupported"></span>
-                        <span slot="not-allowed"></span>
-                    </esp-web-install-button>
-                    <esp-web-install-button manifest="manifest-lite.json">
-                        <button class='btn btn-success' type='button' aria-expanded='false' slot="activate">Встановити JAAM 4.4 Lite</button>
-                        <span slot="unsupported"></span>
-                        <span slot="not-allowed"></span>
-                    </esp-web-install-button>
+                        </esp-web-install-button>
+                    </div>
                 </div><br>
                 <div class='alert alert-primary'>
                     <ul>
-                        <li><b>JAAM</b> - стабільна релізна <a href="https://github.com/J-A-A-M/ukraine_alarm_map/releases/latest">версія</a> прошивки</li>
+                        <li><b>JAAM</b> - стабільна релізна версія прошивки</li>
                         <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці. Підтримуються чіпи ESP32, ESP32-S3, ESP32-C3</li>
-                        <li><b>JAAM Lite</b> - "скорочена" версія прошивки. Видалено підтримку дисплею, Home Assistant, сенсорів освітлення та клімату, динаміка (buzzer), не підтримує оновлення через веб-інтерфейс</li>
                     </ul>
                 </div>
-            </div>
-            <!-- Отримання Release Notes -->
-            <div class='by col-md-9 mt-2'>
-                <div class="alert alert-info text-rigth" id="release-notes">Завантаження опису версії...</div>
-                    <div class="text-center">
-                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.4')">Отримати опис JAAM 4.4</button>
-                        <button class="btn btn-info" onclick="fetchReleaseNotes('4.5-b127')">Отримати опис JAAM 4.5 Beta 127</button>
-                    </div>
             </div>
             <div class='by col-md-9 mt-2'>
                 <div class='alert alert-info'>
@@ -180,9 +176,9 @@
     <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
     <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
     <script src="https://jaam.net.ua/static/jaam_v2.js"></script>
+    <script src="flasher.js"></script>
 </body>
 
 </html>
