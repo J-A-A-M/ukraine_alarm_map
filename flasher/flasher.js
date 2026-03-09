@@ -47,13 +47,13 @@ async function fetchReleases() {
 
         const allReleases = await response.json();
         
-        // Separate into stable and pre-releases
+        // Separate into stable and pre-releases (ignore drafts)
         const stable = allReleases.filter(r => !r.prerelease && !r.draft);
         const preReleases = allReleases.filter(r => r.prerelease && !r.draft);
         
-        // Take last 5 of each type
-        const latestStable = stable.slice(0, 5);
-        const latestPreReleases = preReleases.slice(0, 5);
+        // Take last 7 of each type
+        const latestStable = stable.slice(0, 7);
+        const latestPreReleases = preReleases.slice(0, 7);
         
         // Combine and sort by published date (newest first)
         releases = [...latestStable, ...latestPreReleases].sort(
@@ -73,7 +73,6 @@ async function fetchReleases() {
             }
         }
     } catch (error) {
-        console.error('Error fetching releases:', error);
         document.getElementById('release-select').innerHTML = 
             '<option value="">Помилка при завантаженні релізів</option>';
     }
@@ -94,9 +93,9 @@ function populateReleaseSelect() {
 }
 
 // Generate manifest from release
-function generateManifest(release, variantType) {
+function generateManifest(release) {
     const manifest = {
-        name: `JAAM ${release.tag_name}${variantType ? ' ' + variantType : ''}`,
+        name: release.prerelease ? "JAAM Beta" : "JAAM",
         version: release.tag_name,
         funding_url: "https://send.monobank.ua/jar/7GzS1PhPa2",
         new_install_improv_wait_time: 0,
@@ -104,10 +103,8 @@ function generateManifest(release, variantType) {
         builds: []
     };
 
-    console.log('Release assets:', release.assets.map(a => a.name));
-
     // Build configurations for each board type
-    Object.entries(BOARD_TYPES).forEach(([boardType, config]) => {
+    for (const [boardType, config] of Object.entries(BOARD_TYPES)) {
         const buildConfig = {
             chipFamily: boardType,
             improv: false,
@@ -128,31 +125,29 @@ function generateManifest(release, variantType) {
             offset: config.offsets.boot_app0
         });
 
-        // Find app binary from GitHub assets
-        console.log(`Looking for ${boardType} app binary with pattern: ${config.appPattern}`);
-        
-        const foundAsset = release.assets.find(asset => 
-            asset.name.toLowerCase().includes(config.appPattern.toLowerCase()) && asset.name.endsWith('.bin')
-        );
-        
-        console.log(`${boardType} app binary - Found:`, foundAsset ? foundAsset.name : 'NOT FOUND');
-        
-        if (foundAsset) {
-            buildConfig.parts.push({
-                path: foundAsset.browser_download_url,
-                offset: config.offsets.app
-            });
-            manifest.builds.push(buildConfig);
-        } else {
-            console.warn(`${boardType} - Missing app binary with pattern "${config.appPattern}"`);
+        // Construct app binary URL based on board type and release tag
+        let appBinaryUrl;
+        if (boardType === 'ESP32') {
+            appBinaryUrl = `https://update.jaam.net.ua/${release.tag_name}`;
+        } else if (boardType === 'ESP32-C3') {
+            appBinaryUrl = `https://update.jaam.net.ua/c3/${release.tag_name}`;
+        } else if (boardType === 'ESP32-S3') {
+            appBinaryUrl = `https://update.jaam.net.ua/s3/${release.tag_name}`;
         }
-    });
+        
+        // Add app binary
+        buildConfig.parts.push({
+            path: appBinaryUrl,
+            offset: config.offsets.app
+        });
+        manifest.builds.push(buildConfig);
+    }
 
     return manifest;
 }
 
 // Handle release selection
-document.getElementById('release-select').addEventListener('change', async function(e) {
+document.getElementById('release-select').addEventListener('change', function(e) {
     const selectedIndex = this.value;
     
     if (selectedIndex === '') {
@@ -164,10 +159,7 @@ document.getElementById('release-select').addEventListener('change', async funct
     selectedRelease = releases[selectedIndex];
     
     // Generate and set manifest
-    const stableManifest = generateManifest(selectedRelease, 'stable');
-
-    // Log manifest to console
-    console.log('Generated Manifest:', stableManifest);
+    const stableManifest = generateManifest(selectedRelease);
 
     // Convert manifest to data URL
     const stableUrl = `data:application/json;base64,${btoa(JSON.stringify(stableManifest))}`;
