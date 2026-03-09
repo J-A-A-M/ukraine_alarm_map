@@ -111,17 +111,20 @@ function generateManifest(release) {
             parts: []
         };
 
-        // Add local files for bootloader, partitions, and boot.app0
+        // Get the base URL for local files
+        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+
+        // Add local files for bootloader, partitions, and boot.app0 with absolute URLs
         buildConfig.parts.push({
-            path: config.localFiles.bootloader,
+            path: baseUrl + config.localFiles.bootloader,
             offset: config.offsets.bootloader
         });
         buildConfig.parts.push({
-            path: config.localFiles.partitions,
+            path: baseUrl + config.localFiles.partitions,
             offset: config.offsets.partitions
         });
         buildConfig.parts.push({
-            path: config.localFiles.boot_app0,
+            path: baseUrl + config.localFiles.boot_app0,
             offset: config.offsets.boot_app0
         });
 
