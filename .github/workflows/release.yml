@@ -151,12 +151,6 @@ jobs:
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/s3/ 10
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin/c3/ 5
           bash ${{ github.workspace }}/deploy/remove_old_bins.sh  ${{ github.workspace }}/bin_beta/c3/ 10
-      - name: Upload flasher to Github Pages
-        uses: ./.github/workflows/upload-pages
-        with:
-          binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}.bin/JAAM_${{ inputs.release-version }}.bin
-          lite_binary_path: ${{ github.workspace }}/JAAM_${{ inputs.release-version }}_lite.bin/JAAM_${{ inputs.release-version }}_lite.bin
-          version: ${{ inputs.release-version }}
       - name: Commit changes
         id: commit_changes
         uses: stefanzweifel/git-auto-commit-action@v5
