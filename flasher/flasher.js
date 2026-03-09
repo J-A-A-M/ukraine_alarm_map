@@ -81,7 +81,7 @@ async function fetchReleases() {
 // Populate the select element with releases
 function populateReleaseSelect() {
     const select = document.getElementById('release-select');
-    select.innerHTML = '<option value="">Виберіть версію...</option>';
+    select.innerHTML = '';
     
     releases.forEach((release, index) => {
         const option = document.createElement('option');
