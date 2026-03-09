@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang='uk'>
+<html lang='uk' data-theme="dark">
 
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>JAAM Flasher</title>
-    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
     <link rel='stylesheet' href='styles.css'>
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
@@ -14,167 +13,198 @@
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
     <style>
-        body {
-            background-color: #4396ff;
-        }
-
-        .btn {
-            margin-bottom: 0.25rem;
-        }
-
-        .container {
-            padding: 20px;
-        }
-
-        .color-box {
-            width: 30px;
-            height: 30px;
-            display: inline-block;
-            margin-left: 10px;
-            border: 1px solid #ccc;
-            vertical-align: middle;
-        }
-
-        .full-screen-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        input,
-        select,
-        .color-box {
-            margin-top: 0.5rem;
-        }
-
-        span {
-            font-weight: bold;
-        }
-
-        .center {
+        .flasher-container {
             text-align: center;
         }
 
-        .by {
-            background-color: #fff0d5;
-            padding: 20px;
+        .flag-img {
+            width: 100%;
+            height: auto;
+            max-width: 600px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .install-section {
+            margin: 30px 0;
+        }
+
+        .install-button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .install-button:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        esp-web-install-button {
+            display: inline-block;
+        }
+
+        .alert-box {
+            background-color: var(--alerts-panel-bg);
+            border: 1px solid var(--alerts-panel-border);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .alert-box.info {
+            background-color: #17a2b820;
+            border-color: #17a2b8;
+        }
+
+        .alert-box.primary {
+            background-color: #007bff20;
+            border-color: #007bff;
+        }
+
+        .alert-box.warning {
+            background-color: #e2a90b20;
+            border-color: #e2a90b;
+        }
+
+        .alert-box.danger {
+            background-color: #dc354520;
+            border-color: #dc3545;
+        }
+
+        .alert-box p {
+            margin: 5px 0;
+            color: var(--text-color);
+        }
+
+        .alert-box ul,
+        .alert-box ol {
+            margin: 10px 0;
+            padding-left: 25px;
+            color: var(--text-color);
+        }
+
+        .alert-box li {
+            margin: 5px 0;
+        }
+
+        .alert-box a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .alert-box a:hover {
+            text-decoration: underline;
+        }
+
+        .download-icon {
+            width: 28px;
+            height: 28px;
+            vertical-align: middle;
+        }
+
+        .form-group {
+            text-align: left;
         }
     </style>
 </head>
 
 <body>
-    <div class='container mt-3' id='flasher'>
-        <h2 class='text-center'>JAAM Flasher</h2>
-        <div class='row justify-content-center'>
-            <div class='by col-md-9 mt-2'>
-                <img class='full-screen-img' src='flag_map.png' alt="Map of Ukraine colored with national flag colors">
+    <div class='container'>
+        <div class="header-container">
+            <h1>JAAM Flasher</h1>
+            <div class="header-buttons">
+                <button class="control-button theme-toggle" onclick="toggleTheme()" title="Перемкнути тему">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,18C11.11,18 10.26,17.8 9.5,17.46C11.56,16.06 13,13.72 13,11A6.8,6.8 0 0,0 9.5,4.54C10.26,4.2 11.11,4 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path>
+                    </svg>
+                </button>
             </div>
-            <div class='by col-md-9 mt-2'>
-                <div class='center'>
-                    <div>
-                        <label for="release-select" style="font-weight: bold; margin-right: 10px;">Виберіть версію:</label>
-                        <select id="release-select" class="form-control" style="margin-bottom: 15px;">
-                            <option value="">Завантаження релізів...</option>
-                        </select>
-                    </div>
+        </div>
+
+        <div class='flasher-container'>
+            <div class='install-section'>
+                <img class='flag-img' src='flag_map.png' alt="Карта України у кольорах національного прапора">
+            </div>
+
+            <div class='install-section'>
+                <div class="form-group">
+                    <label for="release-select">Виберіть версію прошивки:</label>
+                    <select id="release-select" class="form-control">
+                        <option value="">Завантаження релізів...</option>
+                    </select>
                 </div>
+
                 <!-- Release Notes -->
-                <div id="release-notes-section" style="display: none; margin: 15px 0; text-align: left;">
-                    <div class="release-notes-panel release-notes-content" id="release-notes-content"></div>
+                <div id="release-notes-section" style="display: none; margin: 20px 0; text-align: left;">
+                    <div class="release-notes-panel" id="release-notes-content"></div>
                 </div>
-                <div class='center'>
-                    <div id="install-buttons" style="display: none;">
-                        <esp-web-install-button id="stable-install-btn">
-                            <button class='btn btn-primary' type='button' aria-expanded='false' slot="activate" id="stable-btn-text">Встановити</button>
-                            <div slot="unsupported">
-                                <div class='alert alert-danger'>
-                                    <p>Ваш браузер не підтримується!</p>
-                                    <p>Спробуйте встановити через Chrome, Edge або Opera.</p>
-                                </div>
+
+                <div id="install-buttons" style="display: none; margin: 20px 0;">
+                    <esp-web-install-button id="stable-install-btn">
+                        <button class='install-button' type='button' slot="activate" id="stable-btn-text">Встановити</button>
+                        <div slot="unsupported">
+                            <div class='alert-box danger'>
+                                <p><strong>Ваш браузер не підтримується!</strong></p>
+                                <p>Спробуйте встановити через Chrome, Edge або Opera.</p>
                             </div>
-                            <div slot="not-allowed">
-                                <div class='alert alert-danger'>
-                                    <p>Встановлення через HTTP заборонено!</p>
-                                    <p>Спробуйте встановити через HTTPS.</p>
-                                </div>
+                        </div>
+                        <div slot="not-allowed">
+                            <div class='alert-box danger'>
+                                <p><strong>Встановлення через HTTP заборонено!</strong></p>
+                                <p>Спробуйте встановити через HTTPS.</p>
                             </div>
-                        </esp-web-install-button>
-                    </div>
-                </div><br>
-                <div class='alert alert-primary'>
-                    <ul>
-                        <li><b>JAAM</b> - стабільна релізна версія прошивки</li>
-                        <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці. Підтримуються чіпи ESP32, ESP32-S3, ESP32-C3</li>
-                    </ul>
+                        </div>
+                    </esp-web-install-button>
                 </div>
             </div>
-            <div class='by col-md-9 mt-2'>
-                <div class='alert alert-info'>
-                    <p>Якщо ви не обрали порт через те, що не бачили ваш пристрій у списку, спробуйте наступні
-                        кроки:</p>
-                    <ol>
-                        <li>Переконайтеся, що пристрій підключений до цього комп'ютера (до того, де запущено браузер, що
-                            відображає
-                            цей
-                            веб-сайт)</li>
-                        <li>Більшість пристроїв мають світлодіод. Якщо ваш має такий, переконайтеся, що він увімкнений.
-                        </li>
-                        <li>Переконайтесь, що USB-кабель, яким пристрій підключено до комп'ютера, є кабелем передачі
-                            даних, а не
-                            лише
-                            кабелем для живлення.</li>
-                        <li>Переконайтеся, що встановлені правильні драйвери. Нижче наведено драйвери для загальних
-                            мікросхем, що
-                            використовуються в пристроях ESP:
-                            <ul>
-                                <li>CP2102 драйвери: <a
-                                        href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers"
-                                        target="_blank">Windows & Mac</a></li>
-                                <li>CH342, CH343, CH9102 драйвери: <a
-                                        href="https://www.wch.cn/downloads/CH343SER_ZIP.html"
-                                        target="_blank">Windows</a>, <a
-                                        href="https://www.wch.cn/downloads/CH34XSER_MAC_ZIP.html"
-                                        target="_blank">Mac</a>
-                                    (завантаження за допомогою синьої кнопки з
-                                    <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-                                        viewBox="0 0 510.322 510.322" xml:space="preserve"
-                                        style="width: 28px; vertical-align: middle;">
-                                        <g>
-                                            <path style="fill:currentColor;"
-                                                d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z">
-                                            </path>
-                                        </g>
-                                    </svg> іконкою)
-                                </li>
-                                <li>CH340, CH341 драйвери: <a href="https://www.wch.cn/downloads/CH341SER_ZIP.html"
-                                        target="_blank">Windows</a> , <a
-                                        href="https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html"
-                                        target="_blank">Mac</a>
-                                    (завантаження за допомогою синьої кнопки з
-                                    <svg version="1.1" id="Capa_2" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-                                        viewBox="0 0 510.322 510.322" xml:space="preserve"
-                                        style="width: 28px; vertical-align: middle;">
-                                        <g>
-                                            <path style="fill:currentColor;"
-                                                d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521    c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387    c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171    c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25    c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975    v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189    c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51    c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656    c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216    C483.401,283.969,454.604,312.744,419.207,312.744z">
-                                            </path>
-                                        </g>
-                                    </svg> іконкою)
-                                </li>
-                            </ul>
-                        </li>
-                    </ol>
-                </div>
+
+            <div class='alert-box primary'>
+                <ul>
+                    <li><b>JAAM</b> - стабільна релізна версія прошивки</li>
+                    <li><b>JAAM Beta</b> - тестова версія прошивки. Містить функції, що перебувають у розробці. Підтримуються чіпи ESP32, ESP32-S3, ESP32-C3</li>
+                </ul>
+            </div>
+
+            <div class='alert-box warning'>
+                <p><strong>Якщо ви не обрали порт через те, що не бачили ваш пристрій у списку, спробуйте наступні кроки:</strong></p>
+                <ol>
+                    <li>Переконайтеся, що пристрій підключений до цього комп'ютера (до того, де запущено браузер, що відображає цей веб-сайт)</li>
+                    <li>Більшість пристроїв мають світлодіод. Якщо ваш має такий, переконайтеся, що він увімкнений.</li>
+                    <li>Переконайтесь, що USB-кабель, яким пристрій підключено до комп'ютера, є кабелем передачі даних, а не лише кабелем для живлення.</li>
+                    <li>Переконайтеся, що встановлені правильні драйвери. Нижче наведено драйвери для загальних мікросхем, що використовуються в пристроях ESP:
+                        <ul>
+                            <li>CP2102 драйвери: <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank">Windows & Mac</a></li>
+                            <li>CH342, CH343, CH9102 драйвери: <a href="https://www.wch.cn/downloads/CH343SER_ZIP.html" target="_blank">Windows</a>, <a href="https://www.wch.cn/downloads/CH34XSER_MAC_ZIP.html" target="_blank">Mac</a>
+                                (завантаження за допомогою синьої кнопки з
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 510.322 510.322" xml:space="preserve" class="download-icon">
+                                    <g><path style="fill:currentColor;" d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216C483.401,283.969,454.604,312.744,419.207,312.744z"></path></g>
+                                </svg> іконкою)
+                            </li>
+                            <li>CH340, CH341 драйвери: <a href="https://www.wch.cn/downloads/CH341SER_ZIP.html" target="_blank">Windows</a>, <a href="https://www.wch.cn/downloads/CH341SER_MAC_ZIP.html" target="_blank">Mac</a>
+                                (завантаження за допомогою синьої кнопки з
+                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" viewBox="0 0 510.322 510.322" xml:space="preserve" class="download-icon">
+                                    <g><path style="fill:currentColor;" d="M429.064,159.505c0-0.151,0.086-1.057,0.086-1.057c0-75.282-61.261-136.521-136.543-136.521c-52.244,0-97.867,30.587-120.753,76.339c-11.67-9.081-25.108-15.682-40.273-15.682c-37.166,0-67.387,30.199-67.387,67.387c0,0,0.453,3.279,0.798,5.824C27.05,168.716,0,203.423,0,244.516c0,25.389,9.901,49.268,27.848,67.171c17.968,17.99,41.804,27.869,67.193,27.869h130.244v46.83h-54.66l97.694,102.008l95.602-102.008h-54.66v-46.83H419.25c50.174,0,91.072-40.855,91.072-90.986C510.3,201.827,474.428,164.639,429.064,159.505z M419.207,312.744H309.26v-55.545h-83.975v55.545H95.019c-18.184,0-35.333-7.075-48.211-19.996c-12.878-12.878-19.953-30.005-19.953-48.189c0-32.68,23.21-60.808,55.264-66.956l12.511-2.394l-2.092-14.431l-1.488-10.785c0-22.347,18.184-40.51,40.531-40.51c13.266,0,25.691,6.514,33.305,17.408l15.229,21.873l8.52-25.303c15.013-44.652,56.796-74.656,103.906-74.656c60.506,0,109.709,49.203,109.709,109.644l-1.337,25.712l15.121,0.302l3.149-0.086c35.419,0,64.216,28.797,64.216,64.216C483.401,283.969,454.604,312.744,419.207,312.744z"></path></g>
+                                </svg> іконкою)
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
             </div>
         </div>
     </div>
-    <script src='https://code.jquery.com/jquery-3.5.1.slim.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js'></script>
-    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
+
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.5/dist/js.cookie.min.js"></script>
     <script src="https://jaam.net.ua/static/jaam_v2.js"></script>

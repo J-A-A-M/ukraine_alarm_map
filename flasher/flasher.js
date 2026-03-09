@@ -263,5 +263,54 @@ function displayReleaseNotes(release) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    initTheme();
     fetchReleases();
 });
+
+// Theme helpers
+function detectSystemTheme() {
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+
+function getThemeFromCookie() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'jaam_theme') return value;
+    }
+    return null;
+}
+
+function setThemeCookie(theme) {
+    document.cookie = 'jaam_theme=' + theme + '; max-age=31536000; path=/';
+}
+
+function applyTheme(theme, persist = true) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (persist) {
+        setThemeCookie(theme);
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(newTheme, true);
+}
+
+// Make toggleTheme available globally for onclick handler
+window.toggleTheme = toggleTheme;
+
+function initTheme() {
+    const savedTheme = getThemeFromCookie();
+    const theme = savedTheme || detectSystemTheme();
+    applyTheme(theme, !!savedTheme);
+    if (!savedTheme && window.matchMedia) {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        mediaQuery.addListener(function(e) {
+            if (!getThemeFromCookie()) {
+                applyTheme(e.matches ? 'dark' : 'light', false);
+            }
+        });
+    }
+}
