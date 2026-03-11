@@ -36,7 +36,7 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 10))
+simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 0.5))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -70,6 +70,16 @@ for _state in _uaapi["states"]:
 D = KYIV_DISTRICTS
 D_BY_ID = {v["regionId"]: v["regionName"] for v in KYIV_DISTRICTS.values()}
 
+# Всі областні регіони (State) з uaapi.json
+ALL_STATES: dict[str, dict] = {}
+for _state in _uaapi["states"]:
+    ALL_STATES[_state["regionName"]] = {
+        "regionId": _state["regionId"],
+        "regionType": "State",
+        "regionName": _state["regionName"],
+        "regionEngName": _state.get("regionEngName", _state["regionName"]),
+    }
+
 
 # ─── Будівники даних ──────────────────────────────────────────────────────────
 
@@ -90,11 +100,13 @@ def make_region_record(region_id, region_type, region_name, region_eng_name, ale
 
 
 def build_alerts_data(alert_items):
-    """Побудувати список для alerts:api:data."""
+    """Побудувати список для alerts:api:data.
+    Шукає спочатку серед районів Київщини (D), потім серед усіх областей (ALL_STATES).
+    """
     data = []
     for district_name, types in alert_items:
-        d = D[district_name]
-        data.append(make_region_record(d["regionId"], "District", d["regionName"], d["regionEngName"], types))
+        d = D.get(district_name) or ALL_STATES[district_name]
+        data.append(make_region_record(d["regionId"], d["regionType"], d["regionName"], d["regionEngName"], types))
     return data
 
 
@@ -119,58 +131,91 @@ def build_etryvoga_data(notification_items, base_id: int):
 #   kind="alert"        → alerts:api:data       → alerts:api:updated
 #   kind="notification" → alerts:etryvoga:full:data → alerts:etryvoga:updated
 
+# SIMULATION_STEPS = [
+#     # Крок 1: Бориспільський — AIR+ARTILLERY тривога
+#     [
+#         ("Бориспільський район", ["AIR", "ARTILLERY"], "alert"),
+#     ],
+#     # Крок 2: Бориспільський + Броварський тривоги + нотіфікація DRONE
+#     [
+#         ("Бориспільський район", ["DRONE"], "notification"),
+#         ("Броварський район", ["AIR", "ARTILLERY"], "alert"),
+#
+#     ],
+#     # Крок 3: Тільки Броварський тривога + ROCKET нотіфікація
+#     [
+#         ("Бучанський район", ["AIR", "ARTILLERY"], "alert"),
+#         ("Броварський район", ["DRONE"], "notification"),
+#         ("Бориспільський район", ["KAB"], "notification"),
+#
+#     ],
+#     # Крок 4: Бучанський + Вишгородський тривоги + KAB нотіфікація
+#     [
+#         ("Вишгородський район", ["AIR", "ARTILLERY"], "alert"),
+#         ("Бучанський район", ["DRONE"], "notification"),
+#     ],
+#     # Крок 5: Бучанський тривога + кілька нотіфікацій
+#     [
+#         ("Обухівський район", ["AIR", "ARTILLERY"], "alert"),
+#         ("Вишгородський район", ["DRONE"], "notification"),
+#     ],
+#     # Крок 6: Обухівський + Білоцерківський тривоги
+#     [
+#         ("Обухівський район", ["DRONE"], "notification"),
+#         ("Білоцерківський район", ["AIR", "ARTILLERY"], "alert"),
+#     ],
+#     # Крок 7: Фастівський тривога + EXPLOSION нотіфікація
+#     [
+#         ("Білоцерківський район", ["DRONE"], "notification"),
+#         ("Фастівський район", ["AIR"], "alert"),
+#     ],
+#     # Крок 8: Всі райони тривоги + масові нотіфікації
+#     [
+#         ("Бориспільський район", ["AIR"], "alert"),
+#         ("Броварський район", ["AIR"], "alert"),
+#         ("Бучанський район", ["AIR"], "alert"),
+#         ("Вишгородський район", ["AIR"], "alert"),
+#         ("Обухівський район", ["AIR"], "alert"),
+#         ("Білоцерківський район", ["AIR"], "alert"),
+#         ("Фастівський район", ["AIR"], "alert"),
+#     ],
+#     # Крок 9: Відбій — нічого немає
+#     [],
+# ]
+
+# Кожен регіон по черзі з повітряною тривогою, потім відбій
 SIMULATION_STEPS = [
-    # Крок 1: Бориспільський — AIR+ARTILLERY тривога
-    [
-        ("Бориспільський район", ["AIR", "ARTILLERY"], "alert"),
+    *[
+        [(_state, ["AIR"], "alert")]
+        for _state in [
+            "м. Київ",
+            "Вінницька область",
+            "Волинська область",
+            "Дніпропетровська область",
+            "Донецька область",
+            "Житомирська область",
+            "Закарпатська область",
+            "Запорізька область",
+            "Івано-Франківська область",
+            "Київська область",
+            "Кіровоградська область",
+            "Луганська область",
+            "Львівська область",
+            "Миколаївська область",
+            "Одеська область",
+            "Полтавська область",
+            "Рівненська область",
+            "Сумська область",
+            "Тернопільська область",
+            "Харківська область",
+            "Херсонська область",
+            "Хмельницька область",
+            "Черкаська область",
+            "Чернівецька область",
+            "Чернігівська область",
+        ]
     ],
-    # Крок 2: Бориспільський + Броварський тривоги + нотіфікація DRONE
-    [
-        ("Бориспільський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Броварський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Броварський район", ["DRONE"], "notification"),
-    ],
-    # Крок 3: Тільки Броварський тривога + ROCKET нотіфікація
-    [
-        ("Броварський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Броварський район", ["ROCKET"], "notification"),
-    ],
-    # Крок 4: Бучанський + Вишгородський тривоги + KAB нотіфікація
-    [
-        ("Бучанський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Вишгородський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Бучанський район", ["KAB"], "notification"),
-    ],
-    # Крок 5: Бучанський тривога + кілька нотіфікацій
-    [
-        ("Бучанський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Бучанський район", ["DRONE", "ROCKET"], "notification"),
-        ("Вишгородський район", ["DRONE"], "notification"),
-    ],
-    # Крок 6: Обухівський + Білоцерківський тривоги
-    [
-        ("Обухівський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Білоцерківський район", ["AIR", "ARTILLERY"], "alert"),
-    ],
-    # Крок 7: Фастівський тривога + EXPLOSION нотіфікація
-    [
-        ("Фастівський район", ["AIR", "ARTILLERY"], "alert"),
-        ("Фастівський район", ["EXPLOSION"], "notification"),
-    ],
-    # Крок 8: Всі райони тривоги + масові нотіфікації
-    [
-        ("Бориспільський район", ["AIR"], "alert"),
-        ("Броварський район", ["AIR"], "alert"),
-        ("Бучанський район", ["AIR"], "alert"),
-        ("Вишгородський район", ["AIR"], "alert"),
-        ("Обухівський район", ["AIR"], "alert"),
-        ("Білоцерківський район", ["AIR"], "alert"),
-        ("Фастівський район", ["AIR"], "alert"),
-        ("Бориспільський район", ["DRONE"], "notification"),
-        ("Броварський район", ["ROCKET"], "notification"),
-        ("Бучанський район", ["RECON_DRONE"], "notification"),
-    ],
-    # Крок 9: Відбій — нічого немає
+    # Відбій — нічого немає
     [],
 ]
 
