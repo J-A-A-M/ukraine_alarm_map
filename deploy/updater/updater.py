@@ -1024,6 +1024,7 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response={}),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
             )
+            logger.info(f"🔍 process_alerts: hash_actual_read={alerts_hash_actual}, old_state={old_state}")
 
             reasons = reasons_cache.get("reasons", [])
             for alert in alerts_cache:
@@ -1074,16 +1075,18 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
                 alerts_payload = alerts_header + hash_actual + hash_previous + alerts
 
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts:data")
-                await asyncio.gather(
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:payload:alerts", alerts_payload.hex()),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", new_state),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", alerts_hash_current),
-                    set_redis_data(
-                        logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", alerts_hash_actual
-                    ),
+                async with redis_client.pipeline(transaction=True) as pipe:
+                    pipe.set("websocket:v1:fusion:payload:alerts", json.dumps(alerts_payload.hex()))
+                    pipe.delete("websocket:v1:fusion:alerts:data")
+                    for k, v in new_state.items():
+                        pipe.hset("websocket:v1:fusion:alerts:data", k, json.dumps(v))
+                    pipe.set("websocket:v1:fusion:alerts:hash_actual", json.dumps(alerts_hash_current))
+                    pipe.set("websocket:v1:fusion:alerts:hash_previous", json.dumps(alerts_hash_actual))
+                    await pipe.execute()
+                await redis_client.publish("websocket:v1:fusion:alerts:updated", str(alerts_hash_current))
+                logger.info(
+                    f"✅ websocket:v1:fusion:alerts:data збережено (hash_prev={alerts_hash_actual} → hash_curr={alerts_hash_current})"
                 )
-                await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
-                logger.info("✅ websocket:v1:fusion:alerts:data збережено")
             else:
                 logger.info("ℹ️  websocket:v1:fusion:alerts:data не змінився")
 
@@ -1156,6 +1159,8 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
                     data[regionId] |= 1 << 6
                 elif alert["type"] == "KAB":
                     data[regionId] |= 1 << 7
+                elif alert["type"] == "BALLISTIC":
+                    data[regionId] |= 1 << 8
                 elif alert["type"] == "EXPLOSION":
                     data[regionId] |= 1 << 9
                 elif alert["type"] == "RECON_DRONE":
