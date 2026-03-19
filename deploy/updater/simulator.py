@@ -36,7 +36,7 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 0.5))
+simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 60))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,40 +46,26 @@ _data_path = Path(__file__).resolve().parent.parent / "data" / "uaapi.json"
 with open(_data_path, "r", encoding="utf-8") as _f:
     _uaapi = json.load(_f)
 
-# Збираємо дані Київської області з uaapi.json
-KYIV_STATE = None
-KYIV_DISTRICTS = {}
 
-for _state in _uaapi["states"]:
-    if _state["regionName"] == "Київська область":
-        KYIV_STATE = {
-            "regionId": _state["regionId"],
-            "regionType": "State",
-            "regionName": _state["regionName"],
-            "regionEngName": "Kyivska region",
-        }
-        for _district in _state["regionChildIds"]:
-            KYIV_DISTRICTS[_district["regionName"]] = {
-                "regionId": _district["regionId"],
-                "regionType": "District",
-                "regionName": _district["regionName"],
-                "regionEngName": _district["regionName"],
-            }
-        break
-
-D = KYIV_DISTRICTS
-D_BY_ID = {v["regionId"]: v["regionName"] for v in KYIV_DISTRICTS.values()}
-
-# Всі областні регіони (State) з uaapi.json
+# Всі регіони (State + District) з uaapi.json у пласкому словнику
+# ALL_STATES[region_name] = {regionId, regionType, regionName, regionEngName}
 ALL_STATES: dict[str, dict] = {}
 for _state in _uaapi["states"]:
     ALL_STATES[_state["regionName"]] = {
         "regionId": _state["regionId"],
-        "regionType": "State",
+        "regionType": _state["regionType"],
         "regionName": _state["regionName"],
         "regionEngName": _state.get("regionEngName", _state["regionName"]),
     }
-
+    for _d in _state.get("regionChildIds", []):
+        if _d["regionType"] == "District":
+            ALL_STATES[_d["regionName"]] = {
+                "regionId": _d["regionId"],
+                "regionType": "District",
+                "regionName": _d["regionName"],
+                "regionEngName": _d.get("regionEngName", _d["regionName"]),
+            }
+D_BY_ID = {v["regionId"]: v["regionName"] for v in ALL_STATES.values()}
 
 # ─── Будівники даних ──────────────────────────────────────────────────────────
 
@@ -105,7 +91,7 @@ def build_alerts_data(alert_items):
     """
     data = []
     for district_name, types in alert_items:
-        d = D.get(district_name) or ALL_STATES[district_name]
+        d = ALL_STATES[district_name]
         data.append(make_region_record(d["regionId"], d["regionType"], d["regionName"], d["regionEngName"], types))
     return data
 
@@ -119,7 +105,7 @@ def build_etryvoga_data(notification_items, base_id: int):
     data = []
     current_id = base_id
     for district_name, types in notification_items:
-        d = D[district_name]
+        d = ALL_STATES[district_name]
         for t in types:
             current_id += 1
             data.append({"regionId": d["regionId"], "type": t, "id": current_id})
@@ -131,10 +117,11 @@ def build_etryvoga_data(notification_items, base_id: int):
 #   kind="alert"        → alerts:api:data       → alerts:api:updated
 #   kind="notification" → alerts:etryvoga:full:data → alerts:etryvoga:updated
 
-SIMULATION_STEPS_2 = [
+SIMULATION_STEPS = [
     # Крок 1: Бориспільський — AIR+ARTILLERY тривога
     [
         ("Броварський район", ["AIR"], "alert"),
+        ("Броварський район", ["DRONE"], "notification"),
     ],
     # Крок 2: Бориспільський + Броварський тривоги + нотіфікація DRONE
     [
@@ -189,6 +176,7 @@ SIMULATION_STEPS_2 = [
     ],
     # Крок 8: Всі райони тривоги + масові нотіфікації
     [
+        ("Голованівський район", ["AIR"], "alert"),
         ("Броварський район", ["AIR"], "alert"),
         ("Бориспільський район", ["AIR"], "alert"),
         ("Обухівський район", ["AIR"], "alert"),
@@ -202,7 +190,7 @@ SIMULATION_STEPS_2 = [
 ]
 
 # Кожен регіон по черзі з повітряною тривогою, потім відбій
-SIMULATION_STEPS = [
+SIMULATION_STEPS_2 = [
     *[
         [(_state, ["AIR"], "alert")]
         for _state in [
