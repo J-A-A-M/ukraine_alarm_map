@@ -733,16 +733,21 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_cache, alerts_hash_actual, alerts_hash_previous, weather_cache, releases = await asyncio.gather(
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
-                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
-                    get_redis_data(
-                        logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
-                    ),
-                    get_redis_data(
-                        logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
-                    ),
-                    get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
+                alerts_cache, alerts_hash_actual, alerts_hash_previous, weather_cache, releases_beta, releases_prod = (
+                    await asyncio.gather(
+                        get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
+                        get_redis_data(
+                            logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0
+                        ),
+                        get_redis_data(
+                            logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
+                        ),
+                        get_redis_data(
+                            logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
+                        ),
+                        get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
+                        get_redis_data(logger, redis_client, "releases:production", default_response=[]),
+                    )
                 )
 
                 if alerts_cache:
@@ -765,10 +770,17 @@ async def alerts_data_fusion(
                     await websocket.send(weather_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
 
-                if releases:
+                if releases_beta:
                     firmware_payload = make_firmware_batch(releases)
                     await websocket.send(firmware_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
+
+                if releases_prod:
+                    firmware_payload = make_firmware_batch(releases_prod)
+                    await websocket.send(firmware_payload)
+                    logger.info(
+                        f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases_prod)} production versions)"
+                    )
 
                 client["initial"] = False
 
@@ -777,7 +789,7 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     "websocket:v1:fusion:openweathermap:updated",
                     "websocket:v1:fusion:etryvoga:updated",
-                    # "releases:production:updated",
+                    "releases:production:updated",
                     "releases:beta:updated",
                 ]
 
@@ -835,15 +847,15 @@ async def alerts_data_fusion(
                                             continue
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new notifications packet")
-                                    # case "releases:production:updated":
-                                    #     releases = await get_redis_data(
-                                    #         logger, redis_client, "releases:production", default_response=[]
-                                    #     )
-                                    #     payload = make_firmware_batch(releases)
-                                    #     await websocket.send(payload)
-                                    #     logger.info(
-                                    #         f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} prod versions)"
-                                    #     )
+                                    case "releases:production:updated":
+                                        releases = await get_redis_data(
+                                            logger, redis_client, "releases:production", default_response=[]
+                                        )
+                                        payload = make_firmware_batch(releases)
+                                        await websocket.send(payload)
+                                        logger.info(
+                                            f"{client_ip}:{chip_id} <<< updated firmware packet ({len(releases)} prod versions)"
+                                        )
                                     case "releases:beta:updated":
                                         releases = await get_redis_data(
                                             logger, redis_client, "releases:beta", default_response=[]
@@ -1033,25 +1045,11 @@ async def alerts_data(
 
         weather_channel = "websocket:v1:legacy:weather:updated"
 
-        # Канали bins залежно від firmware
-        if "-s3" in firmware:
-            bins_channel = "s3_bins:updated"
-            test_bins_channel = "s3_test_bins:updated"
-            bins_redis_key = "s3_bins"
-            test_bins_redis_key = "s3_test_bins"
-            bins_are_dicts = False  # s3/c3 bins — це списки строк
-        elif "-c3" in firmware:
-            bins_channel = "c3_bins:updated"
-            test_bins_channel = "c3_test_bins:updated"
-            bins_redis_key = "c3_bins"
-            test_bins_redis_key = "c3_test_bins"
-            bins_are_dicts = False
-        else:
-            bins_channel = "releases:production:updated"
-            test_bins_channel = "releases:beta:updated"
-            bins_redis_key = "releases:production"
-            test_bins_redis_key = "releases:beta"
-            bins_are_dicts = True  # default bins — це список dict з полем "name"
+        bins_channel = "releases:production:updated"
+        test_bins_channel = "releases:beta:updated"
+        bins_redis_key = "releases:production"
+        test_bins_redis_key = "releases:beta"
+        bins_are_dicts = True  # default bins — це список dict з полем "name"
 
         all_channels = list(version_channels.keys()) + [weather_channel, bins_channel, test_bins_channel]
 
