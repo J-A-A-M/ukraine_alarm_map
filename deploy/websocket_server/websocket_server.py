@@ -773,9 +773,11 @@ async def alerts_data_fusion(
                     logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
 
                 if releases_beta:
-                    firmware_payload = make_firmware_batch(releases, TYPE_FIRMWARE_UPDATE_BETA_BATCH)
+                    firmware_payload = make_firmware_batch(releases_beta, TYPE_FIRMWARE_UPDATE_BETA_BATCH)
                     await websocket.send(firmware_payload)
-                    logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
+                    logger.info(
+                        f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases_beta)} beta versions)"
+                    )
 
                 if releases_prod:
                     firmware_payload = make_firmware_batch(releases_prod, TYPE_FIRMWARE_UPDATE_PROD_BATCH)
