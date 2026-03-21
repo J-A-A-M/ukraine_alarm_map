@@ -30,7 +30,8 @@ try:
         TYPE_WEATHER_BATCH,
         TYPE_GRID_BATCH,
         TYPE_RADIATION_BATCH,
-        TYPE_FIRMWARE_UPDATE_BATCH,
+        TYPE_FIRMWARE_UPDATE_BETA_BATCH,
+        TYPE_FIRMWARE_UPDATE_PROD_BATCH,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -45,7 +46,8 @@ except ImportError:
         TYPE_WEATHER_BATCH,
         TYPE_GRID_BATCH,
         TYPE_RADIATION_BATCH,
-        TYPE_FIRMWARE_UPDATE_BATCH,
+        TYPE_FIRMWARE_UPDATE_BETA_BATCH,
+        TYPE_FIRMWARE_UPDATE_PROD_BATCH,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -771,12 +773,12 @@ async def alerts_data_fusion(
                     logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
 
                 if releases_beta:
-                    firmware_payload = make_firmware_batch(releases)
+                    firmware_payload = make_firmware_batch(releases, TYPE_FIRMWARE_UPDATE_BETA_BATCH)
                     await websocket.send(firmware_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases)} beta versions)")
 
                 if releases_prod:
-                    firmware_payload = make_firmware_batch(releases_prod)
+                    firmware_payload = make_firmware_batch(releases_prod, TYPE_FIRMWARE_UPDATE_PROD_BATCH)
                     await websocket.send(firmware_payload)
                     logger.info(
                         f"{client_ip}:{chip_id} <<< initial firmware packet ({len(releases_prod)} production versions)"
@@ -1455,7 +1457,7 @@ def make_weather_batch(new_state: dict[int, int]) -> bytes:
     return body
 
 
-def make_firmware_batch(releases: list) -> bytes:
+def make_firmware_batch(releases: list, header) -> bytes:
     """
     Формат пакета прошивок (TYPE_FIRMWARE_UPDATE_BATCH = 0xA6):
     [Header: 1 byte] [Records: N * 5 bytes]
@@ -1478,7 +1480,7 @@ def make_firmware_batch(releases: list) -> bytes:
         beta = int(parts[1]) if is_beta and len(parts) > 1 else 0
         return major, minor, patch, beta
 
-    header = struct.pack("<B", TYPE_FIRMWARE_UPDATE_BATCH)
+    header = struct.pack("<B", header)
     records = bytearray()
     seen = set()
     for release in releases:
