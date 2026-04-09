@@ -94,9 +94,20 @@ geo_lite_db_path = os.environ.get("GEO_PATH") or "GeoLite2-City.mmdb"
 google_stat_send = os.environ.get("GOOGLE_STAT", "False").lower() in ("true", "1", "t")
 ip_info_token = os.environ.get("IP_INFO_TOKEN") or ""
 geo_ip_cache_ttl = int(os.environ.get("GEO_IP_CACHE_TTL") or 86400)  # 24 hours by default
+weather_source = os.environ.get("WEATHER_SOURCE") or "openmeteo"  # openweathermap or openmeteo
 
 logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
+
+# Налаштування джерела погоди
+if weather_source == "openmeteo":
+    WEATHER_DATA_KEY = "websocket:v1:fusion:weather_openmeteo:data"
+    WEATHER_UPDATED_CHANNEL = "websocket:v1:fusion:weather_openmeteo:updated"
+    logger.info("🌤️  Weather source: OpenMeteo")
+else:
+    WEATHER_DATA_KEY = "websocket:v1:fusion:openweathermap:data"
+    WEATHER_UPDATED_CHANNEL = "websocket:v1:fusion:openweathermap:updated"
+    logger.info("🌤️  Weather source: OpenWeatherMap")
 
 gtagmp_logger = logging.getLogger("ga4mp")
 # always warning for ga4mp
@@ -744,9 +755,7 @@ async def alerts_data_fusion(
                         get_redis_data(
                             logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
                         ),
-                        get_redis_data(
-                            logger, redis_client, "websocket:v1:fusion:openweathermap:data", default_response={}
-                        ),
+                        get_redis_data(logger, redis_client, WEATHER_DATA_KEY, default_response={}),
                         get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
                         get_redis_data(logger, redis_client, "releases:production", default_response=[]),
                     )
@@ -791,7 +800,7 @@ async def alerts_data_fusion(
                 # Мапінг каналів
                 channels = [
                     "websocket:v1:fusion:alerts:updated",
-                    "websocket:v1:fusion:openweathermap:updated",
+                    WEATHER_UPDATED_CHANNEL,
                     "websocket:v1:fusion:etryvoga:updated",
                     "releases:production:updated",
                     "releases:beta:updated",
@@ -827,11 +836,11 @@ async def alerts_data_fusion(
                                             continue
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new alert packet")
-                                    case "websocket:v1:fusion:openweathermap:updated":
+                                    case channel if channel == WEATHER_UPDATED_CHANNEL:
                                         state = await get_redis_data(
                                             logger,
                                             redis_client,
-                                            "websocket:v1:fusion:openweathermap:data",
+                                            WEATHER_DATA_KEY,
                                             default_response={},
                                         )
                                         header = struct.pack("<B", TYPE_WEATHER_BATCH)

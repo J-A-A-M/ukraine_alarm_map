@@ -1,0 +1,84 @@
+name: 🌤️ Deploy Weather Service
+permissions: {}
+on:
+  workflow_dispatch:
+    inputs:
+      weather_source:
+        type: choice
+        description: "Weather data source"
+        required: true
+        default: "openmeteo"
+        options:
+          - openmeteo
+          - openweathermap
+      logging:
+        type: choice
+        description: "Log level"
+        required: true
+        default: "INFO"
+        options:
+          - DEBUG
+          - INFO
+          - WARNING
+          - CRITICAL
+          - ERROR
+      period:
+        type: number
+        description: "Update period in seconds (OpenWeatherMap: 7200+, OpenMeteo: 3600+)"
+        required: false
+
+run-name: Deploy Weather (${{ inputs.weather_source }}) from '${{ github.ref_name }}' branch
+jobs:
+    pytests:
+      uses: ./.github/workflows/pytests.yml
+    deploy_weather:
+        needs: pytests
+        runs-on: ubuntu-latest
+        steps:
+          - name: Redeploy Weather Service (${{ inputs.weather_source }})
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                
+                # Deploy selected weather service
+                if [ "${{ inputs.weather_source }}" = "openmeteo" ]; then
+                  DEPLOY_CMD="bash redeploy_weather_openmeteo.sh \
+                    -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                    -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                    -l ${{ inputs.logging }}"
+                  
+                  # Add optional period parameter
+                  if [ -n "${{ inputs.period }}" ]; then
+                    DEPLOY_CMD="$DEPLOY_CMD -p ${{ inputs.period }}"
+                  fi
+                  
+                  eval $DEPLOY_CMD
+                else
+                  DEPLOY_CMD="bash redeploy_weather.sh \
+                    -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                    -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                    -w ${{ secrets.OPENWEATHERMAP_TOKEN }} \
+                    -l ${{ inputs.logging }}"
+                  
+                  # Add optional period parameter
+                  if [ -n "${{ inputs.period }}" ]; then
+                    DEPLOY_CMD="$DEPLOY_CMD -p ${{ inputs.period }}"
+                  fi
+                  
+                  eval $DEPLOY_CMD
+                fi
+          - name: Clear unused images
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                docker image prune -f
