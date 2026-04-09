@@ -57,7 +57,7 @@ DEFAULT_PARAMS = (
 )
 openmeteo_params = os.environ.get("OPENMETEO_PARAMS", DEFAULT_PARAMS)
 
-EXTRA_NAMES = {"Київ", "Івано-Франківськ"}
+EXTRA_NAMES = {"Київ", "Харків", "Запоріжжя", "Автономна Республіка Крим"}
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
