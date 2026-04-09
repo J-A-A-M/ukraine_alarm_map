@@ -3,7 +3,7 @@
 # Default values
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
-REDIS_DB="0"
+REDIS_DB="1"
 FUSION_ALERTS_DEBOUNCE=1
 LOGGING="INFO"
 
@@ -53,16 +53,16 @@ git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_updater -f updater/Dockerfile .
+docker build -t map_updater_dev -f updater/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_updater || true
-docker rm map_updater || true
+docker stop map_updater_dev || true
+docker rm map_updater_dev || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_updater \
+docker run --name map_updater_dev \
     --restart unless-stopped \
     --network=jaam \
     -d \
@@ -72,7 +72,7 @@ docker run --name map_updater \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
-    map_updater
+    map_updater_dev
 
 echo "Container deployed successfully!"
 

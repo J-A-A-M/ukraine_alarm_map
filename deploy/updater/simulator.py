@@ -1,152 +1,348 @@
 #!/usr/bin/env python3
 """
-Скрипт симулятор для функції update_alerts_fusion_websocket_v1.
-Записує тестові дані тривог через store_websocket_data один раз при запуску.
+Симулятор для тестування update_websocket_fusion_v1_alerts та update_websocket_fusion_v1_etryvoga.
+
+Тривоги   (kind="alert"):
+  - записує alerts:api:data + alerts:api:last_call
+  - публікує alerts:api:updated
+
+Нотіфікації (kind="notification"):
+  - записує alerts:etryvoga:full:data
+  - публікує alerts:etryvoga:updated
+
+Гарантує, що id кожного нового кроку нотіфікацій > максимального id попереднього.
 """
 
 import json
 import os
 import asyncio
 import logging
+import sys
+from pathlib import Path
+
+import redis.asyncio as redis
+
+try:
+    from utils import set_redis_data, service_is_fine, get_current_datetime, get_redis_data
+except ImportError:
+    parent_dir = Path(__file__).resolve().parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    from utils import set_redis_data, service_is_fine, get_current_datetime, get_redis_data
 
 # Налаштування
-memcached_host = os.environ.get("MEMCACHED_HOST") or "memcached"
 debug_level = os.environ.get("LOGGING") or "INFO"
+redis_host = os.environ.get("REDIS_HOST") or "redis"
+redis_port = int(os.environ.get("REDIS_PORT", 6379))
+redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
+redis_db = int(os.environ.get("REDIS_DB", 0))
+simulation_pause = float(os.environ.get("SIMULATION_PAUSE", 60))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
 
-# Симуляційні дані тривог
-# Формат: {regionId: flags16_bits}
-# Біт 0: AIR (повітряна тривога)
-# Біт 1: ARTILLERY (артилерійська загроза)
-# Біт 2: URBAN_FIGHTS (міські бої)
-# Біт 3: CHEMICAL (хімічна загроза)
-# Біт 4: NUCLEAR (ядерна загроза)
-# Біт 5: Drones (дрони)
-# Біт 6: Missile (ракети)
-# Біт 7: Ballistic (балістика)
-# Біт 8: KAB (керовані авіабомби)
-# Біт 9: Explosion (вибухи)
-# Біт 10: Recon Drones (дрони-розвідники)
-# 11-15 - зарезервовано
-alerts = True
-notifications = False
-
-SIMULATION_DATA = {
-    # 78: (1 << 0) | (1 << 5),  # Бориспільський район
-    # 79: (1 << 0) | (1 << 5) | (1 << 6),  # Броварський район
-    # 78: (1 << 8),  # Бориспільський район
-    # 79: (1 << 0) | (1 << 5),  # Броварський район
-}
+# Завантажуємо uaapi.json
+_data_path = Path(__file__).resolve().parent.parent / "data" / "uaapi.json"
+with open(_data_path, "r", encoding="utf-8") as _f:
+    _uaapi = json.load(_f)
 
 
-async def get_cache_data(mc, key_b, default_response=None):
-    """Отримати дані з кешу memcached."""
-    if default_response is None:
-        default_response = {}
+# Всі регіони (State + District) з uaapi.json у пласкому словнику
+# ALL_STATES[region_name] = {regionId, regionType, regionName, regionEngName}
+ALL_STATES: dict[str, dict] = {}
+for _state in _uaapi["states"]:
+    ALL_STATES[_state["regionName"]] = {
+        "regionId": _state["regionId"],
+        "regionType": _state["regionType"],
+        "regionName": _state["regionName"],
+        "regionEngName": _state.get("regionEngName", _state["regionName"]),
+    }
+    for _d in _state.get("regionChildIds", []):
+        if _d["regionType"] == "District":
+            ALL_STATES[_d["regionName"]] = {
+                "regionId": _d["regionId"],
+                "regionType": "District",
+                "regionName": _d["regionName"],
+                "regionEngName": _d.get("regionEngName", _d["regionName"]),
+            }
+D_BY_ID = {v["regionId"]: v["regionName"] for v in ALL_STATES.values()}
 
-    cache = await mc.get(key_b)
-
-    if cache:
-        cache = json.loads(cache.decode("utf-8"))
-    else:
-        cache = default_response
-
-    return cache
-
-
-async def store_websocket_data(mc, data, data_websocket, key, key_b):
-    """Зберегти дані у websocket кеш."""
-    if data_websocket != data:
-        logger.debug(f"store {key}")
-        await mc.set(key_b, json.dumps(data).encode("utf-8"))
-        logger.info(f"{key} stored")
-    else:
-        logger.debug(f"{key} not changed")
+# ─── Будівники даних ──────────────────────────────────────────────────────────
 
 
-async def simulate_alerts_fusion_websocket_v1(mc):
+def make_region_record(region_id, region_type, region_name, region_eng_name, alert_types):
+    """Запис для alerts:api:data."""
+    now = get_current_datetime()
+    return {
+        "regionId": region_id,
+        "regionType": region_type,
+        "regionName": region_name,
+        "regionEngName": region_eng_name,
+        "lastUpdate": now,
+        "activeAlerts": [
+            {"regionId": region_id, "regionType": region_type, "type": t, "lastUpdate": now} for t in alert_types
+        ],
+    }
+
+
+def build_alerts_data(alert_items):
+    """Побудувати список для alerts:api:data.
+    Шукає спочатку серед районів Київщини (D), потім серед усіх областей (ALL_STATES).
     """
-    Симулювати функцію update_alerts_fusion_websocket_v1.
-    Записує тестові дані один раз при запуску.
+    data = []
+    for district_name, types in alert_items:
+        d = ALL_STATES[district_name]
+        data.append(make_region_record(d["regionId"], d["regionType"], d["regionName"], d["regionEngName"], types))
+    return data
+
+
+def build_etryvoga_data(notification_items, base_id: int):
+    """Побудувати список для alerts:etryvoga:full:data.
+
+    Формат: [{"regionId": "...", "type": "DRONE", "id": <int>}, ...]
+    id починається з base_id+1 і зростає на 1 для кожного запису.
     """
-    try:
-        logger.info("Початок симуляції alerts_fusion_websocket_v1")
+    data = []
+    current_id = base_id
+    for district_name, types in notification_items:
+        d = ALL_STATES[district_name]
+        for t in types:
+            current_id += 1
+            data.append({"regionId": d["regionId"], "type": t, "id": current_id})
+    return data
 
-        # Отримуємо поточні дані з кешу
-        websocket = await get_cache_data(mc, b"alerts_fusion_websocket_v1", {})
 
-        # Використовуємо симуляційні дані замість реальних API
-        data = SIMULATION_DATA.copy()
+# ─── Сценарій симуляції ───────────────────────────────────────────────────────
+# Кожен крок — список кортежів (назва_району, [типи], kind)
+#   kind="alert"        → alerts:api:data       → alerts:api:updated
+#   kind="notification" → alerts:etryvoga:full:data → alerts:etryvoga:updated
 
-        logger.info(f"Симуляційні дані тривог: {data}")
+SIMULATION_STEPS = [
+    # Крок 1: Бориспільський — AIR+ARTILLERY тривога
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Броварський район", ["DRONE"], "notification"),
+    ],
+    # Крок 2: Бориспільський + Броварський тривоги + нотіфікація DRONE
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Броварський район", ["RECON_DRONE"], "notification"),
+    ],
+    # Крок 3: Тільки Броварський тривога + ROCKET нотіфікація
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Броварський район", ["DRONE"], "notification"),
+    ],
+    # Крок 4: Бучанський + Вишгородський тривоги + KAB нотіфікація
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Білоцерківський район", ["AIR"], "alert"),
+        ("Броварський район", ["ROCKET"], "notification"),
+    ],
+    # Крок 5: Бучанський тривога + кілька нотіфікацій
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Білоцерківський район", ["AIR"], "alert"),
+        ("Фастівський район", ["AIR"], "alert"),
+        ("Броварський район", ["KAB"], "notification"),
+    ],
+    # Крок 6: Обухівський + Білоцерківський тривоги
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Білоцерківський район", ["AIR"], "alert"),
+        ("Фастівський район", ["AIR"], "alert"),
+        ("Бучанський район", ["AIR"], "alert"),
+        ("Броварський район", ["BALLISTIC"], "notification"),
+    ],
+    # Крок 7: Фастівський тривога + EXPLOSION нотіфікація
+    [
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Білоцерківський район", ["AIR"], "alert"),
+        ("Фастівський район", ["AIR"], "alert"),
+        ("Бучанський район", ["AIR"], "alert"),
+        ("Вишгородський район", ["AIR"], "alert"),
+        ("Броварський район", ["EXPLOSION"], "notification"),
+    ],
+    # Крок 8: Всі райони тривоги + масові нотіфікації
+    [
+        ("Голованівський район", ["AIR"], "alert"),
+        ("Броварський район", ["AIR"], "alert"),
+        ("Бориспільський район", ["AIR"], "alert"),
+        ("Обухівський район", ["AIR"], "alert"),
+        ("Білоцерківський район", ["AIR"], "alert"),
+        ("Фастівський район", ["AIR"], "alert"),
+        ("Бучанський район", ["AIR"], "alert"),
+        ("Вишгородський район", ["AIR"], "alert"),
+    ],
+    # Крок 9: Відбій — нічого немає
+    [],
+]
 
-        # Виводимо деталі по кожному регіону
-        for region_id, flags in data.items():
-            alert_types = []
-            if flags & (1 << 0):
-                alert_types.append("AIR")
-            if flags & (1 << 1):
-                alert_types.append("ARTILLERY")
-            if flags & (1 << 2):
-                alert_types.append("URBAN_FIGHTS")
-            if flags & (1 << 3):
-                alert_types.append("CHEMICAL")
-            if flags & (1 << 4):
-                alert_types.append("NUCLEAR")
-            if flags & (1 << 5):
-                alert_types.append("Drones")
-            if flags & (1 << 6):
-                alert_types.append("Missile")
-            if flags & (1 << 7):
-                alert_types.append("KAB")
-            if flags & (1 << 8):
-                alert_types.append("Ballistic")
-            if flags & (1 << 9):
-                alert_types.append("Explosion")
-            if flags & (1 << 10):
-                alert_types.append("Recon Drones")
+# Кожен регіон по черзі з повітряною тривогою, потім відбій
+SIMULATION_STEPS_2 = [
+    *[
+        [(_state, ["AIR"], "alert")]
+        for _state in [
+            "м. Київ",
+            "Вінницька область",
+            "Волинська область",
+            "Дніпропетровська область",
+            "Донецька область",
+            "Житомирська область",
+            "Закарпатська область",
+            "Запорізька область",
+            "Івано-Франківська область",
+            "Київська область",
+            "Кіровоградська область",
+            "Луганська область",
+            "Львівська область",
+            "Миколаївська область",
+            "Одеська область",
+            "Полтавська область",
+            "Рівненська область",
+            "Сумська область",
+            "Тернопільська область",
+            "Харківська область",
+            "Херсонська область",
+            "Хмельницька область",
+            "Черкаська область",
+            "Чернівецька область",
+            "Чернігівська область",
+        ]
+    ],
+    # Відбій — нічого немає
+    [],
+]
 
-            logger.info(f"Регіон {region_id}: flags={flags} ({bin(flags)}), типи: {', '.join(alert_types)}")
 
-        # Зберігаємо дані через store_websocket_data
-        if notifications:
-            await store_websocket_data(
-                mc, data, websocket, "etryvoga_fusion_websocket_v1", b"etryvoga_fusion_websocket_v1"
-            )
-        if alerts:
-            await store_websocket_data(mc, data, websocket, "alerts_fusion_websocket_v1", b"alerts_fusion_websocket_v1")
+# ─── Виконання кроку ─────────────────────────────────────────────────────────
 
-        logger.info("Симуляція завершена успішно")
 
-    except Exception as e:
-        logger.error(f"Помилка в simulate_alerts_fusion_websocket_v1: {str(e)}")
-        raise
+async def run_step(redis_client, step_idx):
+    """Виконати один крок симуляції."""
+    step = SIMULATION_STEPS[step_idx]
+    total = len(SIMULATION_STEPS)
+
+    logger.info(f"{'─' * 55}")
+
+    if not step:
+        logger.info(f"✅ Крок {step_idx + 1}/{total}: Відбій — жодних даних")
+        # Записуємо порожні дані для обох каналів
+        await asyncio.gather(
+            set_redis_data(logger, redis_client, "alerts:api:data", []),
+            service_is_fine(logger, redis_client, "alerts:api:last_call"),
+            set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", []),
+        )
+        await asyncio.gather(
+            redis_client.publish("alerts:api:updated", "1"),
+            redis_client.publish("alerts:etryvoga:updated", "1"),
+        )
+        return
+
+    # Розбиваємо на тривоги та нотіфікації
+    alert_items = [(name, types) for name, types, kind in step if kind == "alert"]
+    notif_items = [(name, types) for name, types, kind in step if kind == "notification"]
+
+    logger.info(f"🔴 Крок {step_idx + 1}/{total}: {len(alert_items)} тривог, {len(notif_items)} нотіфікацій")
+
+    # ── Тривоги ──
+    if alert_items:
+        alerts_data = build_alerts_data(alert_items)
+        for rec in alerts_data:
+            types_str = ", ".join(a["type"] for a in rec["activeAlerts"])
+            logger.info(f"   [alert      ] regionId={rec['regionId']} {rec['regionName']} → {types_str}")
+
+        await asyncio.gather(
+            set_redis_data(logger, redis_client, "alerts:api:data", alerts_data),
+            service_is_fine(logger, redis_client, "alerts:api:last_call"),
+        )
+        await redis_client.publish("alerts:api:updated", "1")
+        logger.debug("📢 Опубліковано alerts:api:updated")
+    else:
+        # Очищуємо якщо тривог немає
+        await asyncio.gather(
+            set_redis_data(logger, redis_client, "alerts:api:data", []),
+            service_is_fine(logger, redis_client, "alerts:api:last_call"),
+        )
+        await redis_client.publish("alerts:api:updated", "1")
+
+    # ── Нотіфікації ──
+    if notif_items:
+        base_id = await get_redis_data(
+            logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", default_response=0
+        )
+        if base_id is None:
+            base_id = 0
+        base_id = int(base_id)
+        etryvoga_data = build_etryvoga_data(notif_items, base_id)
+        max_id = max(rec["id"] for rec in etryvoga_data)
+        for rec in etryvoga_data:
+            region_name = D_BY_ID.get(rec["regionId"], rec["regionId"])
+            logger.info(f"   [notification] regionId={rec['regionId']} {region_name} → {rec['type']} (id={rec['id']})")
+        logger.debug(f"   max_id={max_id} → websocket:v1:fusion:etryvoga:last_processed_id")
+
+        await asyncio.gather(
+            set_redis_data(logger, redis_client, "alerts:etryvoga:full:data", etryvoga_data),
+            # set_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", max_id),
+        )
+        await redis_client.publish("alerts:etryvoga:updated", "1")
+        logger.debug("📢 Опубліковано alerts:etryvoga:updated")
+
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
 
 
 async def main():
-    """Головна функція."""
-    logger.info("Запуск симулятора alerts_fusion_websocket_v1")
-    logger.info(f"Підключення до memcached: {memcached_host}:11211")
+    """Головна функція симулятора."""
+    logger.info("🚀 Запуск симулятора (Київська область — райони)")
+    logger.info(f"⏱️  Пауза між кроками: {simulation_pause} сек.")
+    logger.info(f"🔌 Redis: {redis_host}:{redis_port} db={redis_db}")
+    logger.info(f"📋 Кількість кроків у сценарії: {len(SIMULATION_STEPS)}")
 
-    mc = Client(memcached_host, 11211)
+    redis_client = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        password=redis_password,
+        db=redis_db,
+        decode_responses=True,
+    )
 
     try:
-        await simulate_alerts_fusion_websocket_v1(mc)
-        logger.info("Симуляція виконана успішно!")
+        await redis_client.ping()
+        logger.info("✅ Підключено до Redis")
 
+        step_idx = 0
+        iteration = 0
+
+        while True:
+            logger.info(f"\n🔄 Ітерація {iteration + 1}")
+            await run_step(redis_client, step_idx)
+            await asyncio.sleep(simulation_pause)
+            step_idx = (step_idx + 1) % len(SIMULATION_STEPS)
+            iteration += 1
+
+    except KeyboardInterrupt:
+        logger.info("\n⛔ Симуляція перервана")
+    except asyncio.CancelledError:
+        logger.info("⛔ Симуляція скасована")
     except Exception as e:
-        logger.error(f"Критична помилка: {str(e)}")
-        return 1
-
+        logger.error(f"❌ Критична помилка: {e}", exc_info=True)
+        raise
     finally:
-        # Закриваємо з'єднання з memcached
-        mc.close()
-
-    return 0
+        await redis_client.aclose()
+        logger.info("🔌 З'єднання з Redis закрито")
 
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    exit(exit_code)
+    asyncio.run(main())

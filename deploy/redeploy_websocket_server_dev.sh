@@ -3,18 +3,15 @@
 # Default values
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
-REDIS_DB="0"
+REDIS_DB="1"
 WEBSOCKET_PORT=38447
 PING_INTERVAL=60
 PING_TIMEOUT=30
 PING_TIMEOUT_COUNT=1
-ENVIRONMENT="DEV"
-RANDOM_MODE="False"
-TEST_MODE="False"
-MEMCACHE_FETCH_INTERVAL=1
-LOGGING="INFO"
-GOOGLE_STAT="False"
+LOGGING="WARNING"
+GOOGLE_STAT="True"
 IP_INFO_TOKEN=""
+WEATHER_SOURCE="openmeteo"  # openweathermap or openmeteo
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -55,18 +52,6 @@ while [[ $# -gt 0 ]]; do
             PING_TIMEOUT_COUNT="$2"
             shift 2
             ;;
-        -r|--random-mode)
-            RANDOM_MODE="$2"
-            shift 2
-            ;;
-        -e|--test-mode)
-            TEST_MODE="$2"
-            shift 2
-            ;;
-        -f|--fetch-interval)
-            MEMCACHE_FETCH_INTERVAL="$2"
-            shift 2
-            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -79,6 +64,10 @@ while [[ $# -gt 0 ]]; do
             IP_INFO_TOKEN="$2"
             shift 2
             ;;
+        -w|--weather-source)
+            WEATHER_SOURCE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1"
             exit 1
@@ -86,7 +75,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "WEBSOCKET SERVER DEV"
+echo "WEBSOCKET SERVER"
 
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
@@ -95,13 +84,10 @@ echo "WEBSOCKET_PORT: $WEBSOCKET_PORT"
 echo "PING_INTERVAL: $PING_INTERVAL"
 echo "PING_TIMEOUT: $PING_TIMEOUT"
 echo "PING_TIMEOUT_COUNT: $PING_TIMEOUT_COUNT"
-echo "ENVIRONMENT: $ENVIRONMENT"
-echo "RANDOM_MODE: $RANDOM_MODE"
-echo "TEST_MODE: $TEST_MODE"
-echo "MEMCACHE_FETCH_INTERVAL: $MEMCACHE_FETCH_INTERVAL"
 echo "LOGGING: $LOGGING"
 echo "GOOGLE_STAT: $GOOGLE_STAT"
 echo "IP_INFO_TOKEN: $IP_INFO_TOKEN"
+echo "WEATHER_SOURCE: $WEATHER_SOURCE"
 
 
 # Updating the Git repo
@@ -122,8 +108,9 @@ docker rm map_websocket_server_dev || true
 echo "Deploying new container..."
 docker run --name map_websocket_server_dev \
     --restart unless-stopped \
-    --network=jaam  \
+    --network=jaam \
     -d \
+    -p "$WEBSOCKET_PORT":"$WEBSOCKET_PORT" \
     --env WEBSOCKET_PORT="$WEBSOCKET_PORT" \
     --env API_SECRET="$API_SECRET" \
     --env MEASUREMENT_ID="$MEASUREMENT_ID" \
@@ -133,14 +120,10 @@ docker run --name map_websocket_server_dev \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
-    --env ENVIRONMENT="$ENVIRONMENT" \
-    --env RANDOM_MODE="$RANDOM_MODE" \
-    --env TEST_MODE="$TEST_MODE" \
-    --env MEMCACHE_FETCH_INTERVAL="$MEMCACHE_FETCH_INTERVAL" \
     --env LOGGING="$LOGGING" \
     --env GOOGLE_STAT="$GOOGLE_STAT" \
     --env IP_INFO_TOKEN="$IP_INFO_TOKEN" \
+    --env WEATHER_SOURCE="$WEATHER_SOURCE" \
     map_websocket_server_dev
 
 echo "Container deployed successfully!"
-

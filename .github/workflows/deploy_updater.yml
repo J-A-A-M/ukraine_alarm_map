@@ -1,16 +1,17 @@
 name: 🔄 Deploy Update Server
+permissions: {}
 on:
   workflow_dispatch:
     
-run-name: Deploy Update Server from '${{ github.ref_name }}' branch
+run-name: Deploy Updater from '${{ github.ref_name }}' branch
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
-    deploy_update_server:
+    deploy_updater:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy Update Server (bin list)
+          - name: Redeploy Updater
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -21,10 +22,9 @@ jobs:
                 git fetch --all
                 git switch ${{ github.ref_name }}
                 git pull
-                bash redeploy_update_server.sh \
+                bash redeploy_updater.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
-                  -g ${{ secrets.G_TOKEN }}
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

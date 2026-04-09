@@ -19,6 +19,10 @@ try:
         get_file_names,
         release_filter,
         beta_filter,
+        Debouncer,
+        Throttler,
+        TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -32,6 +36,10 @@ except ImportError:
         get_file_names,
         release_filter,
         beta_filter,
+        Debouncer,
+        Throttler,
+        TYPE_ALERTS_BATCH,
+        TYPE_NOTIFICATIONS_BATCH,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -58,11 +66,12 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
-update_period = int(os.environ.get("UPDATE_PERIOD", 1))
-update_period_long = int(os.environ.get("UPDATE_PERIOD_LONG", 60))
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data/releases"
 shared_path_beta = os.environ.get("SHARED_PATH_BETA") or "/shared_data/beta"
 sink_local_files = os.environ.get("SINK_LOCAL_FILES", "True").lower() == "true"
+fusion_alerts_debounce = float(os.environ.get("FUSION_ALERTS_DEBOUNCE", 1))
+fusion_alerts_throttle = float(os.environ.get("FUSION_ALERTS_THROTTLE", 0))
+fusion_etryvoga_throttle = float(os.environ.get("FUSION_ETRYVOGA_THROTTLE", 0))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -109,6 +118,31 @@ def get_current_datetime():
 
 def get_current_timestamp():
     return int(datetime.datetime.now(datetime.UTC).timestamp())
+
+
+def encode_temperature_to_mask(temp_c) -> int:
+    """
+    Упаковує температуру у бітову маску (1 байт).
+    Діапазон значень: від -127 до 127 включно.
+    Схема кодування:
+    - біти [0..6] (7 біт): модуль температури (0..127)
+    - біт [7]: знак (1 — від'ємна, 0 — додатна або нуль)
+    Приклад:
+    +25 -> 0b0011001 (25)
+    -12 -> 0b1_0001100 (128 + 12 = 140)
+    """
+    try:
+        t = int(round(float(temp_c), 0))
+    except Exception:
+        return 0
+    # Обмежуємо діапазон
+    if t < -127:
+        t = -127
+    elif t > 127:
+        t = 127
+    sign = 1 if t < 0 else 0
+    magnitude = -t if t < 0 else t  # 0..127
+    return (sign << 7) | magnitude
 
 
 async def download_file(url, filepath):
@@ -976,81 +1010,137 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
+    async def calc_body_alerts_hash(body_alerts: bytes) -> int:
+        """
+        Обчислює простий 16-бітний хеш для body_alerts.
+        """
+        return sum(body_alerts) % 0x10000  # 65536
+
+    async def find_empty_regions(old_state, new_state):
+        """
+        Повертає список регіонів, які відсутні в новому стані, але присутні в старому.
+        """
+        empty_region_ids = []
+        for region_id in old_state.keys():
+            if region_id not in new_state:
+                empty_region_ids.append(region_id)
+        return empty_region_ids
+
+    async def find_changed_regions(old_state, new_state):
+        """
+        Оновлює стан alerts_batch_state, повертає діф (region_ids, де flags16 змінився).
+        """
+        diff_region_ids = []
+        for region_id, flags16 in new_state.items():
+            prev_flags = old_state.get(region_id)
+            if prev_flags != flags16:
+                diff_region_ids.append(region_id)
+        return diff_region_ids
+
     # Функція обробки даних
     async def process_alerts():
         try:
-            data = {}
+            new_state = {}
 
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, websocket, previous = await asyncio.gather(
+            alerts_cache, reasons_cache, old_state, alerts_hash_actual = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
-                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", default_response={}),
-                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", default_response={}),
+                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response={}),
+                get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
             )
+            logger.info(f"🔍 process_alerts: hash_actual_read={alerts_hash_actual}, old_state={old_state}")
 
             reasons = reasons_cache.get("reasons", [])
             for alert in alerts_cache:
                 for active_alert in alert["activeAlerts"]:
                     regionId = active_alert["regionId"]
-                    if regionId not in data:
-                        data[regionId] = 0
+                    if regionId not in new_state:
+                        new_state[regionId] = 0
                     if active_alert["type"] == "AIR":
-                        data[regionId] |= 1 << 0
+                        new_state[regionId] |= 1 << 0
                     if active_alert["type"] == "ARTILLERY":
-                        data[regionId] |= 1 << 1
+                        new_state[regionId] |= 1 << 1
                     if active_alert["type"] == "URBAN_FIGHTS":
-                        data[regionId] |= 1 << 2
+                        new_state[regionId] |= 1 << 2
                     if active_alert["type"] == "CHEMICAL":
-                        data[regionId] |= 1 << 3
+                        new_state[regionId] |= 1 << 3
                     if active_alert["type"] == "NUCLEAR":
-                        data[regionId] |= 1 << 4
+                        new_state[regionId] |= 1 << 4
 
             for reason_alert in reasons:
                 regionId = reason_alert["regionId"]
-                if regionId not in data:
-                    data[regionId] = 0
+                if regionId not in new_state:
+                    new_state[regionId] = 0
                 for alert_type in reason_alert["alertTypes"]:
                     if alert_type == "Drones":
-                        data[regionId] |= 1 << 5
+                        new_state[regionId] |= 1 << 5
                     if alert_type == "Missile":
-                        data[regionId] |= 1 << 6
+                        new_state[regionId] |= 1 << 6
                     # if alert_type == "Ballistic": # це насправді "Kabs"
-                    #     data[regionId] |= (1 << 8)
-            logger.debug(f"⚠️ ALERTS FUSION DATA: {data}")
-            if data != websocket:
-                logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts")
-                await asyncio.gather(
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts_previous", websocket),
-                    set_redis_data(logger, redis_client, "websocket:v1:fusion:alerts", data),
+                    #     new_state[regionId] |= (1 << 8)
+            logger.debug(f"⚠️ ALERTS FUSION DATA: {new_state}")
+            if new_state != old_state:
+                changed_region_ids, empty_region_ids = await asyncio.gather(
+                    find_changed_regions(old_state, new_state), find_empty_regions(old_state, new_state)
                 )
-                await redis_client.publish("websocket:v1:fusion:alerts:updated", "1")
-                logger.info("✅ websocket:v1:fusion:alerts збережено")
+
+                alerts_header = struct.pack("<B", TYPE_ALERTS_BATCH)
+                alerts = bytearray()
+
+                for rid in changed_region_ids + empty_region_ids:
+                    flags16 = new_state.get(rid, 0)
+                    alerts += struct.pack("<H H", int(rid), flags16)
+
+                alerts_hash_current = await calc_body_alerts_hash(alerts)
+
+                hash_actual = struct.pack("<H", alerts_hash_current)
+                hash_previous = struct.pack("<H", alerts_hash_actual)
+
+                alerts_payload = alerts_header + hash_actual + hash_previous + alerts
+
+                logger.debug("💾 Зберігаємо websocket:v1:fusion:alerts:data")
+                async with redis_client.pipeline(transaction=True) as pipe:
+                    pipe.set("websocket:v1:fusion:payload:alerts", json.dumps(alerts_payload.hex()))
+                    pipe.delete("websocket:v1:fusion:alerts:data")
+                    for k, v in new_state.items():
+                        pipe.hset("websocket:v1:fusion:alerts:data", k, json.dumps(v))
+                    pipe.set("websocket:v1:fusion:alerts:hash_actual", json.dumps(alerts_hash_current))
+                    pipe.set("websocket:v1:fusion:alerts:hash_previous", json.dumps(alerts_hash_actual))
+                    await pipe.execute()
+                await redis_client.publish("websocket:v1:fusion:alerts:updated", str(alerts_hash_current))
+                logger.info(
+                    f"✅ websocket:v1:fusion:alerts:data збережено (hash_prev={alerts_hash_actual} → hash_curr={alerts_hash_current})"
+                )
             else:
-                logger.info("ℹ️  websocket:v1:fusion:alerts не змінився")
+                logger.info("ℹ️  websocket:v1:fusion:alerts:data не змінився")
 
         except Exception as e:
             logger.error(f"❌ process_alerts error: {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
-    # Основний цикл очікування повідомлень з Pub/Sub
+    # Основний цикл очікування повідомлень з Pub/Sub (з debounce)
+    throttler = Throttler(fusion_alerts_throttle)
+
     try:
+        await process_alerts()  # початковий запуск після підписки (на випадок пропущених подій при рестарті)
+
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
-                await process_alerts()
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_alerts_throttle}s")
+                await throttler.call(process_alerts)
 
             if run_once:
+                await throttler.wait()
                 break
-
-            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
 
     except Exception as e:
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
+        throttler.cancel()
         await pubsub.unsubscribe(*channels)
         await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
@@ -1094,6 +1184,8 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
                     data[regionId] |= 1 << 6
                 elif alert["type"] == "KAB":
                     data[regionId] |= 1 << 7
+                elif alert["type"] == "BALLISTIC":
+                    data[regionId] |= 1 << 8
                 elif alert["type"] == "EXPLOSION":
                     data[regionId] |= 1 << 9
                 elif alert["type"] == "RECON_DRONE":
@@ -1103,8 +1195,17 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
                     del data[regionId]
             logger.debug(f"⚠️ ETRYVOGA FUSION DATA: {data}")
             if data:
+                header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
+                notifications = bytearray()
+                for rid in data.keys():
+                    flags16 = data.get(rid, 0)
+                    notifications += struct.pack("<H H", int(rid), flags16)
+                notifications_payload = header + notifications
                 logger.debug("💾 Зберігаємо websocket:v1:fusion:etryvoga:data")
                 await asyncio.gather(
+                    set_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:payload:notifications", notifications_payload.hex()
+                    ),
                     set_redis_data(logger, redis_client, "websocket:v1:fusion:etryvoga:data", data),
                     set_redis_data(
                         logger, redis_client, "websocket:v1:fusion:etryvoga:last_processed_id", first_processed_id
@@ -1120,15 +1221,18 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
 
     # Основний цикл очікування повідомлень з Pub/Sub
+    throttler = Throttler(fusion_etryvoga_throttle)
+
     try:
         while True:
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
-                await process_etryvoga()
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_etryvoga_throttle}s")
+                await throttler.call(process_etryvoga)
 
             if run_once:
+                await throttler.wait()
                 break
 
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
@@ -1137,41 +1241,18 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
+        throttler.cancel()
         await pubsub.unsubscribe(*channels)
         await pubsub.aclose()
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
-async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
+async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
     channels = ["weather:openweathermap:updated"]
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
-
-    async def encode_temperature_to_mask(temp_c) -> int:
-        """
-        Упаковує температуру у бітову маску (1 байт).
-        Діапазон значень: від -50 до 50 включно.
-        Схема кодування:
-        - біти [0..6] (7 біт): модуль температури (0..50)
-        - біт [7]: знак (1 — від'ємна, 0 — додатна або нуль)
-        Приклад:
-        +25 -> 0b0011001 (25)
-        -12 -> 0b1_0001100 (128 + 12 = 140)
-        """
-        try:
-            t = int(round(float(temp_c), 0))
-        except Exception:
-            return 0
-        # Обмежуємо діапазон
-        if t < -127:
-            t = -127
-        elif t > 127:
-            t = 127
-        sign = 1 if t < 0 else 0
-        magnitude = -t if t < 0 else t  # 0..127
-        return (sign << 7) | magnitude
 
     # Функція обробки даних
     async def process_weather():
@@ -1183,13 +1264,13 @@ async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
             data = {}
 
             for region in weather_cache:
-                data[region["region"]["regionId"]] = await encode_temperature_to_mask(region.get("temp"))
+                data[region["region"]["regionId"]] = encode_temperature_to_mask(region.get("temp"))
 
             logger.debug(f"⚠️ WEATHER FUSION DATA: {data}")
-            logger.debug("💾 Зберігаємо websocket:v1:fusion:weather")
-            await set_redis_data(logger, redis_client, "websocket:v1:fusion:weather", data)
-            await redis_client.publish("websocket:v1:fusion:weather:updated", "1")
-            logger.info("✅ websocket:v1:fusion:weather збережено")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:openweathermap:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:openweathermap:data", data)
+            await redis_client.publish("websocket:v1:fusion:openweathermap:updated", "1")
+            logger.info("✅ websocket:v1:fusion:openweathermap:data збережено")
         except Exception as e:
             logger.error(f"❌ process_weather error: {str(e)}")
             logger.debug(f"❌ Повний стек помилки:", exc_info=True)
@@ -1209,7 +1290,56 @@ async def update_websocket_fusion_v1_weather(redis_client, run_once=False):
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
 
     except Exception as e:
-        logger.error(f"❌ update_websocket_fusion_v1_weather {str(e)}")
+        logger.error(f"❌ update_websocket_fusion_v1_openweathermap {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
+async def update_websocket_fusion_v1_weather_openmeteo(redis_client, run_once=False):
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["weather:openmeteo:updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Функція обробки даних
+    async def process_weather():
+        try:
+            weather_cache = await get_redis_data(logger, redis_client, "weather:openmeteo:data", default_response=[])
+
+            data = {}
+
+            for region in weather_cache:
+                data[region["regionId"]] = encode_temperature_to_mask(region.get("temperature_2m"))
+
+            logger.debug(f"⚠️ WEATHER OPENMETEO FUSION DATA: {data}")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:weather_openmeteo:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:weather_openmeteo:data", data)
+            await redis_client.publish("websocket:v1:fusion:weather_openmeteo:updated", "1")
+            logger.info("✅ websocket:v1:fusion:weather_openmeteo:data збережено")
+        except Exception as e:
+            logger.error(f"❌ process_weather_openmeteo error: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message["type"] == "message":
+                channel = message["channel"]
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                await process_weather()
+
+            if run_once:
+                break
+
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+
+    except Exception as e:
+        logger.error(f"❌ update_websocket_fusion_v1_weather_openmeteo {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
@@ -1284,12 +1414,23 @@ async def main():
             ),
             asyncio.create_task(
                 run_with_restart(
-                    logger, update_websocket_fusion_v1_weather, redis_client, "update_websocket_fusion_v1_weather"
+                    logger,
+                    update_websocket_fusion_v1_openweathermap,
+                    redis_client,
+                    "update_websocket_fusion_v1_openweathermap",
                 )
             ),
             asyncio.create_task(
                 run_with_restart(
                     logger, update_websocket_fusion_v1_etryvoga, redis_client, "update_websocket_fusion_v1_etryvoga"
+                )
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    update_websocket_fusion_v1_weather_openmeteo,
+                    redis_client,
+                    "update_websocket_fusion_v1_weather_openmeteo",
                 )
             ),
         ]

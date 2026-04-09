@@ -4,7 +4,8 @@
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
-FUSION_ALERTS_DEBOUNCE=1
+OPENMETEO_PERIOD=3600
+OPENMETEO_PARAMS="temperature_2m,relative_humidity_2m,weather_code"
 LOGGING="INFO"
 
 # Check for arguments
@@ -22,8 +23,12 @@ while [[ $# -gt 0 ]]; do
             REDIS_DB="$2"
             shift 2
             ;;
-        -fa|--fusion-alerts-debounce)
-            FUSION_ALERTS_DEBOUNCE="$2"
+        -p|--openmeteo-period)
+            OPENMETEO_PERIOD="$2"
+            shift 2
+            ;;
+        --openmeteo-params)
+            OPENMETEO_PARAMS="$2"
             shift 2
             ;;
         -l|--logging)
@@ -37,42 +42,40 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "UPDATER"
+echo "WEATHER_OPENMETEO"
 
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
-echo "FUSION_ALERTS_DEBOUNCE: $FUSION_ALERTS_DEBOUNCE"
+echo "OPENMETEO_PERIOD: $OPENMETEO_PERIOD"
+echo "OPENMETEO_PARAMS: $OPENMETEO_PARAMS"
 echo "LOGGING: $LOGGING"
-
 
 # Updating the Git repo
 echo "Updating Git repo..."
-#cd /path/to/your/git/repo
 git pull
 
 # Building Docker image
 echo "Building Docker image..."
-docker build -t map_updater -f updater/Dockerfile .
+docker build -t map_weather_openmeteo -f weather_openmeteo/Dockerfile .
 
 # Stopping and removing the old container (if exists)
 echo "Stopping and removing old container..."
-docker stop map_updater || true
-docker rm map_updater || true
+docker stop map_weather_openmeteo || true
+docker rm map_weather_openmeteo || true
 
 # Deploying the new container
 echo "Deploying new container..."
-docker run --name map_updater \
+docker run --name map_weather_openmeteo \
     --restart unless-stopped \
     --network=jaam \
     -d \
-    -v /shared_data:/shared_data \
-    --env FUSION_ALERTS_DEBOUNCE="$FUSION_ALERTS_DEBOUNCE" \
+    --env OPENMETEO_PERIOD="$OPENMETEO_PERIOD" \
+    --env OPENMETEO_PARAMS="$OPENMETEO_PARAMS" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
-    map_updater
+    map_weather_openmeteo
 
 echo "Container deployed successfully!"
-

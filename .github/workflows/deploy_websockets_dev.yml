@@ -1,19 +1,27 @@
-name: 🧪 Deploy Dev Websockets
+name: 🧪 Deploy Dev Server
 on:
   workflow_dispatch:
     inputs:
-      random_mode:
+      redeploy_updater_dev:
         type: boolean
         default: false
-        description: Random Alerts Mode
-      test_mode:
+        description: Updater Dev
+      redeploy_websocket_dev:
         type: boolean
         default: false
-        description: Test Mode (linear change)
+        description: Websocket Dev
+      weather_source:
+        type: choice
+        description: "Weather data source"
+        required: true
+        default: "openmeteo"
+        options:
+          - openmeteo
+          - openweathermap
       google_stat:
         type: boolean
         description: "Enable Google stat"
-        default: false
+        default: true
       ping_interval:
         type: number
         description: "Websocket ping interval (in seconds)"
@@ -30,7 +38,7 @@ on:
         type: choice
         description: "Log level"
         required: true
-        default: "INFO"
+        default: "DEBUG"
         options:
           - DEBUG
           - INFO
@@ -46,7 +54,24 @@ jobs:
         needs: pytests
         runs-on: ubuntu-latest
         steps:
-          - name: Redeploy Dev WebSockets
+          - name: Redeploy Updater Dev
+            if: ${{ inputs.redeploy_updater_dev }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ secrets.CLOUD_SERVER_IP }}
+              username: ${{ secrets.CLOUD_SERVER_USER }}
+              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              script: |
+                cd /root/ukraine_alarm_map/deploy/
+                git fetch --all
+                git switch ${{ github.ref_name }}
+                git pull
+                bash redeploy_updater_dev.sh \
+                  -l ${{ inputs.logging }} \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+          - name: Redeploy WebSockets Dev
+            if: ${{ inputs.redeploy_websocket_dev }}
             uses: appleboy/ssh-action@v1.2.0
             with:
               host: ${{ secrets.CLOUD_SERVER_IP }}
@@ -62,14 +87,13 @@ jobs:
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -s ${{ secrets.API_SECRET }} \
                   -i ${{ secrets.MEASUREMENT_ID }} \
-                  -r ${{ inputs.random_mode && 'True' || 'False' }} \
-                  -e ${{ inputs.test_mode && 'True' || 'False' }} \
                   -g ${{ inputs.google_stat && 'True' || 'False' }} \
                   -l ${{ inputs.logging }} \
                   -p ${{ inputs.ping_interval }} \
                   -t ${{ inputs.ping_timeout }} \
                   -c ${{ inputs.ping_timeout_count }} \
-                  -k ${{ secrets.IP_INFO_TOKEN }}
+                  -k ${{ secrets.IP_INFO_TOKEN }} \
+                  -w ${{ inputs.weather_source }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

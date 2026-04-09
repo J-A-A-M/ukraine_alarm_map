@@ -2,12 +2,10 @@
 
 # Default values
 ETRYVOGA_HOST=""
-ETRYVOGA_DISTRICTS_HOST=""
 REDIS_HOST=""
 REDIS_PASSWORD="redis"
 REDIS_DB="0"
 ETRYVOGA_PERIOD=30
-ETRYVOGA_DISTRICTS_PERIOD=600
 LOGGING="INFO"
 
 # Check for arguments
@@ -15,10 +13,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -e|--etryvoga-host)
             ETRYVOGA_HOST="$2"
-            shift 2
-            ;;
-        -ed|--etryvoga-districts-host)
-            ETRYVOGA_DISTRICTS_HOST="$2"
             shift 2
             ;;
         -m|--redis-host)
@@ -37,10 +31,6 @@ while [[ $# -gt 0 ]]; do
             ETRYVOGA_PERIOD="$2"
             shift 2
             ;;
-        -ep|--etryvoga-districts-period)
-            ETRYVOGA_DISTRICTS_PERIOD="$2"
-            shift 2
-            ;;
         -l|--logging)
             LOGGING="$2"
             shift 2
@@ -55,12 +45,10 @@ done
 echo "ETRYVOGA"
 
 echo "ETRYVOGA_HOST: $ETRYVOGA_HOST"
-echo "ETRYVOGA_DISTRICTS_HOST: $ETRYVOGA_DISTRICTS_HOST"
 echo "REDIS_HOST: $REDIS_HOST"
 echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
 echo "ETRYVOGA_PERIOD: $ETRYVOGA_PERIOD"
-echo "ETRYVOGA_DISTRICTS_PERIOD: $ETRYVOGA_DISTRICTS_PERIOD"
 echo "LOGGING: $LOGGING"
 
 
@@ -84,9 +72,7 @@ docker run --name map_etryvoga \
     --restart unless-stopped \
     --network=jaam -d \
     --env ETRYVOGA_HOST="$ETRYVOGA_HOST" \
-    --env ETRYVOGA_DISTRICTS_HOST="$ETRYVOGA_DISTRICTS_HOST" \
     --env ETRYVOGA_PERIOD="$ETRYVOGA_PERIOD" \
-    --env ETRYVOGA_DISTRICTS_PERIOD="$ETRYVOGA_DISTRICTS_PERIOD" \
     --env REDIS_HOST="$REDIS_HOST" \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
