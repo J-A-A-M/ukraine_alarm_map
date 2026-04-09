@@ -120,6 +120,31 @@ def get_current_timestamp():
     return int(datetime.datetime.now(datetime.UTC).timestamp())
 
 
+def encode_temperature_to_mask(temp_c) -> int:
+    """
+    Упаковує температуру у бітову маску (1 байт).
+    Діапазон значень: від -127 до 127 включно.
+    Схема кодування:
+    - біти [0..6] (7 біт): модуль температури (0..127)
+    - біт [7]: знак (1 — від'ємна, 0 — додатна або нуль)
+    Приклад:
+    +25 -> 0b0011001 (25)
+    -12 -> 0b1_0001100 (128 + 12 = 140)
+    """
+    try:
+        t = int(round(float(temp_c), 0))
+    except Exception:
+        return 0
+    # Обмежуємо діапазон
+    if t < -127:
+        t = -127
+    elif t > 127:
+        t = 127
+    sign = 1 if t < 0 else 0
+    magnitude = -t if t < 0 else t  # 0..127
+    return (sign << 7) | magnitude
+
+
 async def download_file(url, filepath):
     """Завантажує файл з URL та зберігає його локально"""
     try:
@@ -1229,30 +1254,6 @@ async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
-    async def encode_temperature_to_mask(temp_c) -> int:
-        """
-        Упаковує температуру у бітову маску (1 байт).
-        Діапазон значень: від -50 до 50 включно.
-        Схема кодування:
-        - біти [0..6] (7 біт): модуль температури (0..50)
-        - біт [7]: знак (1 — від'ємна, 0 — додатна або нуль)
-        Приклад:
-        +25 -> 0b0011001 (25)
-        -12 -> 0b1_0001100 (128 + 12 = 140)
-        """
-        try:
-            t = int(round(float(temp_c), 0))
-        except Exception:
-            return 0
-        # Обмежуємо діапазон
-        if t < -127:
-            t = -127
-        elif t > 127:
-            t = 127
-        sign = 1 if t < 0 else 0
-        magnitude = -t if t < 0 else t  # 0..127
-        return (sign << 7) | magnitude
-
     # Функція обробки даних
     async def process_weather():
         try:
@@ -1263,7 +1264,7 @@ async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False
             data = {}
 
             for region in weather_cache:
-                data[region["region"]["regionId"]] = await encode_temperature_to_mask(region.get("temp"))
+                data[region["region"]["regionId"]] = encode_temperature_to_mask(region.get("temp"))
 
             logger.debug(f"⚠️ WEATHER FUSION DATA: {data}")
             logger.debug("💾 Зберігаємо websocket:v1:fusion:openweathermap:data")
@@ -1290,6 +1291,55 @@ async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False
 
     except Exception as e:
         logger.error(f"❌ update_websocket_fusion_v1_openweathermap {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
+async def update_websocket_fusion_v1_weather_openmeteo(redis_client, run_once=False):
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["weather:openmeteo:updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Функція обробки даних
+    async def process_weather():
+        try:
+            weather_cache = await get_redis_data(logger, redis_client, "weather:openmeteo:data", default_response=[])
+
+            data = {}
+
+            for region in weather_cache:
+                data[region["regionId"]] = encode_temperature_to_mask(region.get("temperature_2m"))
+
+            logger.debug(f"⚠️ WEATHER OPENMETEO FUSION DATA: {data}")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:weather_openmeteo:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:weather_openmeteo:data", data)
+            await redis_client.publish("websocket:v1:fusion:weather_openmeteo:updated", "1")
+            logger.info("✅ websocket:v1:fusion:weather_openmeteo:data збережено")
+        except Exception as e:
+            logger.error(f"❌ process_weather_openmeteo error: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message["type"] == "message":
+                channel = message["channel"]
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                await process_weather()
+
+            if run_once:
+                break
+
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+
+    except Exception as e:
+        logger.error(f"❌ update_websocket_fusion_v1_weather_openmeteo {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
@@ -1373,6 +1423,14 @@ async def main():
             asyncio.create_task(
                 run_with_restart(
                     logger, update_websocket_fusion_v1_etryvoga, redis_client, "update_websocket_fusion_v1_etryvoga"
+                )
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger,
+                    update_websocket_fusion_v1_weather_openmeteo,
+                    redis_client,
+                    "update_websocket_fusion_v1_weather_openmeteo",
                 )
             ),
         ]

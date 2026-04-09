@@ -2,6 +2,14 @@ name: ⚖️ Deploy Websockets
 on:
   workflow_dispatch:
     inputs:
+      weather_source:
+        type: choice
+        description: "Weather data source"
+        required: true
+        default: "openmeteo"
+        options:
+          - openmeteo
+          - openweathermap
       google_stat:
         type: boolean
         description: "Enable Google stat"
@@ -59,7 +67,8 @@ jobs:
                   -p ${{ inputs.ping_interval }} \
                   -t ${{ inputs.ping_timeout }} \
                   -c ${{ inputs.ping_timeout_count }} \
-                  -k ${{ secrets.IP_INFO_TOKEN }}
+                  -k ${{ secrets.IP_INFO_TOKEN }} \
+                  -w ${{ inputs.weather_source }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
