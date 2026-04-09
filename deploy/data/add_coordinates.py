@@ -138,6 +138,9 @@ def format_json_data(data: dict) -> str:
         name = value.get("name", "")
         escaped_name = json.dumps(name, ensure_ascii=False)
         padded_name = escaped_name.ljust(max_name_length + 2)
+        name_with_region = value.get("source_name", "")
+        escaped_name_with_region = json.dumps(name_with_region, ensure_ascii=False)
+        padded_name_with_region = escaped_name_with_region.ljust(max_name_length + 2)
 
         # Форматуємо числові значення з вирівнюванням
         region_id = str(value.get("regionId", 0)).rjust(4)
@@ -160,7 +163,7 @@ def format_json_data(data: dict) -> str:
             location_str = ""
 
         # Додаємо рядок для цього елемента з вирівнюванням
-        line = f'  {padded_key} : {{ "name": {padded_name}, "regionId": {region_id}, "legacyId": {legacy_id}, "stateId": {state_id}{location_str} }}{comma}'
+        line = f'  {padded_key} : {{ "name": {padded_name}, "source_name": {padded_name_with_region}, "regionId": {region_id}, "legacyId": {legacy_id}, "stateId": {state_id}{location_str} }}{comma}'
         output_lines.append(line)
 
     output_lines.append("}")
@@ -301,7 +304,7 @@ def add_coordinates_to_json(input_file: str, output_file: str):
 
 
 if __name__ == "__main__":
-    input_file = "gen_data.json"
+    input_file = "../regions.json"
     output_file = "gen_data_with_locations.json"
 
     print("🚀 Запуск скрипту додавання координат...")
