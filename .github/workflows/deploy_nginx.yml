@@ -2,9 +2,9 @@ name: 🌐 Deploy Nginx
 on:
   workflow_dispatch:
 
-permissions: {}
-
 run-name: Deploy Nginx from '${{ github.ref_name }}' branch
+permissions:
+  contents: read
 jobs:
     deploy_nginx:
         runs-on: ubuntu-latest
