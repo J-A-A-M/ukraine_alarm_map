@@ -34,7 +34,8 @@ on:
         default: "watchdog.log"
 
 run-name: Deploy Watchdog from '${{ github.ref_name }}' branch
-permissions: {}
+permissions:
+  contents: read
 jobs:
     deploy_websocket:
         runs-on: ubuntu-latest
