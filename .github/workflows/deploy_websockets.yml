@@ -39,7 +39,8 @@ on:
           - ERROR
 
 run-name: Deploy Websockets from '${{ github.ref_name }}' branch
-permissions: {}
+permissions:
+  contents: read
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
