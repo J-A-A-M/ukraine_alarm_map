@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
     
 run-name: Deploy Update Server from '${{ github.ref_name }}' branch
+permissions:
+  contents: read
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
