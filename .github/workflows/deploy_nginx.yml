@@ -2,6 +2,8 @@ name: 🌐 Deploy Nginx
 on:
   workflow_dispatch:
 
+permissions: {}
+
 run-name: Deploy Nginx from '${{ github.ref_name }}' branch
 jobs:
     deploy_nginx:
