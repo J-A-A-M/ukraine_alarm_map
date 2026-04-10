@@ -1,9 +1,10 @@
 name: 🔄 Deploy Updater
-permissions: {}
 on:
   workflow_dispatch:
     
 run-name: Deploy Updater from '${{ github.ref_name }}' branch
+permissions:
+  contents: read
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
