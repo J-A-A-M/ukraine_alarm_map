@@ -1,5 +1,7 @@
 name: ⚡ Deploy Flasher
 on: workflow_dispatch
+permissions:
+  contents: read
 jobs:
   deploy_flasher:
     runs-on: ubuntu-latest
