@@ -7,6 +7,8 @@ on:
           required: true
           type: string
 run-name: Release BETA ${{ inputs.release-version }}-b${{ github.run_number }}
+permissions:
+  contents: read
 env:
   BETA_VERSION: ${{ inputs.release-version }}-b${{ github.run_number }}
   RELEASE_TITLE: Beta ${{ inputs.release-version }}-b${{ github.run_number }}
