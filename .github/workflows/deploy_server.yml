@@ -44,6 +44,8 @@ on:
         description: Web server 
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
+permissions:
+  contents: read
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml

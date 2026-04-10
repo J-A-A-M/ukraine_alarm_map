@@ -12,6 +12,8 @@ on:
     paths:
       - "deploy/**"
   workflow_call:
+permissions:
+  contents: read
 jobs:
   pytests:
     runs-on: ubuntu-latest

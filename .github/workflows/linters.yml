@@ -13,6 +13,8 @@ on:
     paths:
       - "flasher/**"
       - "deploy/**"
+permissions:
+  contents: read
 jobs:
   check_flasher:
     runs-on: ubuntu-latest
