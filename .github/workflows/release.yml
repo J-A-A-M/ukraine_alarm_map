@@ -11,6 +11,8 @@ on:
           required: true
           type: string
 run-name: Release ${{ inputs.release-version }} (${{ inputs.release-title }})
+permissions:
+  contents: read
 jobs:
   build:
     if: ${{ github.ref_name == 'master' }}
