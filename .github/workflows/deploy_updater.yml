@@ -1,4 +1,4 @@
-name: 🔄 Deploy Update Server
+name: 🔄 Deploy Updater
 permissions: {}
 on:
   workflow_dispatch:
