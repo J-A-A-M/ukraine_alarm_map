@@ -1,5 +1,4 @@
 name: 🌤️ Deploy Weather Service
-permissions: {}
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +27,8 @@ on:
         required: false
 
 run-name: Deploy Weather (${{ inputs.weather_source }}) from '${{ github.ref_name }}' branch
+permissions:
+  contents: read
 jobs:
     pytests:
       uses: ./.github/workflows/pytests.yml
