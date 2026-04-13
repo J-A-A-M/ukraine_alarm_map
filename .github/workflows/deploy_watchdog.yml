@@ -2,6 +2,13 @@ name: ⚖️ Deploy Watchdog
 on:
   workflow_dispatch:
     inputs:
+      server_choice:
+        type: choice
+        default: 'Сервер 1'
+        description: Вибір сервера
+        options:
+          - 'Сервер 1'
+          - 'Сервер 2'
       container_name:
         type: string
         description: "Watched container name"
@@ -39,13 +46,17 @@ permissions:
 jobs:
     deploy_websocket:
         runs-on: ubuntu-latest
+        env:
+          SERVER_IP: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_IP || secrets.CLOUD_SERVER_2_IP }}
+          SERVER_USER: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_USER || secrets.CLOUD_SERVER_2_USER }}
+          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_SSH_KEY || secrets.CLOUD_SERVER_2_SSH_KEY }}
         steps:
           - name: Redeploy Watchdog
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
                 cd /root/ukraine_alarm_map/deploy/
                 git fetch --all
@@ -61,8 +72,8 @@ jobs:
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
                 docker image prune -f
