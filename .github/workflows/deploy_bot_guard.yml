@@ -4,15 +4,15 @@ on:
     inputs:
       server_choice:
         type: choice
-        default: 'Сервер 1'
-        description: Вибір сервера
+        default: 'Server 1'
+        description: Choose server
         options:
-          - 'Сервер 1'
-          - 'Сервер 2'
+          - 'Server 1'
+          - 'Server 2'
       use_captcha:
         type: boolean
         default: true
-        description: Капча замість питань
+        description: Use captcha instead of questions
       logging:
         type: choice
         description: "Log level"
@@ -30,9 +30,9 @@ jobs:
     deploy_bot_guard:
         runs-on: ubuntu-latest
         env:
-          SERVER_IP: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_IP || secrets.CLOUD_SERVER_2_IP }}
-          SERVER_USER: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_USER || secrets.CLOUD_SERVER_2_USER }}
-          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Сервер 1' && secrets.CLOUD_SERVER_SSH_KEY || secrets.CLOUD_SERVER_2_SSH_KEY }}
+          SERVER_IP: ${{ inputs.server_choice == 'Server 1' && secrets.CLOUD_SERVER_IP || secrets.CLOUD_SERVER_2_IP }}
+          SERVER_USER: ${{ inputs.server_choice == 'Server 1' && secrets.CLOUD_SERVER_USER || secrets.CLOUD_SERVER_2_USER }}
+          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Server 1' && secrets.CLOUD_SERVER_SSH_KEY || secrets.CLOUD_SERVER_2_SSH_KEY }}
         steps:
           - name: Redeploy Bot Guard
             uses: appleboy/ssh-action@v1.2.0
