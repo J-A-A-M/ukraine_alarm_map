@@ -76,14 +76,16 @@ jobs:
               username: ${{ env.SERVER_USER }}
               key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                TEMP_DIR=$(mktemp -d)
+                cd $TEMP_DIR
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_updater_dev.sh \
                   -l ${{ inputs.logging }} \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+                cd /
+                rm -rf $TEMP_DIR
           - name: Redeploy WebSockets Dev
             if: ${{ inputs.redeploy_websocket_dev }}
             uses: appleboy/ssh-action@v1.2.0
@@ -92,10 +94,10 @@ jobs:
               username: ${{ env.SERVER_USER }}
               key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                TEMP_DIR=$(mktemp -d)
+                cd $TEMP_DIR
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_websocket_server_dev.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
@@ -108,6 +110,8 @@ jobs:
                   -c ${{ inputs.ping_timeout_count }} \
                   -k ${{ secrets.IP_INFO_TOKEN }} \
                   -w ${{ inputs.weather_source }}
+                cd /
+                rm -rf $TEMP_DIR
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

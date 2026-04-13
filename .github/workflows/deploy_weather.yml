@@ -54,10 +54,10 @@ jobs:
               username: ${{ env.SERVER_USER }}
               key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                TEMP_DIR=$(mktemp -d)
+                cd $TEMP_DIR
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 
                 # Deploy selected weather service
                 if [ "${{ inputs.weather_source }}" = "openmeteo" ]; then
@@ -86,6 +86,8 @@ jobs:
                   
                   eval $DEPLOY_CMD
                 fi
+                cd /
+                rm -rf $TEMP_DIR
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
