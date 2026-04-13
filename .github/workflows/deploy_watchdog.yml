@@ -44,7 +44,7 @@ run-name: Deploy Watchdog from '${{ github.ref_name }}' branch
 permissions:
   contents: read
 jobs:
-    deploy_websocket:
+    deploy_watchdog:
         runs-on: ubuntu-latest
         env:
           SERVER_IP: ${{ inputs.server_choice == 'Server 1' && secrets.CLOUD_SERVER_IP || secrets.CLOUD_SERVER_2_IP }}

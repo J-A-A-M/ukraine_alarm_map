@@ -28,6 +28,15 @@ jobs:
               username: ${{ env.SERVER_USER }}
               key: ${{ env.SERVER_SSH_KEY }}
               script: |
+                # Create SSL directory if it doesn't exist
+                mkdir -p ~/nginx/ssl
+                
+                # Copy certificates from secrets to files
+                echo "${{ secrets.CLOUDFLARE_CRT }}" > ~/nginx/ssl/cloudflare.crt
+                echo "${{ secrets.CLOUDFLARE_KEY }}" > ~/nginx/ssl/cloudflare.key
+                echo "${{ secrets.CLOUDFLARE_INT_CRT }}" > ~/nginx/ssl/cloudflare_intermediate.crt
+                
+                # Deploy nginx
                 TEMP_DIR=$(mktemp -d)
                 cd $TEMP_DIR
                 git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
