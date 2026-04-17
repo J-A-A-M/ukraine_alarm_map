@@ -137,7 +137,9 @@ async def main():
             logger.info(f"🌡  Temperature: {temp_range[0]}..{temp_range[1]} °C (fixed range)")
         else:
             logger.info("🌡  Temperature: latitude-based (set TEMP_MIN/TEMP_MAX to override)")
-        logger.info(f"💧 Humidity: {humidity_range[0]}..{humidity_range[1]} % (set HUMIDITY_MIN/HUMIDITY_MAX to change)")
+        logger.info(
+            f"💧 Humidity: {humidity_range[0]}..{humidity_range[1]} % (set HUMIDITY_MIN/HUMIDITY_MAX to change)"
+        )
 
         locations = load_locations()
         if not locations:
