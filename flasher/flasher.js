@@ -206,6 +206,9 @@ function markdownToHtml(markdown) {
     // Inline code
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
     
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
     // Blockquotes
     html = html.replace(/^> (.*?)$/gm, '<blockquote>$1</blockquote>');
     html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
