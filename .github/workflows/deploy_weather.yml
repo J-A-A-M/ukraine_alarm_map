@@ -2,6 +2,13 @@ name: 🌤️ Deploy Weather Service
 on:
   workflow_dispatch:
     inputs:
+      server_choice:
+        type: choice
+        default: 'Server 1'
+        description: Choose server
+        options:
+          - 'Server 1'
+          - 'Server 2'
       weather_source:
         type: choice
         description: "Weather data source"
@@ -35,18 +42,24 @@ jobs:
     deploy_weather:
         needs: pytests
         runs-on: ubuntu-latest
+        env:
+          SERVER_IP: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_IP : secrets.CLOUD_SERVER_2_IP }}
+          SERVER_USER: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_USER : secrets.CLOUD_SERVER_2_USER }}
+          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_SSH_KEY : secrets.CLOUD_SERVER_2_SSH_KEY }}
         steps:
           - name: Redeploy Weather Service (${{ inputs.weather_source }})
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 
                 # Deploy selected weather service
                 if [ "${{ inputs.weather_source }}" = "openmeteo" ]; then
@@ -65,7 +78,7 @@ jobs:
                   DEPLOY_CMD="bash redeploy_weather.sh \
                     -m ${{ secrets.CLOUD_REDIS_HOST }} \
                     -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
-                    -w ${{ secrets.OPENWEATHERMAP_TOKEN }} \
+                    -w ${{ secrets.WEATHER_TOKEN }} \
                     -l ${{ inputs.logging }}"
                   
                   # Add optional period parameter
@@ -78,8 +91,8 @@ jobs:
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
                 docker image prune -f

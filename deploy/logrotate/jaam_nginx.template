@@ -1,0 +1,13 @@
+__NGINX_LOGS_PATH__/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    sharedscripts
+    su root root
+    postrotate
+        docker kill -s USR1 nginx 2>/dev/null || true
+    endscript
+}

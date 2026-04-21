@@ -5,7 +5,11 @@ on:
       redeploy_weather:
         type: boolean
         default: false
-        description: Weather parser
+        description: Weather parser (OpenWeatherMap)
+      redeploy_weather_openmeteo:
+        type: boolean
+        default: false
+        description: Weather parser (OpenMeteo)
       redeploy_etryvoga:
         type: boolean
         default: false
@@ -41,7 +45,14 @@ on:
       redeploy_web_server:
         type: boolean
         default: false
-        description: Web server 
+        description: Web server
+      server_choice:
+        type: choice
+        default: 'Server 1'
+        description: Choose server
+        options:
+          - 'Server 1'
+          - 'Server 2'
 
 run-name: Deploy Microservices from '${{ github.ref_name }}' branch
 permissions:
@@ -52,35 +63,60 @@ jobs:
     deploy_microservices:
         needs: pytests
         runs-on: ubuntu-latest
+        env:
+          SERVER_IP: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_IP : secrets.CLOUD_SERVER_2_IP }}
+          SERVER_USER: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_USER : secrets.CLOUD_SERVER_2_USER }}
+          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_SSH_KEY : secrets.CLOUD_SERVER_2_SSH_KEY }}
         steps:
-          - name: Redeploy Weather
+          - name: Redeploy Weather (OpenWeatherMap)
             if: ${{ inputs.redeploy_weather }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_weather.sh \
                   -w ${{ secrets.WEATHER_TOKEN }} \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+          - name: Redeploy Weather (OpenMeteo)
+            if: ${{ inputs.redeploy_weather_openmeteo }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
+              script: |
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
+                bash redeploy_weather_openmeteo.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
           - name: Redeploy Etryvoga
             if: ${{ inputs.redeploy_etryvoga }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_etryvoga.sh \
                   -e ${{ secrets.ETRYVOGA_HOST }} \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
@@ -89,14 +125,16 @@ jobs:
             if: ${{ inputs.redeploy_etryvoga_ws }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_etryvoga_ws.sh \
                   -e ${{ secrets.ETRYVOGA_WS_HOST }} \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
@@ -105,14 +143,16 @@ jobs:
             if: ${{ inputs.redeploy_alerts }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_alerts.sh \
                   -a ${{ secrets.AIR_ALARM_API_KEY }} \
                   -p 2 \
@@ -122,14 +162,16 @@ jobs:
             if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_alerts_ws.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
@@ -147,14 +189,16 @@ jobs:
             if: ${{ inputs.redeploy_energy }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_ukrenergo.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
@@ -168,14 +212,16 @@ jobs:
             if: ${{ inputs.redeploy_radiation }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_radiation.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
@@ -187,14 +233,16 @@ jobs:
             if: ${{ inputs.redeploy_svg_generator }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_svg_generator.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
@@ -202,14 +250,16 @@ jobs:
             if: ${{ inputs.redeploy_device_map }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_device_map.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
@@ -218,14 +268,16 @@ jobs:
             if: ${{ inputs.redeploy_web_server }}
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_web_server.sh \
                   -d ${{ secrets.WEB_TOKEN }} \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
@@ -233,8 +285,8 @@ jobs:
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
                 docker image prune -f

@@ -1,6 +1,14 @@
 name: 🌐 Deploy Nginx
 on:
   workflow_dispatch:
+    inputs:
+      server_choice:
+        type: choice
+        default: 'Server 1'
+        description: Choose server
+        options:
+          - 'Server 1'
+          - 'Server 2'
 
 run-name: Deploy Nginx from '${{ github.ref_name }}' branch
 permissions:
@@ -8,26 +16,41 @@ permissions:
 jobs:
     deploy_nginx:
         runs-on: ubuntu-latest
+        env:
+          SERVER_IP: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_IP : secrets.CLOUD_SERVER_2_IP }}
+          SERVER_USER: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_USER : secrets.CLOUD_SERVER_2_USER }}
+          SERVER_SSH_KEY: ${{ inputs.server_choice == 'Server 1' ? secrets.CLOUD_SERVER_SSH_KEY : secrets.CLOUD_SERVER_2_SSH_KEY }}
         steps:
           - name: Redeploy Nginx
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
-                cd /root/ukraine_alarm_map/deploy/
-                git fetch --all
-                git switch ${{ github.ref_name }}
-                git pull
+                set -euo pipefail
+                # Create SSL directory if it doesn't exist
+                mkdir -p ~/nginx/ssl
+                
+                # Copy certificates from secrets to files
+                echo "${{ secrets.CLOUDFLARE_CRT }}" > ~/nginx/ssl/cloudflare.crt
+                echo "${{ secrets.CLOUDFLARE_KEY }}" > ~/nginx/ssl/cloudflare.key
+                echo "${{ secrets.CLOUDFLARE_INT_CRT }}" > ~/nginx/ssl/cloudflare_intermediate.crt
+                
+                # Deploy nginx
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
                 bash redeploy_nginx.sh \
                   -c ${{ secrets.CLOUD_NGINX_CONFIG }} \
                   -l ${{ secrets.CLOUD_NGINX_LOGS }}
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
-              host: ${{ secrets.CLOUD_SERVER_IP }}
-              username: ${{ secrets.CLOUD_SERVER_USER }}
-              key: ${{ secrets.CLOUD_SERVER_SSH_KEY }}
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
               script: |
                 docker image prune -f
