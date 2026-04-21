@@ -31,15 +31,15 @@ jobs:
               username: ${{ env.SERVER_USER }}
               key: ${{ env.SERVER_SSH_KEY }}
               script: |
+                set -euo pipefail
                 TEMP_DIR=$(mktemp -d)
-                cd $TEMP_DIR
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
                 git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
                 cd deploy/
                 bash redeploy_updater.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
-                cd /
-                rm -rf $TEMP_DIR
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:
