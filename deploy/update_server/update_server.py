@@ -153,7 +153,7 @@ async def fetch_github_releases():
                 if release.get("draft", False):
                     logger.debug(f"Skipping draft release: {release.get('tag_name', 'unknown')}")
                     continue
-                
+
                 if "assets" in release:
                     for asset in release["assets"]:
                         name = asset["name"]
