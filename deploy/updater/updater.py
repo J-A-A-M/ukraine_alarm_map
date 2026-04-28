@@ -1006,7 +1006,7 @@ async def update_releases_v1(redis_client, run_once=False):
 async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
-    channels = ["alerts:api:updated", "alerts:ws:reasons:updated"]
+    channels = ["alerts:api:updated", "alerts:ws:reasons:updated", "alerts:http:reasons:updated"]
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
@@ -1043,15 +1043,39 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             new_state = {}
 
             # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-            alerts_cache, reasons_cache, old_state, alerts_hash_actual = await asyncio.gather(
+            (
+                alerts_cache,
+                reasons_ws_cache,
+                reasons_ws_last_call,
+                reasons_http_cache,
+                reasons_http_last_call,
+                old_state,
+                alerts_hash_actual,
+            ) = await asyncio.gather(
                 get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
                 get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
+                get_redis_data(
+                    logger, redis_client, "alerts:ws:reasons:last_call", default_response="2022-02-24T03:00:00Z"
+                ),
+                get_redis_data(logger, redis_client, "alerts:http:reasons:data", default_response={}),
+                get_redis_data(
+                    logger, redis_client, "alerts:http:reasons:last_call", default_response="2022-02-24T03:00:00Z"
+                ),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response={}),
                 get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
             )
             logger.info(f"🔍 process_alerts: hash_actual_read={alerts_hash_actual}, old_state={old_state}")
 
-            reasons = reasons_cache.get("reasons", [])
+            if reasons_ws_last_call == reasons_http_last_call:
+                reasons = []
+                logger.debug(f"🔍 reasons source: none (timestamps equal: {reasons_ws_last_call})")
+            elif reasons_ws_last_call > reasons_http_last_call:
+                reasons = reasons_ws_cache.get("reasons", [])
+                logger.debug(f"🔍 reasons source: WS (ws={reasons_ws_last_call}, http={reasons_http_last_call})")
+            else:
+                reasons = reasons_http_cache.get("reasons", [])
+                logger.debug(f"🔍 reasons source: HTTP (ws={reasons_ws_last_call}, http={reasons_http_last_call})")
+
             for alert in alerts_cache:
                 for active_alert in alert["activeAlerts"]:
                     regionId = active_alert["regionId"]
