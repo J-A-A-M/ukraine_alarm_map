@@ -245,69 +245,182 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
 async def main(request):
     response = """
     <!DOCTYPE html>
-    <html lang='uk'>
+    <html lang='uk' data-theme='dark'>
     <head>
         <meta charset='UTF-8'>
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
         <title>Сервер даних JAAM</title>
-        <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css'>
+        <script>
+            (function() {
+                var saved = document.cookie.split(';').find(function(c) { return c.trim().startsWith('jaam_theme='); });
+                var theme = saved ? saved.split('=')[1].trim() : 'dark';
+                document.documentElement.setAttribute('data-theme', theme);
+            })();
+        </script>
         <style>
-            body { background-color: #4396ff; }
-            .container { background-color: #fff0d5; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,.1); }
-            label { font-weight: bold; }
-            .color-box { width: 30px; height: 30px; display: inline-block; margin-left: 10px; border: 1px solid #ccc; vertical-align: middle; }
-            .full-screen-img {width: 100%;height: 100%;object-fit: cover;}
+            :root {
+                --bg-color: #f0f0f0;
+                --container-bg: #ffffff;
+                --text-color: #000000;
+                --border-color: #dee2e6;
+                --panel-bg: #f8f9fa;
+                --secondary-text: #6c757d;
+            }
+            [data-theme='dark'] {
+                --bg-color: #1a1a1a;
+                --container-bg: #2d2d2d;
+                --text-color: #ffffff;
+                --border-color: #444444;
+                --panel-bg: #3a3a3a;
+                --secondary-text: #aaaaaa;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                transition: background-color 0.3s ease, color 0.3s ease;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: var(--container-bg);
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                transition: background-color 0.3s ease;
+            }
+            .header-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            h1 { margin: 0; font-size: 1.5em; }
+            .control-button {
+                background: none;
+                border: 1px solid var(--border-color);
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 8px;
+                transition: background-color 0.3s ease, border-color 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .control-button:hover { background-color: var(--panel-bg); }
+            .control-button svg { width: 18px; height: 18px; fill: var(--text-color); transition: fill 0.3s ease; }
+            .flag-img {
+                width: 100%;
+                height: auto;
+                border-radius: 10px;
+                margin: 20px 0;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .system-panel {
+                background: var(--panel-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                transition: background-color 0.3s ease, border-color 0.3s ease;
+            }
+            .section-header {
+                font-size: 18px;
+                font-weight: bold;
+                color: var(--text-color);
+                margin-bottom: 15px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid var(--border-color);
+                width: 100%;
+            }
+            .form-button {
+                background: #007bff;
+                color: white;
+                border: 1px solid #007bff;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.3s ease;
+                text-decoration: none;
+                display: inline-block;
+                min-width: 120px;
+                text-align: center;
+            }
+            .form-button:hover {
+                background: #0056b3;
+                border-color: #0056b3;
+                transform: translateY(-1px);
+                color: white;
+                text-decoration: none;
+            }
+            a { color: #007bff; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            ul { margin: 0; padding-left: 20px; }
+            li { margin: 4px 0; }
         </style>
     </head>
     <body>
-        <div class='container mt-3'>
-            <h2 class='text-center'>Сервер даних JAAM</h2>
-            <div class='row'>
-                <div class='col-md-6 offset-md-3'>
-                    <img class='full-screen-img' src="alerts_map.png">
-                </div>
+        <div class='container'>
+            <div class='header-container'>
+                <h1>Сервер даних JAAM</h1>
+                <button class='control-button' onclick='toggleTheme()' title='Змінити тему'>
+                    <svg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'>
+                        <path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/>
+                    </svg>
+                </button>
             </div>
-            <div class='row'>
-                <div class='p-3 col-md-6 offset-md-3 center'>
-                    <h4 class='text-center'>--> <a href='https://flasher.jaam.net.ua' target='blank'>Прошивка мапи онлайн</a> <--</h4>
-                </div>
-                <div class='col-md-6 offset-md-3'>
-                    <p>Корисні посилання:</p>
-                    <ul>
-                        <li><a href="https://github.com/J-A-A-M/ukraine_alarm_map">ukraine_alarm_map (github-репозіторій)</a></li>
-                        <li><a href="https://t.me/jaam_project">Канал з новинами</a> - підпишіться, будь-ласка :-) </li>
-                        <li><a href="https://t.me/jaam_discussions">Група для обговорень</a></li>
-                    </ul>
-                </div>
-                <div class='col-md-6 offset-md-3'>
-                    <p>Доступні API:</p>
-                    <ul>
-                        <li>Тривоги: [<a href="/alerts_statuses_v1.json">v1</a>], [<a href="/alerts_statuses_v2.json">v2</a>], [<a href="/alerts_statuses_v3.json">v3</a>]</li>
-                        <li>Погода: [<a href="/weather_statuses_v1.json">v1</a>], [<a href="/weather_statuses_v2.json">v2</a>]</li>
-                        <li>Тривоги+погода: [<a href="/tcp_statuses_v1.json">v1</a>], [<a href="/tcp_statuses_v2.plain">v2</a>]</li>
-                        <li><a href="/api_status.json">API healthcheck</a></li>
-                    </ul>
-                </div>
-
-                <div class='col-md-6 offset-md-3'>
-                    <p>Джерела даних:</p>
-                    <ul>
-                        <li><a href="https://app.etryvoga.com/">app.etryvoga.com</a> (дані по вибухам зі ЗМІ)</li>
-                        <li><a href="https://www.ukrainealarm.com/">ukrainealarm.com</a> (офіційне API тривог)</li>
-                        <li><a href="https://openweathermap.org/api">openweathermap.org</a> (погода)</li>
-                        <li><a href="https://ua.energy/">ua.energy</a> (стан енергомережі)</li>
-                        <li><a href="https://www.saveecobot.com/radiation-maps">saveecobot.com</a>  (радіація, виключно для ознайомлення, не сприймати як надійне джерело)</li>
-                    </ul>
-                </div>
-                <div class='col-md-6 offset-md-3'>
-                    <p>Посилання:</p>
-                    <ul>
-                        <li><a href="https://wiki.ubilling.net.ua/doku.php?id=aerialalertsapi">ubilling.net.ua (api)</a></li>
-                    </ul>
-                </div>
+            <img class='flag-img' src='alerts_map.png' alt='Карта тривог'>
+            <div style='text-align:center; margin: 20px 0'>
+                <a class='form-button' href='https://flasher.jaam.net.ua' target='_blank'>Прошивка мапи онлайн</a>
+            </div>
+            <div class='system-panel'>
+                <div class='section-header'>Корисні посилання</div>
+                <ul>
+                    <li><a href='https://github.com/J-A-A-M/ukraine_alarm_map'>ukraine_alarm_map (github-репозіторій)</a></li>
+                    <li><a href='https://t.me/jaam_project'>Канал з новинами</a> - підпишіться, будь-ласка :-) </li>
+                    <li><a href='https://t.me/jaam_discussions'>Група для обговорень</a></li>
+                </ul>
+            </div>
+            <div class='system-panel'>
+                <div class='section-header'>Доступні API</div>
+                <ul>
+                    <li>Тривоги: [<a href='/alerts_statuses_v1.json'>v1</a>], [<a href='/alerts_statuses_v2.json'>v2</a>], [<a href='/alerts_statuses_v3.json'>v3</a>]</li>
+                    <li>Погода: [<a href='/weather_statuses_v1.json'>v1</a>], [<a href='/weather_statuses_v2.json'>v2</a>]</li>
+                    <li>Тривоги+погода: [<a href='/tcp_statuses_v1.json'>v1</a>], [<a href='/tcp_statuses_v2.plain'>v2</a>]</li>
+                    <li><a href='/api_status.json'>API healthcheck</a></li>
+                </ul>
+            </div>
+            <div class='system-panel'>
+                <div class='section-header'>Джерела даних</div>
+                <ul>
+                    <li><a href='https://app.etryvoga.com/'>app.etryvoga.com</a> (дані по вибухам зі ЗМІ)</li>
+                    <li><a href='https://www.ukrainealarm.com/'>ukrainealarm.com</a> (офіційне API тривог)</li>
+                    <li><a href='https://openweathermap.org/api'>openweathermap.org</a> (погода)</li>
+                    <li><a href='https://ua.energy/'>ua.energy</a> (стан енергомережі)</li>
+                    <li><a href='https://www.saveecobot.com/radiation-maps'>saveecobot.com</a> (радіація, виключно для ознайомлення, не сприймати як надійне джерело)</li>
+                </ul>
+            </div>
+            <div class='system-panel'>
+                <div class='section-header'>Посилання</div>
+                <ul>
+                    <li><a href='https://wiki.ubilling.net.ua/doku.php?id=aerialalertsapi'>ubilling.net.ua (api)</a></li>
+                </ul>
             </div>
         </div>
         <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9081c22b7b7f418fb1789d1813cadb9c"}'></script><!-- End Cloudflare Web Analytics -->
+        <script>
+            function toggleTheme() {
+                var current = document.documentElement.getAttribute('data-theme');
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                document.cookie = 'jaam_theme=' + next + '; max-age=31536000; path=/';
+            }
+        </script>
     </body>
     </html>
     """
