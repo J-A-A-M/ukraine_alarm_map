@@ -179,7 +179,7 @@ jobs:
                 bash redeploy_alerts_http.sh \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
-                  -su ${{ secrets.ALERTS_HTTPSOURCE_URL }} \
+                  -su ${{ secrets.ALERTS_HTTP_SOURCE_URL }} \
                   -mu ${{ secrets.ALERTS_HTTP_UPDATE_URL }} \
                   -f ${{ secrets.ALERT_HTTP_FIELDS }}
           - name: Redeploy Alerts websocket parser
