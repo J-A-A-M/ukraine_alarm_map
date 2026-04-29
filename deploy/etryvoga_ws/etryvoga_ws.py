@@ -127,7 +127,6 @@ async def handle_notification(redis_client, data, state: dict):
             await set_redis_data(logger, redis_client, f"{legacy_key}:data", accumulated)
             await service_is_fine(logger, redis_client, f"{legacy_key}:last_call")
             await redis_client.publish(f"{legacy_key}:updated", "1")
-            await redis_client.publish("alerts:etryvoga:updated", "1")
 
         logger.info(f"✅ Оновлено {_name} (ID: {_id}), тип: {msg_type}")
     else:
