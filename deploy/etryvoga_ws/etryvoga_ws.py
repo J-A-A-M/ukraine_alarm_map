@@ -93,7 +93,7 @@ async def save_etryvoga_type_data(
         return False
 
 
-async def handle_notification(redis_client, data, explosions_data, missiles_data, drones_data, kabs_data):
+async def handle_notification(redis_client, data, explosions_data, missiles_data, drones_data, kabs_data, recons_data):
     """Обробляє одне сповіщення з WebSocket."""
     if isinstance(data, str):
         data = json.loads(data)
@@ -140,10 +140,10 @@ async def handle_notification(redis_client, data, explosions_data, missiles_data
                 logger, redis_client, "kabs", "alerts:etryvoga:kabs", old_data, kabs_data
             )
         case "recon_drone":
-            old_data = copy(kabs_data)
-            kabs_data[str(_id)] = region_data
+            old_data = copy(recons_data)
+            recons_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "kabs", "alerts:etryvoga:recons", old_data, kabs_data
+                logger, redis_client, "recons", "alerts:etryvoga:recons", old_data, recons_data
             )
         case "siren" | "cancel" | "artillery" | "important_info":
             logger.debug(f"⏭️  Тип '{msg_type}' не обробляється")
@@ -157,7 +157,7 @@ async def handle_notification(redis_client, data, explosions_data, missiles_data
     await service_is_fine(logger, redis_client, "alerts:etryvoga:ws:last_call")
 
 
-async def connect_once(redis_client, explosions_data, missiles_data, drones_data, kabs_data):
+async def connect_once(redis_client, explosions_data, missiles_data, drones_data, kabs_data, recons_data):
     """Одне підключення до etryvoga WebSocket."""
     sio = socketio.AsyncClient(logger=False, engineio_logger=False)
 
@@ -175,7 +175,9 @@ async def connect_once(redis_client, explosions_data, missiles_data, drones_data
     async def on_notification(data):
         logger.info(f"📨 Отримано сповіщення: {data}")
         try:
-            await handle_notification(redis_client, data, explosions_data, missiles_data, drones_data, kabs_data)
+            await handle_notification(
+                redis_client, data, explosions_data, missiles_data, drones_data, kabs_data, recons_data
+            )
         except Exception as e:
             logger.error(f"❌ Помилка обробки сповіщення: {e}")
             logger.debug("❌ Повний стек помилки:", exc_info=True)
@@ -196,17 +198,18 @@ async def connect_etryvoga_ws(redis_client):
     """Підключається до etryvoga WebSocket та обробляє сповіщення."""
 
     # Завантажуємо поточний стан з Redis при старті
-    explosions_data, missiles_data, drones_data, kabs_data = await asyncio.gather(
+    explosions_data, missiles_data, drones_data, kabs_data, recons_data = await asyncio.gather(
         get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
         get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
         get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
         get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga:recons:data", default_response={}),
     )
 
     while True:
         try:
             logger.info(f"🔌 Підключення до {etryvoga_ws_host}/socket ...")
-            await connect_once(redis_client, explosions_data, missiles_data, drones_data, kabs_data)
+            await connect_once(redis_client, explosions_data, missiles_data, drones_data, kabs_data, recons_data)
         except socketio.exceptions.ConnectionError as e:
             logger.error(f"❌ Помилка підключення до WebSocket: {e}")
             logger.debug("❌ Повний стек помилки:", exc_info=True)

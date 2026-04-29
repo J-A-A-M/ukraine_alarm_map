@@ -286,7 +286,7 @@ async def update_websocket_v1_alerts(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_alerts)")
                 await process_alerts()
 
             if run_once:
@@ -371,7 +371,7 @@ async def update_websocket_v2_alerts(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_alerts)")
                 await process_alerts()
 
             if run_once:
@@ -440,7 +440,7 @@ async def update_websocket_v1_drones(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_drones)")
                 await ertyvoga_v1(
                     redis_client,
                     "alerts:etryvoga:drones:data",
@@ -475,7 +475,7 @@ async def update_websocket_v1_missiles(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_missiles)")
                 await ertyvoga_v1(
                     redis_client,
                     "alerts:etryvoga:missiles:data",
@@ -510,7 +510,7 @@ async def update_websocket_v1_explosions(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_explosions)")
                 await ertyvoga_v1(redis_client, "alerts:etryvoga:explosions:data", "websocket:v1:legacy:explosions")
 
             if run_once:
@@ -540,7 +540,7 @@ async def update_websocket_v1_kabs(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_kabs)")
                 await ertyvoga_v1(redis_client, "alerts:etryvoga:kabs:data", "websocket:v1:legacy:kabs")
 
             if run_once:
@@ -594,7 +594,7 @@ async def update_websocket_v1_weather(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_weather)")
                 await process()
 
             if run_once:
@@ -673,7 +673,7 @@ async def update_websocket_v2_drones(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_drones)")
                 await alert_reasons_v1(
                     redis_client, "Drones", "websocket:v2:legacy:drones", [[0, 1645674000]] * LEGACY_LED_COUNT
                 )
@@ -705,7 +705,7 @@ async def update_websocket_v2_missiles(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_missiles)")
                 await alert_reasons_v1(
                     redis_client, "Missile", "websocket:v2:legacy:missiles", [[0, 1645674000]] * LEGACY_LED_COUNT
                 )
@@ -772,7 +772,7 @@ async def update_websocket_v1_energy(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_energy)")
                 await process()
 
             if run_once:
@@ -844,7 +844,7 @@ async def update_websocket_v1_radiation(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_radiation)")
                 await process()
 
             if run_once:
@@ -907,7 +907,7 @@ async def update_websocket_v1_global_notifications(redis_client, run_once=False)
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v1_global_notifications)")
                 await process()
 
             if run_once:
@@ -986,7 +986,7 @@ async def update_releases_v1(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_releases_v1)")
                 await asyncio.gather(process_releases(), process_beta())
 
             if run_once:
@@ -1153,7 +1153,9 @@ async def update_websocket_fusion_v1_alerts(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_alerts_throttle}s")
+                logger.info(
+                    f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_alerts_throttle}s (update_websocket_fusion_v1_alerts)"
+                )
                 await throttler.call(process_alerts)
 
             if run_once:
@@ -1252,7 +1254,9 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_etryvoga_throttle}s")
+                logger.info(
+                    f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_etryvoga_throttle}s (update_websocket_fusion_v1_etryvoga)"
+                )
                 await throttler.call(process_etryvoga)
 
             if run_once:
@@ -1263,6 +1267,110 @@ async def update_websocket_fusion_v1_etryvoga(redis_client, run_once=False):
 
     except Exception as e:
         logger.error(f"❌ update_websocket_fusion_v1_alerts: {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        throttler.cancel()
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
+async def update_websocket_fusion_v2_etryvoga(redis_client, run_once=False):
+    pubsub = redis_client.pubsub()
+
+    channel_config = {
+        "alerts:etryvoga:drones:updated": ("alerts:etryvoga:drones:data", 1 << 5),
+        "alerts:etryvoga:missiles:updated": ("alerts:etryvoga:missiles:data", 1 << 6),
+        "alerts:etryvoga:kabs:updated": ("alerts:etryvoga:kabs:data", 1 << 7),
+        "alerts:etryvoga:explosions:updated": ("alerts:etryvoga:explosions:data", 1 << 9),
+        "alerts:etryvoga:recons:updated": ("alerts:etryvoga:recons:data", 1 << 10),
+    }
+
+    channels = list(channel_config.keys())
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    payload_lock = asyncio.Lock()
+    throttler = Throttler(fusion_etryvoga_throttle)
+    pending_channels: set[str] = set()
+
+    async def process_channel(data_key: str, bit: int):
+        try:
+            type_data = await get_redis_data(logger, redis_client, data_key, default_response={})
+
+            async with payload_lock:
+                payload_hex = await get_redis_data(
+                    logger, redis_client, "websocket:v1:fusion:payload:notifications", default_response=None
+                )
+
+                existing = {}
+                if payload_hex:
+                    raw = bytes.fromhex(payload_hex)
+                    for offset in range(1, len(raw), 4):
+                        rid, flags = struct.unpack_from("<H H", raw, offset)
+                        existing[rid] = flags
+
+                bit_mask = ~bit & 0xFFFF
+                for rid in list(existing.keys()):
+                    existing[rid] &= bit_mask
+                    if existing[rid] == 0:
+                        del existing[rid]
+
+                for rid_str in type_data:
+                    rid = int(rid_str)
+                    existing[rid] = existing.get(rid, 0) | bit
+
+                logger.debug(f"⚠️ ETRYVOGA FUSION V2 DATA (bit={bit:#x}): {existing}")
+
+                if existing:
+                    header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
+                    notifications = bytearray()
+                    for rid, flags16 in existing.items():
+                        notifications += struct.pack("<H H", rid, flags16)
+                    notifications_payload = header + notifications
+                    logger.debug("💾 Зберігаємо websocket:v1:fusion:payload:notifications")
+                    await set_redis_data(
+                        logger,
+                        redis_client,
+                        "websocket:v1:fusion:payload:notifications",
+                        notifications_payload.hex(),
+                    )
+                    await redis_client.publish("websocket:v1:fusion:etryvoga:updated", "1")
+                    logger.info(f"✅ websocket_fusion_v2_etryvoga збережено (bit={bit:#x})")
+                else:
+                    logger.info(f"ℹ️  websocket_fusion_v2_etryvoga немає даних (bit={bit:#x})")
+
+        except Exception as e:
+            logger.error(f"❌ process_channel v2 ({data_key}): {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    async def drain():
+        channels_to_process = list(pending_channels)
+        pending_channels.clear()
+        for ch in channels_to_process:
+            data_key, bit = channel_config[ch]
+            await process_channel(data_key, bit)
+
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message["type"] == "message":
+                channel = message["channel"]
+                if channel in channel_config:
+                    logger.info(
+                        f"📬 Отримано повідомлення з каналу: {channel}, throttle {fusion_etryvoga_throttle}s (update_websocket_fusion_v2_etryvoga)"
+                    )
+                    pending_channels.add(channel)
+                    await throttler.call(drain)
+
+            if run_once:
+                await throttler.wait()
+                break
+
+            await asyncio.sleep(0.1)
+
+    except Exception as e:
+        logger.error(f"❌ update_websocket_fusion_v2_etryvoga: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         throttler.cancel()
@@ -1305,7 +1413,7 @@ async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_fusion_v1_openweathermap)")
                 await process_weather()
 
             if run_once:
@@ -1354,7 +1462,9 @@ async def update_websocket_fusion_v1_weather_openmeteo(redis_client, run_once=Fa
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel}")
+                logger.info(
+                    f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_fusion_v1_weather_openmeteo)"
+                )
                 await process_weather()
 
             if run_once:
@@ -1447,6 +1557,11 @@ async def main():
             asyncio.create_task(
                 run_with_restart(
                     logger, update_websocket_fusion_v1_etryvoga, redis_client, "update_websocket_fusion_v1_etryvoga"
+                )
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger, update_websocket_fusion_v2_etryvoga, redis_client, "update_websocket_fusion_v2_etryvoga"
                 )
             ),
             asyncio.create_task(
