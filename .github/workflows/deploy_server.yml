@@ -13,7 +13,7 @@ on:
       redeploy_etryvoga:
         type: boolean
         default: false
-        description: Etryvoga parser
+        description: Etryvoga HTTP parser
       redeploy_etryvoga_ws:
         type: boolean
         default: false
@@ -26,6 +26,10 @@ on:
         type: boolean
         default: false
         description: Alerts UkraineAlarm websocket parser
+      redeploy_alerts_http:
+        type: boolean
+        default: false
+        description: Alerts UkraineAlarm HTTP parser  
       redeploy_energy:
         type: boolean
         default: false
@@ -158,6 +162,26 @@ jobs:
                   -p 2 \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+          - name: Redeploy Alerts HTTP parser
+            if: ${{ inputs.redeploy_alerts_http }}
+            uses: appleboy/ssh-action@v1.2.0
+            with:
+              host: ${{ env.SERVER_IP }}
+              username: ${{ env.SERVER_USER }}
+              key: ${{ env.SERVER_SSH_KEY }}
+              script: |
+                set -euo pipefail
+                TEMP_DIR=$(mktemp -d)
+                trap 'rm -rf "$TEMP_DIR"' EXIT
+                cd "$TEMP_DIR"
+                git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+                cd deploy/
+                bash redeploy_alerts_http.sh \
+                  -m ${{ secrets.CLOUD_REDIS_HOST }} \
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                  -su ${{ secrets.ALERTS_HTTPSOURCE_URL }} \
+                  -mu ${{ secrets.ALERTS_HTTP_UPDATE_URL }} \
+                  -f ${{ secrets.ALERT_HTTP_FIELDS }}
           - name: Redeploy Alerts websocket parser
             if: ${{ inputs.redeploy_alerts_ws }}
             uses: appleboy/ssh-action@v1.2.0
