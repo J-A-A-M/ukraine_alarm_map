@@ -1279,11 +1279,11 @@ async def update_websocket_fusion_v2_etryvoga(redis_client, run_once=False):
     pubsub = redis_client.pubsub()
 
     channel_config = {
-        "alerts:etryvoga:drones:updated": ("alerts:etryvoga:drones:data", 1 << 5),
-        "alerts:etryvoga:missiles:updated": ("alerts:etryvoga:missiles:data", 1 << 6),
-        "alerts:etryvoga:kabs:updated": ("alerts:etryvoga:kabs:data", 1 << 7),
-        "alerts:etryvoga:explosions:updated": ("alerts:etryvoga:explosions:data", 1 << 9),
-        "alerts:etryvoga:recons:updated": ("alerts:etryvoga:recons:data", 1 << 10),
+        "alerts:etryvoga_ws:drones:updated": ("alerts:etryvoga_ws:drones:data", 1 << 5),
+        "alerts:etryvoga_ws:missiles:updated": ("alerts:etryvoga_ws:missiles:data", 1 << 6),
+        "alerts:etryvoga_ws:kabs:updated": ("alerts:etryvoga_ws:kabs:data", 1 << 7),
+        "alerts:etryvoga_ws:explosions:updated": ("alerts:etryvoga_ws:explosions:data", 1 << 9),
+        "alerts:etryvoga_ws:recons:updated": ("alerts:etryvoga_ws:recons:data", 1 << 10),
     }
 
     channels = list(channel_config.keys())

@@ -119,31 +119,31 @@ async def handle_notification(redis_client, data, explosions_data, missiles_data
             old_data = copy(explosions_data)
             explosions_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "explosions", "alerts:etryvoga:explosions", old_data, explosions_data
+                logger, redis_client, "explosions", "alerts:etryvoga_ws:explosions", old_data, explosions_data
             )
         case "rocket" | "rocket_fire":
             old_data = copy(missiles_data)
             missiles_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "missiles", "alerts:etryvoga:missiles", old_data, missiles_data
+                logger, redis_client, "missiles", "alerts:etryvoga_ws:missiles", old_data, missiles_data
             )
         case "drone":
             old_data = copy(drones_data)
             drones_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "drones", "alerts:etryvoga:drones", old_data, drones_data
+                logger, redis_client, "drones", "alerts:etryvoga_ws:drones", old_data, drones_data
             )
         case "kab":
             old_data = copy(kabs_data)
             kabs_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "kabs", "alerts:etryvoga:kabs", old_data, kabs_data
+                logger, redis_client, "kabs", "alerts:etryvoga_ws:kabs", old_data, kabs_data
             )
         case "recon_drone":
             old_data = copy(recons_data)
             recons_data[str(_id)] = region_data
             changed = await save_etryvoga_type_data(
-                logger, redis_client, "recons", "alerts:etryvoga:recons", old_data, recons_data
+                logger, redis_client, "recons", "alerts:etryvoga_ws:recons", old_data, recons_data
             )
         case "siren" | "cancel" | "artillery" | "important_info":
             logger.debug(f"⏭️  Тип '{msg_type}' не обробляється")
@@ -151,10 +151,10 @@ async def handle_notification(redis_client, data, explosions_data, missiles_data
             logger.debug(f"⏭️  Невідомий тип '{msg_type}'")
 
     if changed:
-        await redis_client.publish("alerts:etryvoga:updated", "1")
+        await redis_client.publish("alerts:etryvoga_ws:updated", "1")
         logger.info(f"✅ Оновлено {_name} (ID: {_id}), тип: {msg_type}")
 
-    await service_is_fine(logger, redis_client, "alerts:etryvoga:ws:last_call")
+    await service_is_fine(logger, redis_client, "alerts:etryvoga_ws:last_call")
 
 
 async def connect_once(redis_client, explosions_data, missiles_data, drones_data, kabs_data, recons_data):
@@ -165,7 +165,7 @@ async def connect_once(redis_client, explosions_data, missiles_data, drones_data
     async def connect():
         logger.info("✅ Підключено до etryvoga WebSocket")
         await sio.emit("apiClient", {})
-        await service_is_fine(logger, redis_client, "alerts:etryvoga:ws:last_call")
+        await service_is_fine(logger, redis_client, "alerts:etryvoga_ws:last_call")
 
     @sio.event
     async def disconnect():
@@ -199,11 +199,11 @@ async def connect_etryvoga_ws(redis_client):
 
     # Завантажуємо поточний стан з Redis при старті
     explosions_data, missiles_data, drones_data, kabs_data, recons_data = await asyncio.gather(
-        get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
-        get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
-        get_redis_data(logger, redis_client, "alerts:etryvoga:drones:data", default_response={}),
-        get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
-        get_redis_data(logger, redis_client, "alerts:etryvoga:recons:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:explosions:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:missiles:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:drones:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:kabs:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:recons:data", default_response={}),
     )
 
     while True:
