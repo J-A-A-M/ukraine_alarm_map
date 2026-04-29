@@ -1290,7 +1290,6 @@ async def update_websocket_fusion_v2_etryvoga(redis_client, run_once=False):
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
-    payload_lock = asyncio.Lock()
     throttler = Throttler(fusion_etryvoga_throttle)
     pending_channels: set[str] = set()
 
@@ -1298,47 +1297,28 @@ async def update_websocket_fusion_v2_etryvoga(redis_client, run_once=False):
         try:
             type_data = await get_redis_data(logger, redis_client, data_key, default_response={})
 
-            async with payload_lock:
-                payload_hex = await get_redis_data(
-                    logger, redis_client, "websocket:v1:fusion:payload:notifications", default_response=None
-                )
+            logger.debug(f"⚠️ ETRYVOGA FUSION V2 DATA (bit={bit:#x}): {type_data}")
 
-                existing = {}
-                if payload_hex:
-                    raw = bytes.fromhex(payload_hex)
-                    for offset in range(1, len(raw), 4):
-                        rid, flags = struct.unpack_from("<H H", raw, offset)
-                        existing[rid] = flags
-
-                bit_mask = ~bit & 0xFFFF
-                for rid in list(existing.keys()):
-                    existing[rid] &= bit_mask
-                    if existing[rid] == 0:
-                        del existing[rid]
-
+            if type_data:
+                header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
+                notifications = bytearray()
+                region_names = []
                 for rid_str in type_data:
-                    rid = int(rid_str)
-                    existing[rid] = existing.get(rid, 0) | bit
-
-                logger.debug(f"⚠️ ETRYVOGA FUSION V2 DATA (bit={bit:#x}): {existing}")
-
-                if existing:
-                    header = struct.pack("<B", TYPE_NOTIFICATIONS_BATCH)
-                    notifications = bytearray()
-                    for rid, flags16 in existing.items():
-                        notifications += struct.pack("<H H", rid, flags16)
-                    notifications_payload = header + notifications
-                    logger.debug("💾 Зберігаємо websocket:v1:fusion:payload:notifications")
-                    await set_redis_data(
-                        logger,
-                        redis_client,
-                        "websocket:v1:fusion:payload:notifications",
-                        notifications_payload.hex(),
-                    )
-                    await redis_client.publish("websocket:v1:fusion:etryvoga:updated", "1")
-                    logger.info(f"✅ websocket_fusion_v2_etryvoga збережено (bit={bit:#x})")
-                else:
-                    logger.info(f"ℹ️  websocket_fusion_v2_etryvoga немає даних (bit={bit:#x})")
+                    notifications += struct.pack("<H H", int(rid_str), bit)
+                    name, _ = convert_region_ids(int(rid_str), "regionId", "legacyId")
+                    region_names.append(name or rid_str)
+                notifications_payload = header + notifications
+                logger.debug("💾 Зберігаємо websocket:v1:fusion:payload:notifications")
+                await set_redis_data(
+                    logger,
+                    redis_client,
+                    "websocket:v1:fusion:payload:notifications",
+                    notifications_payload.hex(),
+                )
+                await redis_client.publish("websocket:v1:fusion:etryvoga:updated", "1")
+                logger.info(f"✅ websocket_fusion_v2_etryvoga збережено (bit={bit:#x}): {', '.join(region_names)}")
+            else:
+                logger.info(f"ℹ️  websocket_fusion_v2_etryvoga немає даних (bit={bit:#x})")
 
         except Exception as e:
             logger.error(f"❌ process_channel v2 ({data_key}): {str(e)}")
