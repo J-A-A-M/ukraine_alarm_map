@@ -1011,10 +1011,15 @@ async def etryvoga_full(request):
         return JSONResponse(etryvoga_full, headers={"Content-Type": "application/json; charset=utf-8"})
     else:
         return JSONResponse({})
-    
+
+
 async def deprecated_endpoint(request):
-    return JSONResponse({"error": "Вітаємо. Молодець, шо знайшли, але цей endpoint застарів, бо даних по областям вже давно нема.  Будь ласка, використовуйте лише публічні endpoints."}, status_code=410)
-    
+    return JSONResponse(
+        {
+            "error": "Вітаємо. Молодець, шо знайшли, але цей endpoint застарів, бо даних по областям вже давно нема.  Будь ласка, використовуйте лише публічні endpoints."
+        },
+        status_code=410,
+    )
 
 
 async def tcp_v1(request):
