@@ -59,6 +59,492 @@ except FileNotFoundError:
 
 version = 4
 
+SWAGGER_UI_HTML = """<!DOCTYPE html>
+<html>
+<head>
+    <title>JAAM — API сервера даних</title>
+    <meta charset='utf-8'/>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' href='https://unpkg.com/swagger-ui-dist@5/swagger-ui.css'>
+</head>
+<body>
+<div id='swagger-ui'></div>
+<script src='https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js'></script>
+<script>
+    SwaggerUIBundle({
+        url: '/api/openapi.json',
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+        layout: 'BaseLayout',
+        deepLinking: true
+    })
+</script>
+</body>
+</html>"""
+
+OPENAPI_SPEC = {
+    "openapi": "3.0.0",
+    "info": {
+        "title": "JAAM — API сервер даних",
+        "version": str(version),
+        "description": "Агрегація повітряних тривог в Україні. Дані про тривоги, погоду, вибухи, ракети, дрони, КАБи в реальному часі.",
+        "contact": {"url": "https://github.com/J-A-A-M/ukraine_alarm_map"},
+    },
+    "tags": [
+        {"name": "alerts", "description": "Повітряні тривоги (Ukraine Alarm API)"},
+        {"name": "weather", "description": "Дані погоди (OpenWeatherMap)"},
+        {"name": "etryvoga", "description": "Вибухи / ракети / дрони / КАБи (etryvoga.com)"},
+        {"name": "tcp", "description": "Тривоги+погода для legacy TCP-клієнтів"},
+        {"name": "status", "description": "Стан та доступність API"},
+        {"name": "maps", "description": "PNG-зображення карт"},
+    ],
+    "paths": {
+        "/alerts_statuses_v1.json": {
+            "get": {
+                "tags": ["alerts"],
+                "summary": "Тривоги v1",
+                "description": "Повітряні тривоги по областях. Включає прапорець району та мітки часу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": {"type": "integer", "example": 1},
+                                        "states": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "district": {"type": "boolean"},
+                                                    "enabled": {"type": "boolean"},
+                                                    "type": {"type": "string", "example": "state"},
+                                                    "disabled_at": {"type": "string", "nullable": True},
+                                                    "enabled_at": {"type": "string", "nullable": True},
+                                                },
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/alerts_statuses_v2.json": {
+            "get": {
+                "tags": ["alerts"],
+                "summary": "Тривоги v2",
+                "description": "Повітряні тривоги по областях. Компактний формат з прапорцем alertnow.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": {"type": "integer", "example": 2},
+                                        "states": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "alertnow": {"type": "boolean"},
+                                                    "district": {"type": "boolean"},
+                                                    "changes": {"type": "string", "nullable": True},
+                                                },
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/alerts_statuses_v3.json": {
+            "get": {
+                "tags": ["alerts"],
+                "summary": "Тривоги v3",
+                "description": "Повітряні тривоги по областях. Мінімальна булева карта.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": {"type": "integer", "example": 3},
+                                        "states": {
+                                            "type": "object",
+                                            "additionalProperties": {"type": "boolean"},
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/weather_statuses_v1.json": {
+            "get": {
+                "tags": ["weather"],
+                "summary": "Погода v1",
+                "description": "Поточна погода по областях (температура, опис, тиск, вологість, вітер).",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": {"type": "integer", "example": 1},
+                                        "states": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "temp": {"type": "number"},
+                                                    "desc": {"type": "string"},
+                                                    "pressure": {"type": "number"},
+                                                    "humidity": {"type": "number"},
+                                                    "wind": {"type": "number"},
+                                                },
+                                            },
+                                        },
+                                        "info": {
+                                            "type": "object",
+                                            "properties": {"last_update": {"type": "string"}},
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/weather_statuses_v2.json": {
+            "get": {
+                "tags": ["weather"],
+                "summary": "Погода v2",
+                "description": "Повні дані погоди за ID області (сирі поля OpenWeatherMap).",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    }
+                },
+            }
+        },
+        "/explosives_statuses_v1.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Вибухи v1",
+                "description": "Час останньої події вибуху по областях. Рядок дати/часу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
+                    }
+                },
+            }
+        },
+        "/explosives_statuses_v2.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Вибухи v2",
+                "description": "Час останньої події вибуху по областях. Рядок дати/часу або null.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
+                    }
+                },
+            }
+        },
+        "/explosives_statuses_v3.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Вибухи v3",
+                "description": "Секунди від останньої події вибуху по областях.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
+                    }
+                },
+            }
+        },
+        "/missiles_statuses_v1.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Ракети v1",
+                "description": "Час останньої ракетної події по областях. Рядок дати/часу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
+                    }
+                },
+            }
+        },
+        "/missiles_statuses_v2.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Ракети v2",
+                "description": "Час останньої ракетної події по областях. Рядок дати/часу або null.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
+                    }
+                },
+            }
+        },
+        "/missiles_statuses_v3.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Ракети v3",
+                "description": "Секунди від останньої ракетної події по областях.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
+                    }
+                },
+            }
+        },
+        "/drones_statuses_v1.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Дрони v1",
+                "description": "Час останньої події дрона по областях. Рядок дати/часу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
+                    }
+                },
+            }
+        },
+        "/drones_statuses_v2.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Дрони v2",
+                "description": "Час останньої події дрона по областях. Рядок дати/часу або null.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
+                    }
+                },
+            }
+        },
+        "/drones_statuses_v3.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "Дрони v3",
+                "description": "Секунди від останньої події дрона по областях.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
+                    }
+                },
+            }
+        },
+        "/kabs_statuses_v1.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "КАБи v1",
+                "description": "Час останньої події КАБ (керована авіабомба) по областях. Рядок дати/часу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
+                    }
+                },
+            }
+        },
+        "/kabs_statuses_v2.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "КАБи v2",
+                "description": "Час останньої події КАБ по областях. Рядок дати/часу або null.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
+                    }
+                },
+            }
+        },
+        "/kabs_statuses_v3.json": {
+            "get": {
+                "tags": ["etryvoga"],
+                "summary": "КАБи v3",
+                "description": "Секунди від останньої події КАБ по областях.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
+                    }
+                },
+            }
+        },
+        "/tcp_statuses_v1.json": {
+            "get": {
+                "tags": ["tcp"],
+                "summary": "TCP комбінований v1",
+                "description": "Тривоги+погода як цілі числа через кому для legacy TCP/ESP32-клієнтів.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"tcp_stored_data": {"type": "string", "example": "0,1,0:20,21,19"}},
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/tcp_statuses_v2.plain": {
+            "get": {
+                "tags": ["tcp"],
+                "summary": "TCP комбінований v2",
+                "description": "Те саме що v1, але повертає простий текст (без JSON-обгортки).",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {"text/plain": {"schema": {"type": "string", "example": "0,1,0:20,21,19"}}},
+                    }
+                },
+            }
+        },
+        "/api_status.json": {
+            "get": {
+                "tags": ["status"],
+                "summary": "Перевірка стану API",
+                "description": "Секунди від останнього успішного оновлення даних по кожному джерелу.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "version": {"type": "integer", "example": 1},
+                                        "desc": {"type": "string"},
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "alert_last_changed": {"type": "integer", "nullable": True},
+                                                "weather_last_changed": {"type": "integer", "nullable": True},
+                                                "etryvoga_last_changed": {"type": "integer", "nullable": True},
+                                                "energy_last_changed": {"type": "integer", "nullable": True},
+                                                "radiation_last_changed": {"type": "integer", "nullable": True},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        "/alerts_map.png": {
+            "get": {
+                "tags": ["maps"],
+                "summary": "PNG-карта тривог",
+                "description": "Поточна карта стану повітряних тривог у форматі PNG.",
+                "responses": {
+                    "200": {
+                        "description": "PNG зображення",
+                        "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
+                    }
+                },
+            }
+        },
+        "/weather_map.png": {
+            "get": {
+                "tags": ["maps"],
+                "summary": "PNG-карта погоди",
+                "description": "Поточна карта погоди у форматі PNG.",
+                "responses": {
+                    "200": {
+                        "description": "PNG зображення",
+                        "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
+                    }
+                },
+            }
+        },
+    },
+    "components": {
+        "schemas": {
+            "EtryvogaV1": {
+                "type": "object",
+                "properties": {
+                    "version": {"type": "integer", "example": 1},
+                    "states": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {"changes": {"type": "string", "nullable": True}},
+                        },
+                    },
+                    "info": {
+                        "type": "object",
+                        "properties": {"description": {"type": "string"}},
+                    },
+                },
+            },
+            "EtryvogaV2": {
+                "type": "object",
+                "properties": {
+                    "version": {"type": "integer", "example": 1},
+                    "states": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string", "nullable": True},
+                    },
+                    "info": {
+                        "type": "object",
+                        "properties": {"description": {"type": "string"}},
+                    },
+                },
+            },
+            "EtryvogaV3": {
+                "type": "object",
+                "properties": {
+                    "version": {"type": "integer", "example": 1},
+                    "states": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer", "nullable": True},
+                    },
+                    "info": {
+                        "type": "object",
+                        "properties": {"description": {"type": "string"}},
+                    },
+                },
+            },
+        }
+    },
+}
+
 debug_level = os.environ.get("LOGGING") or "INFO"
 debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8080)
@@ -753,8 +1239,8 @@ async def api_status(request):
 
     alerts, weather, etryvoga, energy, radiation = await asyncio.gather(
         get_redis_data(logger, redis_client, "alerts:api:last_call", default_response=""),
-        get_redis_data(logger, redis_client, "weather:openweathermap:last_call", default_response=""),
-        get_redis_data(logger, redis_client, "alerts:etryvoga:full:last_call", default_response=""),
+        get_redis_data(logger, redis_client, "weather:openmeteo:last_call", default_response=""),
+        get_redis_data(logger, redis_client, "alerts:etryvoga_ws:last_call", default_response=""),
         get_redis_data(logger, redis_client, "energy:ukrenergo:last_call", default_response=""),
         get_redis_data(logger, redis_client, "radiation:saveecobot:data:last_call", default_response=""),
     )
@@ -868,6 +1354,14 @@ async def stats(request):
         return JSONResponse({})
 
 
+async def swagger_ui(request):
+    return HTMLResponse(SWAGGER_UI_HTML)
+
+
+async def openapi_spec(request):
+    return JSONResponse(OPENAPI_SPEC)
+
+
 middleware = [Middleware(LogUserIPMiddleware)]
 app = Starlette(
     debug=debug,
@@ -893,6 +1387,8 @@ app = Starlette(
         Route("/kabs_statuses_v2.json", kabs_v2),
         Route("/kabs_statuses_v3.json", kabs_v3),
         Route("/etryvoga_{token}.json", etryvoga_full),
+        Route("/api/openapi.json", openapi_spec),
+        Route("/api", swagger_ui),
         Route("/tcp_statuses_v1.json", tcp_v1),
         Route("/tcp_statuses_v2.plain", tcp_v2),
         Route("/api_status.json", api_status),
