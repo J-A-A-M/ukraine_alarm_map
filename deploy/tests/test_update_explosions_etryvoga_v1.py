@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from updater.updater import update_websocket_v1_explosions
+from updater.updater import update_websocket_v1_etryvoga
 
 """
 pip install pytest pytest-asyncio
@@ -49,7 +49,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_explosions(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
     expected_result = [1645674000] * LEGACY_LED_COUNT
     expected_result[1] = 1736935200
@@ -81,7 +81,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_explosions(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
     expected_result = [1700000000] * LEGACY_LED_COUNT
     expected_result[0] = 1740368400

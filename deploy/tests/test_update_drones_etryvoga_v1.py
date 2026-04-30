@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from updater.updater import update_websocket_v1_drones, regions
+from updater.updater import update_websocket_v1_etryvoga, regions
 
 """
 pip install pytest pytest-asyncio
@@ -51,7 +51,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_drones(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
     expected_result = [1645674000] * LEGACY_LED_COUNT
     expected_result[2] = 1736935200
@@ -85,7 +85,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_drones(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
     expected_result = [1645674000] * LEGACY_LED_COUNT
     expected_result[0] = 1736935200
@@ -127,7 +127,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
 
         mock_get_redis_data.side_effect = create_side_effect(region_data)
 
-        await update_websocket_v1_drones(mock_redis, run_once=True)
+        await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
         expected_result = [1645674000] * LEGACY_LED_COUNT
         expected_result[region_data["legacyId"] - 1] = 1736935200
@@ -143,7 +143,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
 async def test_4(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в мемкеші
-    зберігання оновлення там , де нема основної тривоги (21)
+    обидва регіони оновлюються (фільтрація по v2-тривогах більше не застосовується)
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
@@ -155,17 +155,14 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
             return {"11": "2025-02-24T03:40:00Z", "21": "2025-02-15T10:00:00Z"}
         elif key == "websocket:v1:legacy:drones":
             return [1700000000] * LEGACY_LED_COUNT
-        elif key == "websocket:v2:legacy:drones":
-            drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
-            drones_websocket_v2[0] = [1, 1645674000]
-            return drones_websocket_v2
         return default_response
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_drones(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
     expected_result = [1700000000] * LEGACY_LED_COUNT
+    expected_result[0] = 1740368400
     expected_result[2] = 1739613600
 
     calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
@@ -179,7 +176,7 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
 async def test_5(mock_get_redis_data, mock_set_redis_data):
     """
     є дані в мемкеші
-    нема заберігання, бо всюди тривога
+    всі регіони з кешу оновлюються незалежно від стану v2-тривог
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
@@ -190,19 +187,17 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
         if key == "alerts:etryvoga:drones:data":
             return {"11": "2025-02-24T03:40:00Z", "21": "2025-02-15T10:00:00Z"}
         elif key == "websocket:v1:legacy:drones":
-            # Повертаємо дефолтні значення, оскільки жоден регіон не має оновитись (всі з тривогою)
             return [1645674000] * LEGACY_LED_COUNT
-        elif key == "websocket:v2:legacy:drones":
-            drones_websocket_v2 = [[0, 1645674000]] * LEGACY_LED_COUNT
-            drones_websocket_v2[0] = [1, 1645674000]
-            drones_websocket_v2[2] = [1, 1645674000]
-            return drones_websocket_v2
         return default_response
 
     mock_get_redis_data.side_effect = get_redis_side_effect
 
-    await update_websocket_v1_drones(mock_redis, run_once=True)
+    await update_websocket_v1_etryvoga(mock_redis, run_once=True)
 
-    # Перевіряємо що не було викликів set_redis_data для websocket:v1:legacy:drones
+    expected_result = [1645674000] * LEGACY_LED_COUNT
+    expected_result[0] = 1740368400
+    expected_result[2] = 1739613600
+
     calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v1:legacy:drones"]
-    assert len(calls) == 0
+    assert len(calls) > 0
+    assert calls[0][0][3] == expected_result
