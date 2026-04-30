@@ -181,6 +181,7 @@ jobs:
                   -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
                   -su ${{ secrets.ALERTS_HTTP_SOURCE_URL }} \
                   -mu ${{ secrets.ALERTS_HTTP_UPDATE_URL }} \
+                  -pr ${{ secrets.PROXIES }} \
                   -f ${{ secrets.ALERT_HTTP_FIELDS }}
           - name: Redeploy Alerts websocket parser
             if: ${{ inputs.redeploy_alerts_ws }}
