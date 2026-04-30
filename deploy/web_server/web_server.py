@@ -93,10 +93,8 @@ OPENAPI_SPEC = {
     "tags": [
         {"name": "alerts", "description": "Повітряні тривоги (Ukraine Alarm API)"},
         {"name": "weather", "description": "Дані погоди (OpenWeatherMap)"},
-        {"name": "etryvoga", "description": "Вибухи / ракети / дрони / КАБи (etryvoga.com)"},
         {"name": "tcp", "description": "Тривоги+погода для legacy TCP-клієнтів"},
         {"name": "status", "description": "Стан та доступність API"},
-        {"name": "maps", "description": "PNG-зображення карт"},
     ],
     "paths": {
         "/alerts_statuses_v1.json": {
@@ -245,162 +243,6 @@ OPENAPI_SPEC = {
                 },
             }
         },
-        "/explosives_statuses_v1.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Вибухи v1",
-                "description": "Час останньої події вибуху по областях. Рядок дати/часу.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
-                    }
-                },
-            }
-        },
-        "/explosives_statuses_v2.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Вибухи v2",
-                "description": "Час останньої події вибуху по областях. Рядок дати/часу або null.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
-                    }
-                },
-            }
-        },
-        "/explosives_statuses_v3.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Вибухи v3",
-                "description": "Секунди від останньої події вибуху по областях.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
-                    }
-                },
-            }
-        },
-        "/missiles_statuses_v1.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Ракети v1",
-                "description": "Час останньої ракетної події по областях. Рядок дати/часу.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
-                    }
-                },
-            }
-        },
-        "/missiles_statuses_v2.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Ракети v2",
-                "description": "Час останньої ракетної події по областях. Рядок дати/часу або null.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
-                    }
-                },
-            }
-        },
-        "/missiles_statuses_v3.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Ракети v3",
-                "description": "Секунди від останньої ракетної події по областях.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
-                    }
-                },
-            }
-        },
-        "/drones_statuses_v1.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Дрони v1",
-                "description": "Час останньої події дрона по областях. Рядок дати/часу.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
-                    }
-                },
-            }
-        },
-        "/drones_statuses_v2.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Дрони v2",
-                "description": "Час останньої події дрона по областях. Рядок дати/часу або null.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
-                    }
-                },
-            }
-        },
-        "/drones_statuses_v3.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "Дрони v3",
-                "description": "Секунди від останньої події дрона по областях.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
-                    }
-                },
-            }
-        },
-        "/kabs_statuses_v1.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "КАБи v1",
-                "description": "Час останньої події КАБ (керована авіабомба) по областях. Рядок дати/часу.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV1"}}},
-                    }
-                },
-            }
-        },
-        "/kabs_statuses_v2.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "КАБи v2",
-                "description": "Час останньої події КАБ по областях. Рядок дати/часу або null.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV2"}}},
-                    }
-                },
-            }
-        },
-        "/kabs_statuses_v3.json": {
-            "get": {
-                "tags": ["etryvoga"],
-                "summary": "КАБи v3",
-                "description": "Секунди від останньої події КАБ по областях.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EtryvogaV3"}}},
-                    }
-                },
-            }
-        },
         "/tcp_statuses_v1.json": {
             "get": {
                 "tags": ["tcp"],
@@ -467,82 +309,8 @@ OPENAPI_SPEC = {
                 },
             }
         },
-        "/alerts_map.png": {
-            "get": {
-                "tags": ["maps"],
-                "summary": "PNG-карта тривог",
-                "description": "Поточна карта стану повітряних тривог у форматі PNG.",
-                "responses": {
-                    "200": {
-                        "description": "PNG зображення",
-                        "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
-                    }
-                },
-            }
-        },
-        "/weather_map.png": {
-            "get": {
-                "tags": ["maps"],
-                "summary": "PNG-карта погоди",
-                "description": "Поточна карта погоди у форматі PNG.",
-                "responses": {
-                    "200": {
-                        "description": "PNG зображення",
-                        "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}},
-                    }
-                },
-            }
-        },
     },
-    "components": {
-        "schemas": {
-            "EtryvogaV1": {
-                "type": "object",
-                "properties": {
-                    "version": {"type": "integer", "example": 1},
-                    "states": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "object",
-                            "properties": {"changes": {"type": "string", "nullable": True}},
-                        },
-                    },
-                    "info": {
-                        "type": "object",
-                        "properties": {"description": {"type": "string"}},
-                    },
-                },
-            },
-            "EtryvogaV2": {
-                "type": "object",
-                "properties": {
-                    "version": {"type": "integer", "example": 1},
-                    "states": {
-                        "type": "object",
-                        "additionalProperties": {"type": "string", "nullable": True},
-                    },
-                    "info": {
-                        "type": "object",
-                        "properties": {"description": {"type": "string"}},
-                    },
-                },
-            },
-            "EtryvogaV3": {
-                "type": "object",
-                "properties": {
-                    "version": {"type": "integer", "example": 1},
-                    "states": {
-                        "type": "object",
-                        "additionalProperties": {"type": "integer", "nullable": True},
-                    },
-                    "info": {
-                        "type": "object",
-                        "properties": {"description": {"type": "string"}},
-                    },
-                },
-            },
-        }
-    },
+    "components": {},
 }
 
 debug_level = os.environ.get("LOGGING") or "INFO"
@@ -815,7 +583,7 @@ async def main(request):
                 transition: background-color 0.3s ease, border-color 0.3s ease;
             }
             .section-header {
-                font-size: 18px;
+                font-size: 14px;
                 font-weight: bold;
                 color: var(--text-color);
                 margin-bottom: 15px;
@@ -823,30 +591,72 @@ async def main(request):
                 border-bottom: 2px solid var(--border-color);
                 width: 100%;
             }
+
             .form-button {
+                display: inline-block;
                 background: #007bff;
                 color: white;
-                border: 1px solid #007bff;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-                transition: all 0.3s ease;
+                padding: 12px 30px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
                 text-decoration: none;
-                display: inline-block;
-                min-width: 120px;
-                text-align: center;
+                border: none;
+                cursor: pointer;
+                transition: all 0.3s ease;
             }
+
             .form-button:hover {
                 background: #0056b3;
-                border-color: #0056b3;
-                transform: translateY(-1px);
-                color: white;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+            }
+            .nav-menu {
+                background: var(--panel-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 8px;
+                transition: background-color 0.3s ease, border-color 0.3s ease;
+            }
+            .nav-item {
+                padding: 8px 16px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                background: var(--container-bg);
+                color: var(--text-color);
+                cursor: pointer;
+                transition: all 0.3s ease;
+                font-size: 16px;
+                white-space: nowrap;
+                user-select: none;
                 text-decoration: none;
+                display: inline-block;
+            }
+
+            .nav-item:hover {
+                background: var(--panel-bg);
+                border-color: var(--text-color);
+            }
+
+            .nav-item.active {
+                background: #007bff;
+                color: white;
+                border-color: #007bff;
+            }
+
+            .nav-item.active:hover {
+                background: #0056b3;
+                border-color: #0056b3;
             }
             a { color: #007bff; text-decoration: none; }
             a:hover { text-decoration: underline; }
-            ul { margin: 0; padding-left: 20px; }
+            ul { margin: 0; padding-left: 20px; font-size: 12px; color: var(--secondary-text); }
             li { margin: 4px 0; }
         </style>
     </head>
@@ -861,8 +671,11 @@ async def main(request):
                 </button>
             </div>
             <img class='flag-img' src='alerts_map.png' alt='Карта тривог'>
-            <div style='text-align:center; margin: 20px 0'>
-                <a class='form-button' href='https://flasher.jaam.net.ua' target='_blank'>Прошивка мапи онлайн</a>
+            <div class='nav-menu'>
+                <a class='nav-item' style="border-left: 3px solid rgb(0, 123, 255);" href='https://store.jaam.net.ua' target='_blank'>Купити мапу JAAM 3</a>
+                <a class='nav-item' style="border-left: 3px solid rgb(40, 167, 69);" href='https://info.jaam.net.ua' target='_blank'>Документація</a>
+                <a class='nav-item' style="border-left: 3px solid rgb(255, 193, 7);" href='https://flasher.jaam.net.ua' target='_blank'>Прошивка мапи</a>
+                <a class='nav-item' style="border-left: 3px solid rgb(23, 162, 184);" href='api/' target='_blank'>API</a>
             </div>
             <div class='system-panel'>
                 <div class='section-header'>Корисні посилання</div>
@@ -873,20 +686,11 @@ async def main(request):
                 </ul>
             </div>
             <div class='system-panel'>
-                <div class='section-header'>Доступні API</div>
-                <ul>
-                    <li>Тривоги: [<a href='/alerts_statuses_v1.json'>v1</a>], [<a href='/alerts_statuses_v2.json'>v2</a>], [<a href='/alerts_statuses_v3.json'>v3</a>]</li>
-                    <li>Погода: [<a href='/weather_statuses_v1.json'>v1</a>], [<a href='/weather_statuses_v2.json'>v2</a>]</li>
-                    <li>Тривоги+погода: [<a href='/tcp_statuses_v1.json'>v1</a>], [<a href='/tcp_statuses_v2.plain'>v2</a>]</li>
-                    <li><a href='/api_status.json'>API healthcheck</a></li>
-                </ul>
-            </div>
-            <div class='system-panel'>
                 <div class='section-header'>Джерела даних</div>
                 <ul>
-                    <li><a href='https://app.etryvoga.com/'>app.etryvoga.com</a> (дані по вибухам зі ЗМІ)</li>
+                    <li><a href='https://app.etryvoga.com/'>app.etryvoga.com</a> (дрони, каби, ракети)</li>
                     <li><a href='https://www.ukrainealarm.com/'>ukrainealarm.com</a> (офіційне API тривог)</li>
-                    <li><a href='https://openweathermap.org/api'>openweathermap.org</a> (погода)</li>
+                    <li><a href='https://open-meteo.com/'>open-meteo.com</a> (погода)</li>
                     <li><a href='https://ua.energy/'>ua.energy</a> (стан енергомережі)</li>
                     <li><a href='https://www.saveecobot.com/radiation-maps'>saveecobot.com</a> (радіація, виключно для ознайомлення, не сприймати як надійне джерело)</li>
                 </ul>
@@ -1207,6 +1011,10 @@ async def etryvoga_full(request):
         return JSONResponse(etryvoga_full, headers={"Content-Type": "application/json; charset=utf-8"})
     else:
         return JSONResponse({})
+    
+async def deprecated_endpoint(request):
+    return JSONResponse({"error": "Вітаємо. Молодець, шо знайшли, але цей endpoint застарів, бо даних по областям вже давно нема.  Будь ласка, використовуйте лише публічні endpoints."}, status_code=410)
+    
 
 
 async def tcp_v1(request):
@@ -1374,18 +1182,18 @@ app = Starlette(
         Route("/alerts_statuses_v3.json", alerts_v3),
         Route("/weather_statuses_v1.json", weather_v1),
         Route("/weather_statuses_v2.json", weather_v2),
-        Route("/explosives_statuses_v1.json", explosives_v1),
-        Route("/explosives_statuses_v2.json", explosives_v2),
-        Route("/explosives_statuses_v3.json", explosives_v3),
-        Route("/missiles_statuses_v1.json", missiles_v1),
-        Route("/missiles_statuses_v2.json", missiles_v2),
-        Route("/missiles_statuses_v3.json", missiles_v3),
-        Route("/drones_statuses_v1.json", drones_v1),
-        Route("/drones_statuses_v2.json", drones_v2),
-        Route("/drones_statuses_v3.json", drones_v3),
-        Route("/kabs_statuses_v1.json", kabs_v1),
-        Route("/kabs_statuses_v2.json", kabs_v2),
-        Route("/kabs_statuses_v3.json", kabs_v3),
+        Route("/explosives_statuses_v1.json", deprecated_endpoint),
+        Route("/explosives_statuses_v2.json", deprecated_endpoint),
+        Route("/explosives_statuses_v3.json", deprecated_endpoint),
+        Route("/missiles_statuses_v1.json", deprecated_endpoint),
+        Route("/missiles_statuses_v2.json", deprecated_endpoint),
+        Route("/missiles_statuses_v3.json", deprecated_endpoint),
+        Route("/drones_statuses_v1.json", deprecated_endpoint),
+        Route("/drones_statuses_v2.json", deprecated_endpoint),
+        Route("/drones_statuses_v3.json", deprecated_endpoint),
+        Route("/kabs_statuses_v1.json", deprecated_endpoint),
+        Route("/kabs_statuses_v2.json", deprecated_endpoint),
+        Route("/kabs_statuses_v3.json", deprecated_endpoint),
         Route("/etryvoga_{token}.json", etryvoga_full),
         Route("/api/openapi.json", openapi_spec),
         Route("/api", swagger_ui),
