@@ -17,6 +17,7 @@ try:
         set_redis_data,
         get_current_datetime,
         run_with_restart,
+        Debouncer,
     )
 except ImportError:
     parent_dir = Path(__file__).resolve().parent.parent
@@ -29,6 +30,7 @@ except ImportError:
         set_redis_data,
         get_current_datetime,
         run_with_restart,
+        Debouncer,
     )
 
 # Імпорт regions.json - спочатку з поточної папки, потім з батьківської
@@ -53,6 +55,7 @@ redis_host = os.environ.get("REDIS_HOST") or "redis"
 redis_port = int(os.environ.get("REDIS_PORT", 6379))
 redis_password = os.environ.get("REDIS_PASSWORD") or "redis"
 redis_db = int(os.environ.get("REDIS_DB", 0))
+etryvoga_ws_debounce = float(os.environ.get("ETRYVOGA_WS_DEBOUNCE", 3))
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -66,6 +69,11 @@ TYPE_CONFIG = {
     "kab": ("kabs", "alerts:etryvoga_ws:kabs", "alerts:etryvoga:kabs"),
     "recon_drone": ("recons", "alerts:etryvoga_ws:recons", "alerts:etryvoga:recons"),
 }
+
+# data_name -> ws_key (унікальний маппінг для flush)
+WS_KEY_MAP = {data_name: ws_key for _, (data_name, ws_key, _) in TYPE_CONFIG.items()}
+# data_name -> legacy_key (унікальний маппінг для flush)
+LEGACY_KEY_MAP = {data_name: legacy_key for _, (data_name, _, legacy_key) in TYPE_CONFIG.items()}
 
 
 def get_region_data(slug, title=None):
@@ -86,7 +94,7 @@ def get_region_data(slug, title=None):
     return "UNKNOWN", 0
 
 
-async def handle_notification(redis_client, data, state: dict):
+async def handle_notification(redis_client, data, state: dict, ws_pending: dict, legacy_dirty: set, ws_debouncer: Debouncer):
     """Обробляє одне сповіщення з WebSocket."""
     if isinstance(data, str):
         data = json.loads(data)
@@ -111,22 +119,38 @@ async def handle_notification(redis_client, data, state: dict):
         data_name, ws_key, legacy_key = config
         region_data = get_current_datetime()
 
-        # --- etryvoga_ws формат: stateless, один регіон ---
-        await set_redis_data(logger, redis_client, f"{ws_key}:data", {str(_id): region_data})
-        await service_is_fine(logger, redis_client, f"{ws_key}:last_call")
-        await redis_client.publish(f"{ws_key}:updated", "1")
-        await redis_client.publish("alerts:etryvoga_ws:updated", "1")
+        # --- etryvoga_ws формат: накопичення з debounce ---
+        ws_pending[data_name][str(_id)] = region_data
 
-        # --- etryvoga старий формат: stateful, накопичений dict ---
+        # --- etryvoga старий формат: оновлення стану в пам'яті ---
         accumulated = state[data_name]
         old_data = copy(accumulated)
         accumulated[str(_id)] = region_data
         if old_data != accumulated:
-            logger.debug(f"⚠️ {legacy_key} DATA NEW: {accumulated}")
-            logger.debug(f"⚠️ {legacy_key} DATA OLD: {old_data}")
-            await set_redis_data(logger, redis_client, f"{legacy_key}:data", accumulated)
-            await service_is_fine(logger, redis_client, f"{legacy_key}:last_call")
-            await redis_client.publish(f"{legacy_key}:updated", "1")
+            legacy_dirty.add(data_name)
+            logger.debug(f"⚠️ {legacy_key} marked dirty")
+
+        async def flush():
+            for _data_name, _ws_key in WS_KEY_MAP.items():
+                if ws_pending[_data_name]:
+                    snapshot = dict(ws_pending[_data_name])
+                    ws_pending[_data_name].clear()
+                    logger.debug(f"⚠️ {_ws_key} FLUSH: {snapshot}")
+                    await set_redis_data(logger, redis_client, f"{_ws_key}:data", snapshot)
+                    await service_is_fine(logger, redis_client, f"{_ws_key}:last_call")
+                    await redis_client.publish(f"{_ws_key}:updated", "1")
+                    logger.info(f"✅ {_ws_key} flushed ({len(snapshot)} регіонів)")
+            for _data_name in list(legacy_dirty):
+                _legacy_key = LEGACY_KEY_MAP[_data_name]
+                _accumulated = state[_data_name]
+                logger.debug(f"⚠️ {_legacy_key} FLUSH: {_accumulated}")
+                await set_redis_data(logger, redis_client, f"{_legacy_key}:data", _accumulated)
+                await service_is_fine(logger, redis_client, f"{_legacy_key}:last_call")
+                await redis_client.publish(f"{_legacy_key}:updated", "1")
+                logger.info(f"✅ {_legacy_key} flushed")
+            legacy_dirty.clear()
+
+        await ws_debouncer.call(flush)
 
         logger.info(f"✅ Оновлено {_name} (ID: {_id}), тип: {msg_type}")
     else:
@@ -135,7 +159,7 @@ async def handle_notification(redis_client, data, state: dict):
     await service_is_fine(logger, redis_client, "alerts:etryvoga_ws:last_call")
 
 
-async def connect_once(redis_client, state: dict):
+async def connect_once(redis_client, state: dict, ws_pending: dict, legacy_dirty: set, ws_debouncer: Debouncer):
     """Одне підключення до etryvoga WebSocket."""
     sio = socketio.AsyncClient(logger=False, engineio_logger=False)
 
@@ -153,7 +177,7 @@ async def connect_once(redis_client, state: dict):
     async def on_notification(data):
         logger.info(f"📨 Отримано сповіщення: {data}")
         try:
-            await handle_notification(redis_client, data, state)
+            await handle_notification(redis_client, data, state, ws_pending, legacy_dirty, ws_debouncer)
         except Exception as e:
             logger.error(f"❌ Помилка обробки сповіщення: {e}")
             logger.debug("❌ Повний стек помилки:", exc_info=True)
@@ -190,10 +214,16 @@ async def connect_etryvoga_ws(redis_client):
         "recons": recons,
     }
 
+    data_names = list(state.keys())
+    ws_pending = {name: {} for name in data_names}
+    legacy_dirty: set = set()
+    ws_debouncer = Debouncer(etryvoga_ws_debounce)
+    logger.info(f"⏱️  etryvoga_ws debounce: {etryvoga_ws_debounce}s")
+
     while True:
         try:
             logger.info(f"🔌 Підключення до {etryvoga_ws_host}/socket ...")
-            await connect_once(redis_client, state)
+            await connect_once(redis_client, state, ws_pending, legacy_dirty, ws_debouncer)
         except socketio.exceptions.ConnectionError as e:
             logger.error(f"❌ Помилка підключення до WebSocket: {e}")
             logger.debug("❌ Повний стек помилки:", exc_info=True)
