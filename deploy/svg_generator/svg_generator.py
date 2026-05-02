@@ -298,7 +298,7 @@ async def svg_generator_alerts(redis_client):
                 get_redis_data(logger, redis_client, "alerts:etryvoga:missiles:data", default_response={}),
                 get_redis_data(logger, redis_client, "alerts:etryvoga:explosions:data", default_response={}),
                 get_redis_data(logger, redis_client, "alerts:etryvoga:kabs:data", default_response={}),
-                get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
+                get_redis_data(logger, redis_client, "alerts:http:reasons:data", default_response={}),
             )
 
             for region_data in alerts_cache:
