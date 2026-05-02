@@ -546,7 +546,7 @@ async def alert_reasons_v1(redis_client, alert_type, cache_key, default_value):
 
     # Отримуємо значення паралельно (одночасно, але з правильною обробкою типів)
     reasons_cache, websocket_data, alerts_cache = await asyncio.gather(
-        get_redis_data(logger, redis_client, "alerts:ws:reasons:data", default_response={}),
+        get_redis_data(logger, redis_client, "alerts:http:reasons:data", default_response={}),
         get_redis_data(logger, redis_client, cache_key, default_response=default_value),
         get_redis_data(logger, redis_client, "alerts:api:data", default_response=[]),
     )
@@ -580,10 +580,14 @@ async def alert_reasons_v1(redis_client, alert_type, cache_key, default_value):
         logger.info(f"ℹ️  {cache_key} не змінився")
 
 
-async def update_websocket_v2_drones(redis_client, run_once=False):
+async def update_websocket_v2_etryvoga(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
-    channels = ["alerts:ws:reasons:updated", "alerts:api:updated"]
+    channels = ["alerts:http:reasons:updated", "alerts:api:updated"]
+    reason_targets = [
+        ("Drones", "websocket:v2:legacy:drones"),
+        ("Missile", "websocket:v2:legacy:missiles"),
+    ]
     await pubsub.subscribe(*channels)
     logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
 
@@ -593,10 +597,14 @@ async def update_websocket_v2_drones(redis_client, run_once=False):
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if message and message["type"] == "message":
                 channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_drones)")
-                await alert_reasons_v1(
-                    redis_client, "Drones", "websocket:v2:legacy:drones", [[0, 1645674000]] * LEGACY_LED_COUNT
-                )
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_etryvoga)")
+                for alert_type, cache_key in reason_targets:
+                    await alert_reasons_v1(
+                        redis_client,
+                        alert_type,
+                        cache_key,
+                        [[0, 1645674000]] * LEGACY_LED_COUNT,
+                    )
 
             if run_once:
                 break
@@ -604,39 +612,7 @@ async def update_websocket_v2_drones(redis_client, run_once=False):
             await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
 
     except Exception as e:
-        logger.error(f"❌ update_websocket_v2_drones: {str(e)}")
-        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
-    finally:
-        await pubsub.unsubscribe(*channels)
-        await pubsub.aclose()
-        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
-
-
-async def update_websocket_v2_missiles(redis_client, run_once=False):
-    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
-    pubsub = redis_client.pubsub()
-    channels = ["alerts:ws:reasons:updated", "alerts:api:updated"]
-    await pubsub.subscribe(*channels)
-    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
-
-    # Основний цикл очікування повідомлень з Pub/Sub
-    try:
-        while True:
-            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            if message and message["type"] == "message":
-                channel = message["channel"]
-                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_v2_missiles)")
-                await alert_reasons_v1(
-                    redis_client, "Missile", "websocket:v2:legacy:missiles", [[0, 1645674000]] * LEGACY_LED_COUNT
-                )
-
-            if run_once:
-                break
-
-            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
-
-    except Exception as e:
-        logger.error(f"❌ update_websocket_v2_missiles: {str(e)}")
+        logger.error(f"❌ update_websocket_v2_etryvoga: {str(e)}")
         logger.debug(f"❌ Повний стек помилки:", exc_info=True)
     finally:
         await pubsub.unsubscribe(*channels)
@@ -1389,14 +1365,11 @@ async def main():
                 run_with_restart(logger, update_websocket_v1_etryvoga, redis_client, "update_websocket_v1_etryvoga")
             ),
             asyncio.create_task(
+                run_with_restart(logger, update_websocket_v2_etryvoga, redis_client, "update_websocket_v2_etryvoga")
+            ),
+            asyncio.create_task(
                 run_with_restart(logger, update_websocket_v1_weather, redis_client, "update_websocket_v1_weather")
             ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v2_drones, redis_client, "update_websocket_v2_drones")
-            # ),
-            # asyncio.create_task(
-            #     run_with_restart(logger, update_websocket_v2_missiles, redis_client, "update_websocket_v2_missiles")
-            # ),
             asyncio.create_task(
                 run_with_restart(logger, update_websocket_v1_energy, redis_client, "update_websocket_v1_energy")
             ),
@@ -1425,11 +1398,11 @@ async def main():
                     "update_websocket_fusion_v1_openweathermap",
                 )
             ),
-            asyncio.create_task(
-                run_with_restart(
-                    logger, update_websocket_fusion_v1_etryvoga, redis_client, "update_websocket_fusion_v1_etryvoga"
-                )
-            ),
+            # asyncio.create_task(
+            #     run_with_restart(
+            #         logger, update_websocket_fusion_v1_etryvoga, redis_client, "update_websocket_fusion_v1_etryvoga"
+            #     )
+            # ),
             asyncio.create_task(
                 run_with_restart(
                     logger, update_websocket_fusion_v2_etryvoga, redis_client, "update_websocket_fusion_v2_etryvoga"

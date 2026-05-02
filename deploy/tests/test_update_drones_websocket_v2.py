@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, AsyncMock, MagicMock, patch, call
-from updater.updater import update_websocket_v2_drones
+from updater.updater import update_websocket_v2_etryvoga
 
 """
 pip install pytest pytest-asyncio
@@ -77,7 +77,7 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
         expected_drones[0] = [1, mock_timestamp]
@@ -119,7 +119,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
@@ -158,7 +158,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
         expected_drones[0] = [1, 1600000000]
@@ -198,7 +198,7 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         expected_drones = [[0, mock_timestamp]] * LEGACY_LED_COUNT
 
@@ -235,7 +235,7 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         # Перевіряємо що не було викликів set_redis_data для websocket:v2:legacy:drones
         calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
@@ -270,7 +270,7 @@ async def test_6(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         expected_drones = [[0, 1645674000]] * LEGACY_LED_COUNT
         expected_drones[1] = [1, mock_timestamp]
@@ -310,7 +310,7 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
     mock_get_redis_data.side_effect = get_redis_side_effect
 
     with patch("updater.updater.get_current_timestamp", mock_get_current_timestamp):
-        await update_websocket_v2_drones(mock_redis, run_once=True)
+        await update_websocket_v2_etryvoga(mock_redis, run_once=True)
 
         # Перевіряємо що не було викликів set_redis_data для websocket:v2:legacy:drones
         calls = [call for call in mock_set_redis_data.call_args_list if call[0][2] == "websocket:v2:legacy:drones"]
