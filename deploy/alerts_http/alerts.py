@@ -44,6 +44,9 @@ if not fields_env:
 FIELDS: dict = json.loads(fields_env)
 logger.info(f"📋 FIELDS: {FIELDS}")
 
+# in-memory cache: redis_key -> last known JSON string (None = not yet loaded)
+_field_cache: dict[str, str | None] = {}
+
 PAGE_HEADERS = {
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "accept-language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -120,9 +123,13 @@ async def process_response(redis_client, data: dict):
 
         redis_key = f"alerts:http:{key_segment}:data"
         new_json = json.dumps({field: field_data}, ensure_ascii=False)
-        old_json = await redis_client.get(redis_key)
 
-        if old_json != new_json:
+        if redis_key not in _field_cache:
+            _field_cache[redis_key] = await redis_client.get(redis_key)
+            logger.debug(f"🗂️  Cache initialized for {redis_key}")
+
+        if _field_cache[redis_key] != new_json:
+            _field_cache[redis_key] = new_json
             await redis_client.set(redis_key, new_json)
             await redis_client.publish(f"alerts:http:{key_segment}:updated", "1")
             logger.info(f"✅ Оновлені дані {redis_key} збережено в Redis")

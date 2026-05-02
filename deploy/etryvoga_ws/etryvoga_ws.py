@@ -94,7 +94,9 @@ def get_region_data(slug, title=None):
     return "UNKNOWN", 0
 
 
-async def handle_notification(redis_client, data, state: dict, ws_pending: dict, legacy_dirty: set, ws_debouncer: Debouncer):
+async def handle_notification(
+    redis_client, data, state: dict, ws_pending: dict, legacy_dirty: set, ws_debouncer: Debouncer
+):
     """Обробляє одне сповіщення з WebSocket."""
     if isinstance(data, str):
         data = json.loads(data)
