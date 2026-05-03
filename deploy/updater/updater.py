@@ -441,6 +441,16 @@ async def update_websocket_v1_etryvoga(redis_client, run_once=False):
             "websocket:v1:legacy:missiles",
             "websocket:v2:legacy:missiles",
         ),
+        "alerts:etryvoga:kabs:updated": (
+            "alerts:etryvoga:kabs:data",
+            "websocket:v1:legacy:kabs",
+            None,
+        ),
+        "alerts:etryvoga:explosions:updated": (
+            "alerts:etryvoga:explosions:data",
+            "websocket:v1:legacy:explosions",
+            None,
+        ),
     }
 
     channels = list(channel_config.keys())
