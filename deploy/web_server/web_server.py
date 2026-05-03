@@ -356,7 +356,7 @@ debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8080)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 data_token = os.environ.get("DATA_TOKEN") or "token"
-ws_servers = os.environ.get("WS_SERVERS_LIST") or "[]"
+ws_servers = os.environ.get("WS_SERVERS") or "{}"
 
 # Redis configuration
 redis_host = os.environ.get("REDIS_HOST") or "redis"
@@ -367,13 +367,13 @@ redis_db = int(os.environ.get("REDIS_DB", 0))
 if not data_token:
     raise ValueError("DATA_TOKEN environment variable is required")
 if not ws_servers:
-    raise ValueError("WS_SERVERS_LIST environment variable is required")
+    raise ValueError("WS_SERVERS environment variable is required")
 
-# Parse WS_SERVERS_LIST JSON string
+# Parse WS_SERVERS JSON string  {"name": "url"}
 try:
     ws_servers = json.loads(ws_servers)
 except json.JSONDecodeError:
-    raise ValueError("WS_SERVERS_LIST environment variable is not a valid JSON")
+    raise ValueError("WS_SERVERS environment variable is not a valid JSON")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -387,7 +387,7 @@ web_clients = {}
 redis_client = None
 
 # Health check results: name -> {"ok": bool, "checked_at": float}
-ws_health_statuses: dict = {s["name"]: {"ok": None, "checked_at": None} for s in ws_servers}
+ws_health_statuses: dict = {name: {"ok": None, "checked_at": None} for name in ws_servers}
 
 # Background health-check task handle
 _health_check_task: asyncio.Task | None = None
@@ -550,14 +550,13 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
 
 
 async def main(request):
-    def _ws_item(s):
-        name = s["name"]
+    def _ws_item(name):
         return (
             f"<span class='status-badge unknown' id='ws-badge-{name}'>"
             f"<span class='status-dot unknown'></span>{name}</span>"
         )
 
-    ws_items_html = "\n".join(_ws_item(s) for s in ws_servers)
+    ws_items_html = "\n".join(_ws_item(name) for name in ws_servers)
     response = """
     <!DOCTYPE html>
     <html lang='uk' data-theme='dark'>
@@ -1383,15 +1382,15 @@ async def _run_ws_health_checks():
     while True:
         try:
             async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
-                for server in ws_servers:
+                for name, url in ws_servers.items():
                     try:
-                        resp = await client.get(server["url"])
+                        resp = await client.get(url)
                         ok = resp.status_code == 200
                     except Exception as exc:
-                        logger.warning(f"Health check failed for {server['name']}: {exc}")
+                        logger.warning(f"Health check failed for {name}: {exc}")
                         ok = False
-                    ws_health_statuses[server["name"]] = {"ok": ok, "checked_at": time.time()}
-                    logger.debug(f"WS health {server['name']}: {'OK' if ok else 'FAIL'}")
+                    ws_health_statuses[name] = {"ok": ok, "checked_at": time.time()}
+                    logger.debug(f"WS health {name}: {'OK' if ok else 'FAIL'}")
         except Exception as exc:
             logger.error(f"WS health check loop error: {exc}")
         await asyncio.sleep(10)
