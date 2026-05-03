@@ -86,7 +86,7 @@ docker run --name map_web_server \
     --env REDIS_PASSWORD="$REDIS_PASSWORD" \
     --env REDIS_DB="$REDIS_DB" \
     --env LOGGING="$LOGGING" \
-    --env WS_SERVERS_LIST="$WS_SERVERS_LIST" \
+    --env WS_SERVERS="$WS_SERVERS" \
     map_web_server
 
 echo "Container deployed successfully!"
