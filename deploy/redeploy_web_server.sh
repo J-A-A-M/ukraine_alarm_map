@@ -7,7 +7,7 @@ REDIS_PASSWORD="redis"
 REDIS_DB="0"
 PORT=8080
 LOGGING="WARNING"
-WS_SERVERS_LIST="[]"
+WS_SERVERS="{}"
 
 # Check for arguments
 while [[ $# -gt 0 ]]; do
@@ -36,8 +36,8 @@ while [[ $# -gt 0 ]]; do
             LOGGING="$2"
             shift 2
             ;;
-        -ws|--ws-servers-list)
-            WS_SERVERS_LIST="$2"
+        -ws|--ws-servers)
+            WS_SERVERS="$2"
             shift 2
             ;;
         *)
@@ -55,7 +55,7 @@ echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "REDIS_DB: $REDIS_DB"
 echo "PORT: $PORT"
 echo "LOGGING: $LOGGING"
-echo "WS_SERVERS_LIST: $WS_SERVERS_LIST"
+echo "WS_SERVERS: $WS_SERVERS"
 
 # Updating the Git repo
 echo "Updating Git repo..."
