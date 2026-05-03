@@ -306,7 +306,9 @@ jobs:
                 bash redeploy_web_server.sh \
                   -d ${{ secrets.WEB_TOKEN }} \
                   -m ${{ secrets.CLOUD_REDIS_HOST }} \
-                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }}
+                  -pw ${{ secrets.CLOUD_REDIS_PASSWORD }} \
+                  -ws ${{ secrets.WS_SERVERS_LIST }}
+
           - name: Clear unused images
             uses: appleboy/ssh-action@v1.2.0
             with:

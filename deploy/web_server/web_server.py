@@ -7,6 +7,8 @@ import time
 import logging
 import datetime
 
+import httpx
+
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, FileResponse, HTMLResponse, PlainTextResponse
 from starlette.routing import Route
@@ -309,6 +311,42 @@ OPENAPI_SPEC = {
                 },
             }
         },
+        "/ws_status.json": {
+            "get": {
+                "tags": ["status"],
+                "summary": "Стан WebSocket-серверів",
+                "description": "Доступність WebSocket-серверів за результатами перевірки /healthz.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "servers": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string", "example": "prod1"},
+                                                    "ok": {"type": "boolean", "nullable": True},
+                                                    "checked_at": {
+                                                        "type": "string",
+                                                        "nullable": True,
+                                                        "example": "2025-11-21T19:11:19Z",
+                                                    },
+                                                },
+                                            },
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            }
+        },
     },
     "components": {},
 }
@@ -318,6 +356,7 @@ debug = os.environ.get("DEBUG") or False
 port = int(os.environ.get("PORT") or 8080)
 shared_path = os.environ.get("SHARED_PATH") or "/shared_data"
 data_token = os.environ.get("DATA_TOKEN") or "token"
+ws_servers = os.environ.get("WS_SERVERS_LIST") or "[]"
 
 # Redis configuration
 redis_host = os.environ.get("REDIS_HOST") or "redis"
@@ -327,6 +366,14 @@ redis_db = int(os.environ.get("REDIS_DB", 0))
 
 if not data_token:
     raise ValueError("DATA_TOKEN environment variable is required")
+if not ws_servers:
+    raise ValueError("WS_SERVERS_LIST environment variable is required")
+
+# Parse WS_SERVERS_LIST JSON string
+try:
+    ws_servers = json.loads(ws_servers)
+except json.JSONDecodeError:
+    raise ValueError("WS_SERVERS_LIST environment variable is not a valid JSON")
 
 logging.basicConfig(level=debug_level, format="%(asctime)s %(levelname)s : %(message)s")
 logger = logging.getLogger(__name__)
@@ -338,6 +385,12 @@ web_clients = {}
 
 # Global Redis client
 redis_client = None
+
+# Health check results: name -> {"ok": bool, "checked_at": float}
+ws_health_statuses: dict = {s["name"]: {"ok": None, "checked_at": None} for s in ws_servers}
+
+# Background health-check task handle
+_health_check_task: asyncio.Task | None = None
 
 # Кеш для швидкого пошуку регіонів: regionId -> state_name
 # Будується один раз при запуску для оптимізації
@@ -497,6 +550,14 @@ class LogUserIPMiddleware(BaseHTTPMiddleware):
 
 
 async def main(request):
+    def _ws_item(s):
+        name = s["name"]
+        return (
+            f"<span class='status-badge unknown' id='ws-badge-{name}'>"
+            f"<span class='status-dot unknown'></span>{name}</span>"
+        )
+
+    ws_items_html = "\n".join(_ws_item(s) for s in ws_servers)
     response = """
     <!DOCTYPE html>
     <html lang='uk' data-theme='dark'>
@@ -658,6 +719,54 @@ async def main(request):
             a:hover { text-decoration: underline; }
             ul { margin: 0; padding-left: 20px; font-size: 12px; color: var(--secondary-text); }
             li { margin: 4px 0; }
+            .server-status-list {
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .server-status-item {
+                display: none;
+            }
+            .server-status-name {
+                display: none;
+            }
+            .status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+                font-family: monospace;
+            }
+            .status-badge.ok {
+                background: rgba(40, 167, 69, 0.15);
+                color: #28a745;
+                border: 1px solid rgba(40, 167, 69, 0.4);
+            }
+            .status-badge.fail {
+                background: rgba(220, 53, 69, 0.15);
+                color: #dc3545;
+                border: 1px solid rgba(220, 53, 69, 0.4);
+            }
+            .status-badge.unknown {
+                background: rgba(108, 117, 125, 0.15);
+                color: var(--secondary-text);
+                border: 1px solid rgba(108, 117, 125, 0.4);
+            }
+            .status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+                flex-shrink: 0;
+            }
+            .status-dot.ok { background: #28a745; }
+            .status-dot.fail { background: #dc3545; animation: blink 1s step-start infinite; }
+            .status-dot.unknown { background: var(--secondary-text); }
+            @keyframes blink { 50% { opacity: 0.2; } }
         </style>
     </head>
     <body>
@@ -676,6 +785,12 @@ async def main(request):
                 <a class='nav-item' style="border-left: 3px solid rgb(40, 167, 69);" href='https://info.jaam.net.ua' target='_blank'>Документація</a>
                 <a class='nav-item' style="border-left: 3px solid rgb(255, 193, 7);" href='https://flasher.jaam.net.ua' target='_blank'>Прошивка мапи</a>
                 <a class='nav-item' style="border-left: 3px solid rgb(23, 162, 184);" href='api/' target='_blank'>API</a>
+            </div>
+            <div class='system-panel'>
+                <div class='section-header'>Стан WebSocket-серверів</div>
+                <div class='server-status-list' id='ws-status-list'>
+                    <!-- WS_SERVER_ITEMS -->
+                </div>
             </div>
             <div class='system-panel'>
                 <div class='section-header'>Корисні посилання</div>
@@ -710,10 +825,38 @@ async def main(request):
                 document.documentElement.setAttribute('data-theme', next);
                 document.cookie = 'jaam_theme=' + next + '; max-age=31536000; path=/';
             }
+
+            function updateWsStatuses() {
+                fetch('/ws_status.json')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        data.servers.forEach(function(s) {
+                            var badge = document.getElementById('ws-badge-' + s.name);
+                            if (!badge) return;
+                            var dot;
+                            if (s.ok === null) {
+                                badge.className = 'status-badge unknown';
+                                dot = '<span class=\"status-dot unknown\"></span>';
+                            } else if (s.ok) {
+                                badge.className = 'status-badge ok';
+                                dot = '<span class=\"status-dot ok\"></span>';
+                            } else {
+                                badge.className = 'status-badge fail';
+                                dot = '<span class=\"status-dot fail\"></span>';
+                            }
+                            badge.innerHTML = dot + s.name;
+                        });
+                    })
+                    .catch(function() {});
+            }
+
+            updateWsStatuses();
+            setInterval(updateWsStatuses, 30000);
         </script>
     </body>
     </html>
     """
+    response = response.replace("<!-- WS_SERVER_ITEMS -->", ws_items_html)
     return HTMLResponse(response)
 
 
@@ -1167,6 +1310,28 @@ async def stats(request):
         return JSONResponse({})
 
 
+async def ws_status(request):
+    """Повертає поточний стан WebSocket-серверів"""
+
+    def _fmt(ts):
+        if ts is None:
+            return None
+        return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return JSONResponse(
+        {
+            "servers": [
+                {
+                    "name": name,
+                    "ok": info["ok"],
+                    "checked_at": _fmt(info["checked_at"]),
+                }
+                for name, info in ws_health_statuses.items()
+            ]
+        }
+    )
+
+
 async def swagger_ui(request):
     return HTMLResponse(SWAGGER_UI_HTML)
 
@@ -1208,14 +1373,34 @@ app = Starlette(
         Route("/{filename}.png", map_v1),
         Route("/t{token}", stats),
         Route("/static/jaam_v{version}.{extention}", get_static),
+        Route("/ws_status.json", ws_status),
     ],
 )
+
+
+async def _run_ws_health_checks():
+    """Фоновий цикл перевірки доступності WS-серверів кожні 30 секунд"""
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+                for server in ws_servers:
+                    try:
+                        resp = await client.get(server["url"])
+                        ok = resp.status_code == 200
+                    except Exception as exc:
+                        logger.warning(f"Health check failed for {server['name']}: {exc}")
+                        ok = False
+                    ws_health_statuses[server["name"]] = {"ok": ok, "checked_at": time.time()}
+                    logger.debug(f"WS health {server['name']}: {'OK' if ok else 'FAIL'}")
+        except Exception as exc:
+            logger.error(f"WS health check loop error: {exc}")
+        await asyncio.sleep(10)
 
 
 @app.on_event("startup")
 async def startup_event():
     """Ініціалізація Redis підключення при запуску застосунку"""
-    global redis_client
+    global redis_client, _health_check_task
     redis_client = redis.Redis(
         host=redis_host,
         port=redis_port,
@@ -1228,12 +1413,21 @@ async def startup_event():
         health_check_interval=30,
     )
     logger.info(f"Redis client initialized: {redis_host}:{redis_port}")
+    _health_check_task = asyncio.create_task(_run_ws_health_checks())
+    logger.info("WS health check task started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Закриття Redis підключення при зупинці застосунку"""
-    global redis_client
+    global redis_client, _health_check_task
+    if _health_check_task:
+        _health_check_task.cancel()
+        try:
+            await _health_check_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("WS health check task stopped")
     if redis_client:
         await redis_client.close()
         logger.info("Redis client closed")
