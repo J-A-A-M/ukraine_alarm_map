@@ -52,14 +52,14 @@ async def test_1(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return get_reasons_mock()
         elif key == "websocket:v2:legacy:drones":
             return [[0, 1645674000]] * LEGACY_LED_COUNT
@@ -99,7 +99,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
@@ -108,7 +108,7 @@ async def test_2(mock_get_redis_data, mock_set_redis_data):
     websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return {"reasons": []}
         elif key == "websocket:v2:legacy:drones":
             return websocket_data
@@ -138,7 +138,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
@@ -147,7 +147,7 @@ async def test_3(mock_get_redis_data, mock_set_redis_data):
     websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Drones", "Ballistic"]}]}
         elif key == "websocket:v2:legacy:drones":
             return websocket_data
@@ -178,7 +178,7 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
@@ -187,7 +187,7 @@ async def test_4(mock_get_redis_data, mock_set_redis_data):
     websocket_data = [[1, 1600000000]] * LEGACY_LED_COUNT
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return {"reasons": [{"regionId": "11", "parentRegionId": "11", "alertTypes": ["Ballistic"]}]}
         elif key == "websocket:v2:legacy:drones":
             return websocket_data
@@ -217,14 +217,14 @@ async def test_5(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return {"reasons": []}
         elif key == "websocket:v2:legacy:drones":
             return [[0, 1645674000]] * LEGACY_LED_COUNT
@@ -252,14 +252,14 @@ async def test_6(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return {"reasons": [{"regionId": "13", "parentRegionId": "13", "alertTypes": ["Drones", "Missile"]}]}
         elif key == "websocket:v2:legacy:drones":
             return [[0, 1645674000]] * LEGACY_LED_COUNT
@@ -291,14 +291,14 @@ async def test_7(mock_get_redis_data, mock_set_redis_data):
     """
     mock_redis, mock_pubsub = create_mock_redis()
     mock_pubsub.get_message = AsyncMock(
-        side_effect=[{"type": "message", "channel": "alerts:ws:reasons:updated", "data": "1"}]
+        side_effect=[{"type": "message", "channel": "alerts:http:reasons:updated", "data": "1"}]
     )
 
     mock_timestamp = 1700000000
     mock_get_current_timestamp = Mock(return_value=mock_timestamp)
 
     async def get_redis_side_effect(_logger, _client, key, default_response=None):
-        if key == "alerts:ws:reasons:data":
+        if key == "alerts:http:reasons:data":
             return get_reasons_mock()
         elif key == "websocket:v2:legacy:drones":
             return [[0, 1645674000]] * LEGACY_LED_COUNT
