@@ -1,19 +1,54 @@
 name: ⚡ Deploy Flasher
-on: workflow_dispatch
+
+on:
+  push:
+    branches: [master, develop]
+    paths:
+      - 'flasher/**'
+      - 'deploy/flasher/**'
+      - 'deploy/redeploy_flasher.sh'
+      - '.github/workflows/deploy_flasher.yml'
+  workflow_dispatch:
+    inputs:
+      server_choice:
+        type: choice
+        default: 'Server 1'
+        description: Choose server
+        options:
+          - 'Server 1'
+          - 'Server 2'
+
+run-name: Deploy Flasher from '${{ github.ref_name }}' branch
+
 permissions:
   contents: read
+
 jobs:
-  deploy_flasher:
+  deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
+    env:
+      SERVER_IP: ${{ inputs.server_choice == 'Server 2' && secrets.CLOUD_SERVER_2_IP || secrets.CLOUD_SERVER_IP }}
+      SERVER_USER: ${{ inputs.server_choice == 'Server 2' && secrets.CLOUD_SERVER_2_USER || secrets.CLOUD_SERVER_USER }}
+      SERVER_SSH_KEY: ${{ inputs.server_choice == 'Server 2' && secrets.CLOUD_SERVER_2_SSH_KEY || secrets.CLOUD_SERVER_SSH_KEY }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Upload flasher to Github Pages
-      uses: ./.github/workflows/upload-pages
-    
+      - name: Deploy Flasher
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SERVER_IP }}
+          username: ${{ env.SERVER_USER }}
+          key: ${{ env.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            TEMP_DIR=$(mktemp -d)
+            trap 'rm -rf "$TEMP_DIR"' EXIT
+            cd "$TEMP_DIR"
+            git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
+            bash deploy/redeploy_flasher.sh
+      - name: Clear unused images
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SERVER_IP }}
+          username: ${{ env.SERVER_USER }}
+          key: ${{ env.SERVER_SSH_KEY }}
+          script: |
+            docker image prune -f
