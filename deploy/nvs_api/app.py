@@ -22,6 +22,7 @@ app.add_middleware(
 class NVSConfig(BaseModel):
     ssid: Optional[str] = None
     password: Optional[str] = None
+    wifi_legacy: Optional[bool] = False
     home_district: Optional[int] = None
     device_name: Optional[str] = None
     legacy: Optional[int] = None
@@ -33,6 +34,9 @@ class NVSConfig(BaseModel):
     display_height: Optional[int] = None
     sound_source: Optional[int] = None
     buzzer_pin: Optional[int] = None
+    bg_led_pin: Optional[int] = None
+    bg_led_count: Optional[int] = None
+    service_led_pin: Optional[int] = None
 
 
 @app.post("/generate")
@@ -40,12 +44,19 @@ def generate_nvs(config: NVSConfig):
     rows = ["key,type,encoding,value"]
 
     if config.ssid:
-        rows += [
-            "wifi_nets,namespace,,",
-            "count,data,u8,1",
-            f"ssid0,data,string,{config.ssid}",
-            f"pass0,data,string,{config.password or ''}",
-        ]
+        if config.wifi_legacy:
+            rows += [
+                "wm,namespace,,",
+                f"ssid,data,string,{config.ssid}",
+                f"pass,data,string,{config.password or ''}",
+            ]
+        else:
+            rows += [
+                "wifi_nets,namespace,,",
+                "count,data,u8,1",
+                f"ssid0,data,string,{config.ssid}",
+                f"pass0,data,string,{config.password or ''}",
+            ]
 
     storage_rows = []
     if config.home_district is not None:
@@ -70,6 +81,12 @@ def generate_nvs(config: NVSConfig):
         storage_rows.append(f"ss,data,i32,{config.sound_source}")
     if config.buzzer_pin is not None:
         storage_rows.append(f"bzp,data,i32,{config.buzzer_pin}")
+    if config.bg_led_pin is not None:
+        storage_rows.append(f"bpp,data,i32,{config.bg_led_pin}")
+    if config.bg_led_count is not None:
+        storage_rows.append(f"bpc,data,i32,{config.bg_led_count}")
+    if config.service_led_pin is not None:
+        storage_rows.append(f"slp,data,i32,{config.service_led_pin}")
 
     if not config.ssid and not storage_rows:
         raise HTTPException(status_code=400, detail="No configuration provided")
@@ -86,8 +103,15 @@ def generate_nvs(config: NVSConfig):
         csv_path.write_text(csv_content, encoding="utf-8")
 
         result = subprocess.run(
-            [sys.executable, "-m", "esp_idf_nvs_partition_gen", "generate",
-             str(csv_path), str(bin_path), "0x5000"],
+            [
+                sys.executable,
+                "-m",
+                "esp_idf_nvs_partition_gen",
+                "generate",
+                str(csv_path),
+                str(bin_path),
+                "0x5000",
+            ],
             capture_output=True,
             text=True,
         )

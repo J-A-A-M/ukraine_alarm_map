@@ -32,161 +32,192 @@ const BOARD_TYPES = {
     }
 };
 
-// Region list from jaam_fusion/src/JaamConfig_Generated.h
-// Entries with "територіальна громада" excluded
+// Region list from jaam_fusion/src/JaamConfig.cpp DISTRICTS[]
+// Only entries with ignore=false are included
 const REGIONS = [
     {id: 9999, name: "АР Крим", oblast: true},
+
     {id: 4, name: "Вінницька обл.", oblast: true},
-    {id: 32, name: "Тульчинський район"},
-    {id: 35, name: "Жмеринський район"},
     {id: 36, name: "Вінницький район"},
-    {id: 34, name: "Хмільницький район"},
-    {id: 33, name: "Могилів-Подільський район"},
     {id: 37, name: "Гайсинський район"},
+    {id: 35, name: "Жмеринський район"},
+    {id: 33, name: "Могилів-Подільський район"},
+    {id: 32, name: "Тульчинський район"},
+    {id: 34, name: "Хмільницький район"},
+
     {id: 8, name: "Волинська обл.", oblast: true},
-    {id: 39, name: "Луцький район"},
     {id: 38, name: "Володимирський район"},
-    {id: 40, name: "Ковельський район"},
     {id: 41, name: "Камінь-Каширський район"},
+    {id: 40, name: "Ковельський район"},
+    {id: 39, name: "Луцький район"},
+
     {id: 9, name: "Дніпропетровська обл.", oblast: true},
-    {id: 43, name: "Самарівський район"},
     {id: 44, name: "Дніпровський район"},
-    {id: 47, name: "Нікопольський район"},
-    {id: 48, name: "Синельниківський район"},
     {id: 42, name: "Кам'янський район"},
-    {id: 45, name: "Павлоградський район"},
     {id: 46, name: "Криворізький район"},
+    {id: 47, name: "Нікопольський район"},
+    {id: 43, name: "Самарівський район"},
+    {id: 45, name: "Павлоградський район"},
+    {id: 48, name: "Синельниківський район"},
+
     {id: 28, name: "Донецька обл.", oblast: true},
-    {id: 56, name: "Покровський район"},
-    {id: 51, name: "Горлівський район"},
+    {id: 54, name: "Бахмутський район"},
     {id: 55, name: "Волноваський район"},
+    {id: 51, name: "Горлівський район"},
     {id: 53, name: "Донецький район"},
     {id: 49, name: "Кальміуський район"},
-    {id: 52, name: "Маріупольський район"},
     {id: 50, name: "Краматорський район"},
-    {id: 54, name: "Бахмутський район"},
+    {id: 52, name: "Маріупольський район"},
+    {id: 56, name: "Покровський район"},
+
     {id: 10, name: "Житомирська обл.", oblast: true},
-    {id: 59, name: "Житомирський район"},
-    {id: 58, name: "Коростенський район"},
     {id: 57, name: "Бердичівський район"},
+    {id: 59, name: "Житомирський район"},
     {id: 60, name: "Звягельський район"},
+    {id: 58, name: "Коростенський район"},
+
     {id: 11, name: "Закарпатська обл.", oblast: true},
-    {id: 66, name: "Ужгородський район"},
     {id: 61, name: "Берегівський район"},
     {id: 62, name: "Хустський район"},
+    {id: 65, name: "Мукачівський район"},
     {id: 63, name: "Рахівський район"},
     {id: 64, name: "Тячівський район"},
-    {id: 65, name: "Мукачівський район"},
+    {id: 66, name: "Ужгородський район"},
+
     {id: 12, name: "Запорізька обл.", oblast: true},
     {id: 146, name: "Василівський район"},
-    {id: 145, name: "Пологівський район"},
-    {id: 149, name: "Запорізький район"},
     {id: 147, name: "Бердянський район"},
+    {id: 149, name: "Запорізький район"},
     {id: 148, name: "Мелітопольський район"},
+    {id: 145, name: "Пологівський район"},
+    {id: 564, name: "м. Запоріжжя"},
+
     {id: 13, name: "Ів.-Франківська обл.", oblast: true},
-    {id: 68, name: "Івано-Франківський район"},
     {id: 67, name: "Верховинський район"},
+    {id: 68, name: "Івано-Франківський район"},
     {id: 71, name: "Калуський район"},
-    {id: 72, name: "Надвірнянський район"},
     {id: 70, name: "Коломийський район"},
     {id: 69, name: "Косівський район"},
-    {id: 14, name: "Київська обл.", oblast: true},
-    {id: 77, name: "Фастівський район"},
-    {id: 73, name: "Білоцерківський район"},
-    {id: 75, name: "Бучанський район"},
-    {id: 76, name: "Обухівський район"},
-    {id: 74, name: "Вишгородський район"},
-    {id: 79, name: "Броварський район"},
-    {id: 78, name: "Бориспільський район"},
+    {id: 72, name: "Надвірнянський район"},
+
     {id: 31, name: "м. Київ", oblast: true},
+
+    {id: 14, name: "Київська обл.", oblast: true},
+    {id: 73, name: "Білоцерківський район"},
+    {id: 78, name: "Бориспільський район"},
+    {id: 79, name: "Броварський район"},
+    {id: 75, name: "Бучанський район"},
+    {id: 74, name: "Вишгородський район"},
+    {id: 76, name: "Обухівський район"},
+    {id: 77, name: "Фастівський район"},
+
     {id: 15, name: "Кіровоградська обл.", oblast: true},
-    {id: 81, name: "Кропивницький район"},
-    {id: 80, name: "Олександрійський район"},
     {id: 82, name: "Голованівський район"},
+    {id: 81, name: "Кропивницький район"},
     {id: 83, name: "Новоукраїнський район"},
+    {id: 80, name: "Олександрійський район"},
+
     {id: 16, name: "Луганська обл.", oblast: true},
-    {id: 86, name: "Старобільський район"},
-    {id: 85, name: "Сватівський район"},
-    {id: 84, name: "Сєвєродонецький район"},
-    {id: 87, name: "Щастинський район"},
+
     {id: 27, name: "Львівська обл.", oblast: true},
-    {id: 90, name: "Львівський район"},
-    {id: 89, name: "Стрийський район"},
-    {id: 88, name: "Самбірський район"},
     {id: 91, name: "Дрогобицький район"},
-    {id: 92, name: "Шептицький район"},
     {id: 94, name: "Золочівський район"},
+    {id: 90, name: "Львівський район"},
+    {id: 88, name: "Самбірський район"},
+    {id: 89, name: "Стрийський район"},
+    {id: 92, name: "Шептицький район"},
     {id: 93, name: "Яворівський район"},
+
     {id: 17, name: "Миколаївська обл.", oblast: true},
     {id: 96, name: "Баштанський район"},
     {id: 95, name: "Вознесенський район"},
-    {id: 97, name: "Первомайський район"},
     {id: 98, name: "Миколаївський район"},
+    {id: 97, name: "Первомайський район"},
+
     {id: 18, name: "Одеська обл.", oblast: true},
-    {id: 105, name: "Болградський район"},
     {id: 100, name: "Березівський район"},
-    {id: 104, name: "Одеський район"},
     {id: 102, name: "Білгород-Дністровський район"},
-    {id: 103, name: "Роздільнянський район"},
+    {id: 105, name: "Болградський район"},
     {id: 101, name: "Ізмаїльський район"},
+    {id: 104, name: "Одеський район"},
     {id: 99, name: "Подільський район"},
+    {id: 103, name: "Роздільнянський район"},
+
     {id: 19, name: "Полтавська обл.", oblast: true},
     {id: 107, name: "Кременчуцький район"},
     {id: 106, name: "Лубенський район"},
-    {id: 109, name: "Полтавський район"},
     {id: 108, name: "Миргородський район"},
+    {id: 109, name: "Полтавський район"},
+
     {id: 5, name: "Рівненська обл.", oblast: true},
     {id: 110, name: "Вараський район"},
     {id: 111, name: "Дубенський район"},
     {id: 112, name: "Рівненський район"},
     {id: 113, name: "Сарненський район"},
+
     {id: 20, name: "Сумська обл.", oblast: true},
-    {id: 115, name: "Шосткинський район"},
-    {id: 116, name: "Роменський район"},
     {id: 117, name: "Конотопський район"},
-    {id: 114, name: "Сумський район"},
     {id: 118, name: "Охтирський район"},
+    {id: 116, name: "Роменський район"},
+    {id: 114, name: "Сумський район"},
+    {id: 115, name: "Шосткинський район"},
+
     {id: 21, name: "Тернопільська обл.", oblast: true},
+    {id: 120, name: "Кременецький район"},
     {id: 119, name: "Тернопільський район"},
     {id: 121, name: "Чортківський район"},
-    {id: 120, name: "Кременецький район"},
+
     {id: 22, name: "Харківська обл.", oblast: true},
-    {id: 124, name: "Харківський район"},
-    {id: 123, name: "Куп'янський район"},
-    {id: 122, name: "Чугуївський район"},
     {id: 126, name: "Богодухівський район"},
-    {id: 127, name: "Берестинський район"},
     {id: 125, name: "Ізюмський район"},
+    {id: 127, name: "Берестинський район"},
+    {id: 123, name: "Куп'янський район"},
     {id: 128, name: "Лозівський район"},
+    {id: 124, name: "Харківський район"},
+    {id: 122, name: "Чугуївський район"},
+    {id: 1293, name: "м. Харків"},
+
     {id: 23, name: "Херсонська обл.", oblast: true},
-    {id: 131, name: "Каховський район"},
     {id: 129, name: "Бериславський район"},
+    {id: 133, name: "Генічеський район"},
+    {id: 131, name: "Каховський район"},
     {id: 130, name: "Скадовський район"},
     {id: 132, name: "Херсонський район"},
-    {id: 133, name: "Генічеський район"},
+
     {id: 3, name: "Хмельницька обл.", oblast: true},
-    {id: 136, name: "Шепетівський район"},
-    {id: 134, name: "Хмельницький район"},
     {id: 135, name: "Кам'янець-Подільський район"},
+    {id: 134, name: "Хмельницький район"},
+    {id: 136, name: "Шепетівський район"},
+
     {id: 24, name: "Черкаська обл.", oblast: true},
-    {id: 153, name: "Золотоніський район"},
-    {id: 152, name: "Черкаський район"},
     {id: 150, name: "Звенигородський район"},
+    {id: 153, name: "Золотоніський район"},
     {id: 151, name: "Уманський район"},
+    {id: 152, name: "Черкаський район"},
+
     {id: 26, name: "Чернівецька обл.", oblast: true},
-    {id: 139, name: "Дністровський район"},
     {id: 138, name: "Вижницький район"},
+    {id: 139, name: "Дністровський район"},
     {id: 137, name: "Чернівецький район"},
+
     {id: 25, name: "Чернігівська обл.", oblast: true},
-    {id: 141, name: "Новгород-Сіверський район"},
+    {id: 144, name: "Корюківський район"},
     {id: 142, name: "Ніжинський район"},
+    {id: 141, name: "Новгород-Сіверський район"},
     {id: 143, name: "Прилуцький район"},
     {id: 140, name: "Чернігівський район"},
-    {id: 144, name: "Корюківський район"},
 ];
 
 // JAAM hardware presets that hide hardware section
-const JAAM_LEGACY_PRESETS = new Set(['0', '3', '6']);
+const JAAM_LEGACY_PRESETS = new Set(['0', '3', '4', '6', '9']);
+
+// Firmware 5.1+ uses wifi_nets namespace; older versions use WiFiManager "wm" namespace
+function useLegacyWifi(release) {
+    const match = release.tag_name.replace(/^v/i, '').match(/^(\d+)\.(\d+)/);
+    if (!match) return true;
+    const [, major, minor] = match.map(Number);
+    return major < 5 || (major === 5 && minor < 1);
+}
 
 let releases = [];
 let selectedRelease = null;
@@ -215,19 +246,25 @@ function getConfigData() {
     const fwuc = document.querySelector('input[name="cfg-fwuc"]:checked')?.value;
     const ledPin = document.getElementById('cfg-led-pin').value.trim();
     const ledCount = document.getElementById('cfg-led-count').value.trim();
+    const bgLedPin = document.getElementById('cfg-bg-led-pin').value.trim();
+    const bgLedCount = document.getElementById('cfg-bg-led-count').value.trim();
+    const serviceLedPin = document.getElementById('cfg-service-led-pin').value.trim();
     const display = document.getElementById('cfg-display').value;
     const displaySize = document.getElementById('cfg-display-size').value;
     const sound = document.getElementById('cfg-sound').value;
     const buzzerPin = document.getElementById('cfg-buzzer-pin').value.trim();
 
     const data = {};
-    if (ssid) { data.ssid = ssid; data.password = password; }
+    if (ssid) { data.ssid = ssid; data.password = password; data.wifi_legacy = useLegacyWifi(selectedRelease); }
     if (region) data.home_district = parseInt(region);
     if (deviceName) data.device_name = deviceName;
     if (legacy !== '') data.legacy = parseInt(legacy);
     if (fwuc !== undefined) data.fw_update_channel = parseInt(fwuc);
     if (ledPin !== '') data.led_pin = parseInt(ledPin);
     if (ledCount !== '') data.led_count = parseInt(ledCount);
+    if (bgLedPin !== '') data.bg_led_pin = parseInt(bgLedPin);
+    if (bgLedCount !== '') data.bg_led_count = parseInt(bgLedCount);
+    if (serviceLedPin !== '') data.service_led_pin = parseInt(serviceLedPin);
     if (display !== '') {
         data.display_model = parseInt(display);
         if (parseInt(display) > 0) {
@@ -246,7 +283,7 @@ async function fetchNVS() {
     const configData = getConfigData();
     if (!configData) return null;
 
-    setConfigStatus('Генерація NVS...', false);
+    setConfigStatus('Підготовка конфігурації...', false);
     try {
         const response = await fetch(NVS_API_URL, {
             method: 'POST',
@@ -260,10 +297,10 @@ async function fetchNVS() {
         const buf = await response.arrayBuffer();
         if (nvsObjectUrl) URL.revokeObjectURL(nvsObjectUrl);
         nvsObjectUrl = URL.createObjectURL(new Blob([buf]));
-        setConfigStatus('NVS готовий ✓', false);
+        setConfigStatus('Прошивка готова ✓', false);
         return nvsObjectUrl;
     } catch (e) {
-        setConfigStatus('Помилка NVS: ' + e.message, true);
+        setConfigStatus('Помилка конфігурації: ' + e.message, true);
         return null;
     }
 }
@@ -348,6 +385,16 @@ function resetToPrepare() {
     setConfigStatus('', false);
 }
 
+function togglePasswordVisibility() {
+    const input = document.getElementById('cfg-password');
+    const eyeIcon = document.getElementById('eye-icon');
+    const eyeOffIcon = document.getElementById('eye-off-icon');
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    eyeIcon.style.display = isHidden ? 'none' : '';
+    eyeOffIcon.style.display = isHidden ? '' : 'none';
+}
+
 function resetConfig() {
     document.getElementById('cfg-ssid').value = '';
     document.getElementById('cfg-password').value = '';
@@ -357,13 +404,20 @@ function resetConfig() {
     document.querySelectorAll('input[name="cfg-fwuc"]')[0].checked = true;
     document.getElementById('cfg-led-pin').value = '';
     document.getElementById('cfg-led-count').value = '';
+    document.getElementById('cfg-bg-led-pin').value = '';
+    document.getElementById('cfg-bg-led-count').value = '';
+    document.getElementById('cfg-service-led-pin').value = '';
     document.getElementById('cfg-display').value = '';
     document.getElementById('cfg-display-size').value = '32';
     document.getElementById('cfg-sound').value = '';
     document.getElementById('cfg-buzzer-pin').value = '';
-    document.getElementById('cfg-hardware-section').style.display = '';
+    document.getElementById('cfg-hardware-section').style.display = 'none';
+    document.getElementById('cfg-led-count-group').style.display = 'none';
     document.getElementById('cfg-display-size-group').style.display = 'none';
     document.getElementById('cfg-buzzer-pin-group').style.display = 'none';
+    document.getElementById('cfg-password').type = 'password';
+    document.getElementById('eye-icon').style.display = '';
+    document.getElementById('eye-off-icon').style.display = 'none';
     setConfigStatus('', false);
     if (nvsObjectUrl) { URL.revokeObjectURL(nvsObjectUrl); nvsObjectUrl = null; }
     if (flashReady) resetToPrepare();
@@ -419,10 +473,6 @@ function populateReleaseSelect() {
     });
 }
 
-function isCustomizeOn() {
-    return document.getElementById('customize-toggle').checked;
-}
-
 function showFlashButton() {
     document.getElementById('install-buttons').style.display = 'block';
     document.getElementById('prepare-section').style.display = 'none';
@@ -438,7 +488,6 @@ document.getElementById('release-select').addEventListener('change', async funct
     const selectedIndex = this.value;
 
     if (selectedIndex === '') {
-        document.getElementById('customize-toggle-row').style.display = 'none';
         document.getElementById('config-details').style.display = 'none';
         document.getElementById('prepare-section').style.display = 'none';
         document.getElementById('install-buttons').style.display = 'none';
@@ -453,14 +502,13 @@ document.getElementById('release-select').addEventListener('change', async funct
     const tagName = selectedRelease.tag_name;
     const preLabel = selectedRelease.prerelease ? ' (Beta)' : '';
     document.getElementById('stable-btn-text').textContent = `Встановити JAAM ${tagName}${preLabel}`;
-    document.getElementById('customize-toggle-row').style.display = 'block';
+    document.getElementById('config-details').style.display = '';
     setConfigStatus('', false);
 
-    if (isCustomizeOn()) {
-        document.getElementById('config-details').style.display = '';
+    const details = document.getElementById('config-details');
+    if (details.open) {
         showPrepareButton();
     } else {
-        document.getElementById('config-details').style.display = 'none';
         await generateAndSetManifest();
         showFlashButton();
     }
@@ -468,14 +516,12 @@ document.getElementById('release-select').addEventListener('change', async funct
     displayReleaseNotes(selectedRelease);
 });
 
-document.getElementById('customize-toggle').addEventListener('change', async function() {
+document.getElementById('config-details').addEventListener('toggle', async function() {
     if (!selectedRelease) return;
-    if (this.checked) {
-        document.getElementById('config-details').style.display = '';
+    if (this.open) {
         setConfigStatus('', false);
         showPrepareButton();
     } else {
-        document.getElementById('config-details').style.display = 'none';
         if (nvsObjectUrl) { URL.revokeObjectURL(nvsObjectUrl); nvsObjectUrl = null; }
         setConfigStatus('', false);
         await generateAndSetManifest();
@@ -485,7 +531,7 @@ document.getElementById('customize-toggle').addEventListener('change', async fun
 
 // Config form event listeners (wired after DOM ready)
 function wireConfigListeners() {
-    const fields = ['cfg-ssid', 'cfg-password', 'cfg-region', 'cfg-device-name', 'cfg-legacy', 'cfg-led-pin', 'cfg-led-count', 'cfg-display', 'cfg-display-size', 'cfg-sound', 'cfg-buzzer-pin'];
+    const fields = ['cfg-ssid', 'cfg-password', 'cfg-region', 'cfg-device-name', 'cfg-legacy', 'cfg-led-pin', 'cfg-led-count', 'cfg-bg-led-pin', 'cfg-bg-led-count', 'cfg-service-led-pin', 'cfg-display', 'cfg-display-size', 'cfg-sound', 'cfg-buzzer-pin'];
     fields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', onConfigChange);
@@ -493,10 +539,16 @@ function wireConfigListeners() {
     });
     document.querySelectorAll('input[name="cfg-fwuc"]').forEach(el => el.addEventListener('change', onConfigChange));
 
-    // Legacy select: hide hardware section for JAAM presets
+    // Legacy select: hide hardware section for JAAM presets; hide LED count for map presets
     document.getElementById('cfg-legacy').addEventListener('change', function() {
         const hw = document.getElementById('cfg-hardware-section');
-        hw.style.display = JAAM_LEGACY_PRESETS.has(this.value) ? 'none' : '';
+        const ledCountGroup = document.getElementById('cfg-led-count-group');
+        if (this.value === '' || JAAM_LEGACY_PRESETS.has(this.value)) {
+            hw.style.display = 'none';
+        } else {
+            hw.style.display = '';
+            ledCountGroup.style.display = this.value === '5' ? '' : 'none';
+        }
     });
 
     // Display model: show size selector when model != none

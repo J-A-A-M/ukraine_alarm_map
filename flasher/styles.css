@@ -291,6 +291,7 @@ h1 {
     border-radius: 4px;
     background-color: var(--input-bg);
     color: var(--text-color);
+    box-sizing: border-box;
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
@@ -637,23 +638,13 @@ h1 {
 [data-visibility].hidden {
     display: none !important;
 }
-/* Customize toggle row */
-.customize-toggle-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-color);
-    user-select: none;
-}
-
-.customize-toggle-label .switch {
-    flex-shrink: 0;
-}
-
 /* Config accordion */
+.config-accordion *,
+.config-accordion *::before,
+.config-accordion *::after {
+    box-sizing: border-box;
+}
+
 .config-accordion {
     margin: 20px 0;
     border: 1px solid var(--border-color);
@@ -718,6 +709,38 @@ details[open] .config-summary::after {
     letter-spacing: 0.05em;
     color: var(--secondary-text);
     margin-bottom: 12px;
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper .form-control {
+    padding-right: 40px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--secondary-text);
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+    color: var(--text-color);
+}
+
+.password-toggle svg {
+    width: 18px;
+    height: 18px;
 }
 
 .config-radio-group {
