@@ -151,6 +151,125 @@
                     <div class="release-notes-panel" id="release-notes-content"></div>
                 </div>
 
+                <!-- Customize toggle -->
+                <div id="customize-toggle-row" style="display: none; margin: 16px 0;">
+                    <label class="customize-toggle-label">
+                        <input type="checkbox" id="customize-toggle" class="switch">
+                        <span>Кастомізувати прошивку</span>
+                    </label>
+                </div>
+
+                <!-- Pre-flash configuration -->
+                <details id="config-details" class="config-accordion" style="display: none;">
+                    <summary class="config-summary">&#9881;&#65039; Попередня конфігурація (необов'язково)</summary>
+                    <div class="config-body">
+
+                        <div class="config-section">
+                            <div class="config-section-title">WiFi</div>
+                            <div class="form-group">
+                                <label for="cfg-ssid">SSID (назва мережі)</label>
+                                <input type="text" id="cfg-ssid" class="form-control" placeholder="MyNetwork" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-password">Пароль</label>
+                                <input type="password" id="cfg-password" class="form-control" placeholder="password" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">Регіон</div>
+                            <div class="form-group">
+                                <label for="cfg-region">Домашній регіон</label>
+                                <select id="cfg-region" class="form-control">
+                                    <option value="">— не обрано —</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-section-title">Пристрій</div>
+                            <div class="form-group">
+                                <label for="cfg-device-name">Ім'я пристрою</label>
+                                <input type="text" id="cfg-device-name" class="form-control" placeholder="JAAM" maxlength="32">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-legacy">Тип апаратури</label>
+                                <select id="cfg-legacy" class="form-control">
+                                    <option value="">— не обрано —</option>
+                                    <option value="0">JAAM 1</option>
+                                    <option value="3">JAAM 2</option>
+                                    <option value="6">JAAM 3</option>
+                                    <option value="8">Odesa-Kyiv map</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Канал оновлень</label>
+                                <div class="config-radio-group">
+                                    <label class="config-radio-label">
+                                        <input type="radio" name="cfg-fwuc" value="0" checked> Стабільний
+                                    </label>
+                                    <label class="config-radio-label">
+                                        <input type="radio" name="cfg-fwuc" value="1"> Beta
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-section" id="cfg-hardware-section">
+                            <div class="config-section-title">Апаратура</div>
+                            <div class="form-group">
+                                <label for="cfg-led-pin">Пін LED стрічки</label>
+                                <input type="number" id="cfg-led-pin" class="form-control" placeholder="13" min="0" max="48">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-led-count">Кількість LED</label>
+                                <input type="number" id="cfg-led-count" class="form-control" placeholder="26" min="1" max="500">
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-display">Дисплей</label>
+                                <select id="cfg-display" class="form-control">
+                                    <option value="">— не обрано —</option>
+                                    <option value="0">Немає</option>
+                                    <option value="1">SSD1306</option>
+                                    <option value="2">SH1106G</option>
+                                    <option value="3">SH1107</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="cfg-display-size-group" style="display:none;">
+                                <label for="cfg-display-size">Розмір дисплею</label>
+                                <select id="cfg-display-size" class="form-control">
+                                    <option value="32">128×32</option>
+                                    <option value="64">128×64</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="cfg-sound">Джерело звуку</label>
+                                <select id="cfg-sound" class="form-control">
+                                    <option value="">— не обрано —</option>
+                                    <option value="0">Зумер</option>
+                                    <option value="1">DFPlayer</option>
+                                    <option value="2">Вимкнено</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="cfg-buzzer-pin-group" style="display:none;">
+                                <label for="cfg-buzzer-pin">Пін зумера</label>
+                                <input type="number" id="cfg-buzzer-pin" class="form-control" placeholder="-1" min="-1" max="48">
+                            </div>
+                        </div>
+
+                        <div class="config-footer">
+                            <button type="button" class="config-reset-btn" onclick="resetConfig()">Скинути</button>
+                            <span class="config-status" id="cfg-status"></span>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Stage 1: Prepare button -->
+                <div id="prepare-section" style="display: none; margin: 20px 0;">
+                    <button id="prepare-btn" class="install-button" onclick="prepareFlash()">Підготувати прошивку</button>
+                </div>
+
+                <!-- Stage 2: Flash button (shown after NVS generation) -->
                 <div id="install-buttons" style="display: none; margin: 20px 0;">
                     <esp-web-install-button id="stable-install-btn">
                         <button class='install-button' type='button' slot="activate" id="stable-btn-text">Встановити</button>
