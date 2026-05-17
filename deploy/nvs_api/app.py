@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -85,7 +86,7 @@ def generate_nvs(config: NVSConfig):
         csv_path.write_text(csv_content, encoding="utf-8")
 
         result = subprocess.run(
-            ["python", "-m", "esp_idf_nvs_partition_gen", "generate",
+            [sys.executable, "-m", "esp_idf_nvs_partition_gen", "generate",
              str(csv_path), str(bin_path), "0x5000"],
             capture_output=True,
             text=True,
