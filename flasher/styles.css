@@ -775,17 +775,17 @@ details[open] .config-summary::after {
 .config-reset-btn {
     padding: 6px 16px;
     background: none;
-    border: 1px solid var(--border-color);
+    border: 1px solid #dc3545;
     border-radius: 6px;
-    color: var(--secondary-text);
+    color: #dc3545;
     cursor: pointer;
     font-size: 13px;
     transition: all 0.2s ease;
 }
 
 .config-reset-btn:hover {
-    background: var(--panel-bg);
-    color: var(--text-color);
+    background: #dc354520;
+    color: #dc3545;
 }
 
 .config-status {
