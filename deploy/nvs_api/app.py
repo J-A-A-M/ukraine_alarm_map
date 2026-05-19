@@ -1,3 +1,4 @@
+import struct
 import subprocess
 import sys
 import tempfile
@@ -80,9 +81,11 @@ def generate_nvs(config: NVSConfig):
         if config.ssid:
             if config.wifi_legacy:
                 # WiFiManager (< 5.1) stores credentials via esp_wifi_set_config()
-                # which writes to nvs.net80211 namespace as 32/64-byte binary blobs.
-                ssid_hex = config.ssid.encode("utf-8")[:32].ljust(32, b"\x00").hex()
-                pass_hex = (config.password or "").encode("utf-8")[:64].ljust(64, b"\x00").hex()
+                # which writes to nvs.net80211 namespace. Format: [uint32_t length LE][data padded].
+                ssid_bytes = config.ssid.encode("utf-8")[:32]
+                ssid_hex = (struct.pack("<I", len(ssid_bytes)) + ssid_bytes.ljust(32, b"\x00")).hex()
+                pass_bytes = (config.password or "").encode("utf-8")[:64]
+                pass_hex = (struct.pack("<I", len(pass_bytes)) + pass_bytes.ljust(64, b"\x00")).hex()
                 rows += [
                     "nvs.net80211,namespace,,",
                     f"sta.ssid,data,hex2bin,{ssid_hex}",
