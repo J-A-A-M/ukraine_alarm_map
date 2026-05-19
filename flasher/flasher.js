@@ -219,6 +219,13 @@ function useLegacyWifi(release) {
     return major < 5 || (major === 5 && minor < 1);
 }
 
+// Pre-flash custom config is only supported for firmware 5.0+
+function supportsCustomConfig(release) {
+    const match = release.tag_name.replace(/^v/i, '').match(/^(\d+)\./);
+    if (!match) return false;
+    return Number(match[1]) >= 5;
+}
+
 let releases = [];
 let selectedRelease = null;
 let nvsObjectUrl = null;
@@ -502,13 +509,21 @@ document.getElementById('release-select').addEventListener('change', async funct
     const tagName = selectedRelease.tag_name;
     const preLabel = selectedRelease.prerelease ? ' (Beta)' : '';
     document.getElementById('stable-btn-text').textContent = `Встановити JAAM ${tagName}${preLabel}`;
-    document.getElementById('config-details').style.display = '';
     setConfigStatus('', false);
 
+    const configSupported = supportsCustomConfig(selectedRelease);
     const details = document.getElementById('config-details');
-    if (details.open) {
-        showPrepareButton();
+    if (configSupported) {
+        details.style.display = '';
+        if (details.open) {
+            showPrepareButton();
+        } else {
+            await generateAndSetManifest();
+            showFlashButton();
+        }
     } else {
+        details.open = false;
+        details.style.display = 'none';
         await generateAndSetManifest();
         showFlashButton();
     }
