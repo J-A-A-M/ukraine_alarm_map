@@ -170,7 +170,7 @@
                             <div class="form-group">
                                 <label for="cfg-password">Пароль</label>
                                 <div class="password-wrapper">
-                                    <input type="password" id="cfg-password" class="form-control" placeholder="password" autocomplete="off">
+                                    <input type="password" id="cfg-password" class="form-control" placeholder="password" autocomplete="off" maxlength="63">
                                     <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Показати/приховати пароль" aria-label="Показати пароль">
                                         <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -183,6 +183,7 @@
                                         </svg>
                                     </button>
                                 </div>
+                                <small class="form-hint">Порожньо — для відкритої мережі; WPA2/WPA3: 8–63 символи</small>
                             </div>
                         </div>
 

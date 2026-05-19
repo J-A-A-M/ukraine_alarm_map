@@ -943,3 +943,13 @@ details[open] .config-summary::after {
     --text-bg: #2b2b2b;
     --log-entry-bg: #323232;
 }
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--secondary-text);
+}
+
+.form-control.input-error {
+    border-color: #dc3545;
+}

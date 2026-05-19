@@ -289,6 +289,25 @@ async function fetchNVS() {
     const configData = getConfigData();
     if (!configData) return null;
 
+    const ssid = document.getElementById('cfg-ssid').value.trim();
+    const ssidInput = document.getElementById('cfg-ssid');
+    const password = document.getElementById('cfg-password').value;
+    const passwordInput = document.getElementById('cfg-password');
+
+    if (password.length > 0 && !ssid) {
+        ssidInput.classList.add('input-error');
+        setConfigStatus('Вкажіть назву мережі (SSID)', true);
+        return null;
+    }
+    ssidInput.classList.remove('input-error');
+
+    if (password.length > 0 && password.length < 8) {
+        passwordInput.classList.add('input-error');
+        setConfigStatus('Пароль WiFi має бути не менше 8 символів', true);
+        return null;
+    }
+    passwordInput.classList.remove('input-error');
+
     setConfigStatus('Підготовка конфігурації...', false);
     try {
         const response = await fetch(NVS_API_URL, {
@@ -552,6 +571,12 @@ function wireConfigListeners() {
         if (el && el.tagName === 'INPUT') el.addEventListener('input', onConfigChange);
     });
     document.querySelectorAll('input[name="cfg-fwuc"]').forEach(el => el.addEventListener('change', onConfigChange));
+    document.getElementById('cfg-ssid').addEventListener('input', function() {
+        this.classList.remove('input-error');
+    });
+    document.getElementById('cfg-password').addEventListener('input', function() {
+        this.classList.remove('input-error');
+    });
 
     // Legacy select: hide hardware section for JAAM presets; hide LED count for map presets
     const legacyEl = document.getElementById('cfg-legacy');
