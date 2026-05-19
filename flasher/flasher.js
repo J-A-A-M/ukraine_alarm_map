@@ -533,6 +533,7 @@ document.getElementById('release-select').addEventListener('change', async funct
     const details = document.getElementById('config-details');
     if (configSupported) {
         details.style.display = '';
+        applyLegacyVisibility(document.getElementById('cfg-legacy').value);
         if (details.open) {
             showPrepareButton();
         } else {
@@ -562,6 +563,17 @@ document.getElementById('config-details').addEventListener('toggle', async funct
     }
 });
 
+function applyLegacyVisibility(value) {
+    const hw = document.getElementById('cfg-hardware-section');
+    const ledCountGroup = document.getElementById('cfg-led-count-group');
+    if (JAAM_LEGACY_PRESETS.has(value)) {
+        hw.style.display = 'none';
+    } else {
+        hw.style.display = '';
+        ledCountGroup.style.display = value === '5' ? '' : 'none';
+    }
+}
+
 // Config form event listeners (wired after DOM ready)
 function wireConfigListeners() {
     const fields = ['cfg-ssid', 'cfg-password', 'cfg-region', 'cfg-device-name', 'cfg-legacy', 'cfg-led-pin', 'cfg-led-count', 'cfg-bg-led-pin', 'cfg-bg-led-count', 'cfg-service-led-pin', 'cfg-display', 'cfg-display-size', 'cfg-sound', 'cfg-buzzer-pin'];
@@ -580,18 +592,7 @@ function wireConfigListeners() {
 
     // Legacy select: hide hardware section for JAAM presets; hide LED count for map presets
     const legacyEl = document.getElementById('cfg-legacy');
-    const applyLegacyVisibility = (value) => {
-        const hw = document.getElementById('cfg-hardware-section');
-        const ledCountGroup = document.getElementById('cfg-led-count-group');
-        if (JAAM_LEGACY_PRESETS.has(value)) {
-            hw.style.display = 'none';
-        } else {
-            hw.style.display = '';
-            ledCountGroup.style.display = value === '5' ? '' : 'none';
-        }
-    };
     legacyEl.addEventListener('change', function() { applyLegacyVisibility(this.value); });
-    applyLegacyVisibility(legacyEl.value);
 
     // Display model: show size selector when model != none/disabled
     document.getElementById('cfg-display').addEventListener('change', function() {
