@@ -41,23 +41,6 @@ class NVSConfig(BaseModel):
 
 @app.post("/generate")
 def generate_nvs(config: NVSConfig):
-    rows = ["key,type,encoding,value"]
-
-    if config.ssid:
-        if config.wifi_legacy:
-            rows += [
-                "wm,namespace,,",
-                f"ssid,data,string,{config.ssid}",
-                f"pass,data,string,{config.password or ''}",
-            ]
-        else:
-            rows += [
-                "wifi_nets,namespace,,",
-                "count,data,u8,1",
-                f"ssid0,data,string,{config.ssid}",
-                f"pass0,data,string,{config.password or ''}",
-            ]
-
     storage_rows = []
     if config.home_district is not None:
         storage_rows.append(f"hmd,data,i32,{config.home_district}")
@@ -91,14 +74,35 @@ def generate_nvs(config: NVSConfig):
     if not config.ssid and not storage_rows:
         raise HTTPException(status_code=400, detail="No configuration provided")
 
-    if storage_rows:
-        rows.append("storage,namespace,,")
-        rows.append("id,data,string,flasher")
-        rows.extend(storage_rows)
-
-    csv_content = "\n".join(rows) + "\n"
-
     with tempfile.TemporaryDirectory() as tmpdir:
+        rows = ["key,type,encoding,value"]
+
+        if config.ssid:
+            if config.wifi_legacy:
+                # WiFiManager (< 5.1) stores credentials via esp_wifi_set_config()
+                # which writes to nvs.net80211 namespace as 32/64-byte binary blobs.
+                ssid_hex = config.ssid.encode("utf-8")[:32].ljust(32, b"\x00").hex()
+                pass_hex = (config.password or "").encode("utf-8")[:64].ljust(64, b"\x00").hex()
+                rows += [
+                    "nvs.net80211,namespace,,",
+                    f"sta.ssid,data,hex2bin,{ssid_hex}",
+                    f"sta.pswd,data,hex2bin,{pass_hex}",
+                ]
+            else:
+                rows += [
+                    "wifi_nets,namespace,,",
+                    "count,data,u8,1",
+                    f"ssid0,data,string,{config.ssid}",
+                    f"pass0,data,string,{config.password or ''}",
+                ]
+
+        if storage_rows:
+            rows.append("storage,namespace,,")
+            rows.append("id,data,string,flasher")
+            rows.extend(storage_rows)
+
+        csv_content = "\n".join(rows) + "\n"
+
         csv_path = Path(tmpdir) / "config.csv"
         bin_path = Path(tmpdir) / "nvs.bin"
         csv_path.write_text(csv_content, encoding="utf-8")
