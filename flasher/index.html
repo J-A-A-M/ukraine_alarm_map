@@ -205,7 +205,6 @@
                             <div class="form-group">
                                 <label for="cfg-legacy">Режим прошивки</label>
                                 <select id="cfg-legacy" class="form-control">
-                                    <option value="">— не обрано —</option>
                                     <option value="0">Плата JAAM 1.3</option>
                                     <option value="3">Плата JAAM 2.1</option>
                                     <option value="4">Плата JAAM 3.0</option>
@@ -214,7 +213,7 @@
                                     <option value="1">Початок на Закарпатті</option>
                                     <option value="7">Початок на Закарпатті + Київ</option>
                                     <option value="2">Початок на Одещині</option>
-                                    <option value="8">Початок на Одещині + Київ</option>
+                                    <option value="8" selected>Початок на Одещині + Київ</option>
                                     <option value="5">Власна карта LED</option>
                                 </select>
                             </div>
@@ -256,8 +255,7 @@
                             <div class="form-group">
                                 <label for="cfg-display">Дисплей</label>
                                 <select id="cfg-display" class="form-control">
-                                    <option value="">— не обрано —</option>
-                                    <option value="0">Відключено</option>
+                                    <option value="0" selected>Відключено</option>
                                     <option value="1">SSD1306</option>
                                     <option value="2">SH1106G</option>
                                     <option value="3">SH1107</option>
@@ -273,9 +271,8 @@
                             <div class="form-group">
                                 <label for="cfg-sound">Джерело звуку</label>
                                 <select id="cfg-sound" class="form-control">
-                                    <option value="">— не обрано —</option>
                                     <option value="0">Зумер (Buzzer)</option>
-                                    <option value="-1">Вимкнено</option>
+                                    <option value="-1" selected>Вимкнено</option>
                                 </select>
                             </div>
                             <div class="form-group" id="cfg-buzzer-pin-group" style="display:none;">

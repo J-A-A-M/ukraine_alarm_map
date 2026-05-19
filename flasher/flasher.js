@@ -241,6 +241,7 @@ function populateRegionSelect() {
         if (r.oblast) option.style.fontWeight = 'bold';
         select.appendChild(option);
     });
+    select.value = '31'; // м. Київ
 }
 
 // Get current config form data (only filled fields)
@@ -263,23 +264,21 @@ function getConfigData() {
 
     const data = {};
     if (ssid) { data.ssid = ssid; data.password = password; data.wifi_legacy = useLegacyWifi(selectedRelease); }
-    if (region) data.home_district = parseInt(region);
+    data.home_district = parseInt(region);
     if (deviceName) data.device_name = deviceName;
-    if (legacy !== '') data.legacy = parseInt(legacy);
+    data.legacy = parseInt(legacy);
     if (fwuc !== undefined) data.fw_update_channel = parseInt(fwuc);
     if (ledPin !== '') data.led_pin = parseInt(ledPin);
     if (ledCount !== '') data.led_count = parseInt(ledCount);
     if (bgLedPin !== '') data.bg_led_pin = parseInt(bgLedPin);
     if (bgLedCount !== '') data.bg_led_count = parseInt(bgLedCount);
     if (serviceLedPin !== '') data.service_led_pin = parseInt(serviceLedPin);
-    if (display !== '') {
-        data.display_model = parseInt(display);
-        if (parseInt(display) > 0) {
-            data.display_width = 128;
-            data.display_height = parseInt(displaySize);
-        }
+    data.display_model = parseInt(display);
+    if (parseInt(display) > 0) {
+        data.display_width = 128;
+        data.display_height = parseInt(displaySize);
     }
-    if (sound !== '') data.sound_source = parseInt(sound);
+    data.sound_source = parseInt(sound);
     if (buzzerPin !== '') data.buzzer_pin = parseInt(buzzerPin);
 
     return Object.keys(data).length > 0 ? data : null;
@@ -405,20 +404,20 @@ function togglePasswordVisibility() {
 function resetConfig() {
     document.getElementById('cfg-ssid').value = '';
     document.getElementById('cfg-password').value = '';
-    document.getElementById('cfg-region').value = '';
+    document.getElementById('cfg-region').value = '31';
     document.getElementById('cfg-device-name').value = '';
-    document.getElementById('cfg-legacy').value = '';
+    document.getElementById('cfg-legacy').value = '8';
     document.querySelectorAll('input[name="cfg-fwuc"]')[0].checked = true;
     document.getElementById('cfg-led-pin').value = '';
     document.getElementById('cfg-led-count').value = '';
     document.getElementById('cfg-bg-led-pin').value = '';
     document.getElementById('cfg-bg-led-count').value = '';
     document.getElementById('cfg-service-led-pin').value = '';
-    document.getElementById('cfg-display').value = '';
+    document.getElementById('cfg-display').value = '0';
     document.getElementById('cfg-display-size').value = '32';
-    document.getElementById('cfg-sound').value = '';
+    document.getElementById('cfg-sound').value = '-1';
     document.getElementById('cfg-buzzer-pin').value = '';
-    document.getElementById('cfg-hardware-section').style.display = 'none';
+    document.getElementById('cfg-hardware-section').style.display = '';
     document.getElementById('cfg-led-count-group').style.display = 'none';
     document.getElementById('cfg-display-size-group').style.display = 'none';
     document.getElementById('cfg-buzzer-pin-group').style.display = 'none';
@@ -555,21 +554,24 @@ function wireConfigListeners() {
     document.querySelectorAll('input[name="cfg-fwuc"]').forEach(el => el.addEventListener('change', onConfigChange));
 
     // Legacy select: hide hardware section for JAAM presets; hide LED count for map presets
-    document.getElementById('cfg-legacy').addEventListener('change', function() {
+    const legacyEl = document.getElementById('cfg-legacy');
+    const applyLegacyVisibility = (value) => {
         const hw = document.getElementById('cfg-hardware-section');
         const ledCountGroup = document.getElementById('cfg-led-count-group');
-        if (this.value === '' || JAAM_LEGACY_PRESETS.has(this.value)) {
+        if (JAAM_LEGACY_PRESETS.has(value)) {
             hw.style.display = 'none';
         } else {
             hw.style.display = '';
-            ledCountGroup.style.display = this.value === '5' ? '' : 'none';
+            ledCountGroup.style.display = value === '5' ? '' : 'none';
         }
-    });
+    };
+    legacyEl.addEventListener('change', function() { applyLegacyVisibility(this.value); });
+    applyLegacyVisibility(legacyEl.value);
 
-    // Display model: show size selector when model != none
+    // Display model: show size selector when model != none/disabled
     document.getElementById('cfg-display').addEventListener('change', function() {
         const sizeGroup = document.getElementById('cfg-display-size-group');
-        sizeGroup.style.display = (this.value !== '' && this.value !== '0') ? '' : 'none';
+        sizeGroup.style.display = (this.value !== '0') ? '' : 'none';
     });
 
     // Sound source: show buzzer pin when buzzer selected
