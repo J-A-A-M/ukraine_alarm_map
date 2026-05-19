@@ -93,6 +93,7 @@ def generate_nvs(config: NVSConfig):
 
     if storage_rows:
         rows.append("storage,namespace,,")
+        rows.append("id,data,string,flasher")
         rows.extend(storage_rows)
 
     csv_content = "\n".join(rows) + "\n"
