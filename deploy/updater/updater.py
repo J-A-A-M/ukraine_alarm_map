@@ -1290,6 +1290,55 @@ async def update_websocket_fusion_v1_openweathermap(redis_client, run_once=False
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
+async def update_websocket_fusion_v1_energy(redis_client, run_once=False):
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["energy:ukrenergo:updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Функція обробки даних
+    async def process_energy():
+        try:
+            energy_cache = await get_redis_data(logger, redis_client, "energy:ukrenergo:data", default_response=[])
+
+            data = {}
+
+            for state in energy_cache:
+                data[state["regionId"]] = state["state"]["id"]
+
+            logger.debug(f"⚠️ ENERGY FUSION DATA: {data}")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:energy:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:energy:data", data)
+            await redis_client.publish("websocket:v1:fusion:energy:updated", "1")
+            logger.info("✅ websocket:v1:fusion:energy:data збережено")
+        except Exception as e:
+            logger.error(f"❌ process_energy error: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message["type"] == "message":
+                channel = message["channel"]
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_fusion_v1_energy)")
+                await process_energy()
+
+            if run_once:
+                break
+
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+
+    except Exception as e:
+        logger.error(f"❌ update_websocket_fusion_v1_energy {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
 async def update_websocket_fusion_v1_weather_openmeteo(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
@@ -1400,6 +1449,11 @@ async def main():
                     update_websocket_fusion_v1_openweathermap,
                     redis_client,
                     "update_websocket_fusion_v1_openweathermap",
+                )
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger, update_websocket_fusion_v1_energy, redis_client, "update_websocket_fusion_v1_energy"
                 )
             ),
             # asyncio.create_task(

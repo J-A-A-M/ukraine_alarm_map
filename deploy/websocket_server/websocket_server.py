@@ -746,19 +746,24 @@ async def alerts_data_fusion(
         match alert_version:
             case AlertVersion.v1:
                 # Отримуємо всі три значення паралельно (одночасно, але з правильною обробкою типів)
-                alerts_cache, alerts_hash_actual, alerts_hash_previous, weather_cache, releases_beta, releases_prod = (
-                    await asyncio.gather(
-                        get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
-                        get_redis_data(
-                            logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0
-                        ),
-                        get_redis_data(
-                            logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
-                        ),
-                        get_redis_data(logger, redis_client, WEATHER_DATA_KEY, default_response={}),
-                        get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
-                        get_redis_data(logger, redis_client, "releases:production", default_response=[]),
-                    )
+                (
+                    alerts_cache,
+                    alerts_hash_actual,
+                    alerts_hash_previous,
+                    weather_cache,
+                    energy_cache,
+                    releases_beta,
+                    releases_prod,
+                ) = await asyncio.gather(
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:data", default_response=False),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:alerts:hash_actual", default_response=0),
+                    get_redis_data(
+                        logger, redis_client, "websocket:v1:fusion:alerts:hash_previous", default_response=0
+                    ),
+                    get_redis_data(logger, redis_client, WEATHER_DATA_KEY, default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:energy:data", default_response={}),
+                    get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
+                    get_redis_data(logger, redis_client, "releases:production", default_response=[]),
                 )
 
                 if alerts_cache:
@@ -781,6 +786,12 @@ async def alerts_data_fusion(
                     await websocket.send(weather_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial weather packet")
 
+                if energy_cache:
+                    energy_header = struct.pack("<B", TYPE_GRID_BATCH)
+                    energy_payload = energy_header + make_grid_batch(energy_cache)
+                    await websocket.send(energy_payload)
+                    logger.info(f"{client_ip}:{chip_id} <<< initial energy packet")
+
                 if releases_beta:
                     firmware_payload = make_firmware_batch(releases_beta, TYPE_FIRMWARE_UPDATE_BETA_BATCH)
                     await websocket.send(firmware_payload)
@@ -801,6 +812,7 @@ async def alerts_data_fusion(
                 channels = [
                     "websocket:v1:fusion:alerts:updated",
                     WEATHER_UPDATED_CHANNEL,
+                    "websocket:v1:fusion:energy:updated",
                     "websocket:v1:fusion:etryvoga:updated",
                     "releases:production:updated",
                     "releases:beta:updated",
@@ -848,6 +860,18 @@ async def alerts_data_fusion(
                                         payload = header + weather
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new weather packet")
+                                    case "websocket:v1:fusion:energy:updated":
+                                        state = await get_redis_data(
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:energy:data",
+                                            default_response={},
+                                        )
+                                        header = struct.pack("<B", TYPE_GRID_BATCH)
+                                        energy = make_grid_batch(state)
+                                        payload = header + energy
+                                        await websocket.send(payload)
+                                        logger.info(f"{client_ip}:{chip_id} <<< new energy packet")
                                     case "websocket:v1:fusion:etryvoga:updated":
                                         payload = await get_hex_payload(
                                             logger,
@@ -1465,6 +1489,19 @@ def make_weather_batch(new_state: dict[int, int]) -> bytes:
     body = bytearray()
     for rid, temp in new_state.items():
         body += struct.pack("<H B", int(rid), int(temp) & 0xFF)
+    return body
+
+
+def make_grid_batch(new_state: dict[int, int]) -> bytes:
+    """
+    Формат пакета енергомережі (TYPE_GRID_BATCH = 0xA4):
+    - region_id: 2 байти (unsigned short)
+    - state: 1 байт (unsigned char)
+    body: послідовність пар (region_id, state)
+    """
+    body = bytearray()
+    for rid, state in new_state.items():
+        body += struct.pack("<H B", int(rid), int(state) & 0xFF)
     return body
 
 
