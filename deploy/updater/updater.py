@@ -4,6 +4,7 @@ import asyncio
 import logging
 import datetime
 import struct
+import statistics
 import httpx
 
 from copy import deepcopy
@@ -1339,6 +1340,81 @@ async def update_websocket_fusion_v1_energy(redis_client, run_once=False):
         logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
 
 
+async def update_websocket_fusion_v1_radiation(redis_client, run_once=False):
+    # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
+    pubsub = redis_client.pubsub()
+    channels = ["radiation:saveecobot:updated"]
+    await pubsub.subscribe(*channels)
+    logger.info(f"📡 Підписано на канали: {', '.join(channels)}")
+
+    # Функція обробки даних
+    async def process_radiation():
+        try:
+            # Отримуємо всі значення паралельно (одночасно, але з правильною обробкою типів)
+            data_cache, sensors_cache = await asyncio.gather(
+                get_redis_data(logger, redis_client, "radiation:saveecobot:data:data", default_response=[]),
+                get_redis_data(
+                    logger,
+                    redis_client,
+                    "radiation:saveecobot:sensors:data",
+                    default_response={"states": {}, "info": {"last_update": None}},
+                ),
+            )
+
+            temp_data = {}
+            for sensor_data in data_cache:
+                if sensor_data["is_old"]:
+                    continue
+                state_name = sensors_cache.get(str(sensor_data["sensor_id"]), {}).get("region_name")
+                if not state_name:
+                    continue
+                if not temp_data.get(state_name):
+                    temp_data[state_name] = []
+                temp_data[state_name].append(sensor_data["gamma_nsv_h"])
+
+            data = {}
+            for _, state_data in regions.items():
+                state_name = state_data["name"]
+                region_id = state_data["regionId"]
+                state_radiation_data = temp_data.get(state_name, [])
+                if state_radiation_data:
+                    # Діапазон радіації 0..2000 → не влазить у 1 байт, зберігаємо як ціле
+                    # Медіана стійкіша до викидів окремих сенсорів, ніж середнє
+                    # data[region_id] = round(statistics.median(state_radiation_data))
+                    data[region_id] = round(sum(state_radiation_data) / len(state_radiation_data))
+
+            logger.debug(f"⚠️ RADIATION FUSION DATA: {data}")
+            logger.debug("💾 Зберігаємо websocket:v1:fusion:radiation:data")
+            await set_redis_data(logger, redis_client, "websocket:v1:fusion:radiation:data", data)
+            await redis_client.publish("websocket:v1:fusion:radiation:updated", "1")
+            logger.info("✅ websocket:v1:fusion:radiation:data збережено")
+        except Exception as e:
+            logger.error(f"❌ process_radiation error: {str(e)}")
+            logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+
+    # Основний цикл очікування повідомлень з Pub/Sub
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message["type"] == "message":
+                channel = message["channel"]
+                logger.info(f"📬 Отримано повідомлення з каналу: {channel} (update_websocket_fusion_v1_radiation)")
+                await process_radiation()
+
+            if run_once:
+                break
+
+            await asyncio.sleep(0.1)  # Коротка пауза для зменшення навантаження на CPU
+
+    except Exception as e:
+        logger.error(f"❌ update_websocket_fusion_v1_radiation {str(e)}")
+        logger.debug(f"❌ Повний стек помилки:", exc_info=True)
+    finally:
+        await pubsub.unsubscribe(*channels)
+        await pubsub.aclose()
+        logger.info(f"📡 Відписано від каналів: {', '.join(channels)}")
+
+
 async def update_websocket_fusion_v1_weather_openmeteo(redis_client, run_once=False):
     # Створюємо окремий Pub/Sub клієнт для підписки на декілька каналів
     pubsub = redis_client.pubsub()
@@ -1454,6 +1530,11 @@ async def main():
             asyncio.create_task(
                 run_with_restart(
                     logger, update_websocket_fusion_v1_energy, redis_client, "update_websocket_fusion_v1_energy"
+                )
+            ),
+            asyncio.create_task(
+                run_with_restart(
+                    logger, update_websocket_fusion_v1_radiation, redis_client, "update_websocket_fusion_v1_radiation"
                 )
             ),
             # asyncio.create_task(

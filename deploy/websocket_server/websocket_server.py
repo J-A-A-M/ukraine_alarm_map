@@ -752,6 +752,7 @@ async def alerts_data_fusion(
                     alerts_hash_previous,
                     weather_cache,
                     energy_cache,
+                    radiation_cache,
                     releases_beta,
                     releases_prod,
                 ) = await asyncio.gather(
@@ -762,6 +763,7 @@ async def alerts_data_fusion(
                     ),
                     get_redis_data(logger, redis_client, WEATHER_DATA_KEY, default_response={}),
                     get_redis_data(logger, redis_client, "websocket:v1:fusion:energy:data", default_response={}),
+                    get_redis_data(logger, redis_client, "websocket:v1:fusion:radiation:data", default_response={}),
                     get_redis_data(logger, redis_client, "releases:beta", default_response=[]),
                     get_redis_data(logger, redis_client, "releases:production", default_response=[]),
                 )
@@ -792,6 +794,12 @@ async def alerts_data_fusion(
                     await websocket.send(energy_payload)
                     logger.info(f"{client_ip}:{chip_id} <<< initial energy packet")
 
+                if radiation_cache:
+                    radiation_header = struct.pack("<B", TYPE_RADIATION_BATCH)
+                    radiation_payload = radiation_header + make_radiation_batch(radiation_cache)
+                    await websocket.send(radiation_payload)
+                    logger.info(f"{client_ip}:{chip_id} <<< initial radiation packet")
+
                 if releases_beta:
                     firmware_payload = make_firmware_batch(releases_beta, TYPE_FIRMWARE_UPDATE_BETA_BATCH)
                     await websocket.send(firmware_payload)
@@ -813,6 +821,7 @@ async def alerts_data_fusion(
                     "websocket:v1:fusion:alerts:updated",
                     WEATHER_UPDATED_CHANNEL,
                     "websocket:v1:fusion:energy:updated",
+                    "websocket:v1:fusion:radiation:updated",
                     "websocket:v1:fusion:etryvoga:updated",
                     "releases:production:updated",
                     "releases:beta:updated",
@@ -872,6 +881,18 @@ async def alerts_data_fusion(
                                         payload = header + energy
                                         await websocket.send(payload)
                                         logger.info(f"{client_ip}:{chip_id} <<< new energy packet")
+                                    case "websocket:v1:fusion:radiation:updated":
+                                        state = await get_redis_data(
+                                            logger,
+                                            redis_client,
+                                            "websocket:v1:fusion:radiation:data",
+                                            default_response={},
+                                        )
+                                        header = struct.pack("<B", TYPE_RADIATION_BATCH)
+                                        radiation = make_radiation_batch(state)
+                                        payload = header + radiation
+                                        await websocket.send(payload)
+                                        logger.info(f"{client_ip}:{chip_id} <<< new radiation packet")
                                     case "websocket:v1:fusion:etryvoga:updated":
                                         payload = await get_hex_payload(
                                             logger,
@@ -1502,6 +1523,19 @@ def make_grid_batch(new_state: dict[int, int]) -> bytes:
     body = bytearray()
     for rid, state in new_state.items():
         body += struct.pack("<H B", int(rid), int(state) & 0xFF)
+    return body
+
+
+def make_radiation_batch(new_state: dict[int, int]) -> bytes:
+    """
+    Формат пакета радіації (TYPE_RADIATION_BATCH = 0xA5):
+    - region_id: 2 байти (unsigned short)
+    - value: 2 байти (unsigned short), діапазон 0..2000 не влазить у 1 байт
+    body: послідовність пар (region_id, value)
+    """
+    body = bytearray()
+    for rid, value in new_state.items():
+        body += struct.pack("<H H", int(rid), int(value) & 0xFFFF)
     return body
 
 
