@@ -291,6 +291,7 @@ h1 {
     border-radius: 4px;
     background-color: var(--input-bg);
     color: var(--text-color);
+    box-sizing: border-box;
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
@@ -637,6 +638,161 @@ h1 {
 [data-visibility].hidden {
     display: none !important;
 }
+/* Config accordion */
+.config-accordion *,
+.config-accordion *::before,
+.config-accordion *::after {
+    box-sizing: border-box;
+}
+
+.config-accordion {
+    margin: 20px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    text-align: left;
+    transition: border-color 0.3s ease;
+}
+
+.config-summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    background: var(--panel-bg);
+    color: var(--text-color);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    transition: background-color 0.3s ease;
+}
+
+.config-summary::-webkit-details-marker { display: none; }
+
+.config-summary::after {
+    content: '▸';
+    margin-left: auto;
+    transition: transform 0.2s ease;
+}
+
+details[open] .config-summary::after {
+    transform: rotate(90deg);
+}
+
+.config-summary:hover {
+    background: var(--border-color);
+}
+
+.config-body {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.config-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.config-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.config-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--secondary-text);
+    margin-bottom: 12px;
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper .form-control {
+    padding-right: 40px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--secondary-text);
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+    color: var(--text-color);
+}
+
+.password-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+.config-radio-group {
+    display: flex;
+    gap: 20px;
+    padding: 4px 0;
+}
+
+.config-radio-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: normal;
+    color: var(--text-color);
+}
+
+.config-radio-label input[type="radio"] {
+    cursor: pointer;
+    accent-color: #007bff;
+}
+
+.config-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.config-reset-btn {
+    padding: 6px 16px;
+    background: none;
+    border: 1px solid #dc3545;
+    border-radius: 6px;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.config-reset-btn:hover {
+    background: #dc354520;
+    color: #dc3545;
+}
+
+.config-status {
+    font-size: 13px;
+    font-style: italic;
+}
+
 /* Logs panel styles */
 .logs-panel {
     background: var(--panel-bg);
@@ -786,4 +942,14 @@ h1 {
     --color-grey-hover: #546e7a;
     --text-bg: #2b2b2b;
     --log-entry-bg: #323232;
+}
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--secondary-text);
+}
+
+.form-control.input-error {
+    border-color: #dc3545;
 }
