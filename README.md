@@ -16,7 +16,7 @@
 
 [КУПИТИ ГОТОВУ МАПУ МОЖНА ТУТ](https://store.jaam.net.ua/mapy-tryvoh/)
 
-<img width="700" height="500" src="https://github.com/user-attachments/assets/5d1d1132-8a91-4013-9ed0-8d0627c44cb5" />
+<img width="2560" height="1920" alt="jaam3" src="https://github.com/user-attachments/assets/5dc9f30d-1d99-4ef7-a75f-5219c2d26782" />
 
 
 [![GitHub version](https://img.shields.io/github/release/J-A-A-M/ukraine_alarm_map.svg)](https://github.com/J-A-A-M/ukraine_alarm_map/releases/latest)
