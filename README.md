@@ -16,9 +16,8 @@
 
 [КУПИТИ ГОТОВУ МАПУ МОЖНА ТУТ](https://store.jaam.net.ua/mapy-tryvoh/)
 
+<img width="700" height="500" src="https://github.com/user-attachments/assets/5d1d1132-8a91-4013-9ed0-8d0627c44cb5" />
 
-
-[![CodeQL](https://github.com/J-A-A-M/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/J-A-A-M/ukraine_alarm_map/actions/workflows/github-code-scanning/codeql)
 
 [![GitHub version](https://img.shields.io/github/release/J-A-A-M/ukraine_alarm_map.svg)](https://github.com/J-A-A-M/ukraine_alarm_map/releases/latest)
 [![GitHub commits](https://img.shields.io/github/commit-activity/t/J-A-A-M/ukraine_alarm_map.svg)](https://github.com/J-A-A-M/ukraine_alarm_map/commits/master)
