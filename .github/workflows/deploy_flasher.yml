@@ -7,6 +7,9 @@ on:
       - 'flasher/**'
       - 'deploy/flasher/**'
       - 'deploy/redeploy_flasher.sh'
+      - 'deploy/nvs_api/**'
+      - 'deploy/redeploy_nvs_api.sh'
+      - 'deploy/nginx/nginx.conf'
       - '.github/workflows/deploy_flasher.yml'
   workflow_dispatch:
     inputs:
@@ -44,6 +47,7 @@ jobs:
             cd "$TEMP_DIR"
             git clone --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
             bash deploy/redeploy_flasher.sh
+            bash deploy/redeploy_nvs_api.sh
       - name: Clear unused images
         uses: appleboy/ssh-action@v1.2.0
         with:
